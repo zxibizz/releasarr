@@ -11,6 +11,7 @@ import asyncio
 import os
 
 from telegram import (
+    Bot,
     Update,
 )
 from telegram.ext import (
@@ -24,18 +25,21 @@ from telegram.ext import (
 )
 
 from admin.app.models import BotUser, Search
-from bot.callbacks import SearchGotoShow
+from bot.callbacks import SearchGotoShow, SearchSelectShow
 from bot.context import AppContext
 from bot.messages import (
     SearchNoShowsFound,
+    SearchSelectReleaseKeyboard,
     SearchSelectShowKeyboard,
     SearchSelectShowUpdateKeyboard,
     SearchStarted,
 )
+from bot.prowlarr import ProwlarrApiClient
 from bot.tvdb import TVDBApiClient
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 tvdb_client = None
+prowlarr_client = None
 
 
 async def start(update: Update, context: AppContext) -> None:
@@ -104,6 +108,62 @@ async def search_goto_show(update: Update, context: AppContext) -> None:
     context.drop_callback_data(query)
 
 
+async def search_select_show(update: Update, context: AppContext) -> None:
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+
+    callback: SearchSelectShow = query.data
+    search: Search = await Search.objects.aget(id=callback.search_id)
+    selected_show = search.results[callback.index]
+    search.selected_show_tvdb_id = selected_show["id"]
+    search.selected_show_tvdb_type = selected_show["type"]
+    search.selected_show_title = (
+        selected_show["title_rus"]
+        or selected_show["title_eng"]
+        or selected_show["title"]
+    )
+
+    if "Anime" in selected_show["genres"] or selected_show["country"] == "jpn":
+        if search.selected_show_tvdb_type == "series":
+            search.selected_category = "Anime (Series)"
+        else:
+            search.selected_category = "Anime (Movies)"
+    else:
+        if search.selected_show_tvdb_type == "series":
+            search.selected_category = "TV Shows"
+        else:
+            search.selected_category = "Movies"
+
+    bot: Bot = context.bot
+    await bot.edit_message_reply_markup(
+        chat_id=search.chat_id,
+        message_id=search.content_message_id,
+        reply_markup=None,
+    )
+    await bot.send_message(
+        chat_id=search.chat_id,
+        text="\n".join(
+            [
+                f"Хорошо, выбираем '{search.selected_show_title}'",
+                f"Категория: {search.selected_category}",
+                "",
+                "Теперь поищем соответствующие торренты...",
+            ]
+        ),
+    )
+
+    if False:  # search.selected_show_tvdb_type == "series":
+        search.status = "selecting_season"
+    else:
+        search.status = "selecting_release"
+        search.found_releases = await prowlarr_client.search(search.selected_show_title)
+        await SearchSelectReleaseKeyboard(bot, search).send()
+    await search.asave()
+
+
 async def help_command(update: Update, context: AppContext) -> None:
     """Displays info on how to use the bot."""
     await update.message.reply_text("Use /start to test this bot.")
@@ -132,10 +192,14 @@ async def init_handlers(application: Application) -> None:
     application.add_handler(TypeHandler(Update, track_users), group=-1)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(search_goto_show, SearchGotoShow))
+    application.add_handler(CallbackQueryHandler(search_select_show, SearchSelectShow))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler)
     )
 
     global tvdb_client
+    global prowlarr_client
+
     tvdb_client = TVDBApiClient()
+    prowlarr_client = ProwlarrApiClient()
