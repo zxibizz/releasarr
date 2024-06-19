@@ -1,7 +1,19 @@
 import asyncio
 import os
+from dataclasses import dataclass
 
 import httpx
+
+
+@dataclass
+class TVDBShow:
+    id: int
+    year: int
+    genres: str
+    country: str
+    title: str
+    image_url: str | None
+    overview: str
 
 
 class _Auth(httpx.Auth):
@@ -65,3 +77,49 @@ class TVDBApiClient:
                 }
             )
         return result
+
+    async def get_series(self, series_id: int):
+        res = await self.client.get(
+            f"/series/{series_id}/extended", params={"meta": "translations"}
+        )
+        show_data = res.json()["data"]
+        return await self._get_show(show_data)
+
+    async def _get_show(self, show_data: dict) -> TVDBShow:
+        return TVDBShow(
+            id=show_data["id"],
+            year=show_data.get("year"),
+            genres=show_data.get("genres") or [],
+            country=show_data.get("originalCountry"),
+            title=self._extract_show_name(show_data),
+            image_url=show_data.get("image"),
+            overview=self._extract_show_overview(show_data),
+        )
+
+    @staticmethod
+    def _extract_show_name(show_data: dict):
+        name_rus = None
+        name_eng = None
+        name_original = show_data["name"]
+        for name_translation_data in show_data.get("translations", {}).get(
+            "nameTranslations"
+        ):
+            if name_translation_data["language"] == "rus" and not name_rus:
+                name_rus = name_translation_data["name"]
+            if name_translation_data["language"] == "eng" and not name_eng:
+                name_eng = name_translation_data["name"]
+        return name_rus or name_eng or name_original
+
+    @staticmethod
+    def _extract_show_overview(show_data: dict):
+        overview_rus = None
+        overview_eng = None
+        overview_original = show_data["overview"]
+        for overview_translation_data in show_data.get("translations", {}).get(
+            "overviewTranslations"
+        ):
+            if overview_translation_data["language"] == "rus" and not overview_rus:
+                overview_rus = overview_translation_data["overview"]
+            if overview_translation_data["language"] == "eng" and not overview_eng:
+                overview_eng = overview_translation_data["overview"]
+        return overview_rus or overview_eng or overview_original
