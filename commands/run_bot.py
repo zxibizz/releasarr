@@ -1,5 +1,7 @@
 import django
 
+from bot.jobs.sync_missing_shows import sync_missing_shows
+
 django.setup()
 
 import asyncio
@@ -33,6 +35,7 @@ async def main():
 
         logger.info("Started! Serving....")
 
+        application.job_queue.run_once(sync_missing_shows, when=0)
         await shutdown_signal_lock.acquire()
 
         logger.info("Shutting down...")

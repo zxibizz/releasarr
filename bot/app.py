@@ -3,8 +3,9 @@ import os
 
 from telegram.ext import Application, ContextTypes, PicklePersistence
 
+from bot.config import init_dependencies
 from bot.context import AppContext
-from bot.handlers import init_handlers
+from bot.handlers.handlers import init_handlers
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 tvdb_client = None
@@ -32,6 +33,7 @@ async def get_application() -> Application:
         .build()
     )
 
+    init_dependencies()
     await init_handlers(application)
 
     return application
