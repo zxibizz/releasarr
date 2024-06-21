@@ -12,6 +12,7 @@ class TVDBShow:
     genres: str
     country: str
     title: str
+    title_en: str
     image_url: str | None
     overview: str
 
@@ -86,29 +87,27 @@ class TVDBApiClient:
         return await self._get_show(show_data)
 
     async def _get_show(self, show_data: dict) -> TVDBShow:
+        name_original = show_data["name"]
+        name_rus = self._extract_show_name_translation(show_data, "rus")
+        name_eng = self._extract_show_name_translation(show_data, "eng")
         return TVDBShow(
             id=show_data["id"],
             year=show_data.get("year"),
             genres=show_data.get("genres") or [],
             country=show_data.get("originalCountry"),
-            title=self._extract_show_name(show_data),
+            title=name_rus or name_eng or name_original,
+            title_en=name_eng,
             image_url=show_data.get("image"),
             overview=self._extract_show_overview(show_data),
         )
 
     @staticmethod
-    def _extract_show_name(show_data: dict):
-        name_rus = None
-        name_eng = None
-        name_original = show_data["name"]
+    def _extract_show_name_translation(show_data: dict, language) -> str | None:
         for name_translation_data in show_data.get("translations", {}).get(
             "nameTranslations"
         ):
-            if name_translation_data["language"] == "rus" and not name_rus:
-                name_rus = name_translation_data["name"]
-            if name_translation_data["language"] == "eng" and not name_eng:
-                name_eng = name_translation_data["name"]
-        return name_rus or name_eng or name_original
+            if name_translation_data["language"] == language:
+                return name_translation_data["name"]
 
     @staticmethod
     def _extract_show_overview(show_data: dict):
