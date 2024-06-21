@@ -25,7 +25,13 @@ from telegram.ext import (
 )
 
 from admin.app.models import BotUser, Search, SonarrReleaseSelect
-from bot.callbacks import SearchGotoShow, SearchSelectShow, SonarrReleaseSelectGoto
+from bot.callbacks import (
+    SearchGotoShow,
+    SearchSelectShow,
+    SonarrReleaseSelectConfirm,
+    SonarrReleaseSelectGoto,
+)
+from bot.config import get_dependecies
 from bot.context import AppContext
 from bot.dependencies.prowlarr import ProwlarrApiClient
 from bot.dependencies.tvdb import TVDBApiClient
@@ -181,6 +187,29 @@ async def sonarr_release_select_goto(update: Update, context: AppContext) -> Non
     await query.answer()
 
 
+async def sonarr_release_select_confirm(update: Update, context: AppContext) -> None:
+    query = update.callback_query
+
+    dependencies = get_dependecies()
+    prowlarr_api_client: ProwlarrApiClient = dependencies.prowlarr_api_client
+    callback: SonarrReleaseSelectConfirm = query.data
+    release_select = await SonarrReleaseSelect.objects.select_related(
+        "season__series"
+    ).aget(id=callback.release_select_id)
+
+    res = await prowlarr_api_client.get_torrent(
+        release_select.prowlarr_results[callback.index].download_url
+    )
+    # TODO Post to qBittorrent
+    # TODO acreate SonarrDownload
+
+    context.drop_callback_data(query)
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+
+
 async def help_command(update: Update, context: AppContext) -> None:
     """Displays info on how to use the bot."""
     await update.message.reply_text("Use /start to test this bot.")
@@ -211,6 +240,10 @@ async def init_handlers(application: Application) -> None:
     application.add_handler(CallbackQueryHandler(search_goto_show, SearchGotoShow))
     application.add_handler(
         CallbackQueryHandler(sonarr_release_select_goto, SonarrReleaseSelectGoto)
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(sonarr_release_select_confirm, SonarrReleaseSelectConfirm)
     )
     application.add_handler(CallbackQueryHandler(search_select_show, SearchSelectShow))
     application.add_handler(CommandHandler("help", help_command))

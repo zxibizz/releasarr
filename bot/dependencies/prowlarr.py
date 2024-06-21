@@ -1,7 +1,9 @@
 import os
+from datetime import datetime
 
 import httpx
 from pydantic import BaseModel
+from torrentool.api import Torrent
 
 
 class ProwlarrRelease(BaseModel):
@@ -15,6 +17,20 @@ class ProwlarrRelease(BaseModel):
     seeders: int
     leechers: int
     download_url: str
+
+
+class ProwlarrTorrent(BaseModel):
+    name: str
+    content: bytes
+    info_hash: str
+    total_size: int
+    creation_date: datetime
+    files: list["ProwlarrTorrentFile"]
+
+
+class ProwlarrTorrentFile(BaseModel):
+    name: str
+    length: int
 
 
 class ProwlarrApiClient:
@@ -50,9 +66,25 @@ class ProwlarrApiClient:
         result = sorted(result, key=lambda release: release.age)
         return result
 
+    async def get_torrent(self, download_url) -> ProwlarrTorrent:
+        res = await self.client.get(download_url)
+        t = Torrent.from_string(res.content)
+        return ProwlarrTorrent(
+            name=t.name,
+            content=res.content,
+            info_hash=t.info_hash,
+            total_size=t.total_size,
+            creation_date=t.creation_date,
+            files=[ProwlarrTorrentFile(name=f.name, length=f.length) for f in t.files],
+        )
+
 
 if __name__ == "__main__":
     import asyncio
 
     client = ProwlarrApiClient()
-    asyncio.run(client.search("Твое имя"))
+    asyncio.run(
+        client.get_torrent(
+            "https://prowlarr.koreetz.synology.me/1/download?apikey=53c61e4ae06c4a3aaf7e20dfd2954331&link=cUNPRkhMSnpFTlFPOU11VmNDaTl3VW01dC94UFV0aVE3d3FxTHBmSzlndjRncU9RVmxnaFVvRllnb3I3Z3d2MWZSTllBdUdwdXBINHQ1WDdxU3ZyQnlPMHlNVlJIc0pBMWF6M09aWWVCNzA9&file=%D0%9C%D0%B5%D0%B4%D1%83%D0%B7%D0%B0+%D0%BD%D0%B5+%D1%83%D0%BC%D0%B5%D0%B5%D1%82+%D0%BF%D0%BB%D0%B0%D0%B2%D0%B0%D1%82%D1%8C+%D0%B2+%D0%BD%D0%BE%D1%87%D0%B8+%2F+Yoru+no+Kurage+wa+Oyogenai+S1E1-10+%5BWEBRip+1080p+x265%5D"
+        )
+    )
