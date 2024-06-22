@@ -9,10 +9,12 @@ class Dependencies:
     sonarr_api_client: None
     prowlarr_api_client: None
     sync_manager: None
+    qbittorrent_api_client: None
 
 
 def init_dependencies(overrides: dict | None = None):
     from bot.dependencies.prowlarr import ProwlarrApiClient
+    from bot.dependencies.qbittorrent import QBittorrentApiClient
     from bot.dependencies.sonarr import SonarrApiClient
     from bot.dependencies.tvdb import TVDBApiClient
     from bot.utils.sync_manager import SyncManager
@@ -36,6 +38,10 @@ def init_dependencies(overrides: dict | None = None):
         sync_manager=overrides.get(
             "sync_manager",
             SyncManager(),
+        ),
+        qbittorrent_api_client=overrides.get(
+            "qbittorrent_api_client",
+            QBittorrentApiClient(),
         ),
     )
 
