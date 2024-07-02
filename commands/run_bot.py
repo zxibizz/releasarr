@@ -13,7 +13,8 @@ logger = logging.getLogger("start_bot")
 
 def get_shutdown_sig_handler(lock: asyncio.Lock):
     def _shutdown_sig_handler(signum, frame):
-        logger.info(f"Received {signum} signal")
+        signal_code = signal.Signals(signum)
+        logger.info(f"Received {signal_code.name}")
         lock.release()
 
     return _shutdown_sig_handler
@@ -30,12 +31,13 @@ async def main():
         await application.start()
         await application.updater.start_polling()
 
-        logger.info("Started! Serving...")
+        logger.info("Started! Serving....")
 
-        async with shutdown_signal_lock:
-            logger.info("Shutting down...")
-            await application.updater.stop()
-            await application.stop()
+        await shutdown_signal_lock.acquire()
+
+        logger.info("Shutting down...")
+        await application.updater.stop()
+        await application.stop()
 
 
 if __name__ == "__main__":

@@ -13,36 +13,37 @@ import os
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
+    ApplicationHandlerStop,
     CallbackQueryHandler,
     CommandHandler,
-    ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
-from admin.app.models import Chat
+from admin.app.models import User
+from bot.context import AppContext
 from bot.tvdb import TVDBApiClient
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 tvdb_client = None
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Update, context: AppContext) -> None:
     """Send a message when the command /start is issued."""
-    await Chat.objects.aget_or_create(id=update.effective_chat.id)
+    chat = context.chat
     user = update.effective_user
     await update.message.reply_text(rf"Hi {user.mention_html()}!")
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help_command(update: Update, context: AppContext) -> None:
     """Send a message when the command /help is issued."""
     await update.message.reply_text("Help!")
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def echo(update: Update, context: AppContext) -> None:
     """Sends a message with three inline buttons attached."""
 
-    await Log.objects.acreate(text=update.message.text)
     keyboard = [
         [
             InlineKeyboardButton("То что нужно", callback_data="1"),
@@ -78,7 +79,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def button(update: Update, context: AppContext) -> None:
     """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
 
@@ -89,12 +90,32 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await query.edit_message_text(text=f"Selected option: {query.data}")
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help_command(update: Update, context: AppContext) -> None:
     """Displays info on how to use the bot."""
     await update.message.reply_text("Use /start to test this bot.")
 
 
+async def track_users(update: Update, context: AppContext) -> None:
+    """Store the user id of the incoming update, if any."""
+    if not update.effective_user:
+        update.message.reply_text(
+            "Currently the bot does not support non private chats"
+        )
+        raise ApplicationHandlerStop
+
+    context.bot_user = await User.objects.aget_or_create(
+        external_id=update.effective_chat.id,
+        defaults={
+            "first_name": update.effective_user.first_name,
+            "last_name": update.effective_user.last_name,
+            "username": update.effective_user.username,
+            "language_code": update.effective_user.language_code,
+        },
+    )
+
+
 async def init_handlers(application: Application) -> None:
+    application.add_handler(TypeHandler(Update, track_users), group=-1)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(CommandHandler("help", help_command))
