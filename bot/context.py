@@ -1,7 +1,7 @@
 from telegram.ext import CallbackContext
 
-from admin.app.models import User
+from admin.app.models import BotUser
 
 
 class AppContext(CallbackContext):
-    bot_user: User
+    bot_user: BotUser

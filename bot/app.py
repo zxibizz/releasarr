@@ -1,7 +1,7 @@
 import logging
 import os
 
-from telegram.ext import Application, ContextTypes
+from telegram.ext import Application, ContextTypes, PicklePersistence
 
 from bot.context import AppContext
 from bot.handlers import init_handlers
@@ -22,8 +22,14 @@ logger = logging.getLogger(__name__)
 
 async def get_application() -> Application:
     context_types = ContextTypes(context=AppContext)
+    persistence = PicklePersistence("persistence_data")
     application = (
-        Application.builder().token(TOKEN).context_types(context_types).build()
+        Application.builder()
+        .token(TOKEN)
+        .context_types(context_types)
+        .persistence(persistence)
+        .arbitrary_callback_data(True)
+        .build()
     )
 
     await init_handlers(application)

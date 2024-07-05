@@ -21,7 +21,7 @@ from telegram.ext import (
     filters,
 )
 
-from admin.app.models import User
+from admin.app.models import BotUser, Search
 from bot.context import AppContext
 from bot.tvdb import TVDBApiClient
 
@@ -31,7 +31,6 @@ tvdb_client = None
 
 async def start(update: Update, context: AppContext) -> None:
     """Send a message when the command /start is issued."""
-    chat = context.chat
     user = update.effective_user
     await update.message.reply_text(rf"Hi {user.mention_html()}!")
 
@@ -44,23 +43,50 @@ async def help_command(update: Update, context: AppContext) -> None:
 async def echo(update: Update, context: AppContext) -> None:
     """Sends a message with three inline buttons attached."""
 
+    search = await Search.objects.acreate(
+        bot_user=context.bot_user,
+        query=update.message.text,
+        status="searching",
+    )
+
     keyboard = [
         [
-            InlineKeyboardButton("То что нужно", callback_data="1"),
-            InlineKeyboardButton("Другие варианты (4)", callback_data="2"),
+            InlineKeyboardButton(
+                "То что нужно",
+                callback_data={
+                    "search_id": search.id,
+                    "command": "search_pick_match",
+                    "choice": "pick",
+                    "index": 0,
+                },
+            ),
+            InlineKeyboardButton(
+                "Другие варианты (4)",
+                callback_data={
+                    "search_id": search.id,
+                    "command": "search_pick_match",
+                    "choice": "goto",
+                    "index": 1,
+                },
+            ),
         ]
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    searching_message = await update.message.reply_text("Searching for the show...")
+    searching_message = await update.message.reply_text("Ищем...")
 
     results = (
         await asyncio.gather(tvdb_client.search(update.message.text), asyncio.sleep(2))
     )[0]
+
+    search.results = results
+    search.results_count = len(results)
     if not results:
+        search.status = "no results"
+        await search.asave()
         await searching_message.edit_text(
-            f"Couldn't find any matches for '{searching_message.text}'"
+            f"Не удалось найти '{searching_message.text}' =("
         )
         return
     await searching_message.delete()
@@ -78,9 +104,13 @@ async def echo(update: Update, context: AppContext) -> None:
         reply_markup=reply_markup,
     )
 
+    search.status = "waiting for match choice"
+    search.image_message_id = tvdb_image_message.id
+    search.content_message_id = tvdb_pick_message.id
+    await search.asave()
+
 
 async def button(update: Update, context: AppContext) -> None:
-    """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
@@ -88,6 +118,7 @@ async def button(update: Update, context: AppContext) -> None:
     await query.answer()
 
     await query.edit_message_text(text=f"Selected option: {query.data}")
+    await context.drop_callback_data(query)
 
 
 async def help_command(update: Update, context: AppContext) -> None:
@@ -103,8 +134,8 @@ async def track_users(update: Update, context: AppContext) -> None:
         )
         raise ApplicationHandlerStop
 
-    context.bot_user = await User.objects.aget_or_create(
-        external_id=update.effective_chat.id,
+    context.bot_user, _ = await BotUser.objects.aget_or_create(
+        chat_id=update.effective_chat.id,
         defaults={
             "first_name": update.effective_user.first_name,
             "last_name": update.effective_user.last_name,
