@@ -10,7 +10,9 @@ Basic example for a bot that uses inline keyboards. For an in-depth explanation,
 import asyncio
 import os
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    Update,
+)
 from telegram.ext import (
     Application,
     ApplicationHandlerStop,
@@ -22,7 +24,14 @@ from telegram.ext import (
 )
 
 from admin.app.models import BotUser, Search
+from bot.callbacks import SearchGotoShow
 from bot.context import AppContext
+from bot.messages import (
+    SearchNoShowsFound,
+    SearchSelectShowKeyboard,
+    SearchSelectShowUpdateKeyboard,
+    SearchStarted,
+)
 from bot.tvdb import TVDBApiClient
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -40,44 +49,23 @@ async def help_command(update: Update, context: AppContext) -> None:
     await update.message.reply_text("Help!")
 
 
-async def echo(update: Update, context: AppContext) -> None:
+async def search_handler(update: Update, context: AppContext) -> None:
     """Sends a message with three inline buttons attached."""
 
+    search_message = update.message
     search = await Search.objects.acreate(
-        bot_user=context.bot_user,
-        query=update.message.text,
+        chat_id=update.effective_chat.id,
+        query=search_message.text,
         status="searching",
     )
 
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "То что нужно",
-                callback_data={
-                    "search_id": search.id,
-                    "command": "search_pick_match",
-                    "choice": "pick",
-                    "index": 0,
-                },
-            ),
-            InlineKeyboardButton(
-                "Другие варианты (4)",
-                callback_data={
-                    "search_id": search.id,
-                    "command": "search_pick_match",
-                    "choice": "goto",
-                    "index": 1,
-                },
-            ),
-        ]
-    ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    searching_message = await update.message.reply_text("Ищем...")
+    search_started_message = (await SearchStarted(search_message).send()).message
 
     results = (
-        await asyncio.gather(tvdb_client.search(update.message.text), asyncio.sleep(2))
+        await asyncio.gather(
+            tvdb_client.search(search_message.text),
+            asyncio.sleep(2),
+        )
     )[0]
 
     search.results = results
@@ -85,40 +73,35 @@ async def echo(update: Update, context: AppContext) -> None:
     if not results:
         search.status = "no results"
         await search.asave()
-        await searching_message.edit_text(
-            f"Не удалось найти '{searching_message.text}' =("
-        )
+        await SearchNoShowsFound(search_started_message, search_message.text).send()
         return
-    await searching_message.delete()
+    await search_started_message.delete()
 
-    current_index = 0
-    show = results[current_index]
-
-    title = show["title_rus"] or show["title_eng"] or show["title"]
-    overview = show["overview_rus"] or show["overview_eng"] or show["overview"]
-
-    if show["image_url"]:
-        tvdb_image_message = await update.message.reply_photo(show["image_url"])
-    tvdb_pick_message = await update.message.reply_text(
-        text=f'{title}\nГод {show["year"]}, Страна Япония\n\n{overview}',
-        reply_markup=reply_markup,
-    )
+    keyboard = await SearchSelectShowKeyboard(context.bot, search).send()
 
     search.status = "waiting for match choice"
-    search.image_message_id = tvdb_image_message.id
-    search.content_message_id = tvdb_pick_message.id
+    search.image_message_id = keyboard.show_image_message_id
+    search.content_message_id = keyboard.show_keyboard_message_id
     await search.asave()
 
 
-async def button(update: Update, context: AppContext) -> None:
+async def search_goto_show(update: Update, context: AppContext) -> None:
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
 
-    await query.edit_message_text(text=f"Selected option: {query.data}")
-    await context.drop_callback_data(query)
+    callback: SearchGotoShow = query.data
+    search: Search = await Search.objects.aget(id=callback.search_id)
+
+    await SearchSelectShowUpdateKeyboard(
+        context.bot,
+        search,
+        callback.index,
+    ).send()
+
+    context.drop_callback_data(query)
 
 
 async def help_command(update: Update, context: AppContext) -> None:
@@ -148,9 +131,11 @@ async def track_users(update: Update, context: AppContext) -> None:
 async def init_handlers(application: Application) -> None:
     application.add_handler(TypeHandler(Update, track_users), group=-1)
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(CallbackQueryHandler(search_goto_show, SearchGotoShow))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, search_handler)
+    )
 
     global tvdb_client
     tvdb_client = TVDBApiClient()

@@ -10,7 +10,7 @@ class BotUser(models.Model):
 
 
 class Search(models.Model):
-    bot_user = models.ForeignKey(BotUser, on_delete=models.CASCADE)
+    chat_id = models.BigIntegerField()
     query = models.TextField()
     image_message_id = models.BigIntegerField(null=True)
     content_message_id = models.BigIntegerField(null=True)
