@@ -46,6 +46,8 @@ class TVDBApiClient:
         data = res.json()["data"]
         result = []
         for show in data:
+            if show["type"] not in ["movie", "series"]:
+                continue
             result.append(
                 {
                     "id": show["tvdb_id"],
