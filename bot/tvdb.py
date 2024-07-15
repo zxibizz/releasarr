@@ -51,7 +51,10 @@ class TVDBApiClient:
             result.append(
                 {
                     "id": show["tvdb_id"],
+                    "type": show["type"],
                     "year": show.get("year"),
+                    "genres": show.get("genres") or [],
+                    "country": show.get("country"),
                     "title": show["name"],
                     "title_eng": show["translations"].get("eng"),
                     "title_rus": show["translations"].get("rus"),
@@ -62,9 +65,3 @@ class TVDBApiClient:
                 }
             )
         return result
-
-
-if __name__ == "__main__":
-    client = TVDBApiClient()
-    token = asyncio.run(client.search("друзя"))
-    print(token)
