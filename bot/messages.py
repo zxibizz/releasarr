@@ -9,6 +9,7 @@ from telegram import (
 
 from admin.app.models import Search
 from bot.callbacks import SearchGotoShow, SearchSelectShow, SearchShowNotSelected
+from bot.prowlarr import ProwlarrRelease
 
 
 class BaseMessage: ...
@@ -100,6 +101,45 @@ class SearchSelectShowUpdateKeyboard:
                 _build_keyboard(self._search, self._index)
             ),
         )
+
+
+class SearchSelectReleaseKeyboard:
+    def __init__(self, bot: Bot, search: Search):
+        self._bot = bot
+        self._search = search
+        self.release_keyboard_message_id: int = None
+
+    async def send(self) -> "SearchSelectShowUpdateKeyboard":
+        await self._bot.send_message(
+            chat_id=self._search.chat_id,
+            text=build_select_release_description(self._search, 0),
+            reply_markup=InlineKeyboardMarkup(
+                build_select_release_keyboard(self._search, 0)
+            ),
+        )
+
+        return self
+
+
+def build_select_release_description(search: Search, current_index: int):
+    release: ProwlarrRelease = search.found_releases[current_index]
+    releases_count = len(search.found_releases)
+    lines = [
+        f"Трекер: {release.indexer}",
+        f"Возраст: {release.age} дней",
+        f"Название: {release.title}",
+        f"Размер: {release.size}",
+        f"Пиры: {release.seeders}/{release.leechers}",
+        f"Скачано: {release.grabs}",
+        f"Ссылка: {release.info_url}",
+        "",
+        f"{current_index + 1} / {releases_count}",
+    ]
+    return "\n".join(lines)
+
+
+def build_select_release_keyboard(search: Search, current_index: int):
+    return []
 
 
 def _build_image(show):
