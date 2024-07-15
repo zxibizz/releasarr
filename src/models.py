@@ -1,31 +1,48 @@
 import asyncio
-import os
+from datetime import datetime
 
-from dotenv import load_dotenv
 from sqlalchemy import types
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import Field, SQLModel
 
-load_dotenv()
+from src.db import async_engine
+from src.deps.sonarr import SonarrSeries
+from src.deps.tvdb import TvdbShowData
+
+
+class Show(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    sonarr_id: int | None = Field(unique=True)
+    sonarr_data_raw: str
+    tvdb_data_raw: str
+    is_missing: bool = Field(default=False, index=True)
+    missing_seasons: list[int] = Field(default=None, sa_type=types.JSON)
+    prowlarr_search: str | None
+    prowlarr_data_raw: str | None
+
+    @property
+    def sonarr_data(self):
+        return SonarrSeries.model_validate_json(self.sonarr_data_raw)
+
+    @property
+    def tvdb_data(self):
+        return TvdbShowData.model_validate_json(self.tvdb_data_raw)
 
 
 class Release(SQLModel, table=True):
     name: str = Field(primary_key=True)
-    data: dict = Field(default_factory=dict, sa_type=types.JSON)
-    # info_hash: str
-    # total_size: int
-    # creation_date: "datetime"
-    # prowlarr_query: str
-    # prowlarr_guid: str
-    # prowlarr_indexer: str
-    # sonarr_series_id: int
-    # prowlarr_movie: int
+    updated_at: datetime
+    search: str
+    show_id: int
+    qbittorrent_guid: str
+    qbittorrent_data: str
 
 
-DB_PATH = os.environ.get("DB_PATH")
-
-async_engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}", echo=True)
-async_session = async_sessionmaker(async_engine, expire_on_commit=False)
+class ReleaseFileMatching(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    show_id: int
+    file_name: str
+    season_number: int
+    episode_number: int
 
 
 async def main():
@@ -33,14 +50,6 @@ async def main():
         await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
 
-    async with async_session() as session, session.begin():
-        session.add(Release(name="Test", data={"da": {"data": [111]}}))
-        await session.commit()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-"""
-"""

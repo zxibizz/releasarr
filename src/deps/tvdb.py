@@ -1,15 +1,14 @@
 import asyncio
 import os
-from dataclasses import dataclass
 
 import httpx
+from pydantic import BaseModel
 
 
-@dataclass
-class TVDBShow:
+class TvdbShowData(BaseModel):
     id: int
     year: int
-    genres: str
+    genres: list
     country: str
     title: str
     title_en: str
@@ -86,11 +85,11 @@ class TVDBApiClient:
         show_data = res.json()["data"]
         return await self._get_show(show_data)
 
-    async def _get_show(self, show_data: dict) -> TVDBShow:
+    async def _get_show(self, show_data: dict) -> TvdbShowData:
         name_original = show_data["name"]
         name_rus = self._extract_show_name_translation(show_data, "rus")
         name_eng = self._extract_show_name_translation(show_data, "eng")
-        return TVDBShow(
+        return TvdbShowData(
             id=show_data["id"],
             year=show_data.get("year"),
             genres=show_data.get("genres") or [],
