@@ -7,9 +7,9 @@ from telegram import (
     Message,
 )
 
-from admin.app.models import Search
+from admin.app.models import Search, SonarrReleaseSelect, SonarrSeries
 from bot.callbacks import SearchGotoShow, SearchSelectShow, SearchShowNotSelected
-from bot.prowlarr import ProwlarrRelease
+from bot.dependencies.prowlarr import ProwlarrRelease
 
 
 class BaseMessage: ...
@@ -56,7 +56,7 @@ class SearchSelectShowKeyboard:
         self.show_image_message_id = (
             await self._bot.send_photo(
                 self._search.chat_id,
-                _build_image(self._show),
+                _build_image_url(self._show["image_url"]),
             )
         ).id
 
@@ -85,7 +85,9 @@ class SearchSelectShowUpdateKeyboard:
     async def _update_show_image_message(self):
         try:
             await self._bot.edit_message_media(
-                media=InputMediaPhoto(_build_image(self._show)),
+                media=InputMediaPhoto(
+                    _build_image_url(self._show["image_url"]),
+                ),
                 chat_id=self._search.chat_id,
                 message_id=self._search.image_message_id,
             )
@@ -142,9 +144,9 @@ def build_select_release_keyboard(search: Search, current_index: int):
     return []
 
 
-def _build_image(show):
-    if show["image_url"]:
-        return show["image_url"]
+def _build_image_url(image_url: str | None):
+    if image_url:
+        return image_url
     with open("static/preview_not_found.png", "rb") as file:
         return file.read()
 
@@ -195,3 +197,52 @@ def _build_keyboard(search: Search, index: int):
         )
 
     return [keyboard_header, keyboard_footer]
+
+
+async def create_sonarr_show_image(
+    bot: Bot, release_select: SonarrReleaseSelect
+) -> int:
+    (
+        await bot.send_photo(
+            release_select.chat_id,
+            _build_image_url(release_select.season.series.tvdb_image_url),
+        )
+    ).id
+
+
+async def create_sonarr_show_description(
+    bot: Bot, release_select: SonarrReleaseSelect
+) -> int:
+    (
+        await bot.send_message(
+            release_select.chat_id,
+            _build_sonarr_select_description(release_select.season.series),
+        )
+    ).id
+
+
+def _build_sonarr_select_description(series: SonarrSeries):
+    title = series.tvdb_title
+    overview = series.tvdb_overview
+    overview = overview[:200] + ("..." if len(overview) > 200 else "")
+
+    description_rows = [
+        title,
+        f"Год {series.tvdb_year}",
+        f"Страна {series.tvdb_country}",
+        "",
+        overview,
+    ]
+    return "\n".join(description_rows)
+
+
+# async def create_sonarr_select_release_keyboard(
+#     bot: Bot, release_select: SonarrReleaseSelect
+# ) -> int:
+#     return (
+#         await bot.send_message(
+#             chat_id=release_select.chat_id,
+#             text=_build_sonarr_select_description(release_select, 0),
+#             reply_markup=InlineKeyboardMarkup(_build_keyboard(self._search, 0)),
+#         )
+#     ).id

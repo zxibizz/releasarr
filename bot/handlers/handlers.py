@@ -27,6 +27,8 @@ from telegram.ext import (
 from admin.app.models import BotUser, Search
 from bot.callbacks import SearchGotoShow, SearchSelectShow
 from bot.context import AppContext
+from bot.dependencies.prowlarr import ProwlarrApiClient
+from bot.dependencies.tvdb import TVDBApiClient
 from bot.messages import (
     SearchNoShowsFound,
     SearchSelectReleaseKeyboard,
@@ -34,8 +36,6 @@ from bot.messages import (
     SearchSelectShowUpdateKeyboard,
     SearchStarted,
 )
-from bot.prowlarr import ProwlarrApiClient
-from bot.tvdb import TVDBApiClient
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 tvdb_client = None
