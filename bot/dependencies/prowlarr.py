@@ -1,11 +1,10 @@
 import os
-from dataclasses import dataclass
 
 import httpx
+from pydantic import BaseModel
 
 
-@dataclass
-class ProwlarrRelease:
+class ProwlarrRelease(BaseModel):
     guid: str
     age: int
     grabs: int
@@ -27,7 +26,7 @@ class ProwlarrApiClient:
 
     async def search(self, query: str) -> list[ProwlarrRelease]:
         res = await self.client.get(
-            "/search", params={"query": query, "type": "search"}
+            "/search", params={"query": query, "type": "search"}, timeout=20
         )
         releases_data = res.json()
         result = []
