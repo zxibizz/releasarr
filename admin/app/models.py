@@ -37,6 +37,7 @@ class SonarrSeries(models.Model):
     tvdb_year = models.TextField(null=True)
     tvdb_country = models.TextField(null=True)
     tvdb_title = models.TextField(null=True)
+    tvdb_title_en = models.TextField(null=True)
     tvdb_image_url = models.TextField(null=True)
     tvdb_overview = models.TextField(null=True)
 
@@ -65,8 +66,6 @@ class SonarrReleaseSelect(models.Model):
     season = models.ForeignKey(SonarrMonitoredSeason, models.CASCADE)
     prowlarr_results = SchemaField(schema=list[ProwlarrRelease])
     chat_id = models.BigIntegerField()
-    image_message_id = models.BigIntegerField(null=True)
-    description_message_id = models.BigIntegerField(null=True)
     select_message_id = models.BigIntegerField(null=True)
 
 

@@ -26,7 +26,7 @@ class ProwlarrApiClient:
 
     async def search(self, query: str) -> list[ProwlarrRelease]:
         res = await self.client.get(
-            "/search", params={"query": query, "type": "search"}, timeout=20
+            "/search", params={"query": query, "type": "search"}, timeout=60
         )
         releases_data = res.json()
         result = []
@@ -45,7 +45,7 @@ class ProwlarrApiClient:
                     leechers=release_data["leechers"],
                 )
             )
-        result = sorted(result, key=lambda release: release.grabs, reverse=True)
+        result = sorted(result, key=lambda release: release.age)
         return result
 
 

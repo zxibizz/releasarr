@@ -43,6 +43,7 @@ class SyncManager:
                     tvdb_year=tvdb_data.year,
                     tvdb_country=tvdb_data.country,
                     tvdb_title=tvdb_data.title,
+                    tvdb_title_en=tvdb_data.title_en,
                     tvdb_image_url=tvdb_data.image_url,
                     tvdb_overview=tvdb_data.overview,
                 )

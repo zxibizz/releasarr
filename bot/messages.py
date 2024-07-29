@@ -8,7 +8,12 @@ from telegram import (
 )
 
 from admin.app.models import Search, SonarrReleaseSelect, SonarrSeries
-from bot.callbacks import SearchGotoShow, SearchSelectShow, SearchShowNotSelected
+from bot.callbacks import (
+    SearchGotoShow,
+    SearchSelectShow,
+    SearchShowNotSelected,
+    SonarrReleaseSelectConfirm,
+)
 from bot.dependencies.prowlarr import ProwlarrRelease
 
 
@@ -236,13 +241,67 @@ def _build_sonarr_select_description(series: SonarrSeries):
     return "\n".join(description_rows)
 
 
-# async def create_sonarr_select_release_keyboard(
-#     bot: Bot, release_select: SonarrReleaseSelect
-# ) -> int:
-#     return (
-#         await bot.send_message(
-#             chat_id=release_select.chat_id,
-#             text=_build_sonarr_select_description(release_select, 0),
-#             reply_markup=InlineKeyboardMarkup(_build_keyboard(self._search, 0)),
-#         )
-#     ).id
+def build_sonarr_release_select_description(
+    release_select: SonarrReleaseSelect, current_index: int
+):
+    release: ProwlarrRelease = release_select.prowlarr_results[current_index]
+    releases_count = len(release_select.prowlarr_results)
+    lines = [
+        f"Выбираем раздачу для сезона №{release_select.season.season_number}",
+        "",
+        f"Трекер: {release.indexer}",
+        f"Возраст: {release.age} дней",
+        f"Название: {release.title}",
+        f"Размер: {release.size}",
+        f"Пиры: {release.seeders}/{release.leechers}",
+        f"Скачано: {release.grabs}",
+        f"Ссылка: {release.info_url}",
+        "",
+        f"{current_index + 1} / {releases_count}",
+    ]
+    return "\n".join(lines)
+
+
+def build_sonarr_select_release_keyboard(
+    release_select: SonarrReleaseSelect, index: int
+):
+    keyboard_header = [
+        InlineKeyboardButton(
+            "То что нужно",
+            callback_data=SonarrReleaseSelectConfirm(release_select.id, index),
+        ),
+    ]
+    keyboard_footer = [
+        InlineKeyboardButton(
+            "Нет подходящего =(",
+            callback_data=SearchShowNotSelected(release_select.id),
+        )
+    ]
+    if len(release_select.prowlarr_results) > index:
+        keyboard_header.append(
+            InlineKeyboardButton(
+                ">>", callback_data=SearchGotoShow(release_select.id, index + 1)
+            )
+        )
+    if index > 0:
+        keyboard_footer.append(
+            InlineKeyboardButton(
+                "<<", callback_data=SearchGotoShow(release_select.id, index - 1)
+            )
+        )
+
+    return [keyboard_header, keyboard_footer]
+
+
+async def create_sonarr_release_select(
+    bot: Bot, release_select: SonarrReleaseSelect
+) -> int:
+    return (
+        await bot.send_message(
+            chat_id=release_select.chat_id,
+            text=build_sonarr_release_select_description(release_select, 0),
+            reply_markup=InlineKeyboardMarkup(
+                build_sonarr_select_release_keyboard(release_select, 0)
+            ),
+        )
+    ).id
