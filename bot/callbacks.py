@@ -38,3 +38,23 @@ class SearchGotoRelease(BaseCallbackData):
 class SearchSelectRelease(BaseCallbackData):
     search_id: str
     index: str
+
+
+# Sonarr Select Release
+
+
+@dataclass
+class SonarrReleaseSelectGoto(BaseCallbackData):
+    release_select_id: str
+    index: int
+
+
+@dataclass
+class SonarrReleaseSelectConfirm(BaseCallbackData):
+    release_select_id: str
+    index: str
+
+
+@dataclass
+class SonarrReleaseSelectCancel(BaseCallbackData):
+    release_select_id: str
