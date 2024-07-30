@@ -12,7 +12,9 @@ from bot.callbacks import (
     SearchGotoShow,
     SearchSelectShow,
     SearchShowNotSelected,
+    SonarrReleaseSelectCancel,
     SonarrReleaseSelectConfirm,
+    SonarrReleaseSelectGoto,
 )
 from bot.dependencies.prowlarr import ProwlarrRelease
 
@@ -274,19 +276,21 @@ def build_sonarr_select_release_keyboard(
     keyboard_footer = [
         InlineKeyboardButton(
             "Нет подходящего =(",
-            callback_data=SearchShowNotSelected(release_select.id),
+            callback_data=SonarrReleaseSelectCancel(release_select.id),
         )
     ]
     if len(release_select.prowlarr_results) > index:
         keyboard_header.append(
             InlineKeyboardButton(
-                ">>", callback_data=SearchGotoShow(release_select.id, index + 1)
+                ">>",
+                callback_data=SonarrReleaseSelectGoto(release_select.id, index + 1),
             )
         )
     if index > 0:
         keyboard_footer.append(
             InlineKeyboardButton(
-                "<<", callback_data=SearchGotoShow(release_select.id, index - 1)
+                "<<",
+                callback_data=SonarrReleaseSelectGoto(release_select.id, index - 1),
             )
         )
 
@@ -302,6 +306,21 @@ async def create_sonarr_release_select(
             text=build_sonarr_release_select_description(release_select, 0),
             reply_markup=InlineKeyboardMarkup(
                 build_sonarr_select_release_keyboard(release_select, 0)
+            ),
+        )
+    ).id
+
+
+async def update_sonarr_release_select(
+    bot: Bot, release_select: SonarrReleaseSelect, index
+) -> int:
+    return (
+        await bot.edit_message_text(
+            chat_id=release_select.chat_id,
+            message_id=release_select.select_message_id,
+            text=build_sonarr_release_select_description(release_select, index),
+            reply_markup=InlineKeyboardMarkup(
+                build_sonarr_select_release_keyboard(release_select, index)
             ),
         )
     ).id

@@ -24,8 +24,8 @@ from telegram.ext import (
     filters,
 )
 
-from admin.app.models import BotUser, Search
-from bot.callbacks import SearchGotoShow, SearchSelectShow
+from admin.app.models import BotUser, Search, SonarrReleaseSelect
+from bot.callbacks import SearchGotoShow, SearchSelectShow, SonarrReleaseSelectGoto
 from bot.context import AppContext
 from bot.dependencies.prowlarr import ProwlarrApiClient
 from bot.dependencies.tvdb import TVDBApiClient
@@ -35,6 +35,7 @@ from bot.messages import (
     SearchSelectShowKeyboard,
     SearchSelectShowUpdateKeyboard,
     SearchStarted,
+    update_sonarr_release_select,
 )
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -46,11 +47,6 @@ async def start(update: Update, context: AppContext) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     await update.message.reply_text(rf"Hi {user.mention_html()}!")
-
-
-async def help_command(update: Update, context: AppContext) -> None:
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Help!")
 
 
 async def search_handler(update: Update, context: AppContext) -> None:
@@ -164,6 +160,27 @@ async def search_select_show(update: Update, context: AppContext) -> None:
     await search.asave()
 
 
+async def sonarr_release_select_goto(update: Update, context: AppContext) -> None:
+    query = update.callback_query
+
+    callback: SonarrReleaseSelectGoto = query.data
+    release_select = await SonarrReleaseSelect.objects.select_related(
+        "season__series"
+    ).aget(id=callback.release_select_id)
+
+    await update_sonarr_release_select(
+        context.bot,
+        release_select,
+        callback.index,
+    )
+
+    context.drop_callback_data(query)
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+
+
 async def help_command(update: Update, context: AppContext) -> None:
     """Displays info on how to use the bot."""
     await update.message.reply_text("Use /start to test this bot.")
@@ -192,6 +209,9 @@ async def init_handlers(application: Application) -> None:
     application.add_handler(TypeHandler(Update, track_users), group=-1)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(search_goto_show, SearchGotoShow))
+    application.add_handler(
+        CallbackQueryHandler(sonarr_release_select_goto, SonarrReleaseSelectGoto)
+    )
     application.add_handler(CallbackQueryHandler(search_select_show, SearchSelectShow))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(
