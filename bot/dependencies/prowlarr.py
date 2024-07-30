@@ -14,6 +14,7 @@ class ProwlarrRelease(BaseModel):
     indexer: str
     seeders: int
     leechers: int
+    download_url: str
 
 
 class ProwlarrApiClient:
@@ -43,6 +44,7 @@ class ProwlarrApiClient:
                     indexer=release_data["indexer"],
                     seeders=release_data["seeders"],
                     leechers=release_data["leechers"],
+                    download_url=release_data["downloadUrl"],
                 )
             )
         result = sorted(result, key=lambda release: release.age)

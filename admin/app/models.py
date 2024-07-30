@@ -67,11 +67,13 @@ class SonarrReleaseSelect(models.Model):
     prowlarr_results = SchemaField(schema=list[ProwlarrRelease])
     chat_id = models.BigIntegerField()
     select_message_id = models.BigIntegerField(null=True)
+    is_finished = models.BooleanField(default=False)
 
 
 class SonarrDownload(models.Model):
     season = models.ForeignKey(SonarrMonitoredSeason, on_delete=models.CASCADE)
-    prowlarr_indexer = models.BigIntegerField(null=True)
-    prowlarr_guid = models.TextField(null=True)
-    episode_count = models.IntegerField(null=True)
-    files = models.JSONField(null=True)
+    torrent = models.FileField()
+    prowlarr_indexer = models.BigIntegerField()
+    prowlarr_guid = models.TextField()
+    episode_count = models.IntegerField()
+    files = models.JSONField()
