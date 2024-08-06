@@ -24,7 +24,7 @@ from telegram.ext import (
     filters,
 )
 
-from admin.app.models import BotUser, Search, SonarrReleaseSelect
+from admin.app.models import BotUser, Search, SonarrDownload, SonarrReleaseSelect
 from bot.callbacks import (
     SearchGotoShow,
     SearchSelectShow,
@@ -33,7 +33,8 @@ from bot.callbacks import (
 )
 from bot.config import get_dependecies
 from bot.context import AppContext
-from bot.dependencies.prowlarr import ProwlarrApiClient
+from bot.dependencies.prowlarr import ProwlarrApiClient, ProwlarrRelease
+from bot.dependencies.qbittorrent import QBittorrentApiClient
 from bot.dependencies.tvdb import TVDBApiClient
 from bot.messages import (
     SearchNoShowsFound,
@@ -192,16 +193,31 @@ async def sonarr_release_select_confirm(update: Update, context: AppContext) -> 
 
     dependencies = get_dependecies()
     prowlarr_api_client: ProwlarrApiClient = dependencies.prowlarr_api_client
+    qbittorrent_api_client: QBittorrentApiClient = dependencies.qbittorrent_api_client
     callback: SonarrReleaseSelectConfirm = query.data
     release_select = await SonarrReleaseSelect.objects.select_related(
         "season__series"
     ).aget(id=callback.release_select_id)
 
-    res = await prowlarr_api_client.get_torrent(
-        release_select.prowlarr_results[callback.index].download_url
+    prowlarr_release: ProwlarrRelease = release_select.prowlarr_results[callback.index]
+    torrent_meta, torrent_data = await prowlarr_api_client.get_torrent(
+        prowlarr_release.download_url
     )
-    # TODO Post to qBittorrent
-    # TODO acreate SonarrDownload
+    await qbittorrent_api_client.log_in()
+    download = await SonarrDownload.objects.acreate(
+        season=release_select.season,
+        prowlarr_torrent_meta=torrent_meta,
+        prowlarr_torrent_data=torrent_data,
+        prowlarr_indexer_id=prowlarr_release.indexer_id,
+        prowlarr_guid=prowlarr_release.guid,
+        episode_count=len(torrent_meta.files),
+    )
+    release_select.season.current_download = download
+    await release_select.season.asave()
+    release_select.is_finished = True
+    await release_select.asave()
+    await qbittorrent_api_client.add_torrent(torrent_data)
+    await update.message.edit_reply_markup(None)
 
     context.drop_callback_data(query)
 

@@ -1,7 +1,7 @@
 from django.db import models
 from django_pydantic_field import SchemaField
 
-from bot.dependencies.prowlarr import ProwlarrRelease
+from bot.dependencies.prowlarr import ProwlarrRelease, ProwlarrTorrentMeta
 
 
 class BotUser(models.Model):
@@ -64,7 +64,7 @@ class SonarrMonitoredSeason(models.Model):
 
 class SonarrReleaseSelect(models.Model):
     season = models.ForeignKey(SonarrMonitoredSeason, models.CASCADE)
-    prowlarr_results = SchemaField(schema=list[ProwlarrRelease])
+    prowlarr_results: list[ProwlarrRelease] = SchemaField(schema=list[ProwlarrRelease])
     chat_id = models.BigIntegerField()
     select_message_id = models.BigIntegerField(null=True)
     is_finished = models.BooleanField(default=False)
@@ -72,8 +72,11 @@ class SonarrReleaseSelect(models.Model):
 
 class SonarrDownload(models.Model):
     season = models.ForeignKey(SonarrMonitoredSeason, on_delete=models.CASCADE)
-    torrent = models.FileField()
-    prowlarr_indexer = models.BigIntegerField()
+    prowlarr_torrent_meta: "ProwlarrTorrentMeta" = SchemaField(
+        schema=ProwlarrTorrentMeta
+    )
+    prowlarr_torrent_data = models.BinaryField()
+    prowlarr_indexer_id = models.BigIntegerField()
     prowlarr_guid = models.TextField()
     episode_count = models.IntegerField()
-    files = models.JSONField()
+    is_finished = models.BooleanField(default=False)
