@@ -26,6 +26,14 @@ async def missing(request: Request):
     )
 
 
+@app.get("/show/{show_id}")
+async def show_page(request: Request, show_id: int):
+    shows = ShowService()
+
+    show = await shows.get_show(show_id)
+    return templates.TemplateResponse("show.html", {"request": request, "show": show})
+
+
 if __name__ == "__main__":
     import uvicorn
 

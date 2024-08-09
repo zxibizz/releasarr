@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ show.tvdb_data.title }}{% endblock %}
+
+{% block content %}
+<div>
+    <div class="flex space-x-5 mb-5">
+        <img src="{{ show.tvdb_data.image_url }}" alt="{{ show.tvdb_data.title }}" class="w-48 h-72 rounded-lg">
+        <div>
+            <h1 class="text-4xl font-bold mb-2">{{ show.tvdb_data.title }} ({{ show.tvdb_data.year }})</h1>
+            <h2 class="text-2xl font-semibold mb-4">{{ show.tvdb_data.title_en }}</h2>
+            <p class="mb-3">{{ show.tvdb_data.overview }}</p>
+            <p class="mb-2"><strong>Country:</strong> {{ show.tvdb_data.country }}</p>
+            <p class="mb-2"><strong>Genres:</strong> {{ show.tvdb_data.genres | join(', ') }}</p>
+        </div>
+    </div>
+
+    <div>
+        <!-- Tab Navigation -->
+        <ul class="flex border-b">
+            <li class="-mb-px mr-1">
+                <a href="#seasons" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold">Сезоны</a>
+            </li>
+            <li class="mr-1">
+                <a href="#search" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold">Поиск</a>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div id="seasons" class="pt-5">
+            <!-- Seasons Content -->
+            <h3 class="text-2xl font-semibold mb-4">Сезоны</h3>
+            <div class="space-y-3">
+                {% for season in show.sonarr_data.seasons %}
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <p class="text-lg font-semibold">Season {{ season.season_number }}</p>
+                    <p class="text-gray-400">{{ season.total_episodes_count }} episodes</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="search" class="pt-5 hidden">
+            <!-- Search Content -->
+            <h3 class="text-2xl font-semibold mb-4">Поиск</h3>
+            <form action="/search" method="GET" class="mb-5">
+                <input type="text" name="query" class="bg-gray-700 text-white p-2 rounded-lg w-full" placeholder="Search episodes...">
+                <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-lg mt-2">Search</button>
+            </form>
+            <div id="search-results">
+                <!-- Render search results here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('ul a').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('div[id^="seasons"], div[id^="search"]').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.querySelector(this.getAttribute('href')).classList.remove('hidden');
+        });
+    });
+</script>
+{% endblock %}
