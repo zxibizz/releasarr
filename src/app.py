@@ -17,9 +17,12 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def missing(request: Request):
     shows = ShowService()
+    releases = ReleasesService()
 
-    # TODO: move to a async task
     await shows.sync_missing()
+    finished_shows = await releases.get_shows_having_finished_releases()
+    for show_id in finished_shows:
+        await shows.sync_show_release_files(show_id)
 
     data = await shows.get_missing()
     return templates.TemplateResponse(
@@ -46,10 +49,11 @@ async def search_show(request: Request, show_id: int, query: str = Form(...)):
 async def grab(
     show_id: int,
     search: str = Form(...),
+    search_name: str = Form(...),
     download_url: str = Form(...),
 ):
     releases = ReleasesService()
-    await releases.grab(show_id, search, download_url)
+    await releases.grab(show_id, search, search_name, download_url)
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
@@ -91,11 +95,13 @@ async def update_file_matching(
     releases = ReleasesService()
     await releases.update_file_matching(release_name, updated_file_matching)
 
-    shows = ShowService()
-    await shows.sync_show_release_files(show_id)
-
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
+
+# TODO: Periodic tasks:
+# - Sync missing shows
+# - Sync QBittorrent. If release is Seeding -> import to Sonarr and remove (or pause if season is not finished yet)
+# - Search release updates for missing shows having a release matched to the missing season
 
 if __name__ == "__main__":
     import uvicorn
