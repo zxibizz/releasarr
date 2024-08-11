@@ -44,13 +44,56 @@ async def search_show(request: Request, show_id: int, query: str = Form(...)):
 
 @app.post("/show/{show_id}/grab")
 async def grab(
-    request: Request,
     show_id: int,
     search: str = Form(...),
     download_url: str = Form(...),
 ):
     releases = ReleasesService()
     await releases.grab(show_id, search, download_url)
+    return RedirectResponse(url=f"/show/{show_id}", status_code=303)
+
+
+@app.post("/show/{show_id}/release/{release_name}/file_matching")
+async def update_file_matching(
+    request: Request,
+    show_id: int,
+    release_name: str,
+):
+    form_data = await request.form()
+    updated_file_matching = []
+    i = 1
+    prev_season_number = None
+    prev_episode_number = None
+
+    while f"file_name_{i}" in form_data:
+        season_number = form_data[f"season_number_{i}"]
+        episode_number = form_data[f"episode_number_{i}"]
+
+        if (
+            not season_number
+            and not episode_number
+            and prev_season_number
+            and prev_episode_number
+        ):
+            season_number = prev_season_number
+            episode_number = int(prev_episode_number) + 1
+
+        updated_file_matching.append(
+            {
+                "file_name": form_data[f"file_name_{i}"],
+                "season_number": season_number,
+                "episode_number": episode_number,
+            }
+        )
+        prev_season_number = season_number
+        prev_episode_number = episode_number
+        i += 1
+    releases = ReleasesService()
+    await releases.update_file_matching(release_name, updated_file_matching)
+
+    shows = ShowService()
+    await shows.sync_show_release_files(show_id)
+
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
