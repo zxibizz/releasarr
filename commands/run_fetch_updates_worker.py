@@ -44,7 +44,7 @@ async def main():
             for update in updates:
                 await producer.send_and_wait(
                     "bot_updates",
-                    value=update.to_json(),
+                    value=update.to_json().encode(),
                     key=str(update.effective_chat.id).encode(),
                 )
                 offset = update.update_id + 1
