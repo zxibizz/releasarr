@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: bitnami/kafka:latest
+          ports:
+            - containerPort: 9094
+          envFrom:
+            - configMapRef:
+                name: kafka-config
+          volumeMounts:
+            - mountPath: /bitnami/kafka
+              name: kafka-storage
+              subPath: kafka
+      volumes:
+        - name: kafka-storage
+          persistentVolumeClaim:
+            claimName: kafka-data-pvc
