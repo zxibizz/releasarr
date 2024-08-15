@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Series List{% endblock %}
+
+{% block content %}
+<div>
+    <h1 class="text-3xl font-bold mb-5">Запросы</h1>
+    <div>
+        {% for series in series_list %}
+        <div class="bg-gray-800 rounded-lg p-5 mb-5 flex">
+            <img src="{{ series.image_url }}" alt="{{ series.title }}" class="w-24 h-36 rounded-lg mr-5">
+            <div>
+                <h5 class="text-2xl font-semibold mb-3">{{ series.title }} ({{ series.year }})</h5>
+                <p class="mb-2">Сезоны</p>
+                <div class="flex space-x-2">
+                    {% for season in series.seasons %}
+                    <span class="bg-gray-700 text-white py-1 px-3 rounded-full">{{ season }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -24,9 +24,9 @@ class SonarrSeason:
 
 @dataclass
 class SonarrMissingSeries:
-    series_id: int
-    season_number: int
-    episode_ids: list
+    id: int
+    tvdb_id: int
+    season_numbers: list[int]
 
 
 class SonarrApiClient:
@@ -43,30 +43,33 @@ class SonarrApiClient:
             params={
                 "page": "1",
                 "pageSize": "1000",
-                "includeSeries": "false",
+                "includeSeries": "true",
                 "includeImages": "false",
                 "monitored": "true",
             },
         )
         response_data = res.json()["records"]
         result_data = {}
-        result: list[SonarrMissingSeries] = []
 
         for response_data_row in response_data:
-            key = response_data_row["seriesId"], response_data_row["seasonNumber"]
+            key = response_data_row["seriesId"]
             existing_row: SonarrMissingSeries = result_data.get(key)
             if not existing_row:
                 result_data[key] = SonarrMissingSeries(
-                    series_id=key[0],
-                    season_number=key[1],
-                    episode_ids=[response_data_row["id"]],
+                    id=key,
+                    tvdb_id=response_data_row["series"]["tvdbId"],
+                    season_numbers=[response_data_row["seasonNumber"]],
                 )
             else:
-                existing_row.episode_ids.append(response_data_row["id"])
-        result = sorted(
-            result_data.values(), key=lambda row: (row.series_id, row.season_number)
-        )
-        return result
+                existing_row.season_numbers = sorted(
+                    set(
+                        [
+                            *existing_row.season_numbers,
+                            response_data_row["seasonNumber"],
+                        ]
+                    )
+                )
+        return result_data.values()
 
     async def get_series(self, series_id) -> SonarrSeries:
         res = await self.client.get(
@@ -96,6 +99,6 @@ if __name__ == "__main__":
     import asyncio
 
     client = SonarrApiClient()
-    res = asyncio.run(client.get_series(253))
+    res = asyncio.run(client.get_missing())
     print(res)
     # print("\n".join([str(row) for row in res]))
