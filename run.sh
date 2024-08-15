@@ -1,1 +1,0 @@
-watchmedo auto-restart -p "*.py" -R python3 -- -m commands.run_bot
