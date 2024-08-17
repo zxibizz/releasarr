@@ -1,20 +1,18 @@
 import os
-from dataclasses import dataclass
 from datetime import datetime
 
 import httpx
+from pydantic import BaseModel
 
 
-@dataclass
-class SonarrSeries:
+class SonarrSeries(BaseModel):
     id: int
     path: str
-    tvdb_id: str
+    tvdb_id: int
     seasons: list["SonarrSeason"]
 
 
-@dataclass
-class SonarrSeason:
+class SonarrSeason(BaseModel):
     season_number: int
     episode_file_count: int
     episode_count: int
@@ -22,8 +20,7 @@ class SonarrSeason:
     previous_airing: datetime | None
 
 
-@dataclass
-class SonarrMissingSeries:
+class SonarrMissingSeries(BaseModel):
     id: int
     tvdb_id: int
     season_numbers: list[int]
