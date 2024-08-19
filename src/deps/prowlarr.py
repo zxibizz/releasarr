@@ -49,6 +49,8 @@ class ProwlarrApiClient:
         result = []
 
         for release_data in releases_data:
+            if "downloadUrl" not in release_data:
+                continue
             result.append(
                 ProwlarrRelease(
                     guid=release_data["guid"],

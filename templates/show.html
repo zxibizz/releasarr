@@ -43,13 +43,45 @@
         <div id="search" class="pt-5 hidden">
             <!-- Search Content -->
             <h3 class="text-2xl font-semibold mb-4">Поиск</h3>
-            <form action="/search" method="GET" class="mb-5">
-                <input type="text" name="query" class="bg-gray-700 text-white p-2 rounded-lg w-full" placeholder="Search episodes...">
+            <form action="/show/{{ show.id }}/search" method="post" class="mb-5">
+                <input type="text" name="query" class="bg-gray-700 text-white p-2 rounded-lg w-full" placeholder="Search...">
                 <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded-lg mt-2">Search</button>
             </form>
-            <div id="search-results">
-                <!-- Render search results here -->
-            </div>
+            <div id="s-results">
+                <h4 class="text-xl font-semibold mb-3">Search Results</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-gray-800 rounded-lg">
+                        <thead>
+                            <tr>
+                                <th class="text-left p-3" data-sort="title">Title</th>
+                                <th class="text-left p-3" data-sort="age">Age</th>
+                                <th class="text-left p-3" data-sort="grabs">Grabs</th>
+                                <th class="text-left p-3" data-sort="seeders">Seeders</th>
+                                <th class="text-left p-3" data-sort="leechers">Leechers</th>
+                                <th class="text-left p-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for release in show.prowlarr_data %}
+                            <tr class="border-b border-gray-700">
+                                <td class="p-3">{{ release.title }}</td>
+                                <td class="p-3">{{ release.age }}</td>
+                                <td class="p-3">{{ release.grabs }}</td>
+                                <td class="p-3">{{ release.seeders }}</td>
+                                <td class="p-3">{{ release.leechers }}</td>
+                                <td class="p-3">
+                                    <form action="/show/{{ show.id }}/grab" method="post" class="inline">
+                                        <input type="hidden" name="search" value="{{ show.prowlarr_search }}">
+                                        <input type="hidden" name="download_url" value="{{ release.download_url }}">
+                                        <button type="submit" class="bg-blue-500 text-white py-1 px-3 rounded-lg">Grab</button>
+                                    </form>
+                                    <a href="{{ release.info_url }}" class="text-blue-400 hover:underline ml-4">More Info</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
         </div>
     </div>
 </div>
