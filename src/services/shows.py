@@ -1,15 +1,20 @@
+import json
+
 from sqlalchemy import select, update
+from sqlalchemy.orm import joinedload
 
 from src.db import async_session
+from src.deps.prowlarr import ProwlarrApiClient
 from src.deps.sonarr import SonarrApiClient, SonarrSeries
 from src.deps.tvdb import TVDBApiClient, TvdbShowData
-from src.models import Show
+from src.models import Release, Show
 
 
 class ShowService:
     def __init__(self) -> None:
         self.sonarr_api_client = SonarrApiClient()
         self.tvdb_api_client = TVDBApiClient()
+        self.prowlarr_api_client = ProwlarrApiClient()
 
     async def get_missing(self) -> list[Show]:
         async with async_session() as session, session.begin():
@@ -17,7 +22,31 @@ class ShowService:
 
     async def get_show(self, show_id: int) -> Show:
         async with async_session() as session, session.begin():
-            return await session.scalar(select(Show).where(Show.id == show_id))
+            return await session.scalar(
+                select(Show)
+                .where(Show.id == show_id)
+                .options(
+                    joinedload(Show.releases).options(
+                        joinedload(Release.file_matchings)
+                    ),
+                )
+            )
+
+    async def search_show_releases(self, show_id: int, search: str):
+        async with async_session() as session, session.begin():
+            releases = await self.prowlarr_api_client.search(search)
+            await session.execute(
+                update(Show)
+                .values(
+                    {
+                        Show.prowlarr_search: search,
+                        Show.prowlarr_data_raw: json.dumps(
+                            [release.model_dump_json() for release in releases]
+                        ),
+                    }
+                )
+                .where(Show.id == show_id)
+            )
 
     async def sync_missing(self):
         missing_series = await self.sonarr_api_client.get_missing()

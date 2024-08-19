@@ -46,7 +46,7 @@ class QBittorrentApiClient:
 
     async def torrent_properties(self, hash):
         res = await self.client.get("/torrents/properties", params={"hash": hash})
-        res_data = res.json()
+        return res.json()
         res_data = {
             "addition_date": 1719045144,
             "comment": "http://animelayer.ru/torrent/66128cf65dccfa21bf68bea2/",
