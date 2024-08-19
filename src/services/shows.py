@@ -15,6 +15,10 @@ class ShowService:
         async with async_session() as session, session.begin():
             return await session.scalars(select(Show).where(Show.is_missing))
 
+    async def get_show(self, show_id: int) -> Show:
+        async with async_session() as session, session.begin():
+            return await session.scalar(select(Show).where(Show.id == show_id))
+
     async def sync_missing(self):
         missing_series = await self.sonarr_api_client.get_missing()
         async with async_session() as session, session.begin():
