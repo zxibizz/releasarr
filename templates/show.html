@@ -52,7 +52,7 @@
                 <p class="text-gray-400 mb-3"><strong>Updated At:</strong> {{ release.updated_at }}</p>
                 <p class="text-gray-400 mb-5"><strong>Search Term:</strong> {{ release.search }}</p>
 
-                <form action="/release/{{ release.name }}/file_matching/save" method="post">
+                <form action="/show/{{ show.id }}/release/{{ release.name }}/file_matching" method="post">
                     <div class="overflow-x-auto">
                         <table class="min-w-full bg-gray-900 rounded-lg mb-4">
                             <thead>
@@ -66,13 +66,13 @@
                                 {% for file_matching in release.file_matchings %}
                                 <tr class="border-b border-gray-700">
                                     <td class="p-3 w-4/5">
-                                        <input type="text" name="file_name_{{ file_matching.id }}" value="{{ file_matching.file_name }}" class="bg-gray-700 text-white p-2 rounded-lg w-full" readonly>
+                                        <input type="text" name="file_name_{{ loop.index }}" value="{{ file_matching.file_name }}" class="bg-gray-700 text-white p-2 rounded-lg w-full" readonly>
                                     </td>
                                     <td class="p-3">
-                                        <input type="number" name="season_number_{{ file_matching.id }}" value="{{ file_matching.season_number }}" class="bg-gray-700 text-white p-2 rounded-lg w-full">
+                                        <input type="number" name="season_number_{{ loop.index }}" value="{{ file_matching.season_number }}" class="bg-gray-700 text-white p-2 rounded-lg w-full">
                                     </td>
                                     <td class="p-3">
-                                        <input type="number" name="episode_number_{{ file_matching.id }}" value="{{ file_matching.episode_number }}" class="bg-gray-700 text-white p-2 rounded-lg w-full">
+                                        <input type="number" name="episode_number_{{ loop.index }}" value="{{ file_matching.episode_number }}" class="bg-gray-700 text-white p-2 rounded-lg w-full">
                                     </td>
                                 </tr>
                                 {% endfor %}
