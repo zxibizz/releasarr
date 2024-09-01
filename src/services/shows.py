@@ -1,11 +1,12 @@
 import json
+import os
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import joinedload
 
 from src.db import async_session
 from src.deps.prowlarr import ProwlarrApiClient
-from src.deps.sonarr import SonarrApiClient, SonarrSeries
+from src.deps.sonarr import SonarrApiClient, SonarrImportFile, SonarrSeries
 from src.deps.tvdb import TVDBApiClient, TvdbShowData
 from src.models import Release, Show
 
@@ -81,3 +82,32 @@ class ShowService:
                 session.add(show)
 
             await session.commit()
+
+    async def sync_show_release_files(self, show_id: int):
+        async with async_session() as session, session.begin():
+            show = await self.get_show(show_id)
+            for release in show.releases:
+                import_files = []
+                for file_matching in release.file_matchings:
+                    torrent_data = json.loads(release.qbittorrent_data)
+                    episode_id = None
+                    for season in show.sonarr_data.seasons:
+                        if season.season_number != file_matching.season_number:
+                            continue
+                        for episode in season.episodes:
+                            if episode.episode_number == file_matching.episode_number:
+                                episode_id = episode.id
+                    if episode_id is not None:
+                        import_files.append(
+                            SonarrImportFile(
+                                episode_ids=[episode_id],
+                                folder_name=torrent_data["name"],
+                                path=os.path.join(
+                                    torrent_data["save_path"],
+                                    file_matching.file_name,
+                                ),
+                                series_id=show.sonarr_id,
+                            )
+                        )
+                if import_files:
+                    await self.sonarr_api_client.manual_import(import_files)
