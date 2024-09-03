@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from sqlalchemy import insert, update
+from sqlalchemy import insert, select, update
 
 from src.db import async_session
 from src.deps.prowlarr import ProwlarrApiClient
@@ -14,7 +14,9 @@ class ReleasesService:
         self.qbittorrent_client = QBittorrentApiClient()
         self.prowlarr_client = ProwlarrApiClient()
 
-    async def grab(self, show_id: int, search: str, download_url: str):
+    async def grab(
+        self, show_id: int, search: str, search_name: str, download_url: str
+    ):
         await self.qbittorrent_client.log_in()
         meta, torrent = await self.prowlarr_client.get_torrent(download_url)
         await self.qbittorrent_client.add_torrent(torrent)
@@ -27,6 +29,7 @@ class ReleasesService:
                         Release.name: torrent_data["name"],
                         Release.updated_at: datetime.now(),
                         Release.search: search,
+                        Release.search_name: search_name,
                         Release.show_id: show_id,
                         Release.qbittorrent_guid: meta.info_hash,
                         Release.qbittorrent_data: json.dumps(torrent_data),
@@ -64,3 +67,19 @@ class ReleasesService:
                         ReleaseFileMatching.file_name == m["file_name"],
                     )
                 )
+
+    async def get_shows_having_finished_releases(self):
+        await self.qbittorrent_client.log_in()
+        stats = await self.qbittorrent_client.get_stats()
+        finished_torrents = [
+            t.infohash_v1 for t in stats.torrents.values() if t.state == "stalledUP"
+        ]
+
+        async with async_session() as session, session.begin():
+            return list(
+                await session.scalars(
+                    select(Release.show_id).where(
+                        Release.qbittorrent_guid.in_(finished_torrents)
+                    )
+                )
+            )
