@@ -1,7 +1,70 @@
 import asyncio
 import os
+from datetime import datetime
+from typing import Optional
 
 import httpx
+from pydantic import BaseModel
+
+
+class QBittorrentStats(BaseModel):
+    torrents: dict[str, "QBittorrentTorrentStats"]
+
+
+class QBittorrentTorrentStats(BaseModel):
+    added_on: datetime
+    amount_left: int
+    auto_tmm: bool
+    availability: float
+    category: str
+    completed: int
+    completion_on: datetime
+    content_path: str
+    dl_limit: int
+    dlspeed: int
+    download_path: str
+    downloaded: int
+    downloaded_session: int
+    eta: int
+    f_l_piece_prio: bool
+    force_start: bool
+    inactive_seeding_time_limit: int
+    infohash_v1: str
+    infohash_v2: Optional[str]
+    last_activity: datetime
+    magnet_uri: str
+    max_inactive_seeding_time: int
+    max_ratio: int
+    max_seeding_time: int
+    name: str
+    num_complete: int
+    num_incomplete: int
+    num_leechs: int
+    num_seeds: int
+    priority: int
+    progress: float
+    ratio: float
+    ratio_limit: int
+    save_path: str
+    seeding_time: int
+    seeding_time_limit: int
+    seen_complete: datetime
+    seq_dl: bool
+    size: int
+    state: str
+    super_seeding: bool
+    tags: str
+    time_active: int
+    total_size: int
+    tracker: str
+    trackers_count: int
+    up_limit: int
+    uploaded: int
+    uploaded_session: int
+    upspeed: int
+
+    class Config:
+        json_encoders = {datetime: lambda v: int(v.timestamp())}
 
 
 class QBittorrentApiClient:
@@ -89,30 +152,18 @@ class QBittorrentApiClient:
             "up_speed_avg": 0,
         }
 
+    async def get_stats(self):
+        res = await self.client.get("/sync/maindata")
+        res.raise_for_status()
+        return QBittorrentStats.model_validate_json(res.content)
+
 
 if __name__ == "__main__":
-    import django
-
-    django.setup()
-
-    from admin.app.models import SonarrReleaseSelect
-    from bot.config import get_dependecies, init_dependencies
-    from bot.dependencies.prowlarr import ProwlarrApiClient
-
-    init_dependencies()
-
-    dependencies = get_dependecies()
-    prowlarr_api_client: ProwlarrApiClient = dependencies.prowlarr_api_client
-
     client = QBittorrentApiClient()
 
     async def _main():
-        select = await SonarrReleaseSelect.objects.aget(id=34)
-        prowlarr_torrent = await prowlarr_api_client.get_torrent(
-            select.prowlarr_results[0].download_url
-        )
-        await client.add_torrent(prowlarr_torrent.content)
-        status = await client.torrent_properties(prowlarr_torrent.info_hash)
-        print(status)
+        await client.log_in()
+        stats = await client.get_stats()
+        print(stats)
 
     asyncio.run(_main())
