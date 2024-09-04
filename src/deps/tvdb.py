@@ -31,11 +31,10 @@ class _Auth(httpx.Auth):
     async def async_auth_flow(self, request):
         if self.auth_token is None:
             async with self._async_lock:
-                self.auth_token = os.environ.get("TVDB_API_AUTH_TOKEN")
-                # res: httpx.Response = yield self.build_refresh_request()
-                # res.raise_for_status()
-                # await res.aread()
-                # self.auth_token = res.json()["data"]["token"]
+                res: httpx.Response = yield self.build_refresh_request()
+                res.raise_for_status()
+                await res.aread()
+                self.auth_token = res.json()["data"]["token"]
 
         request.headers["Authorization"] = f"Bearer {self.auth_token}"
         yield request
