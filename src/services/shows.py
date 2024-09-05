@@ -74,11 +74,11 @@ class ShowService:
                         tvdb_data_raw=tvdb_data.model_dump_json(),
                         sonarr_data_raw=sonarr_data.model_dump_json(),
                     )
+                    show.prowlarr_search = None
+                    show.prowlarr_data_raw = None
 
                 show.is_missing = True
                 show.missing_seasons = m.season_numbers
-                show.prowlarr_search = None
-                show.prowlarr_data_raw = None
                 session.add(show)
 
             await session.commit()
