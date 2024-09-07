@@ -19,7 +19,7 @@ async def sync_missing_task():
     shows = ShowService()
     while True:
         await shows.sync_missing()
-        await asyncio.sleep(60)
+        await asyncio.sleep(60 * 5)
 
 
 async def sync_finished_task():
@@ -30,13 +30,26 @@ async def sync_finished_task():
         finished_shows = await releases.get_shows_having_finished_releases()
         for show_id in finished_shows:
             await shows.sync_show_release_files(show_id)
-        await asyncio.sleep(60)
+        await asyncio.sleep(60 * 60)
+
+
+async def update_releases_task():
+    shows = ShowService()
+    releases = ReleasesService()
+
+    while True:
+        missing_releases = await shows.get_outdated_releases()
+        for missing_release in missing_releases:
+            await releases.re_grab(missing_release.name)
+        await asyncio.sleep(60 * 60)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(sync_missing_task())
     asyncio.create_task(sync_finished_task())
+    await asyncio.sleep(5)
+    asyncio.create_task(update_releases_task())
     yield
 
 
@@ -72,11 +85,11 @@ async def search_show(request: Request, show_id: int, query: str = Form(...)):
 async def grab(
     show_id: int,
     search: str = Form(...),
-    search_name: str = Form(...),
+    prowlarr_guid: str = Form(...),
     download_url: str = Form(...),
 ):
     releases = ReleasesService()
-    await releases.grab(show_id, search, search_name, download_url)
+    await releases.grab(show_id, search, prowlarr_guid, download_url)
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
