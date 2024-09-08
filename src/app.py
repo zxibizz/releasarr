@@ -143,6 +143,7 @@ async def update_file_matching(
 
 
 @app.get("/sync")
+@app.post("/sync")
 async def sync():
     shows = ShowService()
     releases = ReleasesService()
