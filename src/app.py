@@ -1,7 +1,9 @@
+import asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from contextlib import asynccontextmanager
 
 from src.services.releases import ReleasesService
 from src.services.shows import ShowService
@@ -17,12 +19,6 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def missing(request: Request):
     shows = ShowService()
-    releases = ReleasesService()
-
-    await shows.sync_missing()
-    finished_shows = await releases.get_shows_having_finished_releases()
-    for show_id in finished_shows:
-        await shows.sync_show_release_files(show_id)
 
     data = await shows.get_missing()
     return templates.TemplateResponse(
@@ -99,9 +95,34 @@ async def update_file_matching(
 
 
 # TODO: Periodic tasks:
-# - Sync missing shows
-# - Sync QBittorrent. If release is Seeding -> import to Sonarr and remove (or pause if season is not finished yet)
 # - Search release updates for missing shows having a release matched to the missing season
+
+
+async def sync_missing_task():
+    shows = ShowService()
+    while True:
+        await shows.sync_missing()
+        await asyncio.sleep(60)
+
+
+async def sync_finished_task():
+    shows = ShowService()
+    releases = ReleasesService()
+
+    while True:
+        finished_shows = await releases.get_shows_having_finished_releases()
+        for show_id in finished_shows:
+            await shows.sync_show_release_files(show_id)
+        await asyncio.sleep(60)
+        
+
+
+@asynccontextmanager
+async def lifespan():
+    asyncio.create_task(sync_missing_task())
+    asyncio.create_task(sync_finished_task())
+    yield
+
 
 if __name__ == "__main__":
     import uvicorn
