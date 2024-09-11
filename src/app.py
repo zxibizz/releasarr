@@ -1,9 +1,10 @@
 import asyncio
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from contextlib import asynccontextmanager
 
 from src.services.releases import ReleasesService
 from src.services.shows import ShowService
@@ -114,7 +115,6 @@ async def sync_finished_task():
         for show_id in finished_shows:
             await shows.sync_show_release_files(show_id)
         await asyncio.sleep(60)
-        
 
 
 @asynccontextmanager
