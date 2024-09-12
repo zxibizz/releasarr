@@ -22,6 +22,10 @@ class ShowService:
         async with async_session() as session, session.begin():
             return await session.scalars(select(Show).where(Show.is_missing))
 
+    async def get_all(self) -> list[Show]:
+        async with async_session() as session, session.begin():
+            return await session.scalars(select(Show))
+
     async def get_show(self, show_id: int) -> Show:
         async with async_session() as session, session.begin():
             return await session.scalar(
