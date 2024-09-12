@@ -7,7 +7,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import delete, select
 
+from src.db import async_session
+from src.models import Release, ReleaseFileMatching
 from src.services.releases import ReleasesService
 from src.services.shows import ShowService
 
@@ -148,6 +151,19 @@ async def update_file_matching(
     await releases.update_file_matching(release_name, updated_file_matching)
 
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
+
+
+@app.post("/show/{show_id}/release/{release_name}/delete")
+async def delete_release(show_id: int, release_name: str):
+    async with async_session() as session, session.begin():
+        release = await session.scalar(
+            select(Release).where(Release.name == release_name)
+        )
+        await session.execute(
+            delete(ReleaseFileMatching).where(ReleaseFileMatching.release == release)
+        )
+        await session.delete(release)
+        await session.commit()
 
 
 @app.get("/sync")
