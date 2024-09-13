@@ -6,9 +6,9 @@ from sqlalchemy import types
 from sqlmodel import Field, Relationship, SQLModel
 
 from src.db import async_engine
-from src.deps.prowlarr import ProwlarrRelease
-from src.deps.sonarr import SonarrSeries
-from src.deps.tvdb import TvdbShowData
+from src.infrastructure.api_clients.prowlarr import ProwlarrRelease
+from src.infrastructure.api_clients.sonarr import SonarrSeries
+from src.infrastructure.api_clients.tvdb import TvdbShowData
 
 
 class Show(SQLModel, table=True):

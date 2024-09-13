@@ -5,10 +5,10 @@ from datetime import datetime
 from sqlalchemy import insert, select, update
 from sqlalchemy.orm import joinedload
 
+from src.application.models import Release, ReleaseFileMatching
 from src.db import async_session
-from src.deps.prowlarr import ProwlarrApiClient
-from src.deps.qbittorrent import QBittorrentApiClient
-from src.models import Release, ReleaseFileMatching
+from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
+from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.services.shows import ShowService
 
 

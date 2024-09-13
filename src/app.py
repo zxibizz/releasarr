@@ -9,8 +9,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete, select
 
+from src.application.models import Release, ReleaseFileMatching
 from src.db import async_session
-from src.models import Release, ReleaseFileMatching
 from src.services.releases import ReleasesService
 from src.services.shows import ShowService
 
