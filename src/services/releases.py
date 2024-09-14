@@ -18,44 +18,6 @@ class ReleasesService:
         self.qbittorrent_client = QBittorrentApiClient()
         self.prowlarr_client = ProwlarrApiClient()
 
-    async def grab(
-        self, show_id: int, search: str, prowlarr_guid: str, download_url: str
-    ):
-        show = await self.show_service.get_show(show_id)
-        release = [pd for pd in show.prowlarr_data if pd.guid == prowlarr_guid][0]
-
-        await self.qbittorrent_client.log_in()
-        meta, raw_torrent = await self.prowlarr_client.get_torrent(download_url)
-        await self.qbittorrent_client.add_torrent(raw_torrent)
-        torrent_data = await self.qbittorrent_client.torrent_properties(meta.info_hash)
-
-        async with async_session() as session, session.begin():
-            await session.execute(
-                insert(Release).values(
-                    {
-                        Release.name: torrent_data["name"],
-                        Release.updated_at: datetime.now(),
-                        Release.search: search,
-                        Release.prowlarr_data_raw: release.model_dump_json(),  # TODO: rename -> data
-                        Release.show_id: show_id,
-                        Release.qbittorrent_guid: meta.info_hash,  # -> torrent_info_hash
-                        Release.qbittorrent_data: json.dumps(torrent_data),
-                    }
-                )
-            )
-            await session.execute(
-                insert(ReleaseFileMatching).values(
-                    [
-                        {
-                            ReleaseFileMatching.release_name: torrent_data["name"],
-                            ReleaseFileMatching.show_id: show_id,
-                            ReleaseFileMatching.file_name: file.name,
-                        }
-                        for file in meta.files
-                    ]
-                )
-            )
-
     async def re_grab(self, release_name: int):
         async with async_session() as session, session.begin():
             release: Release = await session.scalar(
