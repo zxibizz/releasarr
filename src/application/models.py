@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy import types
 from sqlmodel import Field, Relationship, SQLModel
 
+from src.application.schemas import ReleaseData
 from src.db import async_engine
-from src.infrastructure.api_clients.prowlarr import ProwlarrRelease
 from src.infrastructure.api_clients.sonarr import SonarrSeries
 from src.infrastructure.api_clients.tvdb import TvdbShowData
 
@@ -32,11 +32,11 @@ class Show(SQLModel, table=True):
         return TvdbShowData.model_validate_json(self.tvdb_data_raw)
 
     @property
-    def prowlarr_data(self) -> list[ProwlarrRelease]:
+    def prowlarr_data(self) -> list[ReleaseData]:
         if not self.prowlarr_data_raw:
             return []
         return [
-            ProwlarrRelease.model_validate_json(obj)
+            ReleaseData.model_validate_json(obj)
             for obj in json.loads(self.prowlarr_data_raw)
         ]
 
@@ -56,10 +56,10 @@ class Release(SQLModel, table=True):
     file_matchings: list["ReleaseFileMatching"] = Relationship(back_populates="release")
 
     @property
-    def prowlarr_data(self) -> ProwlarrRelease:
+    def prowlarr_data(self) -> ReleaseData:
         if not self.prowlarr_data_raw:
             return None
-        return ProwlarrRelease.model_validate_json(self.prowlarr_data_raw)
+        return ReleaseData.model_validate_json(self.prowlarr_data_raw)
 
 
 class ReleaseFileMatching(SQLModel, table=True):

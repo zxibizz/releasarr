@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 
 from src.application.models import Release, ReleaseFileMatching
 from src.db import async_session
+from src.dependencies import dependencies
 from src.services.releases import ReleasesService
 from src.services.shows import ShowService
 
@@ -60,8 +61,8 @@ async def sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(trigger_sync_task())
-    asyncio.create_task(sync_task())
+    # asyncio.create_task(trigger_sync_task())
+    # asyncio.create_task(sync_task())
     yield
 
 
@@ -88,8 +89,7 @@ async def show_page(request: Request, show_id: int):
 
 @app.post("/show/{show_id}/search")
 async def search_show(request: Request, show_id: int, query: str = Form(...)):
-    shows = ShowService()
-    await shows.search_show_releases(show_id, query)
+    await dependencies.use_cases.search_release.process(show_id, query)
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
