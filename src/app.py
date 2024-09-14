@@ -61,8 +61,8 @@ async def sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # asyncio.create_task(trigger_sync_task())
-    # asyncio.create_task(sync_task())
+    asyncio.create_task(trigger_sync_task())
+    asyncio.create_task(sync_task())
     yield
 
 
@@ -94,14 +94,10 @@ async def search_show(request: Request, show_id: int, query: str = Form(...)):
 
 
 @app.post("/show/{show_id}/grab")
-async def grab(
-    show_id: int,
-    search: str = Form(...),
-    prowlarr_guid: str = Form(...),
-    download_url: str = Form(...),
-):
-    releases = ReleasesService()
-    await releases.grab(show_id, search, prowlarr_guid, download_url)
+async def grab(show_id: int, release_pk: str = Form(...)):
+    await dependencies.use_cases.grab_release.process(
+        show_id=show_id, release_pk=release_pk
+    )
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
