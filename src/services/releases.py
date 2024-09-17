@@ -72,7 +72,9 @@ class ReleasesService:
         await self.qbittorrent_client.log_in()
         stats = await self.qbittorrent_client.get_stats()
         finished_torrents = [
-            t.infohash_v1 for t in stats.torrents.values() if t.state == "stalledUP"
+            t.infohash_v1
+            for t in stats.torrents.values()
+            if t.seen_complete is not None
         ]
 
         async with async_session() as session, session.begin():
