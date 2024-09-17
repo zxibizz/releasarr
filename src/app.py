@@ -12,9 +12,35 @@ from src.services.shows import ShowService
 load_dotenv()
 
 
-app = FastAPI()
-
 templates = Jinja2Templates(directory="templates")
+
+
+async def sync_missing_task():
+    shows = ShowService()
+    while True:
+        await shows.sync_missing()
+        await asyncio.sleep(60)
+
+
+async def sync_finished_task():
+    shows = ShowService()
+    releases = ReleasesService()
+
+    while True:
+        finished_shows = await releases.get_shows_having_finished_releases()
+        for show_id in finished_shows:
+            await shows.sync_show_release_files(show_id)
+        await asyncio.sleep(60)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(sync_missing_task())
+    asyncio.create_task(sync_finished_task())
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -93,35 +119,6 @@ async def update_file_matching(
     await releases.update_file_matching(release_name, updated_file_matching)
 
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
-
-
-# TODO: Periodic tasks:
-# - Search release updates for missing shows having a release matched to the missing season
-
-
-async def sync_missing_task():
-    shows = ShowService()
-    while True:
-        await shows.sync_missing()
-        await asyncio.sleep(60)
-
-
-async def sync_finished_task():
-    shows = ShowService()
-    releases = ReleasesService()
-
-    while True:
-        finished_shows = await releases.get_shows_having_finished_releases()
-        for show_id in finished_shows:
-            await shows.sync_show_release_files(show_id)
-        await asyncio.sleep(60)
-
-
-@asynccontextmanager
-async def lifespan():
-    asyncio.create_task(sync_missing_task())
-    asyncio.create_task(sync_finished_task())
-    yield
 
 
 if __name__ == "__main__":
