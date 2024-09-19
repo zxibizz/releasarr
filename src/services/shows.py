@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from src.application.models import Release, Show
@@ -11,9 +11,8 @@ from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.sonarr import (
     SonarrApiClient,
     SonarrImportFile,
-    SonarrSeries,
 )
-from src.infrastructure.api_clients.tvdb import TVDBApiClient, TvdbShowData
+from src.infrastructure.api_clients.tvdb import TVDBApiClient
 
 
 class ShowService:
@@ -41,40 +40,6 @@ class ShowService:
                     ),
                 )
             )
-
-    async def sync_missing(self):
-        missing_series = await self.sonarr_api_client.get_missing()
-        async with async_session() as session, session.begin():
-            await session.execute(
-                update(Show).values(
-                    {
-                        Show.is_missing: False,
-                        Show.missing_seasons: None,
-                    }
-                )
-            )
-            for m in missing_series:
-                show = await session.scalar(select(Show).where(Show.sonarr_id == m.id))
-                if not show:
-                    tvdb_data: TvdbShowData = await self.tvdb_api_client.get_series(
-                        m.tvdb_id
-                    )
-                    sonarr_data: SonarrSeries = await self.sonarr_api_client.get_series(
-                        m.id
-                    )
-                    show = Show(
-                        sonarr_id=m.id,
-                        tvdb_data_raw=tvdb_data.model_dump_json(),
-                        sonarr_data_raw=sonarr_data.model_dump_json(),
-                    )
-                    show.prowlarr_search = show.tvdb_data.title
-                    show.prowlarr_data_raw = None
-
-                show.is_missing = True
-                show.missing_seasons = m.season_numbers
-                session.add(show)
-
-            await session.commit()
 
     async def sync_show_release_files(self, show_id: int):
         async with async_session() as session, session.begin():
