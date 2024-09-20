@@ -49,6 +49,7 @@ async def sync_task():
             releases = ReleasesService()
 
             await dependencies.use_cases.sync_missing_series.process()
+            await dependencies.use_cases.import_releases_torrent_stats.process()
 
             finished_shows = await releases.get_shows_having_finished_releases()
             for show_id in finished_shows:

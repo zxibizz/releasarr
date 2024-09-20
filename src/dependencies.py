@@ -8,6 +8,9 @@ from src.application.interfaces.shows_repository import I_ShowsRepository
 from src.application.interfaces.torrent_client import I_TorrentClient
 from src.application.interfaces.tvdb_client import I_TvdbClient
 from src.application.use_cases.releases.grab import UseCase_GrabRelease
+from src.application.use_cases.releases.import_torrent_stats import (
+    UseCase_ImportReleasesTorrentStats,
+)
 from src.application.use_cases.releases.search import UseCase_SearchReleases
 from src.application.use_cases.releases.update_files_matching import (
     UseCase_UpdateReleaseFileMatching,
@@ -35,6 +38,7 @@ class Dependencies:
         grab_release: UseCase_GrabRelease
         update_release_file_matchings: UseCase_UpdateReleaseFileMatching
         sync_missing_series: UseCase_SyncMissingSeries
+        import_releases_torrent_stats: UseCase_ImportReleasesTorrentStats
 
     @dataclass
     class Repositories:
@@ -93,6 +97,11 @@ def init_dependencies() -> Dependencies:
             series_service=services.series_service,
             shows_repository=repositories.shows,
             tvdb_client=services.tvdb_client,
+        ),
+        import_releases_torrent_stats=UseCase_ImportReleasesTorrentStats(
+            db_manager=db_manager,
+            torrent_client=services.torrent_client,
+            releases_repository=repositories.releases,
         ),
     )
 
