@@ -146,32 +146,6 @@ async def sync():
 
 
 if __name__ == "__main__":
-    # from src.db import async_session
-
-    # async def m():
-    #     shows_service = ShowService()
-
-    #     shows = await shows_service.get_all()
-    #     for show_r in shows:
-    #         show = await shows_service.get_show(show_r.id)
-    #         async with async_session() as session, session.begin():
-    #             for release in show.releases:
-    #                 release_data = [
-    #                     d
-    #                     for d in show.prowlarr_data
-    #                     if d.guid == release.prowlarr_guid
-    #                     or d.info_url == release.prowlarr_guid
-    #                 ]
-    #                 print(release.name, release_data)
-    #                 if release_data:
-    #                     release.prowlarr_data_raw = release_data[0].model_dump_json()
-    #                     session.add(release)
-    #                 else:
-    #                     session.delete(release)
-    #         await session.commit()
-
-    # asyncio.run(m())
-    # exit(0)
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
