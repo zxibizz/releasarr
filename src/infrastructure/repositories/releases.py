@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.application.interfaces.releases_repository import I_ReleasesRepository
-from src.application.models import Release, ReleaseFileMatching
+from src.application.models import Release, ReleaseFileMatching, Show
 
 
 class ReleasesRepository(I_ReleasesRepository):
@@ -44,3 +44,25 @@ class ReleasesRepository(I_ReleasesRepository):
             .options(joinedload(Release.file_matchings), joinedload(Release.show))
         )
         return res.unique()
+
+    async def get_outdated_releases(self, db_session: AsyncSession) -> list[Release]:
+        missing_shows: list[Show] = (
+            await db_session.scalars(
+                select(Show)
+                .options(
+                    joinedload(Show.releases).options(
+                        joinedload(Release.file_matchings),
+                    ),
+                )
+                .where(Show.is_missing)
+            )
+        ).unique()
+        res = []
+        for missing_show in missing_shows:
+            for release in missing_show.releases:
+                for matching in release.file_matchings:
+                    if matching.season_number in missing_show.missing_seasons:
+                        res.append(release)
+                        break
+
+        return res
