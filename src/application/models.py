@@ -70,8 +70,8 @@ class ReleaseFileMatching(SQLModel, table=True):
     release_name: str = Field(default=None, foreign_key="release.name")
     file_name: str
     show_id: int
-    season_number: int | None
-    episode_number: int | None
+    season_number: int = Field(default=None, nullable=True)
+    episode_number: int = Field(default=None, nullable=True)
 
     release: Release = Relationship(back_populates="file_matchings")
 

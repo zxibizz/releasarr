@@ -76,8 +76,8 @@ class ReleasesService:
                         prev_season = None
                         prev_episode = None
 
-                    if prev_episode is not None:
-                        prev_episode += 1
+                    if prev_episode and int(prev_episode):
+                        prev_episode = int(prev_episode) + 1
 
                     new_files.append(
                         {

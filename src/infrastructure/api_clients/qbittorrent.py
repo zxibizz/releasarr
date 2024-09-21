@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import Optional
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class QBittorrentStats(BaseModel):
-    torrents: dict[str, "QBittorrentTorrentStats"]
+    torrents: dict[str, "QBittorrentTorrentStats"] = Field(default_factory=lambda: {})
 
 
 class QBittorrentTorrentStats(BaseModel):
