@@ -34,6 +34,13 @@ class UseCase_ExportFinishedSeries:
                 continue
 
             await self.series_service.manual_import(import_files)
+
+            # TODO: add a check of the import result. Sometime it happens
+            # that there are an issues occured during the import and in that
+            # cases we shouldn't update the `last_exported_torrent_guid`
+            # Also we should keep track of the failed imports not to try
+            # to import a buggy release infinitely
+
             release.last_exported_torrent_guid = release.qbittorrent_guid
 
             async with self.db_manager.begin_session() as db_session:
