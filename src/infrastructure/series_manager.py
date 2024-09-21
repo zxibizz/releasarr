@@ -3,8 +3,10 @@ import os
 import httpx
 
 from src.application.interfaces.series_service import (
+    Episode,
     I_SeriesService,
     MissingSeries,
+    Season,
     Series,
     SeriesImportFile,
 )
@@ -52,6 +54,72 @@ class SeriesService(I_SeriesService):
                 )
         return result_data.values()
 
-    async def get_series(self, series_id) -> Series: ...
+    async def get_series(self, series_id) -> Series:
+        res = await self.client.get(
+            f"series/{series_id}",
+            params={"includeSeasonImages": "false"},
+        )
+        series_data = res.json()
+        seasons: list[Series] = []
+        for season_data in series_data["seasons"]:
+            episodes_data = (
+                await self.client.get(
+                    "episode",
+                    params={
+                        "seriesId": series_id,
+                        "seasonNumber": season_data["seasonNumber"],
+                    },
+                )
+            ).json()
+            seasons.append(
+                Season(
+                    season_number=season_data["seasonNumber"],
+                    episode_file_count=season_data["statistics"]["episodeFileCount"],
+                    episode_count=season_data["statistics"]["episodeCount"],
+                    episodes=[
+                        Episode(
+                            id=episode_data["id"],
+                            episode_number=episode_data["episodeNumber"],
+                        )
+                        for episode_data in episodes_data
+                    ],
+                    total_episodes_count=season_data["statistics"]["totalEpisodeCount"],
+                    previous_airing=season_data["statistics"].get("previousAiring"),
+                )
+            )
+        return Series(
+            id=series_data["id"],
+            path=series_data["path"],
+            tvdb_id=series_data["tvdbId"],
+            seasons=seasons,
+        )
 
-    async def manual_import(self, import_files: list[SeriesImportFile]) -> None: ...
+    async def manual_import(self, import_files: list[SeriesImportFile]) -> None:
+        res = await self.client.post(
+            "/command",
+            json={
+                "importMode": "copy",
+                "name": "ManualImport",
+                "files": [
+                    {
+                        "episodeIds": file.episode_ids,
+                        "indexerFlags": file.indexer_flags,
+                        "languages": [{"id": 11, "name": "Russian"}],
+                        "path": file.path,
+                        "quality": {
+                            "quality": {
+                                "id": 9,
+                                "name": "HDTV-1080p",
+                                "source": "television",
+                                "resolution": 1080,
+                            },
+                            "revision": {"version": 1, "real": 0, "isRepack": False},
+                        },
+                        "releaseType": file.release_type,
+                        "seriesId": file.series_id,
+                    }
+                    for file in import_files
+                ],
+            },
+        )
+        res.raise_for_status()

@@ -31,3 +31,16 @@ class ReleasesRepository(I_ReleasesRepository):
         return await db_session.scalars(
             select(Release).where(Release.qbittorrent_guid.in_(torrent_hashes))
         )
+
+    async def get_finished_not_uploaded(
+        self, db_session: AsyncSession
+    ) -> list[Release]:
+        res = await db_session.scalars(
+            select(Release)
+            .where(
+                Release.torrent_is_finished.is_(True),
+                Release.qbittorrent_guid.is_not(Release.last_exported_torrent_guid),
+            )
+            .options(joinedload(Release.file_matchings), joinedload(Release.show))
+        )
+        return res.unique()
