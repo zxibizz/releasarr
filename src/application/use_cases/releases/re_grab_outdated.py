@@ -39,6 +39,10 @@ class UseCase_ReGrabOutdatedReleases:
             current_release_data = self._find_release_data(
                 release=release, releases_data=found_releases_data
             )
+            if current_release_data is None:
+                print("Achtung! Couldn't find the release!")
+                continue
+
             new_torrent_meta, raw_torrent = await self.release_searcher.get_torrent(
                 current_release_data.download_url
             )
