@@ -12,6 +12,9 @@ from src.application.interfaces.series_service import (
 )
 
 
+class SeriesManualImportError(Exception): ...
+
+
 class SeriesService(I_SeriesService):
     def __init__(self) -> None:
         self.base_url = os.environ.get("SONARR_BASE_URL")
@@ -95,6 +98,47 @@ class SeriesService(I_SeriesService):
         )
 
     async def manual_import(self, import_files: list[SeriesImportFile]) -> None:
+        try:
+            await self._run_manual_import_check(import_files)
+            await self._run_manual_import_command(import_files)
+        except:
+            raise SeriesManualImportError
+
+    async def _run_manual_import_check(
+        self, import_files: list[SeriesImportFile]
+    ) -> None:
+        # `POST manualImport` will return 500 in cases when the import file
+        # does not exist. This is usefull because this really may take place when
+        # qBittoorent didn't gather the downloaded file into the target path yet
+
+        res = await self.client.post(
+            "/manualImport",
+            json=[
+                {
+                    "episodeIds": file.episode_ids,
+                    "indexerFlags": file.indexer_flags,
+                    "languages": [{"id": 11, "name": "Russian"}],
+                    "path": file.path,
+                    "quality": {
+                        "quality": {
+                            "id": 9,
+                            "name": "HDTV-1080p",
+                            "source": "television",
+                            "resolution": 1080,
+                        },
+                        "revision": {"version": 1, "real": 0, "isRepack": False},
+                    },
+                    "releaseType": file.release_type,
+                    "seriesId": file.series_id,
+                }
+                for file in import_files
+            ],
+        )
+        res.raise_for_status()
+
+    async def _run_manual_import_command(
+        self, import_files: list[SeriesImportFile]
+    ) -> None:
         res = await self.client.post(
             "/command",
             json={

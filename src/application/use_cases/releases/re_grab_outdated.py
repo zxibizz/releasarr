@@ -69,6 +69,7 @@ class UseCase_ReGrabOutdatedReleases:
                 release.updated_at = datetime.now()
                 release.qbittorrent_guid = new_torrent_meta.info_hash
                 release.qbittorrent_data = json.dumps(new_torrent_data)
+                release.export_failures_count = 0
 
                 await self.releases_repository.update(
                     db_session=db_session, release=release
