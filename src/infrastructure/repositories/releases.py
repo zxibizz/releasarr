@@ -39,7 +39,7 @@ class ReleasesRepository(I_ReleasesRepository):
             select(Release)
             .where(
                 Release.torrent_is_finished.is_(True),
-                # Release.qbittorrent_guid.is_not(Release.last_exported_torrent_guid),
+                Release.qbittorrent_guid.is_not(Release.last_exported_torrent_guid),
                 Release.export_failures_count < 5,
             )
             .options(joinedload(Release.file_matchings), joinedload(Release.show))
