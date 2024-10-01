@@ -66,6 +66,25 @@ class QBittorrentTorrentStats(BaseModel):
         json_encoders = {datetime: lambda v: int(v.timestamp())}
 
 
+def _authenticate(func):
+    login_happened = False
+
+    async def _wrapper(self: "QBittorrentApiClient", *args, **kwargs):
+        nonlocal login_happened
+        if not login_happened:
+            await self.log_in()
+            login_happened = True
+
+        try:
+            return await func(self, *args, **kwargs)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                await self.log_in()
+                return await func(self, *args, **kwargs)
+
+    return _wrapper
+
+
 class QBittorrentApiClient:
     def __init__(self) -> None:
         self.base_url = os.environ.get("QBITTORRENT_BASE_URL")
@@ -73,8 +92,6 @@ class QBittorrentApiClient:
         self._login_happened = False
 
     async def log_in(self):
-        if self._login_happened:
-            return
         res = await self.client.post(
             "/auth/login",
             data={
@@ -83,12 +100,9 @@ class QBittorrentApiClient:
             },
         )
         res.raise_for_status()
-        self._login_happened = True
 
+    @_authenticate
     async def add_torrent(self, torrent: bytes):
-        if not self._login_happened:
-            await self.log_in()
-
         files = {
             "fileselect[]": (
                 "torrent.torrent",
@@ -113,17 +127,14 @@ class QBittorrentApiClient:
         )
         res.raise_for_status()
 
+    @_authenticate
     async def torrent_properties(self, hash):
-        if not self._login_happened:
-            await self.log_in()
-
         res = await self.client.get("/torrents/properties", params={"hash": hash})
+        res.raise_for_status()
         return res.json()
 
+    @_authenticate
     async def get_stats(self):
-        if not self._login_happened:
-            await self.log_in()
-
         res = await self.client.get("/sync/maindata")
         res.raise_for_status()
         return QBittorrentStats.model_validate_json(res.content)
