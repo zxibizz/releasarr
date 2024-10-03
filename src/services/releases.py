@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from sqlalchemy import insert, select, update
@@ -98,11 +99,16 @@ class ReleasesService:
             new_files = []
             prev_season = None
             prev_episode = None
+            prev_dir = None
             for file in meta.files:
                 if file.name in existing_files:
                     prev_season = existing_files[file.name].season_number
                     prev_episode = existing_files[file.name].episode_number
                 else:
+                    if prev_dir is not None and prev_dir != os.path.dirname(file.name):
+                        prev_season = None
+                        prev_episode = None
+
                     if prev_episode is not None:
                         prev_episode += 1
 
@@ -115,6 +121,8 @@ class ReleasesService:
                             ReleaseFileMatching.episode_number: prev_episode,
                         }
                     )
+
+                prev_dir = os.path.dirname(file.name)
 
             await session.execute(insert(ReleaseFileMatching).values(new_files))
 
