@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -104,10 +105,16 @@ async def update_file_matching(
     i = 1
     prev_season_number = None
     prev_episode_number = None
+    prev_dir = None
 
     while f"file_name_{i}" in form_data:
         season_number = form_data[f"season_number_{i}"]
         episode_number = form_data[f"episode_number_{i}"]
+        dir = os.path.dirname(form_data[f"file_name_{i}"])
+
+        if prev_dir != dir:
+            prev_season_number = None
+            prev_episode_number = None
 
         if (
             not season_number
@@ -127,6 +134,7 @@ async def update_file_matching(
         )
         prev_season_number = season_number
         prev_episode_number = episode_number
+        prev_dir = dir
         i += 1
     releases = ReleasesService()
     await releases.update_file_matching(release_name, updated_file_matching)
