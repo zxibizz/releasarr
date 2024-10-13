@@ -142,6 +142,22 @@ async def update_file_matching(
     return RedirectResponse(url=f"/show/{show_id}", status_code=303)
 
 
+@app.get("/sync")
+async def sync():
+    shows = ShowService()
+    releases = ReleasesService()
+
+    await shows.sync_missing()
+
+    finished_shows = await releases.get_shows_having_finished_releases()
+    for show_id in finished_shows:
+        await shows.sync_show_release_files(show_id)
+
+    missing_releases = await shows.get_outdated_releases()
+    for missing_release in missing_releases:
+        await releases.re_grab(missing_release.name)
+
+
 if __name__ == "__main__":
     import uvicorn
 
