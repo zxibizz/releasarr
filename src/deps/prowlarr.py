@@ -70,7 +70,7 @@ class ProwlarrApiClient:
         return result
 
     async def get_torrent(self, download_url) -> tuple[ProwlarrTorrentMeta, bytes]:
-        res = await self.client.get(download_url)
+        res = await self.client.get(download_url, timeout=30)
         t = Torrent.from_string(res.content)
         return ProwlarrTorrentMeta(
             name=t.name,
