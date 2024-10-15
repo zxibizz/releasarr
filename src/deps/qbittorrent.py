@@ -71,8 +71,11 @@ class QBittorrentApiClient:
     def __init__(self) -> None:
         self.base_url = os.environ.get("QBITTORRENT_BASE_URL")
         self.client = httpx.AsyncClient(base_url=self.base_url)
+        self._login_happened = False
 
     async def log_in(self):
+        if self._login_happened:
+            return
         res = await self.client.post(
             "/auth/login",
             data={
@@ -81,6 +84,7 @@ class QBittorrentApiClient:
             },
         )
         res.raise_for_status()
+        self._login_happened = True
 
     async def add_torrent(self, torrent: bytes):
         files = {
