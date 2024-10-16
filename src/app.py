@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -12,45 +13,50 @@ from src.services.shows import ShowService
 
 load_dotenv()
 
+logging.getLogger().setLevel(logging.INFO)
+
+
+RUN_SYNC = False
+
 
 templates = Jinja2Templates(directory="templates")
 
 
-async def sync_missing_task():
-    shows = ShowService()
+async def trigger_sync_task():
+    global RUN_SYNC
     while True:
+        RUN_SYNC = True
+        await asyncio.sleep(60 * 60)
+
+
+async def sync_task():
+    global RUN_SYNC
+    while True:
+        if not RUN_SYNC:
+            await asyncio.sleep(5)
+            continue
+        RUN_SYNC = False
+
+        logging.info("Running full sync")
+
+        shows = ShowService()
+        releases = ReleasesService()
+
         await shows.sync_missing()
-        await asyncio.sleep(60 * 5)
 
-
-async def sync_finished_task():
-    shows = ShowService()
-    releases = ReleasesService()
-
-    while True:
         finished_shows = await releases.get_shows_having_finished_releases()
         for show_id in finished_shows:
             await shows.sync_show_release_files(show_id)
-        await asyncio.sleep(60 * 60)
 
-
-async def update_releases_task():
-    shows = ShowService()
-    releases = ReleasesService()
-
-    while True:
         missing_releases = await shows.get_outdated_releases()
         for missing_release in missing_releases:
             await releases.re_grab(missing_release.name)
-        await asyncio.sleep(60 * 60)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(sync_missing_task())
-    asyncio.create_task(sync_finished_task())
-    await asyncio.sleep(5)
-    asyncio.create_task(update_releases_task())
+    asyncio.create_task(trigger_sync_task())
+    asyncio.create_task(sync_task())
     yield
 
 
@@ -145,18 +151,8 @@ async def update_file_matching(
 @app.get("/sync")
 @app.post("/sync")
 async def sync():
-    shows = ShowService()
-    releases = ReleasesService()
-
-    await shows.sync_missing()
-
-    finished_shows = await releases.get_shows_having_finished_releases()
-    for show_id in finished_shows:
-        await shows.sync_show_release_files(show_id)
-
-    missing_releases = await shows.get_outdated_releases()
-    for missing_release in missing_releases:
-        await releases.re_grab(missing_release.name)
+    global RUN_SYNC
+    RUN_SYNC = True
 
 
 if __name__ == "__main__":
