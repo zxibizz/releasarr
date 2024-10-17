@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 
@@ -110,7 +111,15 @@ class ShowService:
                             )
                         )
                 if import_files:
-                    await self.sonarr_api_client.manual_import(import_files)
+                    import_files_hash = hashlib.sha256(
+                        str(import_files).encode()
+                    ).hexdigest()
+                    if release.last_imported_files_hash != import_files_hash:
+                        release.last_imported_files_hash = import_files_hash
+                        session.add(release)
+                        await self.sonarr_api_client.manual_import(import_files)
+
+            await session.commit()
 
     async def get_outdated_releases(self) -> list[Release]:
         missing_shows = await self.get_missing()
