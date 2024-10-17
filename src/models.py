@@ -45,10 +45,11 @@ class Release(SQLModel, table=True):
     name: str = Field(primary_key=True)
     updated_at: datetime
     search: str
-    prowlarr_guid: str = ""
+    prowlarr_guid: str = Field(default="", nullable=True)
     show_id: int = Field(default=None, foreign_key="show.id")
     qbittorrent_guid: str
     qbittorrent_data: str
+    last_imported_files_hash: str = Field(default=None, nullable=True)
 
     show: Show = Relationship(back_populates="releases")
     file_matchings: list["ReleaseFileMatching"] = Relationship(back_populates="release")
