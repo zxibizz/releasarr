@@ -9,16 +9,21 @@ from src.db import async_session
 from src.deps.prowlarr import ProwlarrApiClient
 from src.deps.qbittorrent import QBittorrentApiClient
 from src.models import Release, ReleaseFileMatching
+from src.services.shows import ShowService
 
 
 class ReleasesService:
     def __init__(self):
+        self.show_service = ShowService()
         self.qbittorrent_client = QBittorrentApiClient()
         self.prowlarr_client = ProwlarrApiClient()
 
     async def grab(
         self, show_id: int, search: str, prowlarr_guid: str, download_url: str
     ):
+        show = await self.show_service.get_show(show_id)
+        release = [pd for pd in show.prowlarr_data if pd.guid == prowlarr_guid][0]
+
         await self.qbittorrent_client.log_in()
         meta, torrent = await self.prowlarr_client.get_torrent(download_url)
         await self.qbittorrent_client.add_torrent(torrent)
@@ -32,6 +37,7 @@ class ReleasesService:
                         Release.updated_at: datetime.now(),
                         Release.search: search,
                         Release.prowlarr_guid: prowlarr_guid,
+                        Release.prowlarr_data_raw: release.model_dump_json(),
                         Release.show_id: show_id,
                         Release.qbittorrent_guid: meta.info_hash,
                         Release.qbittorrent_data: json.dumps(torrent_data),
@@ -63,7 +69,7 @@ class ReleasesService:
             current_prowlarr_release = None
 
             for prowlarr_release in prowlarr_releases:
-                if prowlarr_release.guid == release.prowlarr_guid:
+                if prowlarr_release.pk == release.prowlarr_data.pk:
                     current_prowlarr_release = prowlarr_release
                     break
 
