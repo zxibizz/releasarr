@@ -19,6 +19,17 @@ class ProwlarrRelease(BaseModel):
     leechers: int
     download_url: str
 
+    @property
+    def pk(self):
+        if self.indexer != "AniLibria":
+            return self.info_url
+
+        if "x264" in self.title:
+            return f"{self.info_url}:x264"
+        if "x265" in self.title:
+            return f"{self.info_url}:x265"
+        raise ValueError
+
 
 class ProwlarrTorrentMeta(BaseModel):
     name: str
