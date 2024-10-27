@@ -163,8 +163,9 @@ class ReleasesService:
         async with async_session() as session, session.begin():
             return list(
                 await session.scalars(
-                    select(Release.show_id).where(
-                        Release.qbittorrent_guid.in_(finished_torrents)
-                    )
+                    select(Release.show_id)
+                    .where(Release.qbittorrent_guid.in_(finished_torrents))
+                    .order_by(Release.show_id, Release.name)
+                    .distinct()
                 )
             )
