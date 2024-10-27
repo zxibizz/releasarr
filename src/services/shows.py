@@ -93,8 +93,8 @@ class ShowService:
             show = await self.get_show(show_id)
             for release in show.releases:
                 import_files = []
+                torrent_data = json.loads(release.qbittorrent_data)
                 for file_matching in release.file_matchings:
-                    torrent_data = json.loads(release.qbittorrent_data)
                     episode_id = None
                     for season in show.sonarr_data.seasons:
                         if season.season_number != file_matching.season_number:
@@ -119,9 +119,9 @@ class ShowService:
                         str(import_files).encode()
                     ).hexdigest()
                     if release.last_imported_files_hash != import_files_hash:
+                        await self.sonarr_api_client.manual_import(import_files)
                         release.last_imported_files_hash = import_files_hash
                         session.add(release)
-                        await self.sonarr_api_client.manual_import(import_files)
 
             await session.commit()
 
