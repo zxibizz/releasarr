@@ -5,11 +5,15 @@ import os
 from sqlalchemy import select, update
 from sqlalchemy.orm import joinedload
 
+from src.application.models import Release, Show
 from src.db import async_session
-from src.deps.prowlarr import ProwlarrApiClient
-from src.deps.sonarr import SonarrApiClient, SonarrImportFile, SonarrSeries
-from src.deps.tvdb import TVDBApiClient, TvdbShowData
-from src.models import Release, Show
+from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
+from src.infrastructure.api_clients.sonarr import (
+    SonarrApiClient,
+    SonarrImportFile,
+    SonarrSeries,
+)
+from src.infrastructure.api_clients.tvdb import TVDBApiClient, TvdbShowData
 
 
 class ShowService:
