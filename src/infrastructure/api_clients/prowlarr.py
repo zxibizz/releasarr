@@ -1,50 +1,13 @@
 import os
-from datetime import datetime
 
 import httpx
-from pydantic import BaseModel
 from torrentool.api import Torrent
 
-
-class ProwlarrRelease(BaseModel):
-    guid: str
-    age: int
-    grabs: int
-    info_url: str
-    size: int
-    title: str
-    indexer: str
-    indexer_id: int
-    seeders: int
-    leechers: int
-    download_url: str
-
-    @property
-    def pk(self):
-        if self.indexer != "AniLibria":
-            return self.info_url
-
-        if "x264" in self.title:
-            return f"{self.info_url}:x264"
-        if "x265" in self.title:
-            return f"{self.info_url}:x265"
-        raise ValueError
+from src.application.interfaces.release_searcher import I_ReleaseSearcher
+from src.application.schemas import ReleaseData, TorrentFile, TorrentMeta
 
 
-class ProwlarrTorrentMeta(BaseModel):
-    name: str
-    info_hash: str
-    total_size: int
-    creation_date: datetime
-    files: list["ProwlarrTorrentFile"]
-
-
-class ProwlarrTorrentFile(BaseModel):
-    name: str
-    length: int
-
-
-class ProwlarrApiClient:
+class ProwlarrApiClient(I_ReleaseSearcher):
     def __init__(self) -> None:
         self.base_url = os.environ.get("PROWLARR_BASE_URL")
         self.client = httpx.AsyncClient(
@@ -52,18 +15,18 @@ class ProwlarrApiClient:
             headers={"X-Api-Key": os.environ.get("PROWLARR_API_TOKEN")},
         )
 
-    async def search(self, query: str) -> list[ProwlarrRelease]:
+    async def search(self, search_string: str) -> list[ReleaseData]:
         res = await self.client.get(
-            "/search", params={"query": query, "type": "search"}, timeout=60
+            "/search", params={"query": search_string, "type": "search"}, timeout=60
         )
         releases_data = res.json()
-        result = []
+        result: list[ReleaseData] = []
 
         for release_data in releases_data:
             if "downloadUrl" not in release_data:
                 continue
             result.append(
-                ProwlarrRelease(
+                ReleaseData(
                     guid=release_data["guid"],
                     age=release_data["age"],
                     grabs=release_data.get("grabs", 0),
@@ -80,25 +43,13 @@ class ProwlarrApiClient:
         result = sorted(result, key=lambda release: release.age)
         return result
 
-    async def get_torrent(self, download_url) -> tuple[ProwlarrTorrentMeta, bytes]:
+    async def get_torrent(self, download_url) -> tuple[TorrentMeta, bytes]:
         res = await self.client.get(download_url, timeout=30)
         t = Torrent.from_string(res.content)
-        return ProwlarrTorrentMeta(
+        return TorrentMeta(
             name=t.name,
             info_hash=t.info_hash,
             total_size=t.total_size,
             creation_date=t.creation_date,
-            files=[ProwlarrTorrentFile(name=f.name, length=f.length) for f in t.files],
+            files=[TorrentFile(name=f.name, length=f.length) for f in t.files],
         ), res.content
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    client = ProwlarrApiClient()
-    asyncio.run(client.search("Медуза не умеет"))
-    # asyncio.run(
-    #     client.get_torrent(
-    #         "https://prowlarr.koreetz.synology.me/1/download?apikey=53c61e4ae06c4a3aaf7e20dfd2954331&link=cUNPRkhMSnpFTlFPOU11VmNDaTl3VW01dC94UFV0aVE3d3FxTHBmSzlndjRncU9RVmxnaFVvRllnb3I3Z3d2MWZSTllBdUdwdXBINHQ1WDdxU3ZyQnlPMHlNVlJIc0pBMWF6M09aWWVCNzA9&file=%D0%9C%D0%B5%D0%B4%D1%83%D0%B7%D0%B0+%D0%BD%D0%B5+%D1%83%D0%BC%D0%B5%D0%B5%D1%82+%D0%BF%D0%BB%D0%B0%D0%B2%D0%B0%D1%82%D1%8C+%D0%B2+%D0%BD%D0%BE%D1%87%D0%B8+%2F+Yoru+no+Kurage+wa+Oyogenai+S1E1-10+%5BWEBRip+1080p+x265%5D"
-    #     )
-    # )
