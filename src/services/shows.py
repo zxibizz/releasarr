@@ -42,22 +42,6 @@ class ShowService:
                 )
             )
 
-    async def search_show_releases(self, show_id: int, search: str):
-        async with async_session() as session, session.begin():
-            releases = await self.prowlarr_api_client.search(search)
-            await session.execute(
-                update(Show)
-                .values(
-                    {
-                        Show.prowlarr_search: search,
-                        Show.prowlarr_data_raw: json.dumps(
-                            [release.model_dump_json() for release in releases]
-                        ),
-                    }
-                )
-                .where(Show.id == show_id)
-            )
-
     async def sync_missing(self):
         missing_series = await self.sonarr_api_client.get_missing()
         async with async_session() as session, session.begin():
