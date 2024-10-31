@@ -25,8 +25,8 @@ class ReleasesService:
         release = [pd for pd in show.prowlarr_data if pd.guid == prowlarr_guid][0]
 
         await self.qbittorrent_client.log_in()
-        meta, torrent = await self.prowlarr_client.get_torrent(download_url)
-        await self.qbittorrent_client.add_torrent(torrent)
+        meta, raw_torrent = await self.prowlarr_client.get_torrent(download_url)
+        await self.qbittorrent_client.add_torrent(raw_torrent)
         torrent_data = await self.qbittorrent_client.torrent_properties(meta.info_hash)
 
         async with async_session() as session, session.begin():
@@ -36,10 +36,9 @@ class ReleasesService:
                         Release.name: torrent_data["name"],
                         Release.updated_at: datetime.now(),
                         Release.search: search,
-                        Release.prowlarr_guid: prowlarr_guid,
-                        Release.prowlarr_data_raw: release.model_dump_json(),
+                        Release.prowlarr_data_raw: release.model_dump_json(),  # TODO: rename -> data
                         Release.show_id: show_id,
-                        Release.qbittorrent_guid: meta.info_hash,
+                        Release.qbittorrent_guid: meta.info_hash,  # -> torrent_info_hash
                         Release.qbittorrent_data: json.dumps(torrent_data),
                     }
                 )
