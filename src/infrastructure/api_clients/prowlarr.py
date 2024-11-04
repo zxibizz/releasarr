@@ -61,7 +61,7 @@ class ProwlarrApiClient(I_ReleaseSearcher):
         return result
 
     async def get_torrent(self, download_url) -> tuple[TorrentMeta, bytes]:
-        res = await self.client.get(download_url, timeout=30)
+        res = await self.client.get(download_url, timeout=60)
         t = Torrent.from_string(res.content)
         return TorrentMeta(
             name=t.name,
