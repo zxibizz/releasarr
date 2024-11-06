@@ -3,7 +3,7 @@ from src.application.interfaces.release_searcher import I_ReleaseSearcher
 from src.application.interfaces.shows_repository import I_ShowsRepository
 
 
-class UseCase__SearchReleases:
+class UseCase_SearchReleases:
     def __init__(
         self,
         db_manager: I_DBManager,

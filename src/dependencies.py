@@ -6,7 +6,7 @@ from src.application.interfaces.releases_repository import I_ReleasesRepository
 from src.application.interfaces.shows_repository import I_ShowsRepository
 from src.application.interfaces.torrent_client import I_TorrentClient
 from src.application.use_cases.releases.grab import UseCase_GrabRelease
-from src.application.use_cases.releases.search import UseCase__SearchReleases
+from src.application.use_cases.releases.search import UseCase_SearchReleases
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.infrastructure.db_manager import DBManager
@@ -18,7 +18,7 @@ from src.infrastructure.repositories.shows import ShowsRepository
 class Dependencies:
     @dataclass
     class UseCases:
-        search_release: UseCase__SearchReleases
+        search_release: UseCase_SearchReleases
         grab_release: UseCase_GrabRelease
 
     @dataclass
@@ -50,7 +50,7 @@ def init_dependencies() -> Dependencies:
     )
 
     use_cases = Dependencies.UseCases(
-        search_release=UseCase__SearchReleases(
+        search_release=UseCase_SearchReleases(
             db_manager=db_manager,
             release_searcher=services.release_searcher,
             shows_repository=repositories.shows,
