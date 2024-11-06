@@ -1,7 +1,10 @@
 import os
+import tempfile
+import time
 from typing import Optional
 
 import httpx
+import libtorrent as lt
 from torrentool.api import Torrent
 
 from src.application.interfaces.release_searcher import (
@@ -70,3 +73,36 @@ class ProwlarrApiClient(I_ReleaseSearcher):
             creation_date=t.creation_date,
             files=[TorrentFile(name=f.name, length=f.length) for f in t.files],
         ), res.content
+
+
+def _get_torrent_from_magnet(magnet_link, timeout=10) -> bytes:
+    """
+    Creating a torrent file from a magnet link. Doesn't work with prowlarr though =(
+    """
+
+    process_time = time.time() + timeout
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        ses = lt.session()
+        params = {
+            "save_path": tempdir,
+            "storage_mode": lt.storage_mode_t(2),
+            "file_priorities": [0] * 5,
+        }
+
+        handle = lt.add_magnet_uri(ses, magnet_link, params)
+
+        while not handle.has_metadata():
+            if time.time() > process_time:
+                raise TimeoutError
+
+            time.sleep(1)
+
+        info = handle.get_torrent_info()
+
+        torrent_file = lt.create_torrent(info)
+        res = lt.bencode(torrent_file.generate())
+
+        ses.remove_torrent(handle)
+
+        return res
