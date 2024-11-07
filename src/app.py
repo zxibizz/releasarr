@@ -39,24 +39,27 @@ async def sync_task():
         if not RUN_SYNC:
             await asyncio.sleep(5)
             continue
-        RUN_SYNC = False
 
         logging.info("Running full sync")
 
-        shows = ShowService()
-        releases = ReleasesService()
+        try:
+            shows = ShowService()
+            releases = ReleasesService()
 
-        await shows.sync_missing()
+            await shows.sync_missing()
 
-        finished_shows = await releases.get_shows_having_finished_releases()
-        for show_id in finished_shows:
-            await shows.sync_show_release_files(show_id)
+            finished_shows = await releases.get_shows_having_finished_releases()
+            for show_id in finished_shows:
+                await shows.sync_show_release_files(show_id)
 
-        missing_releases = await shows.get_outdated_releases()
-        for missing_release in missing_releases:
-            await releases.re_grab(missing_release.name)
+            missing_releases = await shows.get_outdated_releases()
+            for missing_release in missing_releases:
+                await releases.re_grab(missing_release.name)
 
-        logging.info("Full sync finished")
+            RUN_SYNC = False
+            logging.info("Full sync finished")
+        except Exception:
+            logging.exception("Failed full sync")
 
 
 @asynccontextmanager
