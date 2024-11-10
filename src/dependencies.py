@@ -7,6 +7,12 @@ from src.application.interfaces.shows_repository import I_ShowsRepository
 from src.application.interfaces.torrent_client import I_TorrentClient
 from src.application.use_cases.releases.grab import UseCase_GrabRelease
 from src.application.use_cases.releases.search import UseCase_SearchReleases
+from src.application.use_cases.releases.update_files_matching import (
+    UseCase_UpdateReleaseFileMatching,
+)
+from src.application.utility.release_files_matchings_autocompleter import (
+    ReleaseFileMatchingsAutocompleter,
+)
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.infrastructure.db_manager import DBManager
@@ -20,6 +26,7 @@ class Dependencies:
     class UseCases:
         search_release: UseCase_SearchReleases
         grab_release: UseCase_GrabRelease
+        update_release_file_matchings: UseCase_UpdateReleaseFileMatching
 
     @dataclass
     class Repositories:
@@ -30,6 +37,7 @@ class Dependencies:
     class Services:
         release_searcher: I_ReleaseSearcher
         torrent_client: I_TorrentClient
+        release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter
 
     db_manager: I_DBManager
     use_cases: UseCases
@@ -47,6 +55,7 @@ def init_dependencies() -> Dependencies:
     services = Dependencies.Services(
         release_searcher=ProwlarrApiClient(),
         torrent_client=QBittorrentApiClient(),
+        release_files_matching_autocompleter=ReleaseFileMatchingsAutocompleter(),
     )
 
     use_cases = Dependencies.UseCases(
@@ -61,6 +70,11 @@ def init_dependencies() -> Dependencies:
             shows_repository=repositories.shows,
             torrent_client=services.torrent_client,
             releases_repository=repositories.releases,
+        ),
+        update_release_file_matchings=UseCase_UpdateReleaseFileMatching(
+            db_manager=db_manager,
+            releases_repository=repositories.releases,
+            release_files_matching_autocompleter=services.release_files_matching_autocompleter,
         ),
     )
 

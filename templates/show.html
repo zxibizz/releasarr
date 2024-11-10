@@ -64,7 +64,10 @@
                             </thead>
                             <tbody>
                                 {% for file_matching in release.file_matchings %}
-                                <tr class="border-b border-gray-700">
+                                <tr class="border-b border-gray-700"></tr>
+                                    <td class="hidden">
+                                        <input type="number" name="id_{{ loop.index }}" value="{{ file_matching.id }}" class="hidden" readonly>
+                                    </td>
                                     <td class="p-3 w-4/5">
                                         <input type="text" name="file_name_{{ loop.index }}" value="{{ file_matching.file_name }}" class="bg-gray-700 text-white p-2 rounded-lg w-full" readonly>
                                     </td>
