@@ -93,25 +93,6 @@ class ReleasesService:
 
             await session.execute(insert(ReleaseFileMatching).values(new_files))
 
-    async def update_file_matching(
-        self, release_name: str, new_file_matching: list[dict]
-    ):
-        async with async_session() as session, session.begin():
-            for m in new_file_matching:
-                await session.execute(
-                    update(ReleaseFileMatching)
-                    .values(
-                        {
-                            ReleaseFileMatching.season_number: m["season_number"],
-                            ReleaseFileMatching.episode_number: m["episode_number"],
-                        }
-                    )
-                    .where(
-                        ReleaseFileMatching.release_name == release_name,
-                        ReleaseFileMatching.file_name == m["file_name"],
-                    )
-                )
-
     async def get_shows_having_finished_releases(self):
         await self.qbittorrent_client.log_in()
         stats = await self.qbittorrent_client.get_stats()
