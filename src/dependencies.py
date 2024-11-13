@@ -3,21 +3,28 @@ from dataclasses import dataclass
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.release_searcher import I_ReleaseSearcher
 from src.application.interfaces.releases_repository import I_ReleasesRepository
+from src.application.interfaces.series_service import I_SeriesService
 from src.application.interfaces.shows_repository import I_ShowsRepository
 from src.application.interfaces.torrent_client import I_TorrentClient
+from src.application.interfaces.tvdb_client import I_TvdbClient
 from src.application.use_cases.releases.grab import UseCase_GrabRelease
 from src.application.use_cases.releases.search import UseCase_SearchReleases
 from src.application.use_cases.releases.update_files_matching import (
     UseCase_UpdateReleaseFileMatching,
+)
+from src.application.use_cases.shows.sync_missing_series import (
+    UseCase_SyncMissingSeries,
 )
 from src.application.utility.release_files_matchings_autocompleter import (
     ReleaseFileMatchingsAutocompleter,
 )
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
+from src.infrastructure.api_clients.tvdb import TVDBApiClient
 from src.infrastructure.db_manager import DBManager
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
+from src.infrastructure.series_manager import SeriesService
 
 
 @dataclass
@@ -27,6 +34,7 @@ class Dependencies:
         search_release: UseCase_SearchReleases
         grab_release: UseCase_GrabRelease
         update_release_file_matchings: UseCase_UpdateReleaseFileMatching
+        sync_missing_series: UseCase_SyncMissingSeries
 
     @dataclass
     class Repositories:
@@ -37,6 +45,8 @@ class Dependencies:
     class Services:
         release_searcher: I_ReleaseSearcher
         torrent_client: I_TorrentClient
+        tvdb_client: I_TvdbClient
+        series_service: I_SeriesService
         release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter
 
     db_manager: I_DBManager
@@ -55,6 +65,8 @@ def init_dependencies() -> Dependencies:
     services = Dependencies.Services(
         release_searcher=ProwlarrApiClient(),
         torrent_client=QBittorrentApiClient(),
+        tvdb_client=TVDBApiClient(),
+        series_service=SeriesService(),
         release_files_matching_autocompleter=ReleaseFileMatchingsAutocompleter(),
     )
 
@@ -75,6 +87,12 @@ def init_dependencies() -> Dependencies:
             db_manager=db_manager,
             releases_repository=repositories.releases,
             release_files_matching_autocompleter=services.release_files_matching_autocompleter,
+        ),
+        sync_missing_series=UseCase_SyncMissingSeries(
+            db_manager=db_manager,
+            series_service=services.series_service,
+            shows_repository=repositories.shows,
+            tvdb_client=services.tvdb_client,
         ),
     )
 
