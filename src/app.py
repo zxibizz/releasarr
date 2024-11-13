@@ -48,7 +48,7 @@ async def sync_task():
             shows = ShowService()
             releases = ReleasesService()
 
-            await shows.sync_missing()
+            await dependencies.use_cases.sync_missing_series.process()
 
             finished_shows = await releases.get_shows_having_finished_releases()
             for show_id in finished_shows:

@@ -21,6 +21,9 @@ class ShowsRepository(I_ShowsRepository):
             )
         )
 
+    async def get_series(self, db_session: AsyncSession, series_id: int) -> Show | None:
+        return await db_session.scalar(select(Show).where(Show.sonarr_id == series_id))
+
     async def save_releases_seach_results(
         self,
         db_session: AsyncSession,
@@ -43,3 +46,18 @@ class ShowsRepository(I_ShowsRepository):
             )
             .where(Show.id == show_id)
         )
+
+    async def unflag_all_missing_series(self, db_session: AsyncSession) -> None:
+        await db_session.execute(
+            update(Show)
+            .values(
+                {
+                    Show.is_missing: False,
+                    Show.missing_seasons: None,
+                }
+            )
+            .where(Show.sonarr_id.is_not(None))
+        )
+
+    async def save(self, db_session: AsyncSession, show: Show) -> None:
+        db_session.add(show)
