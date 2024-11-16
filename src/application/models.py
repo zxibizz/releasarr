@@ -50,7 +50,10 @@ class Release(SQLModel, table=True):
     show_id: int = Field(default=None, foreign_key="show.id")
     qbittorrent_guid: str
     qbittorrent_data: str
+    torrent_is_finished: bool = Field(default=False)
+    torrent_stats_raw: str = Field(default=None, nullable=True)
     last_imported_files_hash: str = Field(default=None, nullable=True)
+    last_exported_torrent_guid: str = Field(default=None, nullable=True)
 
     show: Show = Relationship(back_populates="releases")
     file_matchings: list["ReleaseFileMatching"] = Relationship(back_populates="release")
