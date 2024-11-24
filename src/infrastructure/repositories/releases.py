@@ -10,6 +10,9 @@ class ReleasesRepository(I_ReleasesRepository):
     async def create(self, db_session: AsyncSession, release: Release) -> None:
         db_session.add(release)
 
+    async def update(self, db_session: AsyncSession, release: Release) -> None:
+        db_session.add(release)
+
     async def get(self, db_session: AsyncSession, name: str) -> Release | None:
         return await db_session.scalar(
             select(Release)
@@ -21,3 +24,10 @@ class ReleasesRepository(I_ReleasesRepository):
         self, db_session: AsyncSession, file_matchings: list[ReleaseFileMatching]
     ) -> None:
         db_session.add_all(file_matchings)
+
+    async def get_by_torrent_hashes(
+        self, db_session: AsyncSession, torrent_hashes: list[str]
+    ) -> list[Release]:
+        return await db_session.scalars(
+            select(Release).where(Release.qbittorrent_guid.in_(torrent_hashes))
+        )
