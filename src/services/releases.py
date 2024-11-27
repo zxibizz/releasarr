@@ -92,22 +92,3 @@ class ReleasesService:
                 prev_dir = os.path.dirname(file.name)
 
             await session.execute(insert(ReleaseFileMatching).values(new_files))
-
-    async def get_shows_having_finished_releases(self):
-        await self.qbittorrent_client.log_in()
-        stats = await self.qbittorrent_client.get_stats()
-        finished_torrents = [
-            t.infohash_v1
-            for t in stats.torrents.values()
-            if t.seen_complete is not None
-        ]
-
-        async with async_session() as session, session.begin():
-            return list(
-                await session.scalars(
-                    select(Release.show_id)
-                    .where(Release.qbittorrent_guid.in_(finished_torrents))
-                    .order_by(Release.show_id, Release.name)
-                    .distinct()
-                )
-            )

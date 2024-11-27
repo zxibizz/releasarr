@@ -25,18 +25,19 @@ class UseCase_SyncMissingSeries:
     async def process(self):
         missing_seriess = await self.series_service.get_missing()
         async with self.db_manager.begin_session() as db_session:
-            await self.shows_repository.unflag_all_missing_series(db_session)
-            for missing_series in missing_seriess:
-                show = await self.shows_repository.get_series(
-                    db_session=db_session, series_id=missing_series.id
-                )
-                if not show:
-                    show = await self._create_new_show(missing_series)
+            with db_session.no_autoflush:
+                await self.shows_repository.unflag_all_missing_series(db_session)
+                for missing_series in missing_seriess:
+                    show = await self.shows_repository.get_series(
+                        db_session=db_session, series_id=missing_series.id
+                    )
+                    if not show:
+                        show = await self._create_new_show(missing_series)
 
-                show.is_missing = True
-                show.missing_seasons = missing_series.season_numbers
+                    show.is_missing = True
+                    show.missing_seasons = missing_series.season_numbers
 
-                await self.shows_repository.save(db_session=db_session, show=show)
+                    await self.shows_repository.save(db_session=db_session, show=show)
 
     async def _create_new_show(self, missing_series: MissingSeries) -> Show:
         tvdb_data: TvdbShowData = await self.tvdb_client.get_series(
@@ -48,7 +49,7 @@ class UseCase_SyncMissingSeries:
         show = Show(
             sonarr_id=missing_series.id,
             tvdb_data_raw=tvdb_data.model_dump_json(),
-            series_data_raw=series_data.model_dump_json(),
+            sonarr_data_raw=series_data.model_dump_json(),
         )
         show.prowlarr_search = show.tvdb_data.title
         show.prowlarr_data_raw = None

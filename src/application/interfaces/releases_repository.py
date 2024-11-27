@@ -19,3 +19,7 @@ class I_ReleasesRepository(Protocol):
     async def get_by_torrent_hashes(
         self, db_session: AsyncSession, torrent_hashes: list[str]
     ) -> list[Release]: ...
+
+    async def get_finished_not_uploaded(
+        self, db_session: AsyncSession
+    ) -> list[Release]: ...
