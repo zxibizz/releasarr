@@ -14,7 +14,7 @@ from src.infrastructure.api_clients.tvdb import TvdbShowData
 class Show(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     sonarr_id: int | None = Field(unique=True)
-    sonarr_data_raw: str
+    sonarr_data_raw: str | None
     tvdb_data_raw: str
     is_missing: bool = Field(default=False, index=True)
     missing_seasons: list[int] = Field(default=None, sa_type=types.JSON)
