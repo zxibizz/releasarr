@@ -23,3 +23,7 @@ class I_ReleasesRepository(Protocol):
     async def get_finished_not_uploaded(
         self, db_session: AsyncSession
     ) -> list[Release]: ...
+
+    async def get_outdated_releases(
+        self, db_session: AsyncSession
+    ) -> list[Release]: ...
