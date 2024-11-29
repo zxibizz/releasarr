@@ -35,16 +35,3 @@ class ShowService:
                     ),
                 )
             )
-
-    async def get_outdated_releases(self) -> list[Release]:
-        missing_shows = await self.get_missing()
-        res = []
-        for missing_show in missing_shows:
-            show = await self.get_show(missing_show.id)
-            for release in show.releases:
-                for matching in release.file_matchings:
-                    if matching.season_number in show.missing_seasons:
-                        res.append(release)
-                        break
-
-        return res

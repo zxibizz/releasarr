@@ -14,6 +14,9 @@ from src.application.use_cases.releases.grab import UseCase_GrabRelease
 from src.application.use_cases.releases.import_torrent_stats import (
     UseCase_ImportReleasesTorrentStats,
 )
+from src.application.use_cases.releases.re_grab_outdated import (
+    UseCase_ReGrabOutdatedReleases,
+)
 from src.application.use_cases.releases.search import UseCase_SearchReleases
 from src.application.use_cases.releases.update_files_matching import (
     UseCase_UpdateReleaseFileMatching,
@@ -43,6 +46,7 @@ class Dependencies:
         sync_missing_series: UseCase_SyncMissingSeries
         import_releases_torrent_stats: UseCase_ImportReleasesTorrentStats
         export_finished_series: UseCase_ExportFinishedSeries
+        re_grab_outdated_releases: UseCase_ReGrabOutdatedReleases
 
     @dataclass
     class Repositories:
@@ -111,6 +115,13 @@ def init_dependencies() -> Dependencies:
             db_manager=db_manager,
             releases_repository=repositories.releases,
             series_service=services.series_service,
+        ),
+        re_grab_outdated_releases=UseCase_ReGrabOutdatedReleases(
+            db_manager=db_manager,
+            release_searcher=services.release_searcher,
+            torrent_client=services.torrent_client,
+            releases_repository=repositories.releases,
+            release_files_matching_autocompleter=services.release_files_matching_autocompleter,
         ),
     )
 

@@ -14,7 +14,6 @@ from src.application.use_cases.releases.update_files_matching import (
 )
 from src.db import async_session
 from src.dependencies import dependencies
-from src.services.releases import ReleasesService
 from src.services.shows import ShowService
 
 load_dotenv()
@@ -45,16 +44,10 @@ async def sync_task():
         logging.info("Running full sync")
 
         try:
-            shows = ShowService()
-            releases = ReleasesService()
-
             await dependencies.use_cases.sync_missing_series.process()
             await dependencies.use_cases.import_releases_torrent_stats.process()
             await dependencies.use_cases.export_finished_series.process()
-
-            missing_releases = await shows.get_outdated_releases()
-            for missing_release in missing_releases:
-                await releases.re_grab(missing_release.name)
+            await dependencies.use_cases.re_grab_outdated_releases.process()
 
             RUN_SYNC = False
             logging.info("Full sync finished")
