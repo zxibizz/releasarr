@@ -47,6 +47,10 @@ class UseCase_ReGrabOutdatedReleases:
                 current_release_data.download_url
             )
 
+            # TODO: Perform this check without downloading the torrent. Mb we can
+            # save the release data and then compare it instead of the infohash.
+            # Do not try to use the infohash from `current_release_data` as it is
+            # not always provided by prowlarr
             if new_torrent_meta.info_hash == release.qbittorrent_guid:
                 continue
 
