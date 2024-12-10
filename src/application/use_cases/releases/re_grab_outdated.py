@@ -93,11 +93,11 @@ class UseCase_ReGrabOutdatedReleases:
         for file in new_torrent_meta.files:
             if file.name not in existing_file_names:
                 file_matchings.append(
-                    {
-                        ReleaseFileMatching.release_name: new_torrent_meta.name,
-                        ReleaseFileMatching.show_id: release.show_id,
-                        ReleaseFileMatching.file_name: file.name,
-                    }
+                    ReleaseFileMatching(
+                        release_name=new_torrent_meta.name,
+                        show_id=release.show_id,
+                        file_name=file.name,
+                    )
                 )
                 new_files_count += 1
 
