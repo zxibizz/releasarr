@@ -23,7 +23,9 @@ class UseCase_ImportReleasesTorrentStats:
             )
             for release in releases:
                 torrent_stats = stats.torrents[release.qbittorrent_guid]
-                release.torrent_is_finished = torrent_stats.seen_complete is not None
+                release.torrent_is_finished = (
+                    torrent_stats.completion_on.timestamp() > 0
+                ) and torrent_stats.progress >= 1
                 release.torrent_stats_raw = torrent_stats.model_dump_json()
                 await self.releases_repository.update(
                     db_session=db_session, release=release

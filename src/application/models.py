@@ -14,7 +14,7 @@ from src.infrastructure.api_clients.tvdb import TvdbShowData
 class Show(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     sonarr_id: int | None = Field(unique=True)
-    sonarr_data_raw: str | None
+    sonarr_data_raw: str
     tvdb_data_raw: str
     is_missing: bool = Field(default=False, index=True)
     missing_seasons: list[int] = Field(default=None, sa_type=types.JSON)
@@ -54,6 +54,7 @@ class Release(SQLModel, table=True):
     torrent_stats_raw: str = Field(default=None, nullable=True)
     last_imported_files_hash: str = Field(default=None, nullable=True)
     last_exported_torrent_guid: str = Field(default=None, nullable=True)
+    export_failures_count: int = Field(default=0)
 
     show: Show = Relationship(back_populates="releases")
     file_matchings: list["ReleaseFileMatching"] = Relationship(back_populates="release")
