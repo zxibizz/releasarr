@@ -34,6 +34,12 @@ async def trigger_sync_task():
         await asyncio.sleep(60 * 60)
 
 
+async def trigger_sync_task_after(after: int):
+    global RUN_SYNC
+    await asyncio.sleep(after)
+    RUN_SYNC = True
+
+
 async def sync_task():
     global RUN_SYNC
     while True:
@@ -46,7 +52,16 @@ async def sync_task():
         try:
             await dependencies.use_cases.sync_missing_series.process()
             await dependencies.use_cases.import_releases_torrent_stats.process()
-            await dependencies.use_cases.export_finished_series.process()
+            export_finished_series_result = (
+                await dependencies.use_cases.export_finished_series.process()
+            )
+            if export_finished_series_result.failed > 0:
+                print(
+                    f"We have {export_finished_series_result.failed} releases failed to export! "
+                    "Rescheduling the sync..."
+                )
+                asyncio.create_task(trigger_sync_task_after(10))
+
             await dependencies.use_cases.re_grab_outdated_releases.process()
 
             RUN_SYNC = False
