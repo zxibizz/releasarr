@@ -1,9 +1,14 @@
 import os
+from typing import Optional
 
 import httpx
 from torrentool.api import Torrent
 
-from src.application.interfaces.release_searcher import I_ReleaseSearcher
+from src.application.interfaces.release_searcher import (
+    I_ReleaseSearcher,
+    NoIndexerAvailableError,
+    SearchError,
+)
 from src.application.schemas import ReleaseData, TorrentFile, TorrentMeta
 
 
@@ -15,11 +20,23 @@ class ProwlarrApiClient(I_ReleaseSearcher):
             headers={"X-Api-Key": os.environ.get("PROWLARR_API_TOKEN")},
         )
 
-    async def search(self, search_string: str) -> list[ReleaseData]:
-        res = await self.client.get(
-            "/search", params={"query": search_string, "type": "search"}, timeout=60
-        )
+    async def search(
+        self, search_string: str, indexer_ids: Optional[list[int]] = None
+    ) -> list[ReleaseData]:
+        params = [("query", search_string), ("type", "search")]
+
+        for indexer_id in indexer_ids or []:
+            params.append(("indexerIds", indexer_id))
+
+        res = await self.client.get("/search", params=params, timeout=60)
         releases_data = res.json()
+        if res.status_code == 400:
+            if (
+                releases_data["message"]
+                == "Search failed due to all selected indexers being unavailable"
+            ):
+                raise NoIndexerAvailableError
+            raise SearchError
         result: list[ReleaseData] = []
 
         for release_data in releases_data:
