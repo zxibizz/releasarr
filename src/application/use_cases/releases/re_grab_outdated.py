@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import datetime
 
 from src.application.interfaces.db_manager import I_DBManager
@@ -35,48 +36,53 @@ class UseCase_ReGrabOutdatedReleases:
             )
 
         for release in outdated_releases:
-            found_releases_data = await self.release_searcher.search(release.search)
-            current_release_data = self._find_release_data(
-                release=release, releases_data=found_releases_data
-            )
-            if current_release_data is None:
-                print("Achtung! Couldn't find the release!")
-                continue
-
-            new_torrent_meta, raw_torrent = await self.release_searcher.get_torrent(
-                current_release_data.download_url
-            )
-
-            # TODO: Perform this check without downloading the torrent. Mb we can
-            # save the release data and then compare it instead of the infohash.
-            # Do not try to use the infohash from `current_release_data` as it is
-            # not always provided by prowlarr
-            if new_torrent_meta.info_hash == release.qbittorrent_guid:
-                continue
-
-            file_matchings = self._add_new_file_matchings(
-                release=release, new_torrent_meta=new_torrent_meta
-            )
-
-            await self.torrent_client.add_torrent(raw_torrent)
-            await asyncio.sleep(1)
-            new_torrent_data = await self.torrent_client.torrent_properties(
-                new_torrent_meta.info_hash
-            )
-
-            async with self.db_manager.begin_session() as db_session:
-                release.name = new_torrent_data["name"]
-                release.updated_at = datetime.now()
-                release.qbittorrent_guid = new_torrent_meta.info_hash
-                release.qbittorrent_data = json.dumps(new_torrent_data)
-                release.export_failures_count = 0
-
-                await self.releases_repository.update(
-                    db_session=db_session, release=release
+            try:
+                found_releases_data = await self.release_searcher.search(
+                    release.search, [release.prowlarr_data.indexer_id]
                 )
-                await self.releases_repository.update_file_matchings(
-                    db_session=db_session, file_matchings=file_matchings
+                current_release_data = self._find_release_data(
+                    release=release, releases_data=found_releases_data
                 )
+                if current_release_data is None:
+                    print("Achtung! Couldn't find the release!")
+                    continue
+
+                new_torrent_meta, raw_torrent = await self.release_searcher.get_torrent(
+                    current_release_data.download_url
+                )
+
+                # TODO: Perform this check without downloading the torrent. Mb we can
+                # save the release data and then compare it instead of the infohash.
+                # Do not try to use the infohash from `current_release_data` as it is
+                # not always provided by prowlarr
+                if new_torrent_meta.info_hash == release.qbittorrent_guid:
+                    continue
+
+                file_matchings = self._add_new_file_matchings(
+                    release=release, new_torrent_meta=new_torrent_meta
+                )
+
+                await self.torrent_client.add_torrent(raw_torrent)
+                await asyncio.sleep(1)
+                new_torrent_data = await self.torrent_client.torrent_properties(
+                    new_torrent_meta.info_hash
+                )
+
+                async with self.db_manager.begin_session() as db_session:
+                    release.name = new_torrent_data["name"]
+                    release.updated_at = datetime.now()
+                    release.qbittorrent_guid = new_torrent_meta.info_hash
+                    release.qbittorrent_data = json.dumps(new_torrent_data)
+                    release.export_failures_count = 0
+
+                    await self.releases_repository.update(
+                        db_session=db_session, release=release
+                    )
+                    await self.releases_repository.update_file_matchings(
+                        db_session=db_session, file_matchings=file_matchings
+                    )
+            except:
+                logging.exception(f"Can't regrab `{release.name}`")
 
     @staticmethod
     def _find_release_data(
