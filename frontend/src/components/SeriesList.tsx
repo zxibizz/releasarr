@@ -11,29 +11,25 @@ interface Show {
 }
 
 // Mock Data to Represent API Response
-const mockShows: Show[] = [
-  {
-    id: '1',
-    tvdb_data: {
-      title: 'Breaking Bad',
-      year: 2008,
-      image_url: 'https://via.placeholder.com/150',
-    },
-    missing_seasons: [1, 3],
-  },
-  {
-    id: '2',
-    tvdb_data: {
-      title: 'Game of Thrones',
-      year: 2011,
-      image_url: 'https://via.placeholder.com/150',
-    },
-    missing_seasons: [4],
-  },
-];
+import { useEffect, useState } from 'react';
+
 
 const SeriesList: React.FC = () => {
-  const shows = mockShows; // Replace this with API call when backend is ready
+  const [shows, setShows] = useState<Show[]>([]);
+
+  useEffect(() => {
+    const fetchShows = async () => {
+      try {
+        const response = await fetch('http://code-vm.lan:8001/api/shows/?only_missing=1');
+        const data = await response.json();
+        setShows(data);
+      } catch (error) {
+        console.error('Error fetching shows:', error);
+      }
+    };
+
+    fetchShows();
+  }, []);
 
   return (
     <div>
