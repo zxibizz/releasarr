@@ -137,4 +137,15 @@ class QBittorrentApiClient:
     async def get_stats(self):
         res = await self.client.get("/sync/maindata")
         res.raise_for_status()
-        return QBittorrentStats.model_validate_json(res.content)
+        stats = QBittorrentStats.model_validate_json(res.content)
+
+        unique_torrents = {}
+        for infohash, torrent in stats.torrents.items():
+            if (
+                infohash not in unique_torrents
+                or unique_torrents[infohash].added_on < torrent.added_on
+            ):
+                unique_torrents[infohash] = torrent
+
+        stats.torrents = unique_torrents
+        return stats
