@@ -14,6 +14,7 @@ from src.application.use_cases.releases.update_files_matching import (
 )
 from src.db import async_session
 from src.dependencies import dependencies
+from src.routes import api_router
 from src.services.shows import ShowService
 
 load_dotenv()
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(api_router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)

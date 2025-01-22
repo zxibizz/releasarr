@@ -31,6 +31,7 @@ from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.infrastructure.api_clients.tvdb import TVDBApiClient
 from src.infrastructure.db_manager import DBManager
+from src.infrastructure.queries.list_shows import Query_ListShows
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
 from src.infrastructure.series_manager import SeriesService
@@ -38,6 +39,10 @@ from src.infrastructure.series_manager import SeriesService
 
 @dataclass
 class Dependencies:
+    @dataclass
+    class Queries:
+        list_shows: Query_ListShows
+
     @dataclass
     class UseCases:
         search_release: UseCase_SearchReleases
@@ -62,6 +67,7 @@ class Dependencies:
         release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter
 
     db_manager: I_DBManager
+    queries: Queries
     use_cases: UseCases
     repositories: Repositories
     services: Services
@@ -80,6 +86,10 @@ def init_dependencies() -> Dependencies:
         tvdb_client=TVDBApiClient(),
         series_service=SeriesService(),
         release_files_matching_autocompleter=ReleaseFileMatchingsAutocompleter(),
+    )
+
+    queries = Dependencies.Queries(
+        list_shows=Query_ListShows(),
     )
 
     use_cases = Dependencies.UseCases(
@@ -127,6 +137,7 @@ def init_dependencies() -> Dependencies:
 
     return Dependencies(
         db_manager=db_manager,
+        queries=queries,
         use_cases=use_cases,
         repositories=repositories,
         services=services,
