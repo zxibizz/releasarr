@@ -11,7 +11,7 @@ class TvdbShowData(BaseModel):
     genres: list
     country: str
     title: str
-    title_en: str
+    title_en: str | None
     image_url: str | None
     overview: str
 
