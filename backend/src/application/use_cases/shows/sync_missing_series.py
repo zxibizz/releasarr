@@ -33,6 +33,8 @@ class UseCase_SyncMissingSeries:
                     )
                     if not show:
                         show = await self._create_new_show(missing_series)
+                    else:
+                        show = await self._update_show(show, missing_series)
 
                     show.is_missing = True
                     show.missing_seasons = missing_series.season_numbers
@@ -53,5 +55,17 @@ class UseCase_SyncMissingSeries:
         )
         show.prowlarr_search = show.tvdb_data.title
         show.prowlarr_data_raw = None
+
+        return show
+
+    async def _update_show(self, show: Show, missing_series: MissingSeries) -> None:
+        tvdb_data: TvdbShowData = await self.tvdb_client.get_series(
+            missing_series.tvdb_id
+        )
+        series_data: Series = await self.series_service.get_series(
+            series_id=missing_series.id
+        )
+        show.tvdb_data_raw = tvdb_data.model_dump_json()
+        show.sonarr_data_raw = series_data.model_dump_json()
 
         return show
