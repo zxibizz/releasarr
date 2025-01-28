@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import datetime
 
+from pydantic import computed_field
 from sqlalchemy import types
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -14,23 +15,26 @@ from src.infrastructure.api_clients.tvdb import TvdbShowData
 class Show(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     sonarr_id: int | None = Field(unique=True)
-    sonarr_data_raw: str
-    tvdb_data_raw: str
+    sonarr_data_raw: str = Field(exclude=True)
+    tvdb_data_raw: str = Field(exclude=True)
     is_missing: bool = Field(default=False, index=True)
     missing_seasons: list[int] = Field(default=None, sa_type=types.JSON)
     prowlarr_search: str | None
-    prowlarr_data_raw: str | None
+    prowlarr_data_raw: str | None = Field(exclude=True)
 
     releases: list["Release"] = Relationship(back_populates="show")
 
+    @computed_field
     @property
     def sonarr_data(self) -> SonarrSeries:
         return SonarrSeries.model_validate_json(self.sonarr_data_raw)
 
+    @computed_field
     @property
     def tvdb_data(self) -> TvdbShowData:
         return TvdbShowData.model_validate_json(self.tvdb_data_raw)
 
+    @computed_field
     @property
     def prowlarr_data(self) -> list[ReleaseData]:
         if not self.prowlarr_data_raw:
