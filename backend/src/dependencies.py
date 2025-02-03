@@ -31,6 +31,7 @@ from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.infrastructure.api_clients.tvdb import TVDBApiClient
 from src.infrastructure.db_manager import DBManager
+from src.infrastructure.queries.get_show import Query_GetShow
 from src.infrastructure.queries.list_shows import Query_ListShows
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
@@ -42,6 +43,7 @@ class Dependencies:
     @dataclass
     class Queries:
         list_shows: Query_ListShows
+        get_show: Query_GetShow
 
     @dataclass
     class UseCases:
@@ -90,6 +92,7 @@ def init_dependencies() -> Dependencies:
 
     queries = Dependencies.Queries(
         list_shows=Query_ListShows(),
+        get_show=Query_GetShow(),
     )
 
     use_cases = Dependencies.UseCases(
