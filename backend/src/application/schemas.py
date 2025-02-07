@@ -18,7 +18,7 @@ class ReleaseData(BaseModel):
 
     @property
     def pk(self):
-        if self.indexer != "AniLibria":
+        if not self.indexer.lower().startswith("anilibria"):
             return self.info_url
 
         if "x264" in self.title:
