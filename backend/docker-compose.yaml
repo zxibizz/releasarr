@@ -10,3 +10,4 @@ services:
     restart: always
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
+      - ./logs:/app/logs

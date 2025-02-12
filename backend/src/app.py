@@ -15,13 +15,12 @@ from src.application.use_cases.releases.update_files_matching import (
 )
 from src.db import async_session
 from src.dependencies import dependencies
+from src.logger import init_logger
 from src.routes import api_router
 from src.services.shows import ShowService
 
+init_logger()
 load_dotenv()
-
-logging.getLogger().setLevel(logging.INFO)
-
 
 RUN_SYNC = False
 

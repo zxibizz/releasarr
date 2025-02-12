@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import json
 import os
+
+import loguru
 
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.releases_repository import I_ReleasesRepository
@@ -20,12 +24,19 @@ class UseCase_ExportFinishedSeries:
         db_manager: I_DBManager,
         releases_repository: I_ReleasesRepository,
         series_service: I_SeriesService,
+        logger: loguru.Logger,
     ) -> DTO_ExportFinishedSeriesResult:
         self.db_manager = db_manager
         self.releases_repository = releases_repository
         self.series_service = series_service
+        self.logger = logger
 
     async def process(self):
+        self.logger.info("Exporting finished series")
+        with self.logger.catch(reraise=True):
+            return await self._process()
+
+    async def _process(self):
         async with self.db_manager.begin_session() as db_session:
             finished_not_uploaded_releases = (
                 await self.releases_repository.get_finished_not_uploaded(

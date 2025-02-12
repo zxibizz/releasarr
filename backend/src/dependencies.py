@@ -36,6 +36,7 @@ from src.infrastructure.queries.list_shows import Query_ListShows
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
 from src.infrastructure.series_manager import SeriesService
+from src.logger import logger
 
 
 @dataclass
@@ -100,6 +101,7 @@ def init_dependencies() -> Dependencies:
             db_manager=db_manager,
             release_searcher=services.release_searcher,
             shows_repository=repositories.shows,
+            logger=logger.bind(component="UseCase.SearchReleases"),
         ),
         grab_release=UseCase_GrabRelease(
             db_manager=db_manager,
@@ -107,27 +109,32 @@ def init_dependencies() -> Dependencies:
             shows_repository=repositories.shows,
             torrent_client=services.torrent_client,
             releases_repository=repositories.releases,
+            logger=logger.bind(component="UseCase.GrabRelease"),
         ),
         update_release_file_matchings=UseCase_UpdateReleaseFileMatching(
             db_manager=db_manager,
             releases_repository=repositories.releases,
             release_files_matching_autocompleter=services.release_files_matching_autocompleter,
+            logger=logger.bind(component="UseCase.UpdateReleaseFileMatching"),
         ),
         sync_missing_series=UseCase_SyncMissingSeries(
             db_manager=db_manager,
             series_service=services.series_service,
             shows_repository=repositories.shows,
             tvdb_client=services.tvdb_client,
+            logger=logger.bind(component="UseCase.SyncMissingSeries"),
         ),
         import_releases_torrent_stats=UseCase_ImportReleasesTorrentStats(
             db_manager=db_manager,
             torrent_client=services.torrent_client,
             releases_repository=repositories.releases,
+            logger=logger.bind(component="UseCase.ImportReleasesTorrentStats"),
         ),
         export_finished_series=UseCase_ExportFinishedSeries(
             db_manager=db_manager,
             releases_repository=repositories.releases,
             series_service=services.series_service,
+            logger=logger.bind(component="UseCase.ExportFinishedSeries"),
         ),
         re_grab_outdated_releases=UseCase_ReGrabOutdatedReleases(
             db_manager=db_manager,
@@ -135,6 +142,7 @@ def init_dependencies() -> Dependencies:
             torrent_client=services.torrent_client,
             releases_repository=repositories.releases,
             release_files_matching_autocompleter=services.release_files_matching_autocompleter,
+            logger=logger.bind(component="UseCase.ReGrabOutdatedReleases"),
         ),
     )
 
