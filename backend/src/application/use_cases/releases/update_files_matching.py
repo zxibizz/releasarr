@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+import loguru
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.releases_repository import I_ReleasesRepository
@@ -20,13 +24,36 @@ class UseCase_UpdateReleaseFileMatching:
         db_manager: I_DBManager,
         releases_repository: I_ReleasesRepository,
         release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter,
+        logger: loguru.Logger,
     ) -> None:
         self.db_manager = db_manager
         self.releases_repository = releases_repository
         self.release_files_matching_autocompleter = release_files_matching_autocompleter
+        self.logger = logger
 
     async def process(
         self,
+        show_id: int,
+        release_name: str,
+        updated_file_matchings: list[DTO_ReleaseFileMatchingUpdate],
+    ):
+        self.logger.info(
+            "Updating release file matchings",
+            show_id=show_id,
+            release_name=release_name,
+        )
+        with self.logger.catch(reraise=True):
+            async with self.db_manager.begin_session() as db_session:
+                return self._process(
+                    db_session=db_session,
+                    show_id=show_id,
+                    release_name=release_name,
+                    updated_file_matchings=updated_file_matchings,
+                )
+
+    async def _process(
+        self,
+        db_session: AsyncSession,
         show_id: int,
         release_name: str,
         updated_file_matchings: list[DTO_ReleaseFileMatchingUpdate],

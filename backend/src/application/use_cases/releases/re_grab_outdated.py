@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import json
-import logging
 from datetime import datetime
+
+import loguru
 
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.release_searcher import I_ReleaseSearcher
@@ -22,14 +25,21 @@ class UseCase_ReGrabOutdatedReleases:
         torrent_client: I_TorrentClient,
         releases_repository: I_ReleasesRepository,
         release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter,
+        logger: loguru.Logger,
     ) -> None:
         self.db_manager = db_manager
         self.release_searcher = release_searcher
         self.torrent_client = torrent_client
         self.releases_repository = releases_repository
         self.release_files_matching_autocompleter = release_files_matching_autocompleter
+        self.logger = logger
 
-    async def process(self):
+    async def process(self) -> None:
+        self.logger.info("Regrabbing outdated releases")
+        with self.logger.catch(reraise=True):
+            return await self._process()
+
+    async def _process(self) -> None:
         async with self.db_manager.begin_session() as db_session:
             outdated_releases = await self.releases_repository.get_outdated_releases(
                 db_session=db_session
@@ -44,7 +54,11 @@ class UseCase_ReGrabOutdatedReleases:
                     release=release, releases_data=found_releases_data
                 )
                 if current_release_data is None:
-                    print("Achtung! Couldn't find the release!")
+                    self.logger.warning(
+                        "Couldn't find the release!",
+                        name=release.name,
+                        pk=release.prowlarr_data.pk,
+                    )
                     continue
 
                 new_torrent_meta, raw_torrent = await self.release_searcher.get_torrent(
@@ -82,7 +96,7 @@ class UseCase_ReGrabOutdatedReleases:
                         db_session=db_session, file_matchings=file_matchings
                     )
             except:
-                logging.exception(f"Can't regrab `{release.name}`")
+                self.logger.exception(f"Can't regrab `{release.name}`")
 
     @staticmethod
     def _find_release_data(
