@@ -7,9 +7,24 @@
     <!-- Tailwind CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-white">
+<body class="bg-gray-900 text-white">    
+    <header class="bg-gray-800">
+        <div class="container mx-auto px-4 py-4">
+            <nav class="mt-2">
+                <ul class="flex space-x-6">
+                    <li><a href="/" class="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300">Home</a></li>
+                    <li><a href="/logs" class="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300">Logs</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
     <div class="container mx-auto mt-10">
         {% block content %}{% endblock %}
-    </div>
+    </div>    
+    
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
