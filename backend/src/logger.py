@@ -4,6 +4,8 @@ import sys
 
 from loguru import logger
 
+INIT_HAPPENED = False
+
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
@@ -29,7 +31,12 @@ class InterceptHandler(logging.Handler):
         )
 
 
-def init_logger():
+def init_logger(app_logs_file: str):
+    global INIT_HAPPENED
+    if INIT_HAPPENED:
+        raise RuntimeError("Avoid double initialization of logger")
+    INIT_HAPPENED = True
+
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
     logger.remove()
     logger.add(
@@ -39,10 +46,11 @@ def init_logger():
         colorize=True,
     )
     logger.add(
-        "logs/log.log",
-        format="{time} | <lvl>{level}</lvl> | {extra[component]} | {message}",
+        app_logs_file,
+        format="{message}",
         level="INFO",
         rotation="100 MB",
         retention="10 days",
         filter=lambda record: "component" in record["extra"],
+        serialize=True,
     )
