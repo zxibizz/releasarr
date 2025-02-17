@@ -1,5 +1,5 @@
 import asyncio
-import logging
+import json
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -15,11 +15,12 @@ from src.application.use_cases.releases.update_files_matching import (
 )
 from src.db import async_session
 from src.dependencies import dependencies
-from src.logger import init_logger
+from src.logger import init_logger, logger
 from src.routes import api_router
 from src.services.shows import ShowService
 
-init_logger()
+app_logs_file = "logs/log.log"
+init_logger(app_logs_file)
 load_dotenv()
 
 RUN_SYNC = False
@@ -46,13 +47,14 @@ async def trigger_sync_task_after(after: int):
 
 
 async def sync_task():
+    task_logger = logger.bind(component="Tasks.Sync")
     global RUN_SYNC
     while True:
         if not RUN_SYNC:
             await asyncio.sleep(5)
             continue
 
-        logging.info("Running full sync")
+        task_logger.info("Running full sync")
 
         try:
             await dependencies.use_cases.sync_missing_series.process()
@@ -61,7 +63,7 @@ async def sync_task():
                 await dependencies.use_cases.export_finished_series.process()
             )
             if export_finished_series_result.failed > 0:
-                print(
+                task_logger.warning(
                     f"We have {export_finished_series_result.failed} releases failed to export! "
                     "Rescheduling the sync..."
                 )
@@ -70,9 +72,9 @@ async def sync_task():
             await dependencies.use_cases.re_grab_outdated_releases.process()
 
             RUN_SYNC = False
-            logging.info("Full sync finished")
+            task_logger.info("Full sync finished")
         except Exception:
-            logging.exception("Failed full sync")
+            task_logger.exception("Failed full sync")
 
 
 @asynccontextmanager
@@ -101,6 +103,26 @@ async def missing(request: Request):
     data = await shows.get_missing()
     return templates.TemplateResponse(
         "requests.html", {"request": request, "shows": data}
+    )
+
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs(request: Request):
+    logs_list = []
+    with open(app_logs_file, "r") as file:
+        lines = file.readlines()[-100:]
+        for line in lines:
+            log_entry = json.loads(line)
+            log = {
+                "time": log_entry["record"]["time"]["repr"],
+                "level": log_entry["record"]["level"]["name"],
+                "component": log_entry["record"]["extra"]["component"],
+                "message": log_entry["text"],
+            }
+            logs_list.append(log)
+    logs_list.reverse()
+    return templates.TemplateResponse(
+        "logs.html", {"request": request, "logs": logs_list}
     )
 
 
