@@ -5,6 +5,7 @@ from src.application.use_cases.releases.update_files_matching import (
     DTO_ReleaseFileMatchingUpdate,
 )
 from src.dependencies import dependencies
+from src.infrastructure.queries.get_show import GetShowQueryResponse
 
 api_router = APIRouter()
 
@@ -16,7 +17,7 @@ async def get_shows(only_missing: bool) -> list[Show]:
     )
 
 
-@api_router.get("/shows/{show_id}", response_model=Show)
+@api_router.get("/shows/{show_id}", response_model=GetShowQueryResponse)
 async def get_show(show_id: int) -> Show:
     show = await dependencies.queries.get_show.execute(show_id)
     if show is None:
