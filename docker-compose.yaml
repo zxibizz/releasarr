@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8001:8000"
     restart: always
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
-      - ./logs.prod:/app/logs
+      - ./logs/backend:/app/logs

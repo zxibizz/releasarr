@@ -44,7 +44,7 @@ class UseCase_UpdateReleaseFileMatching:
         )
         with self.logger.catch(reraise=True):
             async with self.db_manager.begin_session() as db_session:
-                return self._process(
+                return await self._process(
                     db_session=db_session,
                     show_id=show_id,
                     release_name=release_name,
