@@ -1,6 +1,7 @@
 import React from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import SeriesList from './components/SeriesList';
+import SeriesPage from './components/SeriesPage';
 
 const App: React.FC = () => {
   return (
@@ -10,9 +11,7 @@ const App: React.FC = () => {
           <Routes>
             {/* Main page */}
             <Route path="/" element={<SeriesList />} />
-            {/* Dynamic route for show details */}
-            {/* You can implement ShowPage later */}
-            {/* <Route path="/show/:showId" element={<ShowPage />} /> */}
+            <Route path="/show/:showId" element={<SeriesPage />} />
           </Routes>
         </div>
       </div>
