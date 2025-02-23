@@ -18,14 +18,7 @@ class ReleaseData(BaseModel):
 
     @property
     def pk(self):
-        if not self.indexer.lower().startswith("anilibria"):
-            return self.info_url
-
-        if "x264" in self.title:
-            return f"{self.info_url}:x264"
-        if "x265" in self.title:
-            return f"{self.info_url}:x265"
-        raise ValueError
+        return f"{self.info_url}::{self.title}"
 
 
 class TorrentMeta(BaseModel):
