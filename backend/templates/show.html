@@ -17,15 +17,15 @@
 
     <div>
         <!-- Tab Navigation -->
-        <ul class="flex border-b">
+        <ul class="flex border-b mb-5">
             <li class="-mb-px mr-1">
-                <a href="#seasons" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold">Сезоны</a>
+                <a href="#seasons" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold focus:bg-blue-500 focus:text-white" data-target="seasons">Сезоны</a>
             </li>
             <li class="mr-1">
-                <a href="#releases" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold">Релизы</a>
+                <a href="#releases" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold focus:bg-blue-500 focus:text-white" data-target="releases">Релизы</a>
             </li>
             <li class="mr-1">
-                <a href="#search" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold">Поиск</a>
+                <a href="#search" class="bg-gray-800 inline-block py-2 px-4 text-white font-semibold focus:bg-blue-500 focus:text-white" data-target="search">Поиск</a>
             </li>
         </ul>
 
@@ -64,7 +64,7 @@
                             </thead>
                             <tbody>
                                 {% for file_matching in release.file_matchings %}
-                                <tr class="border-b border-gray-700"></tr>
+                                <tr class="border-b border-gray-700">
                                     <td class="hidden">
                                         <input type="number" name="id_{{ loop.index }}" value="{{ file_matching.id }}" class="hidden" readonly>
                                     </td>
@@ -140,13 +140,18 @@
 </div>
 
 <script>
-    document.querySelectorAll('ul a').forEach(tab => {
+    document.querySelectorAll('ul a[data-target]').forEach(tab => {
         tab.addEventListener('click', function(e) {
             e.preventDefault();
             document.querySelectorAll('div[id^="seasons"], div[id^="releases"], div[id^="search"]').forEach(content => {
                 content.classList.add('hidden');
             });
-            document.querySelector(this.getAttribute('href')).classList.remove('hidden');
+            document.getElementById(this.getAttribute('data-target')).classList.remove('hidden');
+            document.querySelectorAll('ul a[data-target]').forEach(link => {
+                link.classList.remove('bg-blue-500', 'text-white');
+                link.classList.add('bg-gray-800', 'text-white');
+            });
+            this.classList.add('bg-blue-500', 'text-white');
         });
     });
 </script>
