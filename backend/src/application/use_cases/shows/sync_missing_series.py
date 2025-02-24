@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import loguru
+
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.series_service import (
     I_SeriesService,
@@ -16,13 +20,20 @@ class UseCase_SyncMissingSeries:
         series_service: I_SeriesService,
         shows_repository: I_ShowsRepository,
         tvdb_client: I_TvdbClient,
+        logger: loguru.Logger,
     ) -> None:
         self.db_manager = db_manager
         self.series_service = series_service
         self.shows_repository = shows_repository
         self.tvdb_client = tvdb_client
+        self.logger = logger
 
-    async def process(self):
+    async def process(self) -> None:
+        self.logger.info("Syncing missing series")
+        with self.logger.catch(reraise=True):
+            return await self._process()
+
+    async def _process(self) -> None:
         missing_seriess = await self.series_service.get_missing()
         async with self.db_manager.begin_session() as db_session:
             with db_session.no_autoflush:

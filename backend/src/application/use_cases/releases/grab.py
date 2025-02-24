@@ -1,5 +1,10 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
+
+import loguru
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.release_searcher import I_ReleaseSearcher
@@ -18,45 +23,56 @@ class UseCase_GrabRelease:
         shows_repository: I_ShowsRepository,
         torrent_client: I_TorrentClient,
         releases_repository: I_ReleasesRepository,
+        logger: loguru.Logger,
     ) -> None:
         self.db_manager = db_manager
         self.release_searcher = release_searcher
         self.shows_repository = shows_repository
         self.torrent_client = torrent_client
         self.releases_repository = releases_repository
+        self.logger = logger
 
     async def process(self, show_id: int, release_pk: str) -> None:
-        async with self.db_manager.begin_session() as db_session:
-            show: Show = await self.shows_repository.get_show_with_releases(
-                db_session=db_session, show_id=show_id
-            )
-            release_data: ReleaseData = [
-                pd for pd in show.prowlarr_data if pd.pk == release_pk
-            ][0]
+        self.logger.info(
+            "Grabbing the release",
+            show_id=show_id,
+            release_pk=release_pk,
+        )
+        with self.logger.catch(reraise=True):
+            async with self.db_manager.begin_session() as db_session:
+                return await self._process(db_session, show_id, release_pk)
 
-            meta, raw_torrent = await self.release_searcher.get_torrent(
-                release_data.download_url
-            )
-            await self.torrent_client.add_torrent(raw_torrent)
-            torrent_data = await self.torrent_client.torrent_properties(meta.info_hash)
+    async def _process(
+        self, db_session: AsyncSession, show_id: int, release_pk: str
+    ) -> None:
+        show: Show = await self.shows_repository.get_show_with_releases(
+            db_session=db_session, show_id=show_id
+        )
+        release_data: ReleaseData = [
+            pd for pd in show.prowlarr_data if pd.pk == release_pk
+        ][0]
 
-            release = Release(
-                name=torrent_data["name"],
-                updated_at=datetime.now(),
-                search=show.prowlarr_search,
-                prowlarr_data_raw=release_data.model_dump_json(),
-                show_id=show_id,
-                qbittorrent_guid=meta.info_hash,
-                qbittorrent_data=json.dumps(torrent_data),
-                file_matchings=[
-                    ReleaseFileMatching(
-                        release_name=torrent_data["name"],
-                        show_id=show_id,
-                        file_name=file.name,
-                    )
-                    for file in meta.files
-                ],
-            )
-            await self.releases_repository.create(
-                db_session=db_session, release=release
-            )
+        meta, raw_torrent = await self.release_searcher.get_torrent(
+            release_data.download_url
+        )
+        await self.torrent_client.add_torrent(raw_torrent)
+        torrent_data = await self.torrent_client.torrent_properties(meta.info_hash)
+
+        release = Release(
+            name=torrent_data["name"],
+            updated_at=datetime.now(),
+            search=show.prowlarr_search,
+            prowlarr_data_raw=release_data.model_dump_json(),
+            show_id=show_id,
+            qbittorrent_guid=meta.info_hash,
+            qbittorrent_data=json.dumps(torrent_data),
+            file_matchings=[
+                ReleaseFileMatching(
+                    release_name=torrent_data["name"],
+                    show_id=show_id,
+                    file_name=file.name,
+                )
+                for file in meta.files
+            ],
+        )
+        await self.releases_repository.create(db_session=db_session, release=release)
