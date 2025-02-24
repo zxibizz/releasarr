@@ -28,7 +28,7 @@ const SeriesPage: React.FC = () => {
   useEffect(() => {
     const fetchShow = async () => {
       try {
-        const response = await fetch(`http://code-vm.lan:8001/api/shows/${showId}/`);
+        const response = await fetch(`http://code-vm.lan:8000/api/shows/${showId}`);
         const data = await response.json();
         setShow(data);
       } catch (error) {
