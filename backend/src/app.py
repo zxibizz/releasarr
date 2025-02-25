@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Form, Request
@@ -15,7 +14,6 @@ from src.application.use_cases.releases.update_files_matching import (
 from src.dependencies import dependencies
 from src.logger import logger
 from src.routes import api_router
-from src.settings import app_settings
 
 RUN_SYNC = False
 
@@ -94,26 +92,6 @@ async def missing(request: Request):
     )
 
 
-@app.get("/logs", response_class=HTMLResponse)
-async def logs(request: Request):
-    logs_list = []
-    with open(app_settings.LOG_FILE, "r") as file:
-        lines = file.readlines()[-100:]
-        for line in lines:
-            log_entry = json.loads(line)
-            log = {
-                "time": log_entry["record"]["time"]["repr"],
-                "level": log_entry["record"]["level"]["name"],
-                "component": log_entry["record"]["extra"]["component"],
-                "message": log_entry["text"],
-            }
-            logs_list.append(log)
-    logs_list.reverse()
-    return templates.TemplateResponse(
-        "logs.html", {"request": request, "logs": logs_list}
-    )
-
-
 @app.get("/show/{show_id}")
 async def show_page(request: Request, show_id: int):
     show = await dependencies.queries.get_show.execute(show_id)
@@ -165,6 +143,14 @@ async def update_file_matching(
 @app.post("/show/{show_id}/release/{release_name}/delete")
 async def delete_release(show_id: int, release_name: str):
     await dependencies.use_cases.delete_release.process(release_name)
+
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs(request: Request):
+    logs_data = await dependencies.queries.list_logs.execute()
+    return templates.TemplateResponse(
+        "logs.html", {"request": request, "logs": logs_data.records}
+    )
 
 
 @app.get("/sync")
