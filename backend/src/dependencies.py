@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from src.application.interfaces.db_manager import I_DBManager
@@ -28,6 +30,7 @@ from src.application.use_cases.shows.sync_missing_series import (
 from src.application.utility.release_files_matchings_autocompleter import (
     ReleaseFileMatchingsAutocompleter,
 )
+from src.db import get_async_sessionmaker
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
 from src.infrastructure.api_clients.tvdb import TVDBApiClient
@@ -38,6 +41,7 @@ from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
 from src.infrastructure.series_manager import SeriesService
 from src.logger import logger
+from src.settings import app_settings
 
 
 @dataclass
@@ -78,18 +82,32 @@ class Dependencies:
     services: Services
 
 
-def init_dependencies() -> Dependencies:
-    db_manager = DBManager()
+def _init_dependencies() -> Dependencies:
+    session_maker = get_async_sessionmaker(app_settings.DB_PATH)
+
+    db_manager = DBManager(session_maker)
     repositories = Dependencies.Repositories(
         shows=ShowsRepository(),
         releases=ReleasesRepository(),
     )
 
     services = Dependencies.Services(
-        release_searcher=ProwlarrApiClient(),
-        torrent_client=QBittorrentApiClient(),
-        tvdb_client=TVDBApiClient(),
-        series_service=SeriesService(),
+        release_searcher=ProwlarrApiClient(
+            base_url=app_settings.PROWLARR_BASE_URL,
+            api_token=app_settings.PROWLARR_API_TOKEN,
+        ),
+        torrent_client=QBittorrentApiClient(
+            base_url=app_settings.QBITTORRENT_BASE_URL,
+            username=app_settings.QBITTORRENT_USERNAME,
+            password=app_settings.QBITTORRENT_PASSWORD,
+        ),
+        tvdb_client=TVDBApiClient(
+            api_token=app_settings.TVDB_API_TOKEN,
+        ),
+        series_service=SeriesService(
+            base_url=app_settings.SONARR_BASE_URL,
+            api_token=app_settings.SONARR_API_TOKEN,
+        ),
         release_files_matching_autocompleter=ReleaseFileMatchingsAutocompleter(),
     )
 
@@ -168,4 +186,4 @@ def init_dependencies() -> Dependencies:
     )
 
 
-dependencies = init_dependencies()
+dependencies = _init_dependencies()

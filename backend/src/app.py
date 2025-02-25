@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import json
 from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -12,17 +13,11 @@ from src.application.use_cases.releases.update_files_matching import (
     DTO_ReleaseFileMatchingUpdate,
 )
 from src.dependencies import dependencies
-from src.logger import init_logger, logger
+from src.logger import logger
 from src.routes import api_router
-
-app_logs_file = "logs/log.log"
-init_logger(app_logs_file)
+from src.settings import app_settings
 
 RUN_SYNC = False
-
-origins = [
-    "http://localhost:5173",
-]
 
 
 templates = Jinja2Templates(directory="templates")
@@ -74,8 +69,6 @@ async def sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    load_dotenv()
-
     asyncio.create_task(trigger_sync_task())
     asyncio.create_task(sync_task())
     yield
@@ -86,7 +79,7 @@ app.include_router(api_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,7 +97,7 @@ async def missing(request: Request):
 @app.get("/logs", response_class=HTMLResponse)
 async def logs(request: Request):
     logs_list = []
-    with open(app_logs_file, "r") as file:
+    with open(app_settings.LOG_FILE, "r") as file:
         lines = file.readlines()[-100:]
         for line in lines:
             log_entry = json.loads(line)
