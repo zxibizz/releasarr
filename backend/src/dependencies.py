@@ -7,6 +7,7 @@ from src.application.interfaces.series_service import I_SeriesService
 from src.application.interfaces.shows_repository import I_ShowsRepository
 from src.application.interfaces.torrent_client import I_TorrentClient
 from src.application.interfaces.tvdb_client import I_TvdbClient
+from src.application.use_cases.releases.delete import UseCase_DeleteRelease
 from src.application.use_cases.releases.export_finished_series import (
     UseCase_ExportFinishedSeries,
 )
@@ -55,6 +56,7 @@ class Dependencies:
         import_releases_torrent_stats: UseCase_ImportReleasesTorrentStats
         export_finished_series: UseCase_ExportFinishedSeries
         re_grab_outdated_releases: UseCase_ReGrabOutdatedReleases
+        delete_release: UseCase_DeleteRelease
 
     @dataclass
     class Repositories:
@@ -143,6 +145,11 @@ def init_dependencies() -> Dependencies:
             releases_repository=repositories.releases,
             release_files_matching_autocompleter=services.release_files_matching_autocompleter,
             logger=logger.bind(component="UseCase.ReGrabOutdatedReleases"),
+        ),
+        delete_release=UseCase_DeleteRelease(
+            db_manager=db_manager,
+            releases_repository=repositories.releases,
+            logger=logger.bind(component="UseCase.DeleteRelease"),
         ),
     )
 
