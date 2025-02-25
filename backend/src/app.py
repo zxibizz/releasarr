@@ -17,7 +17,6 @@ from src.db import async_session
 from src.dependencies import dependencies
 from src.logger import init_logger, logger
 from src.routes import api_router
-from src.services.shows import ShowService
 
 app_logs_file = "logs/log.log"
 init_logger(app_logs_file)
@@ -98,9 +97,7 @@ app.add_middleware(
 
 @app.get("/", response_class=HTMLResponse)
 async def missing(request: Request):
-    shows = ShowService()
-
-    data = await shows.get_missing()
+    data = await dependencies.queries.list_shows.execute(only_missing=True)
     return templates.TemplateResponse(
         "requests.html", {"request": request, "shows": data}
     )
@@ -128,9 +125,7 @@ async def logs(request: Request):
 
 @app.get("/show/{show_id}")
 async def show_page(request: Request, show_id: int):
-    shows = ShowService()
-
-    show = await shows.get_show(show_id)
+    show = await dependencies.queries.get_show.execute(show_id)
     return templates.TemplateResponse("show.html", {"request": request, "show": show})
 
 
