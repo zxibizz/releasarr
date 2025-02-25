@@ -21,20 +21,20 @@ RUN_SYNC = False
 templates = Jinja2Templates(directory="templates")
 
 
-async def trigger_sync_task():
+async def trigger_sync_task_each_hour():
     global RUN_SYNC
     while True:
         RUN_SYNC = True
         await asyncio.sleep(60 * 60)
 
 
-async def trigger_sync_task_after(after: int):
+async def trigger_sync_task(after: int = 0):
     global RUN_SYNC
     await asyncio.sleep(after)
     RUN_SYNC = True
 
 
-async def sync_task():
+async def start_sync_task():
     task_logger = logger.bind(component="Tasks.Sync")
     global RUN_SYNC
     while True:
@@ -55,7 +55,7 @@ async def sync_task():
                     f"We have {export_finished_series_result.failed} releases failed to export! "
                     "Rescheduling the sync..."
                 )
-                asyncio.create_task(trigger_sync_task_after(10))
+                asyncio.create_task(trigger_sync_task(after=10))
 
             await dependencies.use_cases.re_grab_outdated_releases.process()
 
@@ -67,8 +67,8 @@ async def sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(trigger_sync_task())
-    asyncio.create_task(sync_task())
+    asyncio.create_task(start_sync_task())
+    asyncio.create_task(trigger_sync_task_each_hour())
     yield
 
 
@@ -156,8 +156,7 @@ async def logs(request: Request):
 @app.get("/sync")
 @app.post("/sync")
 async def sync():
-    global RUN_SYNC
-    RUN_SYNC = True
+    await trigger_sync_task()
 
 
 if __name__ == "__main__":
