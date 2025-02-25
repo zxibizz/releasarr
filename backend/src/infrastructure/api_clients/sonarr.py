@@ -1,6 +1,7 @@
 import httpx
 
 from src.application.interfaces.series_service import (
+    E_SeriesManualImportError,
     Episode,
     I_SeriesService,
     MissingSeries,
@@ -10,10 +11,7 @@ from src.application.interfaces.series_service import (
 )
 
 
-class SeriesManualImportError(Exception): ...
-
-
-class SeriesService(I_SeriesService):
+class SonarrApiClient(I_SeriesService):
     def __init__(self, base_url, api_token) -> None:
         self.client = httpx.AsyncClient(
             base_url=base_url, headers={"X-Api-Key": api_token}
@@ -98,7 +96,7 @@ class SeriesService(I_SeriesService):
             await self._run_manual_import_check(import_files)
             await self._run_manual_import_command(import_files)
         except:
-            raise SeriesManualImportError
+            raise E_SeriesManualImportError
 
     async def _run_manual_import_check(
         self, import_files: list[SeriesImportFile]

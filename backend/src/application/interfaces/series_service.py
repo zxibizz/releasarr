@@ -42,6 +42,9 @@ class SeriesImportFile(BaseModel):
     series_id: int
 
 
+class E_SeriesManualImportError(Exception): ...
+
+
 class I_SeriesService(Protocol):
     async def get_missing(self) -> list[MissingSeries]: ...
 

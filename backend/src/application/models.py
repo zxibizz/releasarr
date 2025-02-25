@@ -7,8 +7,8 @@ from sqlalchemy import types
 from sqlmodel import Field, Relationship, SQLModel
 
 from src.application.schemas import ReleaseData
+from src.infrastructure.api_clients.sonarr import Series
 from src.infrastructure.api_clients.tvdb import TvdbShowData
-from src.infrastructure.series_manager import Series
 
 
 class Show(SQLModel, table=True):
