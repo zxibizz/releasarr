@@ -6,6 +6,7 @@ from src.application.use_cases.releases.update_files_matching import (
 )
 from src.dependencies import dependencies
 from src.infrastructure.queries.get_show import DTO_Show
+from src.infrastructure.queries.list_logs import DTO_Logs
 
 api_router = APIRouter()
 
@@ -48,3 +49,8 @@ async def update_release_file_matchings(
         show_id, release_name, updated_file_matchings
     )
     return "ok"
+
+
+@api_router.get("/logs/")
+async def get_logs() -> DTO_Logs:
+    return await dependencies.queries.list_logs.execute()
