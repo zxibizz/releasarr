@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.application.interfaces.db_manager import I_DBManager
 from src.application.interfaces.release_searcher import I_ReleaseSearcher
 from src.application.interfaces.releases_repository import I_ReleasesRepository
 from src.application.interfaces.series_service import I_SeriesService
@@ -30,6 +29,7 @@ from src.application.use_cases.shows.sync_missing_series import (
 from src.application.utility.release_files_matchings_autocompleter import (
     ReleaseFileMatchingsAutocompleter,
 )
+from src.application.utility.task_scheduler import TaskScheduler
 from src.db import get_async_sessionmaker
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
@@ -77,11 +77,11 @@ class Dependencies:
         series_service: I_SeriesService
         release_files_matching_autocompleter: ReleaseFileMatchingsAutocompleter
 
-    db_manager: I_DBManager
     queries: Queries
     use_cases: UseCases
     repositories: Repositories
     services: Services
+    task_scheduler: TaskScheduler
 
 
 def _init_dependencies() -> Dependencies:
@@ -183,12 +183,20 @@ def _init_dependencies() -> Dependencies:
         ),
     )
 
+    task_scheduler = TaskScheduler(
+        sync_missing_series=use_cases.sync_missing_series,
+        import_releases_torrent_stats=use_cases.import_releases_torrent_stats,
+        export_finished_series=use_cases.export_finished_series,
+        re_grab_outdated_releases=use_cases.re_grab_outdated_releases,
+        logger=logger.bind(component="TaskScheduler"),
+    )
+
     return Dependencies(
-        db_manager=db_manager,
         queries=queries,
         use_cases=use_cases,
         repositories=repositories,
         services=services,
+        task_scheduler=task_scheduler,
     )
 
 

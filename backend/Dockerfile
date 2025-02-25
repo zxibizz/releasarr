@@ -10,4 +10,4 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root
 COPY . .
 ENTRYPOINT ["poetry", "run"]
-CMD ["python", "-m", "src.app"]
+CMD ["uvicorn", "src.app:app"]
