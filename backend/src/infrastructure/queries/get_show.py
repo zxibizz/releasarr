@@ -12,34 +12,34 @@ from src.application.interfaces.db_manager import I_DBManager
 from src.application.models import Release, Show
 
 
-class GetShowQueryResponse__SonarrSeriesData(BaseModel):
+class DTO_Show_SonarrSeriesData(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     path: str
     tvdb_id: int
-    seasons: list["GetShowQueryResponse__SonarrSeason"]
+    seasons: list["DTO_Show_SonarrSeason"]
 
 
-class GetShowQueryResponse__SonarrSeason(BaseModel):
+class DTO_Show_SonarrSeason(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     season_number: int
     episode_file_count: int
     episode_count: int
-    episodes: list["GetShowQueryResponse__SonarrEpisode"]
+    episodes: list["DTO_Show_SonarrEpisode"]
     total_episodes_count: int
     previous_airing: datetime | None
 
 
-class GetShowQueryResponse__SonarrEpisode(BaseModel):
+class DTO_Show_SonarrEpisode(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     episode_number: int | None
 
 
-class GetShowQueryResponse__ProwlarrData(BaseModel):
+class DTO_Show_ProwlarrData(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     guid: str
@@ -56,7 +56,7 @@ class GetShowQueryResponse__ProwlarrData(BaseModel):
     pk: str
 
 
-class GetShowQueryResponse__TvdbShowData(BaseModel):
+class DTO_Show_TvdbShowData(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -69,7 +69,7 @@ class GetShowQueryResponse__TvdbShowData(BaseModel):
     overview: str
 
 
-class GetShowQueryResponse__Release(BaseModel):
+class DTO_Show_Release(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
@@ -85,10 +85,10 @@ class GetShowQueryResponse__Release(BaseModel):
     last_exported_torrent_guid: str | None
     export_failures_count: int
 
-    file_matchings: list["GetShowQueryResponse__ReleaseFileMatching"]
+    file_matchings: list["DTO_Show_ReleaseFileMatching"]
 
 
-class GetShowQueryResponse__ReleaseFileMatching(BaseModel):
+class DTO_Show_ReleaseFileMatching(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -99,7 +99,7 @@ class GetShowQueryResponse__ReleaseFileMatching(BaseModel):
     episode_number: int | None
 
 
-class GetShowQueryResponse(BaseModel):
+class DTO_Show(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -110,10 +110,10 @@ class GetShowQueryResponse(BaseModel):
     prowlarr_search: str | None
     prowlarr_data: str | None
 
-    tvdb_data: GetShowQueryResponse__TvdbShowData
-    sonarr_data: GetShowQueryResponse__SonarrSeriesData
-    releases: list[GetShowQueryResponse__Release]
-    prowlarr_data: list[GetShowQueryResponse__ProwlarrData]
+    tvdb_data: DTO_Show_TvdbShowData
+    sonarr_data: DTO_Show_SonarrSeriesData
+    releases: list[DTO_Show_Release]
+    prowlarr_data: list[DTO_Show_ProwlarrData]
 
 
 class Query_GetShow:
@@ -125,7 +125,7 @@ class Query_GetShow:
         self.db_manager = db_manager
         self.logger = logger
 
-    async def execute(self, show_id: int) -> list[Show]:
+    async def execute(self, show_id: int) -> DTO_Show | None:
         self.logger.info(
             "Get show",
             show_id=show_id,
@@ -134,9 +134,7 @@ class Query_GetShow:
             async with self.db_manager.begin_session() as db_session:
                 return await self._execute(db_session, show_id)
 
-    async def _execute(
-        self, db_session: AsyncSession, show_id: int
-    ) -> GetShowQueryResponse | None:
+    async def _execute(self, db_session: AsyncSession, show_id: int) -> DTO_Show | None:
         q = (
             select(Show)
             .where(Show.id == show_id)
@@ -147,4 +145,4 @@ class Query_GetShow:
         res = await db_session.scalar(q)
         if res is None:
             return
-        return GetShowQueryResponse.model_validate(obj=res)
+        return DTO_Show.model_validate(obj=res)
