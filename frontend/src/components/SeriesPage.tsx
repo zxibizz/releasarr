@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 
 interface Show {
   id: string;
@@ -23,7 +23,7 @@ interface Show {
 const SeriesPage: React.FC = () => {
   const { showId } = useParams<{ showId: string }>();
   const [show, setShow] = useState<Show | null>(null);
-  const [activeTab, setActiveTab] = useState('seasons');
+  const [activeTab, setActiveTab] = useState("seasons");
 
   useEffect(() => {
     const fetchShow = async () => {
@@ -33,7 +33,7 @@ const SeriesPage: React.FC = () => {
         const data = await response.json();
         setShow(data);
       } catch (error) {
-        console.error('Error fetching show:', error);
+        console.error("Error fetching show:", error);
       }
     };
 
@@ -51,75 +51,124 @@ const SeriesPage: React.FC = () => {
   return (
     <div>
       <div className="flex space-x-5 mb-5">
-        <img src={show.tvdb_data.image_url} alt={show.tvdb_data.title} className="w-48 h-72 rounded-lg" />
+        <img
+          src={show.tvdb_data.image_url}
+          alt={show.tvdb_data.title}
+          className="w-48 h-72 rounded-lg"
+        />
         <div>
-          <h1 className="text-4xl font-bold mb-2">{show.tvdb_data.title} ({show.tvdb_data.year})</h1>
-          <h2 className="text-2xl font-semibold mb-4">{show.tvdb_data.title_en}</h2>
+          <h1 className="text-4xl font-bold mb-2">
+            {show.tvdb_data.title} ({show.tvdb_data.year})
+          </h1>
+          <h2 className="text-2xl font-semibold mb-4">
+            {show.tvdb_data.title_en}
+          </h2>
           <p className="mb-3">{show.tvdb_data.overview}</p>
-          <p className="mb-2"><strong>Country:</strong> {show.tvdb_data.country}</p>
-          <p className="mb-2"><strong>Genres:</strong> {show.tvdb_data.genres.join(', ')}</p>
+          <p className="mb-2">
+            <strong>Country:</strong> {show.tvdb_data.country}
+          </p>
+          <p className="mb-2">
+            <strong>Genres:</strong> {show.tvdb_data.genres.join(", ")}
+          </p>
         </div>
       </div>
 
       <ul className="flex border-b">
         <li className="-mb-px mr-1">
-          <a 
-            href="#seasons" 
-            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${activeTab === 'seasons' ? 'border-b-2 border-blue-500' : ''}`} 
-            onClick={() => handleTabClick('seasons')}
+          <a
+            href="#seasons"
+            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${
+              activeTab === "seasons" ? "border-b-2 border-blue-500" : ""
+            }`}
+            onClick={() => handleTabClick("seasons")}
           >
             Сезоны
           </a>
         </li>
         <li className="mr-1">
-          <a 
-            href="#releases" 
-            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${activeTab === 'releases' ? 'border-b-2 border-blue-500' : ''}`} 
-            onClick={() => handleTabClick('releases')}
+          <a
+            href="#releases"
+            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${
+              activeTab === "releases" ? "border-b-2 border-blue-500" : ""
+            }`}
+            onClick={() => handleTabClick("releases")}
           >
             Релизы
           </a>
         </li>
         <li className="mr-1">
-          <a 
-            href="#search" 
-            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${activeTab === 'search' ? 'border-b-2 border-blue-500' : ''}`} 
-            onClick={() => handleTabClick('search')}
+          <a
+            href="#search"
+            className={`bg-gray-800 inline-block py-2 px-4 text-white font-semibold ${
+              activeTab === "search" ? "border-b-2 border-blue-500" : ""
+            }`}
+            onClick={() => handleTabClick("search")}
           >
             Поиск
           </a>
         </li>
       </ul>
 
-      <div id="seasons" className={`pt-5 ${activeTab === 'seasons' ? '' : 'hidden'}`}>
+      <div
+        id="seasons"
+        className={`pt-5 ${activeTab === "seasons" ? "" : "hidden"}`}
+      >
         <h3 className="text-2xl font-semibold mb-4">Сезоны</h3>
         <div className="space-y-3">
           {show.sonarr_data.seasons.map((season) => (
-            <div key={season.season_number} className="bg-gray-800 rounded-lg p-4">
-              <p className="text-lg font-semibold">Season {season.season_number}</p>
-              <p className="text-gray-400">{season.total_episodes_count} episodes</p>
+            <div
+              key={season.season_number}
+              className="bg-gray-800 rounded-lg p-4"
+            >
+              <p className="text-lg font-semibold">
+                Season {season.season_number}
+              </p>
+              <p className="text-gray-400">
+                {season.total_episodes_count} episodes
+              </p>
             </div>
           ))}
         </div>
       </div>
 
-      <div id="releases" className={`pt-5 ${activeTab === 'releases' ? '' : 'hidden'}`}>
+      <div
+        id="releases"
+        className={`pt-5 ${activeTab === "releases" ? "" : "hidden"}`}
+      >
         <h3 className="text-2xl font-semibold mb-4">Релизы</h3>
         {show.releases.map((release) => (
           <div key={release.name} className="bg-gray-800 rounded-lg p-5 mb-5">
             <h4 className="text-xl font-bold mb-3">{release.name}</h4>
-            <p className="text-gray-400 mb-3"><strong>Updated At:</strong> {release.updated_at}</p>
-            <p className="text-gray-400 mb-5"><strong>Search Term:</strong> {release.search}</p>
+            <p className="text-gray-400 mb-3">
+              <strong>Updated At:</strong> {release.updated_at}
+            </p>
+            <p className="text-gray-400 mb-5">
+              <strong>Search Term:</strong> {release.search}
+            </p>
             {/* Form for file matching and delete actions */}
           </div>
         ))}
       </div>
 
-      <div id="search" className={`pt-5 ${activeTab === 'search' ? '' : 'hidden'}`}>
+      <div
+        id="search"
+        className={`pt-5 ${activeTab === "search" ? "" : "hidden"}`}
+      >
         <h3 className="text-2xl font-semibold mb-4">Поиск</h3>
         <form action={`/show/${show.id}/search`} method="post" className="mb-5">
-          <input type="text" name="query" className="bg-gray-700 text-white p-2 rounded-lg w-full" placeholder="Search..." value={show.prowlarr_search || show.tvdb_data.title} />
-          <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded-lg mt-2">Search</button>
+          <input
+            type="text"
+            name="query"
+            className="bg-gray-700 text-white p-2 rounded-lg w-full"
+            placeholder="Search..."
+            value={show.prowlarr_search || show.tvdb_data.title}
+          />
+          <button
+            type="submit"
+            className="bg-blue-500 text-white py-2 px-4 rounded-lg mt-2"
+          >
+            Search
+          </button>
         </form>
         {/* Search results will be displayed here */}
       </div>
