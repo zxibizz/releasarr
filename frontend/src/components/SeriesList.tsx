@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface Show {
   id: string;
@@ -10,17 +10,14 @@ interface Show {
   missing_seasons: number[];
 }
 
-// Mock Data to Represent API Response
-import { useEffect, useState } from 'react';
-
-
 const SeriesList: React.FC = () => {
   const [shows, setShows] = useState<Show[]>([]);
 
   useEffect(() => {
     const fetchShows = async () => {
       try {
-        const response = await fetch('http://code-vm.lan:8001/api/shows/?only_missing=1');
+        const apiUrl = process.env.REACT_APP_BACKEND_URL;
+        const response = await fetch(`${apiUrl}/api/shows/?only_missing=1`);
         const data = await response.json();
         setShows(data);
       } catch (error) {
