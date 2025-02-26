@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.dependencies import dependencies
 from src.routes import api_router
-from src.routes_old import views_router
 
 
 @asynccontextmanager
@@ -26,7 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(views_router)
 app.include_router(api_router, prefix="/api")
 
 
