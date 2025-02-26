@@ -7,20 +7,16 @@ from fastapi import FastAPI, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import delete, select
 
-from src.application.models import Release, ReleaseFileMatching
 from src.application.use_cases.releases.update_files_matching import (
     DTO_ReleaseFileMatchingUpdate,
 )
-from src.db import async_session
 from src.dependencies import dependencies
 from src.logger import init_logger, logger
 from src.routes import api_router
 
 app_logs_file = "logs/log.log"
 init_logger(app_logs_file)
-load_dotenv()
 
 RUN_SYNC = False
 
@@ -78,6 +74,8 @@ async def sync_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    load_dotenv()
+
     asyncio.create_task(trigger_sync_task())
     asyncio.create_task(sync_task())
     yield
@@ -173,15 +171,7 @@ async def update_file_matching(
 
 @app.post("/show/{show_id}/release/{release_name}/delete")
 async def delete_release(show_id: int, release_name: str):
-    async with async_session() as session, session.begin():
-        release = await session.scalar(
-            select(Release).where(Release.name == release_name)
-        )
-        await session.execute(
-            delete(ReleaseFileMatching).where(ReleaseFileMatching.release == release)
-        )
-        await session.delete(release)
-        await session.commit()
+    await dependencies.use_cases.delete_release.process(release_name)
 
 
 @app.get("/sync")

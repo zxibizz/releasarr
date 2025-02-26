@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -67,3 +67,10 @@ class ReleasesRepository(I_ReleasesRepository):
                         break
 
         return res
+
+    async def delete(self, db_session, name):
+        release = await db_session.scalar(select(Release).where(Release.name == name))
+        await db_session.execute(
+            delete(ReleaseFileMatching).where(ReleaseFileMatching.release == release)
+        )
+        await db_session.delete(release)
