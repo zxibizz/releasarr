@@ -16,7 +16,9 @@ const SeriesList: React.FC = () => {
   useEffect(() => {
     const fetchShows = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_BACKEND_URL;
+        const apiUrl =
+          process.env.REACT_APP_BACKEND_URL ||
+          `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
         const response = await fetch(`${apiUrl}/api/shows/?only_missing=1`);
         const data = await response.json();
         setShows(data);

@@ -58,6 +58,6 @@ async def delete_release(show_id: int, release_name: str):
     return {"status": "ok"}
 
 
-@api_router.get("/logs/")
+@api_router.get("/logs")
 async def get_logs() -> DTO_Logs:
     return await dependencies.queries.list_logs.execute()

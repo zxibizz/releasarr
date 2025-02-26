@@ -13,7 +13,9 @@ const LogsList: React.FC = () => {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_BACKEND_URL;
+        const apiUrl =
+          process.env.REACT_APP_BACKEND_URL ||
+          `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
         const response = await fetch(`${apiUrl}/api/logs`);
         const data = await response.json();
         setLogs(data.records);
