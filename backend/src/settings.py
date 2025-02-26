@@ -24,6 +24,7 @@ class AppSettings(BaseSettings):
     QBITTORRENT_PASSWORD: str
 
     LOG_FILE: str = "logs/log.log"
+    ENABLE_TASK_SCHEDULER: bool = False
 
 
 app_settings = AppSettings()

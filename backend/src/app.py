@@ -7,13 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.dependencies import dependencies
 from src.routes import api_router
+from src.settings import app_settings
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    await dependencies.task_scheduler.start()
+    if app_settings.ENABLE_TASK_SCHEDULER:
+        await dependencies.task_scheduler.start()
+
     yield
-    await dependencies.task_scheduler.stop()
+
+    if app_settings.ENABLE_TASK_SCHEDULER:
+        await dependencies.task_scheduler.stop()
 
 
 app = FastAPI(lifespan=lifespan)
