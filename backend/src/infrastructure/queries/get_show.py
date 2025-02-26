@@ -77,7 +77,6 @@ class GetShowQueryResponse__Release(BaseModel):
     qbittorrent_guid: str
     qbittorrent_data: str
     torrent_is_finished: bool
-    torrent_stats_raw: str
     last_imported_files_hash: str | None
     last_exported_torrent_guid: str | None
     export_failures_count: int
