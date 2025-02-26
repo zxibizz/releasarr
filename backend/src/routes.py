@@ -61,3 +61,9 @@ async def delete_release(show_id: int, release_name: str):
 @api_router.get("/logs")
 async def get_logs() -> DTO_Logs:
     return await dependencies.queries.list_logs.execute()
+
+
+@api_router.get("/tasks/sync_all")
+@api_router.post("/tasks/sync_all")
+async def sync():
+    await dependencies.task_scheduler.trigger_sync_task()
