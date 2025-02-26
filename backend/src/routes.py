@@ -43,12 +43,18 @@ async def grab_show_release(show_id: int, release_pk: str = Body(..., embed=True
 @api_router.post("/shows/{show_id}/file_matching")
 async def update_release_file_matchings(
     show_id: int,
-    release_name: str,
-    updated_file_matchings: list[DTO_ReleaseFileMatchingUpdate],
+    release_name: str = Body(..., embed=True),
+    updated_file_matchings: list[DTO_ReleaseFileMatchingUpdate] = Body(..., embed=True),
 ):
     await dependencies.use_cases.update_release_file_matchings.process(
         show_id, release_name, updated_file_matchings
     )
+    return {"status": "ok"}
+
+
+@api_router.delete("/shows/{show_id}/releases/{release_name}")
+async def delete_release(show_id: int, release_name: str):
+    await dependencies.use_cases.delete_release.process(name=release_name)
     return {"status": "ok"}
 
 
