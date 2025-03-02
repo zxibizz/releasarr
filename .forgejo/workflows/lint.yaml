@@ -1,6 +1,15 @@
 name: lint
 
-on: [push, pull_request]
+on: 
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Run database migrations'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   ruff-check:
