@@ -1,14 +1,9 @@
 name: build-and-push
 
-on:
-  workflow_run:
-    workflows: ["lint"]
-    types:
-      - completed
+on: [push, pull_request]
 
 jobs:
   build-and-push:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Build and Push Docker Image
     runs-on: docker
   
