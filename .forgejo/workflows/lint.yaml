@@ -12,9 +12,7 @@ jobs:
 
       - name: Run Ruff checks
         uses: docker://python:3.12-slim
-        with:
-          entrypoint: /bin/bash
-          args: |-
+        run: |
             -c "
             cd backend
             pip install uv
