@@ -1,10 +1,9 @@
 version: '3.8'
 
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  releasarr:
+    build: 
+      context: .
     restart: always
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
@@ -13,18 +12,5 @@ services:
       - .env
     environment:
       - ENABLE_TASK_SCHEDULER=1
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    restart: always
-    environment:
-      - REACT_APP_BACKEND_URL=http://code-vm.lan:8050
-
-  nginx:
-    image: nginx:latest
     ports:
-      - "8050:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - 8050:80
