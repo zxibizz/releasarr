@@ -94,8 +94,14 @@ def init_dependencies() -> Dependencies:
     )
 
     queries = Dependencies.Queries(
-        list_shows=Query_ListShows(),
-        get_show=Query_GetShow(),
+        list_shows=Query_ListShows(
+            db_manager=db_manager,
+            logger=logger.bind(component="Query.ListShows"),
+        ),
+        get_show=Query_GetShow(
+            db_manager=db_manager,
+            logger=logger.bind(component="Query.GetShows"),
+        ),
     )
 
     use_cases = Dependencies.UseCases(
