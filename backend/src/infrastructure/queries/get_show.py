@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 from datetime import datetime
 
+import loguru
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.application.interfaces.db_manager import I_DBManager
 from src.application.models import Release, Show
-from src.db import async_session
 
 
 class GetShowQueryResponse__SonarrSeriesData(BaseModel):
@@ -113,18 +117,34 @@ class GetShowQueryResponse(BaseModel):
 
 
 class Query_GetShow:
-    async def execute(self, show_id: int) -> GetShowQueryResponse | None:
-        async with async_session.begin() as session:
-            q = (
-                select(Show)
-                .where(Show.id == show_id)
-                .options(
-                    joinedload(Show.releases).options(
-                        joinedload(Release.file_matchings)
-                    ),
-                )
+    def __init__(
+        self,
+        db_manager: I_DBManager,
+        logger: loguru.Logger,
+    ) -> None:
+        self.db_manager = db_manager
+        self.logger = logger
+
+    async def execute(self, show_id: int) -> list[Show]:
+        self.logger.info(
+            "Get show",
+            show_id=show_id,
+        )
+        with self.logger.catch(reraise=True):
+            async with self.db_manager.begin_session() as db_session:
+                return await self._execute(db_session, show_id)
+
+    async def _execute(
+        self, db_session: AsyncSession, show_id: int
+    ) -> GetShowQueryResponse | None:
+        q = (
+            select(Show)
+            .where(Show.id == show_id)
+            .options(
+                joinedload(Show.releases).options(joinedload(Release.file_matchings)),
             )
-            res = await session.scalar(q)
-            if res is None:
-                return
-            return GetShowQueryResponse.model_validate(obj=res)
+        )
+        res = await db_session.scalar(q)
+        if res is None:
+            return
+        return GetShowQueryResponse.model_validate(obj=res)
