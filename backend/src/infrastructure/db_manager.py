@@ -1,17 +1,16 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.application.interfaces.db_manager import I_DBManager
-from src.db import async_session
 
 
 class DBManager(I_DBManager):
-    def __init__(self) -> None:
-        self._make_session_func = async_session
+    def __init__(self, sessionmaker: async_sessionmaker) -> None:
+        self._sessionmaker = sessionmaker
 
     @asynccontextmanager
     async def begin_session(self) -> AsyncIterator[AsyncSession]:
-        async with async_session() as session, session.begin():
+        async with self._sessionmaker() as session, session.begin():
             yield session

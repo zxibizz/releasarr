@@ -7,9 +7,8 @@ from sqlalchemy import types
 from sqlmodel import Field, Relationship, SQLModel
 
 from src.application.schemas import ReleaseData
-from src.db import async_engine
-from src.infrastructure.api_clients.sonarr import SonarrSeries
 from src.infrastructure.api_clients.tvdb import TvdbShowData
+from src.infrastructure.series_manager import Series
 
 
 class Show(SQLModel, table=True):
@@ -26,8 +25,8 @@ class Show(SQLModel, table=True):
 
     @computed_field
     @property
-    def sonarr_data(self) -> SonarrSeries:
-        return SonarrSeries.model_validate_json(self.sonarr_data_raw)
+    def sonarr_data(self) -> Series:
+        return Series.model_validate_json(self.sonarr_data_raw)
 
     @computed_field
     @property
@@ -82,7 +81,9 @@ class ReleaseFileMatching(SQLModel, table=True):
 
 
 async def main():
-    async with async_engine.begin() as conn:
+    from db import get_async_engine
+
+    async with get_async_engine().begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
 

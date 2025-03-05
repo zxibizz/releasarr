@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import sys
 
-from loguru import logger
+import loguru
+from loguru import logger as base_logger
+
+from src.settings import app_settings
 
 INIT_HAPPENED = False
 
@@ -31,14 +36,11 @@ class InterceptHandler(logging.Handler):
         )
 
 
-def init_logger(app_logs_file: str):
-    global INIT_HAPPENED
-    if INIT_HAPPENED:
-        raise RuntimeError("Avoid double initialization of logger")
-    INIT_HAPPENED = True
-
+def _init_logger() -> loguru.Logger:
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
-    logger.remove()
+    base_logger.remove()
+
+    logger = base_logger.bind()
     logger.add(
         sys.stderr,
         format="{time} | <lvl>{level}</lvl> | {name} | {message}",
@@ -46,7 +48,7 @@ def init_logger(app_logs_file: str):
         colorize=True,
     )
     logger.add(
-        app_logs_file,
+        app_settings.LOG_FILE,
         format="{message}",
         level="INFO",
         rotation="100 MB",
@@ -54,3 +56,7 @@ def init_logger(app_logs_file: str):
         filter=lambda record: "component" in record["extra"],
         serialize=True,
     )
+    return logger
+
+
+logger = _init_logger()
