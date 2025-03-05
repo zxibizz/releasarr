@@ -1,8 +1,9 @@
 import asyncio
-import os
 
 import httpx
 from pydantic import BaseModel
+
+from src.application.interfaces.tvdb_client import I_TvdbClient
 
 
 class TvdbShowData(BaseModel):
@@ -17,8 +18,8 @@ class TvdbShowData(BaseModel):
 
 
 class _Auth(httpx.Auth):
-    def __init__(self, base_url) -> None:
-        self.api_token = os.environ.get("TVDB_API_TOKEN")
+    def __init__(self, base_url, api_token) -> None:
+        self.api_token = api_token
         self.base_url = base_url
         self.auth_token = None
         self._async_lock = asyncio.Lock()
@@ -45,11 +46,11 @@ class _Auth(httpx.Auth):
         )
 
 
-class TVDBApiClient:
-    def __init__(self) -> None:
-        self.base_url = "https://api4.thetvdb.com/v4"
+class TVDBApiClient(I_TvdbClient):
+    def __init__(self, api_token: str) -> None:
+        base_url = "https://api4.thetvdb.com/v4"
         self.client = httpx.AsyncClient(
-            base_url=self.base_url, auth=_Auth(base_url=self.base_url)
+            base_url=base_url, auth=_Auth(base_url=base_url, api_token=api_token)
         )
 
     async def search(self, query: str):

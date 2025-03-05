@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 import httpx
@@ -13,11 +12,11 @@ from src.application.schemas import ReleaseData, TorrentFile, TorrentMeta
 
 
 class ProwlarrApiClient(I_ReleaseSearcher):
-    def __init__(self) -> None:
-        self.base_url = os.environ.get("PROWLARR_BASE_URL")
+    def __init__(self, base_url: str, api_token: str) -> None:
+        self.base_url = base_url
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
-            headers={"X-Api-Key": os.environ.get("PROWLARR_API_TOKEN")},
+            headers={"X-Api-Key": api_token},
         )
 
     async def search(

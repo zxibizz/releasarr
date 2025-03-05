@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 from typing import Optional
 
@@ -86,18 +85,17 @@ def _authenticate(func):
 
 
 class QBittorrentApiClient:
-    def __init__(self) -> None:
-        self.base_url = os.environ.get("QBITTORRENT_BASE_URL")
+    def __init__(self, base_url: str, username: str, password: str) -> None:
+        self.base_url = base_url
         self.client = httpx.AsyncClient(base_url=self.base_url)
+        self._username = username
+        self._password = password
         self._login_happened = False
 
     async def log_in(self):
         res = await self.client.post(
             "/auth/login",
-            data={
-                "username": os.environ.get("QBITTORRENT_USERNAME"),
-                "password": os.environ.get("QBITTORRENT_PASSWORD"),
-            },
+            data={"username": self._username, "password": self._password},
         )
         res.raise_for_status()
 

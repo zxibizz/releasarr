@@ -1,5 +1,3 @@
-import os
-
 import httpx
 
 from src.application.interfaces.series_service import (
@@ -16,11 +14,9 @@ class SeriesManualImportError(Exception): ...
 
 
 class SeriesService(I_SeriesService):
-    def __init__(self) -> None:
-        self.base_url = os.environ.get("SONARR_BASE_URL")
+    def __init__(self, base_url, api_token) -> None:
         self.client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={"X-Api-Key": os.environ.get("SONARR_API_TOKEN")},
+            base_url=base_url, headers={"X-Api-Key": api_token}
         )
 
     async def get_missing(self) -> list[MissingSeries]:
