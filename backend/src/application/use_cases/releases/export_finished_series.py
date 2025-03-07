@@ -10,7 +10,7 @@ from src.application.interfaces.releases_repository import I_ReleasesRepository
 from src.application.interfaces.series_service import I_SeriesService, SeriesImportFile
 from src.application.models import Release
 from src.application.schemas import TorrentFile
-from src.infrastructure.series_manager import SeriesManualImportError
+from src.infrastructure.api_clients.sonarr import E_SeriesManualImportError
 
 
 class DTO_ExportFinishedSeriesResult:
@@ -63,7 +63,7 @@ class UseCase_ExportFinishedSeries:
 
                 res.succeded += 1
 
-            except SeriesManualImportError:
+            except E_SeriesManualImportError:
                 release.export_failures_count += 1
                 res.failed += 1
 

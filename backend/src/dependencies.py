@@ -33,13 +33,13 @@ from src.application.utility.release_files_matchings_autocompleter import (
 from src.db import get_async_sessionmaker
 from src.infrastructure.api_clients.prowlarr import ProwlarrApiClient
 from src.infrastructure.api_clients.qbittorrent import QBittorrentApiClient
+from src.infrastructure.api_clients.sonarr import SonarrApiClient
 from src.infrastructure.api_clients.tvdb import TVDBApiClient
 from src.infrastructure.db_manager import DBManager
 from src.infrastructure.queries.get_show import Query_GetShow
 from src.infrastructure.queries.list_shows import Query_ListShows
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
-from src.infrastructure.series_manager import SeriesService
 from src.logger import logger
 from src.settings import app_settings
 
@@ -104,7 +104,7 @@ def _init_dependencies() -> Dependencies:
         tvdb_client=TVDBApiClient(
             api_token=app_settings.TVDB_API_TOKEN,
         ),
-        series_service=SeriesService(
+        series_service=SonarrApiClient(
             base_url=app_settings.SONARR_BASE_URL,
             api_token=app_settings.SONARR_API_TOKEN,
         ),
