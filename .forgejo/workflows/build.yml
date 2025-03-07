@@ -6,8 +6,16 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: docker
-  
-    steps:        
+
+    container:
+      image: docker:latest
+      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
+    
+    steps:
+      - name: Install Node.js
+        run: |
+          apk add --no-cache nodejs npm
+          
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
