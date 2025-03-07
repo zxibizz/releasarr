@@ -6,9 +6,6 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: docker
-
-    container:
-      image: ghcr.io/actions/actions-runner:2.322.0
   
     steps:        
       - name: Set up Docker Buildx
