@@ -15,25 +15,27 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-default-groups
-
-ADD backend/src /app/src
+    uv sync --frozen --no-install-project --group db-migrations
 
 # ------------------------------------------------
 
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y nginx supervisor && \
+RUN apt-get update && apt-get install -y nginx && \
     rm -rf /var/lib/apt/lists/*
-
-COPY --from=backend-builder --chown=app:app /app /app
-COPY --from=frontend-builder --chown=app:app /app/build /static
-
-COPY nginx.conf /etc/nginx/sites-available/default
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"
 
+COPY --from=backend-builder --chown=app:app /app/.venv /app/.venv
+COPY --from=frontend-builder --chown=app:app /app/build /static
+
+COPY backend/src /app/src
+COPY backend/migrations /app/migrations
+COPY backend/alembic.ini /app
+
+COPY nginx.conf /etc/nginx/sites-available/default
+COPY entrypoint.sh /
+
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+ENTRYPOINT ["/entrypoint.sh"]
