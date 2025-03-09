@@ -84,6 +84,9 @@ class DTO_Show_Release(BaseModel):
 
     file_matchings: list["DTO_Show_ReleaseFileMatching"]
 
+    def model_post_init(self, __context) -> None:
+        self.file_matchings = sorted(self.file_matchings, key=lambda x: x.file_name)
+
 
 class DTO_Show_ReleaseFileMatching(BaseModel):
     model_config = ConfigDict(from_attributes=True)
