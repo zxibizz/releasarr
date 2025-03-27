@@ -37,6 +37,7 @@ from src.infrastructure.api_clients.sonarr import SonarrApiClient
 from src.infrastructure.api_clients.tvdb import TVDBApiClient
 from src.infrastructure.db_manager import DBManager
 from src.infrastructure.queries.get_show import Query_GetShow
+from src.infrastructure.queries.list_logs import Query_ListLogs
 from src.infrastructure.queries.list_shows import Query_ListShows
 from src.infrastructure.repositories.releases import ReleasesRepository
 from src.infrastructure.repositories.shows import ShowsRepository
@@ -50,6 +51,7 @@ class Dependencies:
     class Queries:
         list_shows: Query_ListShows
         get_show: Query_GetShow
+        list_logs: Query_ListLogs
 
     @dataclass
     class UseCases:
@@ -119,6 +121,10 @@ def _init_dependencies() -> Dependencies:
         get_show=Query_GetShow(
             db_manager=db_manager,
             logger=logger.bind(component="Query.GetShows"),
+        ),
+        list_logs=Query_ListLogs(
+            log_file=app_settings.LOG_FILE,
+            logger=logger.bind(component="Query.ListLogs"),
         ),
     )
 
