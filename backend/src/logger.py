@@ -9,8 +9,6 @@ from loguru import logger as base_logger
 
 from src.settings import app_settings
 
-INIT_HAPPENED = False
-
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
