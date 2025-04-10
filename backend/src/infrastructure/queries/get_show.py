@@ -106,7 +106,7 @@ class DTO_Show(BaseModel):
     sonarr_data: str
     tvdb_data_raw: str
     is_missing: bool
-    missing_seasons: list[int]
+    missing_seasons: list[int] | None
     prowlarr_search: str | None
     prowlarr_data: str | None
 
