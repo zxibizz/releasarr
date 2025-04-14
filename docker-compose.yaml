@@ -11,3 +11,5 @@ services:
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
       - ./logs/backend:/app/logs
+    env_file:
+      - .env
