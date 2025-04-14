@@ -1,15 +1,20 @@
-FROM python:3.11-slim
-WORKDIR /app
-RUN apt-get update && \
-    apt-get install -y curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:${PATH}"
-COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root
-COPY . .
-ENTRYPOINT ["poetry", "run"]
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_PYTHON_DOWNLOADS=0
 
-# CMD ["uvicorn", "src.app:app"] TODO: investigate why it doesn't work
-CMD ["python", "-m", "src.app"]
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+ADD src /app/src
+ADD templates /app/templates
+
+FROM python:3.12-slim-bookworm
+COPY --from=builder --chown=app:app ./app /app
+
+WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH"
+
+CMD ["python", "-m",  "src.app"]
