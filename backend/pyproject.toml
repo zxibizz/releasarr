@@ -22,3 +22,6 @@ db-migrations = [
 lint = [
     "ruff>=0.9.7",
 ]
+
+[tool.uv]
+default-groups = ["lint", "db-migrations"]
