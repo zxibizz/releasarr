@@ -85,7 +85,7 @@ class Dependencies:
 
 
 def _init_dependencies() -> Dependencies:
-    session_maker = get_async_sessionmaker(app_settings.DB_PATH)
+    session_maker = get_async_sessionmaker()
 
     db_manager = DBManager(session_maker)
     repositories = Dependencies.Repositories(

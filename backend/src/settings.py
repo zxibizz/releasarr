@@ -9,7 +9,7 @@ class AppSettings(BaseSettings):
         extra="ignore",
     )
 
-    DB_PATH: str
+    DB_CONNECTION_STRING: str
 
     TVDB_API_TOKEN: str
 
