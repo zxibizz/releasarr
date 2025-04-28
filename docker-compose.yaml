@@ -13,3 +13,11 @@ services:
       - ./logs/backend:/app/logs
     env_file:
       - .env
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8011:80"
+    restart: always
