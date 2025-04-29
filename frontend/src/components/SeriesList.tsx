@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 interface Show {
   id: string;
@@ -21,7 +21,7 @@ const SeriesList: React.FC = () => {
         const data = await response.json();
         setShows(data);
       } catch (error) {
-        console.error('Error fetching shows:', error);
+        console.error("Error fetching shows:", error);
       }
     };
 
@@ -32,10 +32,7 @@ const SeriesList: React.FC = () => {
     <div>
       <h1 className="text-3xl font-bold mb-5">Запросы</h1>
       {shows.map((show) => (
-        <div
-          key={show.id}
-          className="bg-gray-800 rounded-lg p-5 mb-5 flex"
-        >
+        <div key={show.id} className="bg-gray-800 rounded-lg p-5 mb-5 flex">
           <img
             src={show.tvdb_data.image_url}
             alt={show.tvdb_data.title}
