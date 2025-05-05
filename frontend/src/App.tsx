@@ -1,5 +1,6 @@
 import React from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import LogsList from "./components/LogsList";
 import SeriesList from "./components/SeriesList";
 import SeriesPage from "./components/SeriesPage";
 
@@ -36,6 +37,7 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<SeriesList />} />
               <Route path="/show/:showId" element={<SeriesPage />} />
+              <Route path="/logs" element={<LogsList />} />
             </Routes>
           </div>
         </div>
