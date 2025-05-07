@@ -24,24 +24,60 @@ const SeriesPage: React.FC = () => {
   const { showId } = useParams<{ showId: string }>();
   const [show, setShow] = useState<Show | null>(null);
   const [activeTab, setActiveTab] = useState("seasons");
+  const [loading, setLoading] = useState({ search: false, grab: "" });
+
+  const apiUrl = process.env.REACT_APP_BACKEND_URL;
+  const fetchShow = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/api/shows/${showId}`);
+      const data = await response.json();
+      setShow(data);
+    } catch (error) {
+      console.error("Error fetching show:", error);
+    }
+  };
 
   useEffect(() => {
-    const fetchShow = async () => {
-      try {
-        const apiUrl = process.env.REACT_APP_BACKEND_URL;
-        const response = await fetch(`${apiUrl}/api/shows/${showId}`);
-        const data = await response.json();
-        setShow(data);
-      } catch (error) {
-        console.error("Error fetching show:", error);
-      }
-    };
-
     fetchShow();
   }, [showId]);
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  const handleSearchSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading({ ...loading, search: true });
+    try {
+      const formData = new FormData(e.currentTarget);
+      const query = formData.get("query");
+      await fetch(`${apiUrl}/api/shows/${showId}/search_release`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      await fetchShow();
+    } catch (error) {
+      console.error("Error searching show:", error);
+    } finally {
+      setLoading({ ...loading, search: false });
+    }
+  };
+
+  const handleGrabSubmit = async (releasePk: string) => {
+    setLoading({ ...loading, grab: releasePk });
+    try {
+      await fetch(`${apiUrl}/api/shows/${showId}/grab`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ release_pk: releasePk }),
+      });
+      await fetchShow();
+    } catch (error) {
+      console.error("Error grabbing release:", error);
+    } finally {
+      setLoading({ ...loading, grab: "" });
+    }
   };
 
   if (!show) {
@@ -155,22 +191,68 @@ const SeriesPage: React.FC = () => {
         className={`pt-5 ${activeTab === "search" ? "" : "hidden"}`}
       >
         <h3 className="text-2xl font-semibold mb-4">Поиск</h3>
-        <form action={`/show/${show.id}/search`} method="post" className="mb-5">
+        <form onSubmit={handleSearchSubmit} className="mb-5">
           <input
             type="text"
             name="query"
             className="bg-gray-700 text-white p-2 rounded-lg w-full"
             placeholder="Search..."
-            value={show.prowlarr_search || show.tvdb_data.title}
+            defaultValue={show.prowlarr_search || show.tvdb_data.title}
           />
           <button
             type="submit"
             className="bg-blue-500 text-white py-2 px-4 rounded-lg mt-2"
+            disabled={loading.search}
           >
-            Search
+            {loading.search ? "Searching..." : "Search"}
           </button>
         </form>
-        {/* Search results will be displayed here */}
+        <div id="s-results">
+          <h4 className="text-xl font-semibold mb-3">Search Results</h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-gray-800 rounded-lg">
+              <thead>
+                <tr>
+                  <th className="text-left p-3">Title</th>
+                  <th className="text-left p-3">Age</th>
+                  <th className="text-left p-3">Grabs</th>
+                  <th className="text-left p-3">Seeders</th>
+                  <th className="text-left p-3">Leechers</th>
+                  <th className="text-left p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {show.prowlarr_data.map((release) => (
+                  <tr className="border-b border-gray-700" key={release.title}>
+                    <td className="p-3">{release.title}</td>
+                    <td className="p-3">{release.age}</td>
+                    <td className="p-3">{release.grabs}</td>
+                    <td className="p-3">{release.seeders}</td>
+                    <td className="p-3">{release.leechers}</td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        className="bg-blue-500 text-white py-1 px-3 rounded-lg"
+                        onClick={() => handleGrabSubmit(release.pk)}
+                        disabled={loading.grab != ""}
+                      >
+                        {loading.grab == release.pk ? "Grabbing..." : "Grab"}
+                      </button>
+                      <a
+                        href={release.info_url}
+                        className="text-blue-400 hover:underline ml-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        More Info
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
