@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
 from src.application.models import Show
 from src.application.use_cases.releases.update_files_matching import (
@@ -27,19 +27,20 @@ async def get_show(show_id: int) -> Show:
 
 
 @api_router.post("/shows/{show_id}/search_release")
-async def search_show_release(show_id: int, query: str) -> Show:
+async def search_show_release(show_id: int, query: str = Body(..., embed=True)):
     await dependencies.use_cases.search_release.process(show_id, query)
-    return "ok"
+    return {"status": "ok"}
 
 
-async def grab_show_release(show_id: int, release_pk: str):
+@api_router.post("/shows/{show_id}/grab")
+async def grab_show_release(show_id: int, release_pk: str = Body(..., embed=True)):
     await dependencies.use_cases.grab_release.process(
         show_id=show_id, release_pk=release_pk
     )
-    return "ok"
+    return {"status": "ok"}
 
 
-@api_router.post("/show/{show_id}/file_matching")
+@api_router.post("/shows/{show_id}/file_matching")
 async def update_release_file_matchings(
     show_id: int,
     release_name: str,
@@ -48,7 +49,7 @@ async def update_release_file_matchings(
     await dependencies.use_cases.update_release_file_matchings.process(
         show_id, release_name, updated_file_matchings
     )
-    return "ok"
+    return {"status": "ok"}
 
 
 @api_router.get("/logs/")
