@@ -1,3 +1,93 @@
+from typing import (
+    Any,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
+
+from pydantic import BaseModel
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class PydanticType(TypeDecorator, Generic[T]):
+    """SQLAlchemy type for storing Pydantic models in a database.
+
+    This type can handle both single Pydantic models and lists of Pydantic models.
+
+    Usage:
+        # For a single Pydantic model
+        field: Mapped[MyModel] = mapped_column(PydanticType(MyModel))
+
+        # For a list of Pydantic models
+        field: Mapped[List[MyModel]] = mapped_column(PydanticType(List[MyModel]))
+    """
+
+    impl = JSONB
+    cache_ok = True
+
+    def __init__(self, python_type: Type[T], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.python_type = python_type
+
+        # Check if the type is a List[T]
+        origin = get_origin(python_type)
+        if origin is list or origin is List:
+            self.is_list = True
+            self.item_type = get_args(python_type)[0]
+        else:
+            self.is_list = False
+            self.item_type = python_type
+
+    def process_bind_param(self, value: Optional[Union[T, List[T]]], dialect):
+        if value is None:
+            return None
+
+        if self.is_list:
+            return [item.model_dump() for item in value]
+        else:
+            return value.model_dump()
+
+    def process_result_value(self, value: Any, dialect):
+        if value is None:
+            return None
+
+        if self.is_list:
+            return [self.item_type.model_validate(item) for item in value]
+        else:
+            return self.item_type.model_validate(value)
+
+
+# This will be set up in the application startup
+engine = None
+AsyncSessionLocal = None
+
+
+async def init_db(db_connection_string: str):
+    global engine, AsyncSessionLocal
+
+    engine = create_async_engine(
+        db_connection_string,
+        echo=False,
+    )
+
+    AsyncSessionLocal = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
