@@ -12,13 +12,15 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
+from app.db import Base
+from app.prowlarr.models import ProwlarrRelease
 from app.sonarr.schemas import SonarrEpisode
+from app.torrent.models import Torrent
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -71,9 +73,6 @@ class PydanticType(TypeDecorator, Generic[T]):
             return self.item_type.model_validate(value)
 
 
-Base = declarative_base()
-
-
 class TVDBSeries(Base):
     __tablename__ = "tvdb_series"
 
@@ -102,18 +101,18 @@ class SonarrRequest(Base):
         String, nullable=True
     )
 
-    prowlarr_release_search_string: Mapped[Optional[str]] = mapped_column(
-        String, nullable=True
+    prowlarr_release_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("prowlarr_releases.id"), nullable=True
     )
-    prowlarr_release_title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    prowlarr_release_info_url: Mapped[Optional[str]] = mapped_column(
-        String, nullable=True
+    prowlarr_release: Mapped[Optional[ProwlarrRelease]] = relationship(
+        "ProwlarrRelease"
     )
-    prowlarr_release_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
-    torrent_guid: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    torrent_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    torrent_is_finished: Mapped[bool] = mapped_column(Boolean, default=False)
+    torrent_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("torrents.id"), nullable=True
+    )
+    torrent: Mapped[Optional[Torrent]] = relationship("Torrent")
+
     torrent_files_matching: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
         JSONB, nullable=True
     )
