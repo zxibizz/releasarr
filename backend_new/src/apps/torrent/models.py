@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
+from src.db.models import Base
 
 
 class Torrent(Base):

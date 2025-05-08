@@ -11,9 +11,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import JSON, TypeDecorator
 
 Base = declarative_base()
@@ -71,26 +69,3 @@ class PydanticType(TypeDecorator, Generic[T]):
             return [self.item_type.model_validate(item) for item in value]
         else:
             return self.item_type.model_validate(value)
-
-
-# This will be set up in the application startup
-engine = None
-AsyncSessionLocal = None
-
-
-async def init_db(db_connection_string: str):
-    global engine, AsyncSessionLocal
-
-    engine = create_async_engine(
-        db_connection_string,
-        echo=False,
-    )
-
-    AsyncSessionLocal = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-
-
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session

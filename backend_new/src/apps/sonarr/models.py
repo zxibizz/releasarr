@@ -4,10 +4,11 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db import Base, PydanticType
-from app.prowlarr.models import ProwlarrRelease
-from app.sonarr.schemas import SonarrEpisode
-from app.torrent.models import Torrent
+from src.apps.prowlarr.models import ProwlarrRelease
+from src.apps.sonarr.schemas import SonarrEpisode
+from src.apps.torrent.models import Torrent
+from src.db.models import Base
+from src.db.types import PydanticType
 
 
 class SonarrRequest(Base):

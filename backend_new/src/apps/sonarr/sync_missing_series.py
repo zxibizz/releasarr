@@ -3,9 +3,9 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.sonarr.client import MissingSeries, SonarrApiClient
-from app.sonarr.models import SonarrRequest
-from app.sonarr.schemas import SonarrEpisode
+from src.apps.sonarr.client import MissingSeries, SonarrApiClient
+from src.apps.sonarr.models import SonarrRequest
+from src.apps.sonarr.schemas import SonarrEpisode
 
 
 class SyncMissingSeries:

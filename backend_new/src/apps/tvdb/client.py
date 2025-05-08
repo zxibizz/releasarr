@@ -3,7 +3,7 @@ from typing import List
 
 import httpx
 
-from app.tvdb.schemas import TvdbSearchResult, TvdbShowData
+from src.apps.tvdb.schemas import TvdbSearchResult, TvdbShowData
 
 
 class _Auth(httpx.Auth):
