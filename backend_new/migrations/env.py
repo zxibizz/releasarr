@@ -5,12 +5,21 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import TypeDecorator, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.db import Base
 from app.settings import app_settings
+
+
+def render_item(type_, obj, autogen_context):
+    """Apply custom rendering for selected items."""
+
+    if type_ == "type" and isinstance(obj, TypeDecorator):
+        return f"sa.{obj.impl!r}"
+
+    return False
 
 
 # Import all models to ensure they are registered with the Base metadata
@@ -48,7 +57,11 @@ target_metadata = Base.metadata
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_item=render_item,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

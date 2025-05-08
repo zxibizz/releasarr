@@ -11,11 +11,10 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.types import JSON, TypeDecorator
 
 Base = declarative_base()
 
@@ -35,12 +34,12 @@ class PydanticType(TypeDecorator, Generic[T]):
         field: Mapped[List[MyModel]] = mapped_column(PydanticType(List[MyModel]))
     """
 
-    impl = JSONB
+    impl = JSON
     cache_ok = True
 
     def __init__(self, python_type: Type[T], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.python_type = python_type
+        self._python_type = python_type
 
         # Check if the type is a List[T]
         origin = get_origin(python_type)
@@ -50,6 +49,10 @@ class PydanticType(TypeDecorator, Generic[T]):
         else:
             self.is_list = False
             self.item_type = python_type
+
+    @property
+    def python_type(self):
+        return self._python_type
 
     def process_bind_param(self, value: Optional[Union[T, List[T]]], dialect):
         if value is None:
