@@ -2,7 +2,7 @@ from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.apps.tvdb.schemas import TvdbShowData
-from src.db import Base
+from src.db.models import Base
 from src.db.types import PydanticType
 
 

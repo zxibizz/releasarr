@@ -9,8 +9,8 @@ from sqlalchemy import TypeDecorator, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.db import Base
-from app.settings import app_settings
+from src.db.models import Base
+from src.settings import app_settings
 
 
 def render_item(type_, obj, autogen_context):
@@ -25,7 +25,7 @@ def render_item(type_, obj, autogen_context):
 # Import all models to ensure they are registered with the Base metadata
 def import_all_models():
     """Import all models to ensure they are registered with Base.metadata."""
-    app_dir = Path(__file__).parent.parent / "app"
+    app_dir = Path(__file__).parent.parent / "src"
     for root, _, files in os.walk(app_dir):
         for file in files:
             if file.endswith("models.py"):
