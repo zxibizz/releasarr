@@ -86,11 +86,11 @@ const SeriesPage: React.FC = () => {
 
   return (
     <div>
-      <div className="flex space-x-5 mb-5">
+      <div className="flex flex-col sm:flex-row space-y-5 sm:space-y-0 sm:space-x-5 mb-5">
         <img
           src={show.tvdb_data.image_url}
           alt={show.tvdb_data.title}
-          className="w-48 h-72 rounded-lg"
+          className="px-5 w-full sm:p-0 sm:w-48 sm:h-72 rounded-lg"
         />
         <div>
           <h1 className="text-4xl font-bold mb-2">
