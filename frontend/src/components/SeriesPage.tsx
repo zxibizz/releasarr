@@ -80,6 +80,54 @@ const SeriesPage: React.FC = () => {
     }
   };
 
+  const handleFileMatchingSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    releaseName: string
+  ) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updatedFileMatchings =
+      show?.releases
+        .flatMap((release) => release.file_matchings)
+        .map((file_matching, index) => ({
+          id: Number(formData.get(`id_${index + 1}`)) || file_matching.id,
+          season_number:
+            Number(formData.get(`season_number_${index + 1}`)) ||
+            file_matching.season_number,
+          episode_number:
+            Number(formData.get(`episode_number_${index + 1}`)) ||
+            file_matching.episode_number,
+        })) || [];
+    try {
+      await fetch(`${apiUrl}/api/shows/${showId}/file_matching`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          release_name: releaseName,
+          updated_file_matchings: updatedFileMatchings,
+        }),
+      });
+      await fetchShow();
+    } catch (error) {
+      console.error("Error updating file matchings:", error);
+    }
+  };
+
+  const handleDeleteRelease = async (releaseName: string) => {
+    if (!window.confirm("Are you sure you want to delete this release?"))
+      return;
+    try {
+      await fetch(`${apiUrl}/shows/${showId}/releases/${releaseName}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _method: "delete" }),
+      });
+      await fetchShow();
+    } catch (error) {
+      console.error("Error deleting release:", error);
+    }
+  };
+
   if (!show) {
     return <div>Loading...</div>;
   }
@@ -181,7 +229,80 @@ const SeriesPage: React.FC = () => {
             <p className="text-gray-400 mb-5">
               <strong>Search Term:</strong> {release.search}
             </p>
-            {/* Form for file matching and delete actions */}
+            <form
+              onSubmit={(e) => handleFileMatchingSubmit(e, release.name)}
+              className="mt-4"
+            >
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-gray-900 rounded-lg mb-4">
+                  <thead>
+                    <tr>
+                      <th className="text-left p-3 w-4/5">File Name</th>
+                      <th className="text-left p-3">Season Number</th>
+                      <th className="text-left p-3">Episode Number</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {release.file_matchings.map(
+                      (file_matching: any, index: number) => (
+                        <tr
+                          className="border-b border-gray-700"
+                          key={file_matching.id}
+                        >
+                          <td className="hidden">
+                            <input
+                              type="number"
+                              name={`id_${index + 1}`}
+                              value={file_matching.id}
+                              readOnly
+                              hidden
+                            />
+                          </td>
+                          <td className="p-3 w-4/5">
+                            <input
+                              type="text"
+                              name={`file_name_${index + 1}`}
+                              value={file_matching.file_name}
+                              className="bg-gray-700 text-white p-2 rounded-lg w-full"
+                              readOnly
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              name={`season_number_${index + 1}`}
+                              defaultValue={file_matching.season_number}
+                              className="bg-gray-700 text-white p-2 rounded-lg w-full"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              name={`episode_number_${index + 1}`}
+                              defaultValue={file_matching.episode_number}
+                              className="bg-gray-700 text-white p-2 rounded-lg w-full"
+                            />
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                type="submit"
+                className="bg-blue-500 text-white py-2 px-4 rounded-lg"
+              >
+                Save
+              </button>
+            </form>
+            <button
+              type="button"
+              className="bg-red-500 text-white py-2 px-4 rounded-lg mt-4"
+              onClick={() => handleDeleteRelease(release.name)}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
