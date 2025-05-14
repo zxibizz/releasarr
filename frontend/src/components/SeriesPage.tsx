@@ -26,7 +26,9 @@ const SeriesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("seasons");
   const [loading, setLoading] = useState({ search: false, grab: "" });
 
-  const apiUrl = process.env.REACT_APP_BACKEND_URL;
+  const apiUrl =
+    process.env.REACT_APP_BACKEND_URL ||
+    `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
   const fetchShow = async () => {
     try {
       const response = await fetch(`${apiUrl}/api/shows/${showId}`);
@@ -117,10 +119,9 @@ const SeriesPage: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this release?"))
       return;
     try {
-      await fetch(`${apiUrl}/shows/${showId}/releases/${releaseName}/delete`, {
-        method: "POST",
+      await fetch(`${apiUrl}/api/shows/${showId}/releases/${releaseName}`, {
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ _method: "delete" }),
       });
       await fetchShow();
     } catch (error) {
