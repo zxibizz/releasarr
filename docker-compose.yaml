@@ -5,8 +5,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8001:8000"
     restart: always
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
@@ -18,8 +16,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "8011:80"
     restart: always
     environment:
-      - REACT_APP_BACKEND_URL=http://code-vm.lan:8001
+      - REACT_APP_BACKEND_URL=http://code-vm.lan:8050
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "8050:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
