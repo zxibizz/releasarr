@@ -3,6 +3,7 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import LogsList from "./components/LogsList";
 import SeriesList from "./components/SeriesList";
 import SeriesPage from "./components/SeriesPage";
+import TasksPage from "./components/TasksPage";
 
 const App: React.FC = () => {
   return (
@@ -27,6 +28,14 @@ const App: React.FC = () => {
                   Logs
                 </a>
               </li>
+              <li>
+                <a
+                  href="/tasks"
+                  className="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300"
+                >
+                  Tasks
+                </a>
+              </li>
             </ul>
           </nav>
         </div>
@@ -38,6 +47,7 @@ const App: React.FC = () => {
               <Route path="/" element={<SeriesList />} />
               <Route path="/show/:showId" element={<SeriesPage />} />
               <Route path="/logs" element={<LogsList />} />
+              <Route path="/tasks" element={<TasksPage />} />
             </Routes>
           </div>
         </div>
