@@ -93,7 +93,8 @@ class SonarrApiClient(I_SeriesService):
 
     async def manual_import(self, import_files: list[SeriesImportFile]) -> None:
         try:
-            await self._run_manual_import_check(import_files)
+            # TODO: it also fails for releases with 100+ files
+            # await self._run_manual_import_check(import_files)
             await self._run_manual_import_command(import_files)
         except Exception:
             raise E_SeriesManualImportError
