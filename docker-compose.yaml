@@ -11,6 +11,8 @@ services:
       - ./logs/backend:/app/logs
     env_file:
       - .env
+    environment:
+      - ENABLE_TASK_SCHEDULER=1
 
   frontend:
     build:
