@@ -26,6 +26,14 @@ const LogsList: React.FC = () => {
     fetchLogs();
   }, []);
 
+  const formatTime = (isoTime: string): string => {
+    return new Intl.DateTimeFormat(navigator.language, {
+      dateStyle: "medium",
+      timeStyle: "medium",
+      hour12: false,
+    }).format(new Date(isoTime));
+  };
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-5">Logs</h1>
@@ -51,7 +59,7 @@ const LogsList: React.FC = () => {
             {logs.map((log, index) => (
               <tr key={index}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  {log.time}
+                  {formatTime(log.time)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                   {log.level}
