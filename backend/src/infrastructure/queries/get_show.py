@@ -76,12 +76,9 @@ class DTO_Show_Release(BaseModel):
     updated_at: datetime
     search: str
     prowlarr_guid: str
-    prowlarr_data_raw: str
     show_id: int
     qbittorrent_guid: str
-    qbittorrent_data: str
     torrent_is_finished: bool
-    last_imported_files_hash: str | None
     last_exported_torrent_guid: str | None
     export_failures_count: int
 
@@ -103,12 +100,9 @@ class DTO_Show(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    sonarr_data: str
-    tvdb_data_raw: str
     is_missing: bool
     missing_seasons: list[int] | None
     prowlarr_search: str | None
-    prowlarr_data: str | None
 
     tvdb_data: DTO_Show_TvdbShowData
     sonarr_data: DTO_Show_SonarrSeriesData
