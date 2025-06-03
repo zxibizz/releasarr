@@ -1,0 +1,23 @@
+name: lint
+
+on: [push, pull_request]
+
+jobs:
+  ruff-check:
+    name: Ruff Linting
+    runs-on: docker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Run Ruff with uv
+        uses: docker://python:3.11-slim
+        with:
+          entrypoint: /bin/bash
+          args: -c "pip install uv && uv pip install ruff && cd backend && ruff check ."
+      
+      - name: Run Ruff Format Check with uv
+        uses: docker://python:3.11-slim
+        with:
+          entrypoint: /bin/bash
+          args: -c "pip install uv && uv pip install ruff && cd backend && ruff format --check ."
