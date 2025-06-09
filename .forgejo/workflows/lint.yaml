@@ -14,10 +14,10 @@ jobs:
         uses: docker://python:3.11-slim
         with:
           entrypoint: /bin/bash
-          args: -c "pip install uv && uv pip install ruff && cd backend && ruff check ."
+          args: -c "cd backend && pip install uv && uv venv && uv run ruff check ."
       
       - name: Run Ruff Format Check with uv
         uses: docker://python:3.11-slim
         with:
           entrypoint: /bin/bash
-          args: -c "pip install uv && uv pip install ruff && cd backend && ruff format --check ."
+          args: -c "cd backend && pip install uv && uv venv && uv run ruff format --check ."
