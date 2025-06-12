@@ -95,7 +95,7 @@ class SonarrApiClient(I_SeriesService):
         try:
             await self._run_manual_import_check(import_files)
             await self._run_manual_import_command(import_files)
-        except:
+        except Exception:
             raise E_SeriesManualImportError
 
     async def _run_manual_import_check(
