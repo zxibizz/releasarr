@@ -95,7 +95,7 @@ class UseCase_ReGrabOutdatedReleases:
                     await self.releases_repository.update_file_matchings(
                         db_session=db_session, file_matchings=file_matchings
                     )
-            except:
+            except Exception:
                 self.logger.exception(f"Can't regrab `{release.name}`")
 
     @staticmethod
