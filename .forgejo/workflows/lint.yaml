@@ -10,14 +10,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Run Ruff with uv
+      - name: Ruff check
         uses: docker://python:3.11-slim
         with:
           entrypoint: /bin/bash
           args: -c "cd backend && pip install uv && uv venv && uv run ruff check ."
       
-      - name: Run Ruff Format Check with uv
+      - name: Ruff check format
         uses: docker://python:3.11-slim
         with:
           entrypoint: /bin/bash
-          args: -c "cd backend && pip install uv && uv venv && uv run ruff format --check ."
+          args: -c "cd backend && pip install uv && uv venv && uv run ruff format --check ./src"
