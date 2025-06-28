@@ -19,7 +19,8 @@ jobs:
             cd backend
             pip install uv
             uv venv
-
+            "
+ 
       - name: Run Ruff checks
         uses: docker://python:3.12-slim
         with:
