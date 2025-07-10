@@ -9,6 +9,8 @@ jobs:
 
     container:
       image: docker/buildx-bin:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock 
   
     steps:
       - name: Install git
