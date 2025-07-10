@@ -8,11 +8,13 @@ jobs:
     runs-on: docker
 
     container:
-      image: docker:latest
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
+      image: docker/buildx-bin:latest
   
     steps:
+      - name: Install git
+        run: |
+          apk add --no-cache git
+
       - name: Checkout code
         uses: actions/checkout@v3
         
