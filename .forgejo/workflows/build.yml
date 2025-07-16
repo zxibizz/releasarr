@@ -8,7 +8,7 @@ jobs:
     runs-on: docker
 
     container:
-      image: ubuntu:latestsss
+      image: ubuntu:latest
   
     steps:
       - name: Checkout code
