@@ -10,10 +10,7 @@ jobs:
     container:
       image: ubuntu:latest
   
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
+    steps:        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
@@ -23,6 +20,9 @@ jobs:
       #     registry: ${{ secrets.REGISTRY_URL }}
       #     username: ${{ secrets.REGISTRY_USERNAME }}
       #     password: ${{ secrets.REGISTRY_PASSWORD }}
+      
+      - name: Checkout code
+        uses: actions/checkout@v3
           
       - name: Extract metadata for Docker
         id: meta
