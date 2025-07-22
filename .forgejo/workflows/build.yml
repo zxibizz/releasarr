@@ -8,7 +8,7 @@ jobs:
     runs-on: docker
 
     container:
-      image: ubuntu:latest
+      image: ghcr.io/actions/actions-runner:2.322.0
   
     steps:        
       - name: Set up Docker Buildx
