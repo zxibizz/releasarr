@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   build-and-push:
     name: Build and Push Docker Image
-    runs-on: docker
+    runs-on: ubuntu:latest
   
     steps:        
       - name: Set up Docker Buildx
