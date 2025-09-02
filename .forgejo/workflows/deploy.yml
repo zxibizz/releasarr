@@ -42,3 +42,20 @@ jobs:
         with:
           push: true
           tags: ${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:latest
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu
+    needs: build-and-push
+    steps:
+      - name: SSH and update Docker Compose
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USERNAME }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ vars.DEPLOY_PORT || 22 }}
+          script: |
+            cd ${{ vars.DEPLOY_DIRECTORY }}
+            docker compose pull
+            docker compose up -d
