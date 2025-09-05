@@ -42,6 +42,8 @@ jobs:
         with:
           push: true
           tags: ${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:latest
+          cache-from: type=registry,ref=${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:buildcache,mode=max
 
   deploy:
     name: Deploy
