@@ -11,7 +11,7 @@ on:
 jobs:
   lint:
     name: Ruff Linting
-    runs-on: ubuntu
+    runs-on: docker
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
