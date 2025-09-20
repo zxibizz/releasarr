@@ -7,6 +7,9 @@ This service implements the HTTP API consumed by the new React frontend. It is b
 - CRUD endpoints for media requests (`/requests`)
 - Release management (`/releases`, `/releases/stats`)
 - Torrent search and download orchestration (`/torrents`)
+- Background scheduler that synchronises missing Sonarr series, imports qBittorrent
+  statistics, exports completed releases back to Sonarr, and re-grabs outdated
+  releases using Prowlarr
 - External service clients (Sonarr, TVDB, Prowlarr, qBittorrent) with opt-in configuration
 - SQLite (default) or any SQLAlchemy-supported database via configuration
 

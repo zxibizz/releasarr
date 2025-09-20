@@ -14,7 +14,7 @@ class TorrentService:
         if not query.strip():
             return TorrentSearchResponse(results=[], query=query, total_results=0)
         if not self.clients.prowlarr.enabled:
-            logger.debug("Prowlarr disabled; returning empty search result")
+            logger.info("Prowlarr disabled; returning empty search result")
             return TorrentSearchResponse(results=[], query=query, total_results=0)
 
         releases = await self.clients.prowlarr.search(query)
