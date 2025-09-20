@@ -14,7 +14,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useReleaseFileMapping } from "../hooks/useReleases";
 import { EpisodeMapping as EpisodeMappingType, ReleaseFile } from "../types";
 import {
@@ -52,11 +52,16 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
   const [autoSuggest, setAutoSuggest] = useState(true);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
 
-  const { video, subtitle, other } = groupFilesByType(files);
-  const displayFiles = showOnlyVideo ? video : files;
+  const groupedFiles = useMemo(() => groupFilesByType(files), [files]);
+  const { video, subtitle, other } = groupedFiles;
+  const displayFiles = useMemo(
+    () => (showOnlyVideo ? video : files),
+    [showOnlyVideo, video, files]
+  );
 
   useEffect(() => {
-    const initialMappings = displayFiles.map((file) => {
+    const sourceFiles = showOnlyVideo ? video : files;
+    const initialMappings = sourceFiles.map((file) => {
       const existing = file.episode_mapping;
       const suggested = autoSuggest ? suggestEpisodeMapping(file) : null;
       const mapping = existing || suggested;
@@ -70,7 +75,7 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
     });
 
     setMappings(initialMappings);
-  }, [displayFiles, autoSuggest]);
+  }, [files, video, showOnlyVideo, autoSuggest]);
 
   const handleMappingChange = (
     fileId: string,
@@ -131,7 +136,8 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
   };
 
   const handleAutoSuggest = () => {
-    const updatedMappings = displayFiles.map((file) => {
+    const sourceFiles = showOnlyVideo ? video : files;
+    const updatedMappings = sourceFiles.map((file) => {
       const existing = mappings.find((m) => m.fileId === file.id);
       const suggested = suggestEpisodeMapping(file);
 
