@@ -1,5 +1,24 @@
+import {
+  Box,
+  Button,
+  Card,
+  Center,
+  Flex,
+  Heading,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Text,
+  useDisclosure,
+} from "@chakra-ui/react";
 import React, { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
 import EpisodeMapping from "./EpisodeMapping";
@@ -12,489 +31,280 @@ export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { request, loading, error } = useRequest(id || "");
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
-  const [showFilesModal, setShowFilesModal] = useState(false);
-  const [showMappingModal, setShowMappingModal] = useState(false);
+
+  const filesModal = useDisclosure();
+  const mappingModal = useDisclosure();
 
   const handleViewFiles = (release: Release) => {
     setSelectedRelease(release);
-    setShowFilesModal(true);
+    filesModal.onOpen();
   };
 
   const handleEditMapping = (release: Release) => {
     setSelectedRelease(release);
-    setShowMappingModal(true);
+    mappingModal.onOpen();
   };
 
   const closeModals = () => {
-    setShowFilesModal(false);
-    setShowMappingModal(false);
+    filesModal.onClose();
+    mappingModal.onClose();
     setSelectedRelease(null);
   };
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <span>Loading request...</span>
-      </div>
+      <Center py={16} flexDirection="column" gap={4} color="text.subtle">
+        <Spinner size="lg" color="brand.400" />
+        <Text>Loading request...</Text>
+      </Center>
     );
   }
 
   if (error || !request) {
     return (
-      <div style={{ maxWidth: "32rem", margin: "0 auto" }}>
-        <div className="error">
-          <div>❌ Request not found</div>
-          <p>{error || "The requested media could not be found."}</p>
-          <Link to="/" className="btn btn-primary">
+      <Card p={8} maxW="lg" mx="auto">
+        <Stack spacing={4} align="center">
+          <Text fontSize="3xl">❌</Text>
+          <Heading size="md">Request not found</Heading>
+          <Text color="text.subtle" textAlign="center">
+            {error || "The requested media could not be found."}
+          </Text>
+          <Button as={RouterLink} to="/" colorScheme="blue">
             ← Back to Requests
-          </Link>
-        </div>
-      </div>
+          </Button>
+        </Stack>
+      </Card>
     );
   }
 
   return (
-    <div className="fade-in" style={{ maxWidth: "72rem", margin: "0 auto" }}>
-      {/* Breadcrumb */}
-      <nav style={{ marginBottom: "1.5rem" }}>
-        <Link to="/" className="btn btn-outline">
-          ← Back to Requests
-        </Link>
-      </nav>
+    <Stack spacing={8} maxW="6xl" mx="auto">
+      <Button as={RouterLink} to="/" variant="outline" colorScheme="blue" width="fit-content">
+        ← Back to Requests
+      </Button>
 
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title">{request.title}</h1>
-        <p className="page-subtitle">
+      <Stack spacing={2}>
+        <Heading size="2xl">{request.title}</Heading>
+        <Text color="text.subtle" fontSize="md">
           {request.type === "movie" ? "Movie" : "TV Series"} Request Details
-        </p>
-      </div>
+        </Text>
+      </Stack>
 
-      {/* Media Information */}
-      <div style={{ marginBottom: "2rem" }}>
-        <MediaInfo request={request} />
-      </div>
+      <MediaInfo request={request} />
 
-      {/* Torrent Search */}
-      <div style={{ marginBottom: "2rem" }}>
-        <TorrentSearch requestId={request.id} requestTitle={request.title} />
-      </div>
+      <TorrentSearch requestId={request.id} requestTitle={request.title} />
 
-      {/* Releases Section */}
-      <div style={{ marginBottom: "2rem" }}>
-        <div className="card">
-          <h3
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: "600",
-              color: "#f1f5f9",
-              marginBottom: "1rem",
-            }}
-          >
-            📦 Releases
-          </h3>
-          <p style={{ color: "#94a3b8", marginBottom: "1.5rem" }}>
-            Torrent releases associated with this request
-          </p>
+      <Card p={{ base: 5, md: 6 }}>
+        <Stack spacing={4}>
+          <Stack spacing={1}>
+            <Heading size="md">📦 Releases</Heading>
+            <Text color="text.subtle" fontSize="sm">
+              Torrent releases associated with this request
+            </Text>
+          </Stack>
 
           <ReleasesList
             requestId={request.id}
             onViewFiles={handleViewFiles}
             onEditMapping={handleEditMapping}
           />
-        </div>
-      </div>
+        </Stack>
+      </Card>
 
-      {/* Additional Actions */}
-      <div className="card">
-        <h3
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: "600",
-            color: "#f1f5f9",
-            marginBottom: "1rem",
-          }}
-        >
-          🔧 Request Actions
-        </h3>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          <button
-            className="btn btn-secondary"
-            style={{
-              padding: "1rem",
-              textAlign: "left",
-              height: "auto",
-              flexDirection: "column",
-              alignItems: "flex-start",
-            }}
-            onClick={() =>
-              alert("Refresh functionality would be implemented here")
-            }
-          >
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🔄</div>
-            <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
-              Refresh Status
-            </div>
-            <div style={{ fontSize: "0.875rem", opacity: "0.8" }}>
-              Check for updates on this request
-            </div>
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            style={{
-              padding: "1rem",
-              textAlign: "left",
-              height: "auto",
-              flexDirection: "column",
-              alignItems: "flex-start",
-            }}
-            onClick={() =>
-              alert("Manual search functionality would be implemented here")
-            }
-          >
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🔍</div>
-            <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
-              Manual Search
-            </div>
-            <div style={{ fontSize: "0.875rem", opacity: "0.8" }}>
-              Trigger a manual search for releases
-            </div>
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            style={{
-              padding: "1rem",
-              textAlign: "left",
-              height: "auto",
-              flexDirection: "column",
-              alignItems: "flex-start",
-            }}
-            onClick={() =>
-              alert("View logs functionality would be implemented here")
-            }
-          >
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>📋</div>
-            <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
-              View Logs
-            </div>
-            <div style={{ fontSize: "0.875rem", opacity: "0.8" }}>
-              Check processing logs for this request
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Files Modal */}
-      {showFilesModal && selectedRelease && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "1rem",
-          }}
-          onClick={closeModals}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: "60rem",
-              width: "100%",
-              maxHeight: "80vh",
-              overflow: "auto",
-              margin: 0,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "1.5rem",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "1.25rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                  margin: 0,
-                }}
+      <Card p={{ base: 5, md: 6 }}>
+        <Stack spacing={4}>
+          <Heading size="md">🔧 Request Actions</Heading>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            {actionCards.map((action) => (
+              <Card
+                key={action.title}
+                p={4}
+                bg="bg.subtle"
+                borderWidth="1px"
+                borderColor="border.muted"
+                as={Button}
+                variant="ghost"
+                colorScheme="gray"
+                textAlign="left"
+                height="auto"
+                flexDirection="column"
+                alignItems="flex-start"
+                onClick={() => alert(action.message)}
               >
-                📁 Files in {selectedRelease.name}
-              </h3>
-              <button
-                onClick={closeModals}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                  fontSize: "1.5rem",
-                  padding: "0.25rem",
-                  borderRadius: "0.25rem",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.color = "#f87171")}
-                onMouseOut={(e) => (e.currentTarget.style.color = "#94a3b8")}
-              >
-                ✕
-              </button>
-            </div>
+                <Text fontSize="2xl" mb={2}>
+                  {action.icon}
+                </Text>
+                <Text fontWeight="600" mb={1}>
+                  {action.title}
+                </Text>
+                <Text fontSize="sm" color="text.subtle">
+                  {action.description}
+                </Text>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Stack>
+      </Card>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              {selectedRelease.files.map((file, index) => (
-                <div
-                  key={index}
-                  className="card"
-                  style={{
-                    padding: "1rem",
-                    background: "rgba(71, 85, 105, 0.2)",
-                    border: "1px solid rgba(148, 163, 184, 0.1)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: "1rem",
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h4
-                        style={{
-                          fontSize: "0.875rem",
-                          fontWeight: "600",
-                          color: "#f1f5f9",
-                          marginBottom: "0.5rem",
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        {file.name}
-                      </h4>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "1rem",
-                          fontSize: "0.75rem",
-                          color: "#94a3b8",
-                          marginBottom: "0.5rem",
-                        }}
-                      >
-                        <span>
-                          Size: {(file.size / (1024 * 1024 * 1024)).toFixed(2)}{" "}
-                          GB
-                        </span>
-                        <span>Progress: 100%</span>
-                      </div>
+      <FilesModal
+        isOpen={filesModal.isOpen}
+        onClose={closeModals}
+        release={selectedRelease}
+      />
 
-                      {/* Episode Mapping Info */}
-                      {file.episode_mapping && (
-                        <div
-                          style={{
-                            padding: "0.5rem",
-                            background: "rgba(59, 130, 246, 0.1)",
-                            border: "1px solid rgba(59, 130, 246, 0.2)",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
-                            color: "#93c5fd",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          📺 S
-                          {file.episode_mapping.season
-                            .toString()
-                            .padStart(2, "0")}
-                          E
-                          {file.episode_mapping.episode
-                            .toString()
-                            .padStart(2, "0")}
-                          {file.episode_mapping.title &&
-                            ` - ${file.episode_mapping.title}`}
-                        </div>
-                      )}
-
-                      {/* Request Mapping Info */}
-                      {file.request_mapping && (
-                        <div
-                          style={{
-                            padding: "0.5rem",
-                            background: "rgba(139, 92, 246, 0.1)",
-                            border: "1px solid rgba(139, 92, 246, 0.2)",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
-                            color: "#c4b5fd",
-                          }}
-                        >
-                          🔗 Mapped to request:{" "}
-                          {file.request_mapping.request_id}
-                          {file.request_mapping.request_title &&
-                            ` (${file.request_mapping.request_title})`}
-                        </div>
-                      )}
-
-                      {/* No mapping indicator */}
-                      {!file.episode_mapping && !file.request_mapping && (
-                        <div
-                          style={{
-                            padding: "0.5rem",
-                            background: "rgba(251, 191, 36, 0.1)",
-                            border: "1px solid rgba(251, 191, 36, 0.2)",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
-                            color: "#fbbf24",
-                          }}
-                        >
-                          ⚠️ No mapping configured
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div style={{ width: "100px", textAlign: "right" }}>
-                      <div
-                        style={{
-                          width: "100%",
-                          background: "rgba(71, 85, 105, 0.3)",
-                          borderRadius: "9999px",
-                          height: "0.5rem",
-                          marginBottom: "0.25rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            background:
-                              "linear-gradient(135deg, #4ade80, #22c55e)",
-                            height: "0.5rem",
-                            borderRadius: "9999px",
-                            width: "100%",
-                            transition: "all 0.3s ease",
-                          }}
-                        />
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#94a3b8",
-                        }}
-                      >
-                        100%
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mapping Modal */}
-      {showMappingModal && selectedRelease && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "1rem",
-          }}
-          onClick={closeModals}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: "60rem",
-              width: "100%",
-              maxHeight: "80vh",
-              overflow: "auto",
-              margin: 0,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "1.5rem",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "1.25rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                  margin: 0,
-                }}
-              >
-                🗺️ Map Files - {selectedRelease.name}
-              </h3>
-              <button
-                onClick={closeModals}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                  fontSize: "1.5rem",
-                  padding: "0.25rem",
-                  borderRadius: "0.25rem",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.color = "#f87171")}
-                onMouseOut={(e) => (e.currentTarget.style.color = "#94a3b8")}
-              >
-                ✕
-              </button>
-            </div>
-
-            {request.type === "series" ? (
-              <EpisodeMapping
-                releaseId={selectedRelease.id}
-                files={selectedRelease.files}
-                onClose={closeModals}
-              />
-            ) : (
-              <FileRequestMapping
-                releaseId={selectedRelease.id}
-                files={selectedRelease.files}
-                onClose={closeModals}
-              />
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      <MappingModal
+        isOpen={mappingModal.isOpen}
+        onClose={closeModals}
+        release={selectedRelease}
+        requestType={request.type}
+      />
+    </Stack>
   );
 };
+
+const actionCards = [
+  {
+    title: "Refresh Status",
+    description: "Check for updates on this request",
+    icon: "🔄",
+    message: "Refresh functionality would be implemented here",
+  },
+  {
+    title: "Manual Search",
+    description: "Trigger a manual search for releases",
+    icon: "🔍",
+    message: "Manual search functionality would be implemented here",
+  },
+  {
+    title: "View Logs",
+    description: "Check processing logs for this request",
+    icon: "📋",
+    message: "View logs functionality would be implemented here",
+  },
+];
+
+interface FilesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  release: Release | null;
+}
+
+const FilesModal: React.FC<FilesModalProps> = ({ isOpen, onClose, release }) => (
+  <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+    <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
+    <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
+      <ModalHeader>
+        📁 Files
+        {release ? ` in ${release.name}` : ""}
+      </ModalHeader>
+      <ModalCloseButton />
+      <ModalBody>
+        {release ? (
+          <Stack spacing={4}>
+            {release.files.map((file) => (
+              <Card key={file.id} p={4} bg="bg.subtle" borderWidth="1px" borderColor="border.muted">
+                <Stack spacing={3}>
+                  <Flex align="flex-start" gap={3} wrap="wrap">
+                    <Box flex={1} minW={0}>
+                      <Text fontWeight="600" wordBreak="break-all">
+                        {file.name}
+                      </Text>
+                      <Flex gap={4} fontSize="sm" color="text.subtle" mt={1}>
+                        <Text>
+                          Size: {(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB
+                        </Text>
+                        <Text>Progress: 100%</Text>
+                      </Flex>
+                    </Box>
+                  </Flex>
+
+                  <ProgressSection title="Episode Mapping" color="blue.300">
+                    {file.episode_mapping ? (
+                      <Text fontSize="sm" color="blue.200">
+                        📺 S{file.episode_mapping.season.toString().padStart(2, "0")}
+                        E{file.episode_mapping.episode.toString().padStart(2, "0")}
+                        {file.episode_mapping.title && ` - ${file.episode_mapping.title}`}
+                      </Text>
+                    ) : (
+                      <Text fontSize="sm" color="text.subtle">
+                        No episode mapping configured
+                      </Text>
+                    )}
+                  </ProgressSection>
+
+                  <ProgressSection title="Request Mapping" color="purple.300">
+                    {file.request_mapping ? (
+                      <Text fontSize="sm" color="purple.200">
+                        🔗 {file.request_mapping.request_title || file.request_mapping.request_id}
+                        {file.request_mapping.season && file.request_mapping.episode &&
+                          ` - S${file.request_mapping.season.toString().padStart(2, "0")}E${file.request_mapping.episode
+                            ?.toString()
+                            .padStart(2, "0")}`}
+                      </Text>
+                    ) : (
+                      <Text fontSize="sm" color="text.subtle">
+                        No request mapping configured
+                      </Text>
+                    )}
+                  </ProgressSection>
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        ) : (
+          <Text color="text.subtle">No release selected.</Text>
+        )}
+      </ModalBody>
+    </ModalContent>
+  </Modal>
+);
+
+interface MappingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  release: Release | null;
+  requestType: "movie" | "series";
+}
+
+const MappingModal: React.FC<MappingModalProps> = ({
+  isOpen,
+  onClose,
+  release,
+  requestType,
+}) => {
+  if (!release) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+      <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
+      <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
+        <ModalHeader>🗺️ Map Files{release ? ` - ${release.name}` : ""}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6} maxH="75vh" overflowY="auto">
+          {release && requestType === "series" ? (
+            <EpisodeMapping releaseId={release.id} files={release.files} onMappingUpdate={() => {}} />
+          ) : release ? (
+            <FileRequestMapping releaseId={release.id} files={release.files} onMappingUpdate={() => {}} />
+          ) : (
+            <Text color="text.subtle">No release selected.</Text>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+interface ProgressSectionProps {
+  title: string;
+  color: string;
+  children: React.ReactNode;
+}
+
+const ProgressSection: React.FC<ProgressSectionProps> = ({ title, color, children }) => (
+  <Stack spacing={2}>
+    <Text fontSize="xs" textTransform="uppercase" fontWeight="600" color={color}>
+      {title}
+    </Text>
+    {children}
+  </Stack>
+);

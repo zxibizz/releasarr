@@ -1,3 +1,19 @@
+import {
+  Badge,
+  Button,
+  Card,
+  Flex,
+  Grid,
+  GridItem,
+  IconButton,
+  Progress,
+  Stack,
+  Tag,
+  Text,
+  Wrap,
+  WrapItem,
+} from "@chakra-ui/react";
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import React, { useState } from "react";
 import { Release } from "../types";
 import {
@@ -11,7 +27,6 @@ import {
   groupFilesByType,
   isReleaseActive,
 } from "../utils/releaseHelpers";
-import styles from "./ReleaseCard.module.css";
 
 interface ReleaseCardProps {
   release: Release;
@@ -23,6 +38,29 @@ interface ReleaseCardProps {
   showActions?: boolean;
   compact?: boolean;
 }
+
+const statusColorScheme: Record<Release["status"], string> = {
+  pending: "yellow",
+  downloading: "blue",
+  seeding: "purple",
+  completed: "green",
+  failed: "red",
+};
+
+const getHealthColor = (score: number) => {
+  if (score > 70) return "green.300";
+  if (score > 40) return "yellow.300";
+  return "red.300";
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const ReleaseCard: React.FC<ReleaseCardProps> = ({
   release,
@@ -53,499 +91,294 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "downloading":
-        return "status-badge pending";
-      case "seeding":
-        return "status-badge approved";
-      case "completed":
-        return "status-badge completed";
-      case "failed":
-        return "status-badge rejected";
-      default:
-        return "status-badge pending";
-    }
-  };
-
   if (compact) {
     return (
-      <div className={`${styles.releaseCard} ${styles.compact}`}>
-        <div className={styles.header}>
-          <div className={styles.info}>
-            <div className={styles.titleRow}>
-              <span className={styles.statusIcon}>
-                {getStatusIcon(release.status)}
-              </span>
-              <h3 className={styles.title}>{release.name}</h3>
-            </div>
-            <div className={styles.meta}>
-              <span>{formatFileSize(release.size)}</span>
-              <span
-                className={getStatusBadgeClass(release.status)}
-                style={{
-                  padding: "0.125rem 0.5rem",
-                  fontSize: "0.625rem",
-                }}
-              >
-                {release.status}
-              </span>
-              {isActive && <span>{formatProgress(progress)}</span>}
-            </div>
-          </div>
-          {showActions && (
-            <div className={styles.actions}>
-              <button
-                onClick={() => onViewFiles?.(release)}
-                className={styles.actionButton}
-                title="View files"
-              >
-                📁
-              </button>
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className={styles.actionButton}
-                title="Toggle details"
-              >
-                {showDetails ? "▲" : "▼"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {showDetails && (
-          <div className={styles.details}>
-            <div className={styles.detailsGrid}>
-              <div>Seeders: {release.seeders}</div>
-              <div>Leechers: {release.leechers}</div>
-              <div>Ratio: {formatRatio(release.ratio)}</div>
-              <div>
-                Health:{" "}
-                <span
-                  className={
-                    healthScore > 70
-                      ? styles.healthHigh
-                      : healthScore > 40
-                      ? styles.healthMedium
-                      : styles.healthLow
-                  }
+      <Card p={4}>
+        <Stack spacing={4}>
+          <Flex align="flex-start" justify="space-between" gap={4}>
+            <Stack spacing={2} flex={1} minW={0}>
+              <Flex align="center" gap={3}>
+                <Text fontSize="xl">{getStatusIcon(release.status)}</Text>
+                <Text fontWeight="700" noOfLines={1}>
+                  {release.name}
+                </Text>
+              </Flex>
+              <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
+                <Text>{formatFileSize(release.size)}</Text>
+                <Badge
+                  colorScheme={statusColorScheme[release.status]}
+                  variant="subtle"
+                  textTransform="capitalize"
+                  px={2}
+                  py={1}
                 >
-                  {healthScore}%
-                </span>
-              </div>
-            </div>
-            {isActive && (
-              <div className={styles.speedGrid}>
-                <div>↓ {formatSpeed(release.download_speed)}</div>
-                <div>↑ {formatSpeed(release.upload_speed)}</div>
-              </div>
+                  {release.status}
+                </Badge>
+                {isActive && <Text>{formatProgress(progress)}</Text>}
+              </Flex>
+            </Stack>
+
+            {showActions && (
+              <Stack direction="row" spacing={2}>
+                <IconButton
+                  aria-label="View files"
+                  icon={<Text as="span">📁</Text>}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewFiles?.(release)}
+                  isDisabled={isLoading}
+                />
+                <IconButton
+                  aria-label="Toggle details"
+                  icon={showDetails ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetails((prev) => !prev)}
+                />
+              </Stack>
             )}
-          </div>
-        )}
-      </div>
+          </Flex>
+
+          {showDetails && (
+            <Stack spacing={3} fontSize="xs" color="text.subtle">
+              <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
+                <GridItem>
+                  <Text>Seeders: {release.seeders}</Text>
+                </GridItem>
+                <GridItem>
+                  <Text>Leechers: {release.leechers}</Text>
+                </GridItem>
+                <GridItem>
+                  <Text>Ratio: {formatRatio(release.ratio)}</Text>
+                </GridItem>
+                <GridItem>
+                  <Text>
+                    Health: {" "}
+                    <Text as="span" fontWeight="600" color={getHealthColor(healthScore)}>
+                      {healthScore}%
+                    </Text>
+                  </Text>
+                </GridItem>
+              </Grid>
+              {isActive && (
+                <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
+                  <GridItem>↓ {formatSpeed(release.download_speed)}</GridItem>
+                  <GridItem>↑ {formatSpeed(release.upload_speed)}</GridItem>
+                </Grid>
+              )}
+            </Stack>
+          )}
+        </Stack>
+      </Card>
     );
   }
 
   return (
-    <div className="card">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
-          >
-            <span style={{ fontSize: "1.5rem" }}>
-              {getStatusIcon(release.status)}
-            </span>
-            <div>
-              <h3
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                  marginBottom: "0.25rem",
-                }}
-              >
+    <Card p={{ base: 5, md: 6 }}>
+      <Stack spacing={6}>
+        <Flex
+          direction={{ base: "column", md: "row" }}
+          align={{ base: "flex-start", md: "flex-start" }}
+          justify="space-between"
+          gap={6}
+        >
+          <Stack spacing={3} flex={1} minW={0}>
+            <Flex align="center" gap={3} wrap="wrap">
+              <Text fontSize="2xl">{getStatusIcon(release.status)}</Text>
+              <Text fontWeight="700" fontSize="lg" color="slate.100" noOfLines={2}>
                 {release.name}
-              </h3>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  marginTop: "0.25rem",
-                }}
+              </Text>
+            </Flex>
+            <Flex gap={3} wrap="wrap" align="center" fontSize="sm" color="text.subtle">
+              <Badge
+                colorScheme={statusColorScheme[release.status]}
+                variant="subtle"
+                textTransform="capitalize"
+                px={3}
+                py={1}
               >
-                <span className={getStatusBadgeClass(release.status)}>
-                  {release.status}
-                </span>
-                <span style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                  {formatFileSize(release.size)}
-                </span>
-                {release.quality && (
-                  <span
-                    style={{
-                      fontSize: "0.875rem",
-                      color: "#94a3b8",
-                      background: "rgba(71, 85, 105, 0.3)",
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.25rem",
-                    }}
-                  >
-                    {release.quality}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          {isActive && (
-            <div style={{ marginTop: "1rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "0.875rem",
-                  color: "#94a3b8",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span>Progress</span>
-                <span>{formatProgress(progress)}</span>
-              </div>
-              <div
-                style={{
-                  width: "100%",
-                  background: "rgba(71, 85, 105, 0.3)",
-                  borderRadius: "9999px",
-                  height: "0.5rem",
-                }}
-              >
-                <div
-                  style={{
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-                    height: "0.5rem",
-                    borderRadius: "9999px",
-                    transition: "all 0.3s ease",
-                    width: `${progress}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Stats Grid */}
-          <div
-            style={{
-              marginTop: "1rem",
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-              gap: "1rem",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                Seeders
-              </div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  color: "#4ade80",
-                }}
-              >
-                {release.seeders}
-              </div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                Leechers
-              </div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  color: "#3b82f6",
-                }}
-              >
-                {release.leechers}
-              </div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Ratio</div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  color: "#8b5cf6",
-                }}
-              >
-                {formatRatio(release.ratio)}
-              </div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                Health
-              </div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  color:
-                    healthScore > 70
-                      ? "#4ade80"
-                      : healthScore > 40
-                      ? "#fbbf24"
-                      : "#f87171",
-                }}
-              >
-                {healthScore}%
-              </div>
-            </div>
-          </div>
-
-          {/* Speed Info */}
-          {(release.download_speed > 0 || release.upload_speed > 0) && (
-            <div
-              style={{
-                marginTop: "1rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "1.5rem",
-              }}
-            >
-              {release.download_speed > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <span style={{ color: "#3b82f6" }}>↓</span>
-                  <span
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: "500",
-                      color: "#f1f5f9",
-                    }}
-                  >
-                    {formatSpeed(release.download_speed)}
-                  </span>
-                </div>
+                {release.status}
+              </Badge>
+              <Text>{formatFileSize(release.size)}</Text>
+              {release.quality && (
+                <Tag colorScheme="blue" borderRadius="full" px={3} py={1}>
+                  {release.quality}
+                </Tag>
               )}
-              {release.upload_speed > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <span style={{ color: "#4ade80" }}>↑</span>
-                  <span
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: "500",
-                      color: "#f1f5f9",
-                    }}
-                  >
-                    {formatSpeed(release.upload_speed)}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            </Flex>
+          </Stack>
 
-          {/* File Info */}
-          <div
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              fontSize: "0.875rem",
-              color: "#94a3b8",
-            }}
-          >
-            <span>📁 {release.files.length} files</span>
-            {video.length > 0 && <span>🎬 {video.length} video</span>}
-            {subtitle.length > 0 && <span>📝 {subtitle.length} subtitle</span>}
-            {other.length > 0 && <span>📄 {other.length} other</span>}
-          </div>
-
-          {/* Dates */}
-          <div
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              fontSize: "0.875rem",
-              color: "#64748b",
-            }}
-          >
-            <span>Added: {formatDate(release.added_date)}</span>
-            {release.completed_date && (
-              <span>Completed: {formatDate(release.completed_date)}</span>
-            )}
-          </div>
-
-          {/* Request IDs */}
-          {release.request_ids.length > 0 && (
-            <div style={{ marginTop: "1rem" }}>
-              <div
-                style={{
-                  fontSize: "0.875rem",
-                  color: "#94a3b8",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Related Requests:
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                {release.request_ids.map((requestId) => (
-                  <span
-                    key={requestId}
-                    style={{
-                      padding: "0.25rem 0.5rem",
-                      background: "rgba(59, 130, 246, 0.2)",
-                      color: "#93c5fd",
-                      fontSize: "0.75rem",
-                      borderRadius: "9999px",
-                      border: "1px solid rgba(59, 130, 246, 0.3)",
-                    }}
-                  >
-                    {requestId}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        {showActions && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-              marginLeft: "1rem",
-            }}
-          >
-            <button
-              onClick={() => onViewFiles?.(release)}
-              className="btn btn-secondary"
-              style={{ fontSize: "0.75rem", padding: "0.5rem 0.75rem" }}
-              disabled={isLoading}
-            >
-              View Files
-            </button>
-
-            {release.files.some(
-              (f) => !f.episode_mapping && !f.request_mapping
-            ) ? (
-              <button
-                onClick={() => onEditMapping?.(release)}
-                className="btn"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.5rem 0.75rem",
-                  background: "rgba(251, 191, 36, 0.2)",
-                  color: "#fbbf24",
-                  border: "1px solid rgba(251, 191, 36, 0.3)",
-                }}
-                disabled={isLoading}
-              >
-                Map Files
-              </button>
-            ) : (
-              <button
+          {showActions && (
+            <Stack spacing={2} minW={{ base: "100%", md: "160px" }}>
+              <Button
                 onClick={() => onViewFiles?.(release)}
-                className="btn"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.5rem 0.75rem",
-                  background: "rgba(59, 130, 246, 0.2)",
-                  color: "#3b82f6",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
-                }}
-                disabled={isLoading}
+                variant="outline"
+                colorScheme="gray"
+                size="sm"
+                isDisabled={isLoading}
               >
-                View Mapping
-              </button>
-            )}
+                View Files
+              </Button>
 
-            {isActive && onPause && (
-              <button
-                onClick={() => handleAction(() => onPause(release.id))}
-                className="btn"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.5rem 0.75rem",
-                  background: "rgba(251, 146, 60, 0.2)",
-                  color: "#fb923c",
-                  border: "1px solid rgba(251, 146, 60, 0.3)",
-                }}
-                disabled={isLoading}
-              >
-                Pause
-              </button>
-            )}
+              {release.files.some((f) => !f.episode_mapping && !f.request_mapping) ? (
+                <Button
+                  onClick={() => onEditMapping?.(release)}
+                  size="sm"
+                  colorScheme="yellow"
+                  variant="solid"
+                  isDisabled={isLoading}
+                >
+                  Map Files
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => onViewFiles?.(release)}
+                  size="sm"
+                  colorScheme="blue"
+                  variant="solid"
+                  isDisabled={isLoading}
+                >
+                  View Mapping
+                </Button>
+              )}
 
-            {release.status === "pending" && onResume && (
-              <button
-                onClick={() => handleAction(() => onResume(release.id))}
-                className="btn"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.5rem 0.75rem",
-                  background: "rgba(34, 197, 94, 0.2)",
-                  color: "#4ade80",
-                  border: "1px solid rgba(34, 197, 94, 0.3)",
-                }}
-                disabled={isLoading}
-              >
-                Resume
-              </button>
-            )}
+              {isActive && onPause && (
+                <Button
+                  onClick={() => handleAction(() => onPause(release.id))}
+                  size="sm"
+                  colorScheme="orange"
+                  variant="solid"
+                  isDisabled={isLoading}
+                >
+                  Pause
+                </Button>
+              )}
 
-            {onDelete && (
-              <button
-                onClick={() => handleAction(() => onDelete(release.id))}
-                className="btn"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.5rem 0.75rem",
-                  background: "rgba(239, 68, 68, 0.2)",
-                  color: "#f87171",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                }}
-                disabled={isLoading}
-              >
-                Delete
-              </button>
-            )}
-          </div>
+              {release.status === "pending" && onResume && (
+                <Button
+                  onClick={() => handleAction(() => onResume(release.id))}
+                  size="sm"
+                  colorScheme="green"
+                  variant="solid"
+                  isDisabled={isLoading}
+                >
+                  Resume
+                </Button>
+              )}
+
+              {onDelete && (
+                <Button
+                  onClick={() => handleAction(() => onDelete(release.id))}
+                  size="sm"
+                  colorScheme="red"
+                  variant="solid"
+                  isDisabled={isLoading}
+                >
+                  Delete
+                </Button>
+              )}
+            </Stack>
+          )}
+        </Flex>
+
+        {isActive && (
+          <Stack spacing={2}>
+            <Flex justify="space-between" fontSize="sm" color="text.subtle">
+              <Text>Progress</Text>
+              <Text>{formatProgress(progress)}</Text>
+            </Flex>
+            <Progress
+              value={progress}
+              colorScheme="blue"
+              bg="rgba(71, 85, 105, 0.35)"
+              borderRadius="full"
+              height="0.5rem"
+            />
+          </Stack>
         )}
-      </div>
-    </div>
+
+        <Grid templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }} gap={4}>
+          <GridItem textAlign="center">
+            <Text fontSize="xs" color="text.subtle">
+              Seeders
+            </Text>
+            <Text fontSize="lg" fontWeight="600" color="green.300">
+              {release.seeders}
+            </Text>
+          </GridItem>
+          <GridItem textAlign="center">
+            <Text fontSize="xs" color="text.subtle">
+              Leechers
+            </Text>
+            <Text fontSize="lg" fontWeight="600" color="blue.300">
+              {release.leechers}
+            </Text>
+          </GridItem>
+          <GridItem textAlign="center">
+            <Text fontSize="xs" color="text.subtle">
+              Ratio
+            </Text>
+            <Text fontSize="lg" fontWeight="600" color="purple.300">
+              {formatRatio(release.ratio)}
+            </Text>
+          </GridItem>
+          <GridItem textAlign="center">
+            <Text fontSize="xs" color="text.subtle">
+              Health
+            </Text>
+            <Text fontSize="lg" fontWeight="600" color={getHealthColor(healthScore)}>
+              {healthScore}%
+            </Text>
+          </GridItem>
+        </Grid>
+
+        {(release.download_speed > 0 || release.upload_speed > 0) && (
+          <Flex gap={6} flexWrap="wrap" fontSize="sm" color="slate.100">
+            {release.download_speed > 0 && (
+              <Flex align="center" gap={2}>
+                <Text color="blue.300">↓</Text>
+                <Text fontWeight="600">{formatSpeed(release.download_speed)}</Text>
+              </Flex>
+            )}
+            {release.upload_speed > 0 && (
+              <Flex align="center" gap={2}>
+                <Text color="green.300">↑</Text>
+                <Text fontWeight="600">{formatSpeed(release.upload_speed)}</Text>
+              </Flex>
+            )}
+          </Flex>
+        )}
+
+        <Flex gap={4} flexWrap="wrap" fontSize="sm" color="text.subtle">
+          <Text>📁 {release.files.length} files</Text>
+          {video.length > 0 && <Text>🎬 {video.length} video</Text>}
+          {subtitle.length > 0 && <Text>📝 {subtitle.length} subtitle</Text>}
+          {other.length > 0 && <Text>📄 {other.length} other</Text>}
+        </Flex>
+
+        <Flex gap={4} flexWrap="wrap" fontSize="sm" color="text.muted">
+          <Text>Added: {formatDate(release.added_date)}</Text>
+          {release.completed_date && <Text>Completed: {formatDate(release.completed_date)}</Text>}
+        </Flex>
+
+        {release.request_ids.length > 0 && (
+          <Stack spacing={2}>
+            <Text fontWeight="600" color="text.subtle">
+              Related Requests
+            </Text>
+            <Wrap spacing={2}>
+              {release.request_ids.map((requestId) => (
+                <WrapItem key={requestId}>
+                  <Tag colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1} fontSize="xs">
+                    {requestId}
+                  </Tag>
+                </WrapItem>
+              ))}
+            </Wrap>
+          </Stack>
+        )}
+      </Stack>
+    </Card>
   );
 };
 

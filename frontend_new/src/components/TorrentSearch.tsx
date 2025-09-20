@@ -1,3 +1,19 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  Box,
+  Button,
+  Card,
+  Center,
+  Flex,
+  Heading,
+  Input,
+  Spinner,
+  Stack,
+  Tag,
+  Text,
+} from "@chakra-ui/react";
 import React, { useState } from "react";
 import { useTorrentSearch } from "../hooks/useTorrentSearch";
 import { TorrentResult } from "../types";
@@ -6,6 +22,12 @@ interface TorrentSearchProps {
   requestId: string;
   requestTitle: string;
 }
+
+const qualityColorScheme: Record<string, string> = {
+  "2160p": "purple",
+  "1080p": "blue",
+  "720p": "green",
+};
 
 export const TorrentSearch: React.FC<TorrentSearchProps> = ({
   requestId,
@@ -29,183 +51,126 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
 
   const handleTorrentSelect = (torrent: TorrentResult) => {
     selectTorrent(torrent);
-    // In a real app, this would trigger the download process
     alert(`Selected torrent: ${torrent.name}`);
   };
 
   return (
-    <div className="card">
-      <h3
-        style={{
-          fontSize: "1.25rem",
-          fontWeight: "600",
-          color: "#f1f5f9",
-          marginBottom: "1rem",
-        }}
-      >
-        🔍 Search Torrents
-      </h3>
+    <Card p={{ base: 5, md: 6 }}>
+      <Stack spacing={6}>
+        <Heading size="md">🔍 Search Torrents</Heading>
 
-      {/* Search Form */}
-      <form onSubmit={handleSubmit} className="form-group">
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <div style={{ flex: "1", minWidth: "200px" }}>
-            <input
-              type="text"
+        <Box as="form" onSubmit={handleSubmit}>
+          <Flex direction={{ base: "column", md: "row" }} gap={3}>
+            <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search torrents for "${requestTitle}"...`}
-              className="form-input"
+              size="md"
             />
-          </div>
-          <button
-            type="submit"
-            disabled={!query.trim() || searchState.loading}
-            className="btn btn-primary"
-          >
-            {searchState.loading ? "Searching..." : "Search"}
-          </button>
-          {(query || searchState.results.length > 0) && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="btn btn-secondary"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </form>
+            <Flex gap={2}>
+              <Button
+                type="submit"
+                isDisabled={!query.trim() || searchState.loading}
+              >
+                {searchState.loading ? "Searching..." : "Search"}
+              </Button>
+              {(query || searchState.results.length > 0) && (
+                <Button type="button" variant="outline" colorScheme="gray" onClick={handleClear}>
+                  Clear
+                </Button>
+              )}
+            </Flex>
+          </Flex>
+        </Box>
 
-      {/* Loading State */}
-      {searchState.loading && (
-        <div className="loading">
-          <div className="spinner"></div>
-          <span>Searching torrents...</span>
-        </div>
-      )}
-
-      {/* Error State */}
-      {searchState.error && (
-        <div className="error" style={{ marginBottom: "1.5rem" }}>
-          ❌ {searchState.error}
-        </div>
-      )}
-
-      {/* Results */}
-      {searchState.results.length > 0 && !searchState.loading && (
-        <div className="torrent-results">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <h4
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: "600",
-                color: "#f1f5f9",
-              }}
-            >
-              Search Results
-            </h4>
-            <span style={{ color: "#94a3b8", fontSize: "0.875rem" }}>
-              {searchState.results.length} results for "{searchState.query}"
-            </span>
-          </div>
-
-          <div>
-            {searchState.results.map((torrent) => (
-              <div key={torrent.id} className="torrent-item">
-                <div className="torrent-info">
-                  <div className="torrent-name">{torrent.name}</div>
-                  <div className="torrent-meta">
-                    <span
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        borderRadius: "0.25rem",
-                        fontSize: "0.75rem",
-                        fontWeight: "600",
-                        background: getQualityBadgeStyle(torrent.quality)
-                          .background,
-                        color: getQualityBadgeStyle(torrent.quality).color,
-                        border: `1px solid ${
-                          getQualityBadgeStyle(torrent.quality).border
-                        }`,
-                      }}
-                    >
-                      {torrent.quality}
-                    </span>
-                    <span>📦 {torrent.size}</span>
-                    <span style={{ color: "#4ade80" }}>
-                      ⬆️ {torrent.seeders}
-                    </span>
-                    <span style={{ color: "#f87171" }}>
-                      ⬇️ {torrent.leechers}
-                    </span>
-                    <span>🏷️ {torrent.source}</span>
-                  </div>
-                </div>
-                <div className="torrent-actions">
-                  <button
-                    onClick={() => handleTorrentSelect(torrent)}
-                    className="btn btn-primary"
-                    style={{ fontSize: "0.875rem" }}
-                  >
-                    Select
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* No Results */}
-      {searchState.query &&
-        searchState.results.length === 0 &&
-        !searchState.loading &&
-        !searchState.error && (
-          <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
-            <h4 className="empty-state-title">No torrents found</h4>
-            <p className="empty-state-description">
-              Try adjusting your search terms or check back later.
-            </p>
-          </div>
+        {searchState.loading && (
+          <Center py={10} flexDirection="column" gap={4} color="text.subtle">
+            <Spinner size="lg" color="brand.400" />
+            <Text>Searching torrents...</Text>
+          </Center>
         )}
-    </div>
-  );
 
-  function getQualityBadgeStyle(quality: string) {
-    switch (quality) {
-      case "2160p":
-        return {
-          background: "rgba(139, 92, 246, 0.2)",
-          color: "#a78bfa",
-          border: "rgba(139, 92, 246, 0.3)",
-        };
-      case "1080p":
-        return {
-          background: "rgba(59, 130, 246, 0.2)",
-          color: "#93c5fd",
-          border: "rgba(59, 130, 246, 0.3)",
-        };
-      case "720p":
-        return {
-          background: "rgba(34, 197, 94, 0.2)",
-          color: "#4ade80",
-          border: "rgba(34, 197, 94, 0.3)",
-        };
-      default:
-        return {
-          background: "rgba(107, 114, 128, 0.2)",
-          color: "#9ca3af",
-          border: "rgba(107, 114, 128, 0.3)",
-        };
-    }
-  }
+        {searchState.error && (
+          <Alert status="error" variant="left-accent" borderRadius="lg" alignItems="flex-start">
+            <AlertIcon />
+            <AlertDescription>{searchState.error}</AlertDescription>
+          </Alert>
+        )}
+
+        {searchState.results.length > 0 && !searchState.loading && (
+          <Stack spacing={4}>
+            <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={2}>
+              <Heading size="sm">Search Results</Heading>
+              <Text color="text.subtle" fontSize="sm">
+                {searchState.results.length} results for "{searchState.query}"
+              </Text>
+            </Flex>
+
+            <Stack spacing={3}>
+              {searchState.results.map((torrent) => (
+                <Flex
+                  key={torrent.id}
+                  direction={{ base: "column", md: "row" }}
+                  justify="space-between"
+                  align={{ base: "flex-start", md: "center" }}
+                  gap={4}
+                  p={4}
+                  borderWidth="1px"
+                  borderColor="border.muted"
+                  borderRadius="lg"
+                  bg="bg.subtle"
+                >
+                  <Stack spacing={2} flex={1} minW={0}>
+                    <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
+                      {torrent.name}
+                    </Text>
+                    <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
+                      <Tag
+                        colorScheme={qualityColorScheme[torrent.quality] || "gray"}
+                        variant="subtle"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                      >
+                        {torrent.quality}
+                      </Tag>
+                      <Text>📦 {torrent.size}</Text>
+                      <Text color="green.300">⬆️ {torrent.seeders}</Text>
+                      <Text color="red.300">⬇️ {torrent.leechers}</Text>
+                      <Text>🏷️ {torrent.source}</Text>
+                    </Flex>
+                  </Stack>
+
+                  <Button onClick={() => handleTorrentSelect(torrent)} size="sm">
+                    Select
+                  </Button>
+                </Flex>
+              ))}
+            </Stack>
+          </Stack>
+        )}
+
+        {searchState.query &&
+          searchState.results.length === 0 &&
+          !searchState.loading &&
+          !searchState.error && (
+            <Stack
+              spacing={3}
+              py={10}
+              align="center"
+              borderWidth="1px"
+              borderColor="border.muted"
+              borderRadius="xl"
+              bg="bg.subtle"
+            >
+              <Text fontSize="4xl">🔍</Text>
+              <Heading size="sm">No torrents found</Heading>
+              <Text color="text.subtle" fontSize="sm" textAlign="center" px={6}>
+                Try adjusting your search terms or check back later.
+              </Text>
+            </Stack>
+          )}
+      </Stack>
+    </Card>
+  );
 };
