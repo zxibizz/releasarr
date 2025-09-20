@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
-import { getMockRequest, getMockRequests, getMockRequestsByStatus, getMockRequestsByType } from '../services/mockData';
-import { MediaRequest } from '../types';
+import { fetchRequest as fetchRequestAPI, fetchRequests as fetchRequestsAPI } from '../services/api';
+import { MediaRequest, RequestsResponse } from '../types';
 
 export const useRequests = () => {
   const [requests, setRequests] = useState<MediaRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRequests = async () => {
+  const loadRequests = async (params?: Parameters<typeof fetchRequestsAPI>[0]) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getMockRequests();
-      setRequests(data);
+      const response: RequestsResponse = await fetchRequestsAPI(params);
+      setRequests(response.requests);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch requests');
     } finally {
@@ -21,40 +21,22 @@ export const useRequests = () => {
   };
 
   const fetchRequestsByStatus = async (status: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getMockRequestsByStatus(status);
-      setRequests(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch requests');
-    } finally {
-      setLoading(false);
-    }
+    await loadRequests({ status: status as MediaRequest['status'] });
   };
 
   const fetchRequestsByType = async (type: 'movie' | 'series') => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getMockRequestsByType(type);
-      setRequests(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch requests');
-    } finally {
-      setLoading(false);
-    }
+    await loadRequests({ type });
   };
 
   useEffect(() => {
-    fetchRequests();
+    loadRequests();
   }, []);
 
   return {
     requests,
     loading,
     error,
-    refetch: fetchRequests,
+    refetch: () => loadRequests(),
     fetchByStatus: fetchRequestsByStatus,
     fetchByType: fetchRequestsByType
   };
@@ -69,7 +51,7 @@ export const useRequest = (id: string) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getMockRequest(id);
+      const data = await fetchRequestAPI(id);
       setRequest(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch request');

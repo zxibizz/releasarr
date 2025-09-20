@@ -1,4 +1,11 @@
-import { MediaRequest, MovieRequest, Release, ReleaseStats, SeriesRequest, TorrentResult } from '../types';
+import {
+  MediaRequest,
+  MovieRequest,
+  Release,
+  ReleaseStats,
+  SeriesRequest,
+  TorrentResult,
+} from '../types';
 
 // Mock movie requests
 const mockMovieRequests: MovieRequest[] = [

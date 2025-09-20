@@ -1,18 +1,7 @@
 import { MediaRequest, Release, ReleaseStats, RequestsResponse, TorrentSearchResponse } from '../types';
-import {
-  getMockRelease,
-  getMockReleases,
-  getMockReleasesByRequest,
-  getMockReleasesByStatus,
-  getMockReleaseStats,
-  getMockRequest,
-  getMockRequests,
-  searchMockTorrents,
-  updateMockReleaseFileMapping
-} from './mockData';
 
 // API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 
 // API client class for future backend integration
 class ApiClient {
@@ -24,7 +13,7 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -39,8 +28,16 @@ class ApiClient {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      return await response.json();
+      if (response.status === 204 || response.status === 205) {
+        return undefined as T;
+      }
+
+      const text = await response.text();
+      if (!text) {
+        return undefined as T;
+      }
+
+      return JSON.parse(text) as T;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -48,34 +45,31 @@ class ApiClient {
   }
 
   // Requests endpoints
-  async getRequests(page: number = 1, perPage: number = 20): Promise<RequestsResponse> {
-    // For now, use mock data but structure for real API
-    const requests = await getMockRequests();
-    return {
-      requests,
-      total: requests.length,
-      page,
-      per_page: perPage
-    };
+  async getRequests(options: {
+    page?: number;
+    perPage?: number;
+    status?: MediaRequest['status'];
+    type?: MediaRequest['type'];
+  } = {}): Promise<RequestsResponse> {
+    const searchParams = new URLSearchParams();
+    if (options.page) searchParams.set('page', String(options.page));
+    if (options.perPage) searchParams.set('per_page', String(options.perPage));
+    if (options.status) searchParams.set('status', options.status);
+    if (options.type) searchParams.set('type', options.type);
+
+    const query = searchParams.toString();
+    return this.request<RequestsResponse>(`/requests${query ? `?${query}` : ''}`);
   }
 
   async getRequest(id: string): Promise<MediaRequest> {
-    // For now, use mock data but structure for real API
-    const request = await getMockRequest(id);
-    if (!request) {
-      throw new Error('Request not found');
-    }
-    return request;
+    return this.request<MediaRequest>(`/requests/${id}`);
   }
 
   async searchTorrents(query: string): Promise<TorrentSearchResponse> {
-    // For now, use mock data but structure for real API
-    const results = await searchMockTorrents(query);
-    return {
-      results,
-      query,
-      total_results: results.length
-    };
+    const searchParams = new URLSearchParams();
+    searchParams.set('q', query);
+    const endpoint = `/torrents/search?${searchParams.toString()}`;
+    return this.request<TorrentSearchResponse>(endpoint);
   }
 
   // Future endpoints for real backend integration
@@ -107,33 +101,28 @@ class ApiClient {
   }
 
   // Releases endpoints
-  async getReleases(): Promise<Release[]> {
-    // For now, use mock data but structure for real API
-    return getMockReleases();
+  async getReleases(filters: { status?: Release['status']; requestId?: string } = {}): Promise<Release[]> {
+    const searchParams = new URLSearchParams();
+    if (filters.status) searchParams.set('status', filters.status);
+    if (filters.requestId) searchParams.set('request_id', filters.requestId);
+    const query = searchParams.toString();
+    return this.request<Release[]>(`/releases${query ? `?${query}` : ''}`);
   }
 
   async getRelease(id: string): Promise<Release> {
-    // For now, use mock data but structure for real API
-    const release = await getMockRelease(id);
-    if (!release) {
-      throw new Error('Release not found');
-    }
-    return release;
+    return this.request<Release>(`/releases/${id}`);
   }
 
   async getReleasesByRequest(requestId: string): Promise<Release[]> {
-    // For now, use mock data but structure for real API
-    return getMockReleasesByRequest(requestId);
+    return this.request<Release[]>(`/requests/${requestId}/releases`);
   }
 
   async getReleasesByStatus(status: string): Promise<Release[]> {
-    // For now, use mock data but structure for real API
-    return getMockReleasesByStatus(status);
+    return this.getReleases({ status: status as Release['status'] });
   }
 
   async getReleaseStats(): Promise<ReleaseStats> {
-    // For now, use mock data but structure for real API
-    return getMockReleaseStats();
+    return this.request<ReleaseStats>('/releases/stats');
   }
 
   async updateReleaseFileMapping(
@@ -141,8 +130,14 @@ class ApiClient {
     fileId: string,
     mapping: { episode_mapping?: any; request_mapping?: any }
   ): Promise<boolean> {
-    // For now, use mock data but structure for real API
-    return updateMockReleaseFileMapping(releaseId, fileId, mapping);
+    const response = await this.request<{ success: boolean }>(
+      `/releases/${releaseId}/files/${fileId}/mapping`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(mapping),
+      }
+    );
+    return response?.success ?? false;
   }
 
   // Future release endpoints for real backend integration
@@ -176,12 +171,18 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 // Convenience functions that match the current mock API
-export const fetchRequests = () => apiClient.getRequests();
+export const fetchRequests = (options?: {
+  page?: number;
+  perPage?: number;
+  status?: MediaRequest['status'];
+  type?: MediaRequest['type'];
+}) => apiClient.getRequests(options);
 export const fetchRequest = (id: string) => apiClient.getRequest(id);
 export const searchTorrents = (query: string) => apiClient.searchTorrents(query);
 
 // Release convenience functions
-export const fetchReleases = () => apiClient.getReleases();
+export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>
+  apiClient.getReleases(filters);
 export const fetchRelease = (id: string) => apiClient.getRelease(id);
 export const fetchReleasesByRequest = (requestId: string) => apiClient.getReleasesByRequest(requestId);
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
