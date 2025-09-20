@@ -11,6 +11,7 @@ import {
   groupFilesByType,
   isReleaseActive,
 } from "../utils/releaseHelpers";
+import styles from "./ReleaseCard.module.css";
 
 interface ReleaseCardProps {
   release: Release;
@@ -78,44 +79,16 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
   if (compact) {
     return (
-      <div className="card" style={{ padding: "1rem" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <span style={{ fontSize: "1.125rem" }}>
+      <div className={`${styles.releaseCard} ${styles.compact}`}>
+        <div className={styles.header}>
+          <div className={styles.info}>
+            <div className={styles.titleRow}>
+              <span className={styles.statusIcon}>
                 {getStatusIcon(release.status)}
               </span>
-              <h3
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {release.name}
-              </h3>
+              <h3 className={styles.title}>{release.name}</h3>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginTop: "0.25rem",
-                fontSize: "0.75rem",
-                color: "#94a3b8",
-              }}
-            >
+            <div className={styles.meta}>
               <span>{formatFileSize(release.size)}</span>
               <span
                 className={getStatusBadgeClass(release.status)}
@@ -130,39 +103,17 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             </div>
           </div>
           {showActions && (
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}
-            >
+            <div className={styles.actions}>
               <button
                 onClick={() => onViewFiles?.(release)}
-                style={{
-                  padding: "0.25rem",
-                  background: "transparent",
-                  border: "none",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                  borderRadius: "0.25rem",
-                  transition: "color 0.2s ease",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.color = "#cbd5e1")}
-                onMouseOut={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                className={styles.actionButton}
                 title="View files"
               >
                 📁
               </button>
               <button
                 onClick={() => setShowDetails(!showDetails)}
-                style={{
-                  padding: "0.25rem",
-                  background: "transparent",
-                  border: "none",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                  borderRadius: "0.25rem",
-                  transition: "color 0.2s ease",
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.color = "#cbd5e1")}
-                onMouseOut={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                className={styles.actionButton}
                 title="Toggle details"
               >
                 {showDetails ? "▲" : "▼"}
@@ -172,50 +123,28 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
         </div>
 
         {showDetails && (
-          <div
-            style={{
-              marginTop: "1rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid rgba(148, 163, 184, 0.1)",
-              fontSize: "0.75rem",
-              color: "#94a3b8",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0.5rem",
-                marginBottom: "0.5rem",
-              }}
-            >
+          <div className={styles.details}>
+            <div className={styles.detailsGrid}>
               <div>Seeders: {release.seeders}</div>
               <div>Leechers: {release.leechers}</div>
               <div>Ratio: {formatRatio(release.ratio)}</div>
               <div>
                 Health:{" "}
                 <span
-                  style={{
-                    color:
-                      healthScore > 70
-                        ? "#4ade80"
-                        : healthScore > 40
-                        ? "#fbbf24"
-                        : "#f87171",
-                  }}
+                  className={
+                    healthScore > 70
+                      ? styles.healthHigh
+                      : healthScore > 40
+                      ? styles.healthMedium
+                      : styles.healthLow
+                  }
                 >
                   {healthScore}%
                 </span>
               </div>
             </div>
             {isActive && (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "0.5rem",
-                }}
-              >
+              <div className={styles.speedGrid}>
                 <div>↓ {formatSpeed(release.download_speed)}</div>
                 <div>↑ {formatSpeed(release.upload_speed)}</div>
               </div>
