@@ -1,6 +1,7 @@
 import {
   MediaRequest,
   Release,
+  ReleaseFileMappingInput,
   ReleaseSearchResponse,
   ReleaseStats,
   RequestsResponse,
@@ -131,16 +132,15 @@ class ApiClient {
     return this.request<ReleaseStats>('/releases/stats');
   }
 
-  async updateReleaseFileMapping(
+  async updateReleaseFileMappings(
     releaseId: string,
-    fileId: string,
-    mapping: { episode_mapping?: any; request_mapping?: any }
+    mappings: ReleaseFileMappingInput[],
   ): Promise<boolean> {
     const response = await this.request<{ success: boolean }>(
-      `/releases/${releaseId}/files/${fileId}/mapping`,
+      `/releases/${releaseId}/files/mapping`,
       {
         method: 'PUT',
-        body: JSON.stringify(mapping),
+        body: JSON.stringify({ files: mappings }),
       }
     );
     return response?.success ?? false;
@@ -194,8 +194,8 @@ export const fetchRelease = (id: string) => apiClient.getRelease(id);
 export const fetchReleasesByRequest = (requestId: string) => apiClient.getReleasesByRequest(requestId);
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
 export const fetchReleaseStats = () => apiClient.getReleaseStats();
-export const updateReleaseFileMapping = (releaseId: string, fileId: string, mapping: any) => 
-  apiClient.updateReleaseFileMapping(releaseId, fileId, mapping);
+export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
+  apiClient.updateReleaseFileMappings(releaseId, mappings);
 
 // Export the class for testing or custom instances
 export { ApiClient };

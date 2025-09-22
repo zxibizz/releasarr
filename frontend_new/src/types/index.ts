@@ -38,6 +38,12 @@ export interface ReleaseFile {
   request_mapping?: FileRequestMapping;
 }
 
+export interface ReleaseFileMappingInput {
+  file_id: string;
+  episode_mapping?: EpisodeMapping;
+  request_mapping?: FileRequestMapping;
+}
+
 export interface EpisodeMapping {
   season: number;
   episode: number;

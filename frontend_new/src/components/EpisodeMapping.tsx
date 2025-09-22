@@ -47,7 +47,7 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
   onMappingUpdate,
   readonly = false,
 }) => {
-  const { updateFileMapping, loading, error } = useReleaseFileMapping();
+  const { updateFileMappings, loading, error } = useReleaseFileMapping();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [autoSuggest, setAutoSuggest] = useState(true);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
@@ -105,9 +105,12 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
     }
 
     try {
-      await updateFileMapping(releaseId, fileId, {
-        episode_mapping: episodeMapping,
-      });
+      await updateFileMappings(releaseId, [
+        {
+          file_id: fileId,
+          episode_mapping: episodeMapping,
+        },
+      ]);
       onMappingUpdate?.(fileId, episodeMapping);
     } catch (err) {
       console.error("Failed to update mapping:", err);
@@ -115,23 +118,37 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
   };
 
   const handleSaveAllMappings = async () => {
-    for (const mapping of mappings) {
-      const episodeMapping: EpisodeMappingType = {
-        season: mapping.season,
-        episode: mapping.episode,
-        title: mapping.title || undefined,
-      };
+    const payload = mappings
+      .map((mapping) => {
+        const episodeMapping: EpisodeMappingType = {
+          season: mapping.season,
+          episode: mapping.episode,
+          title: mapping.title || undefined,
+        };
 
-      if (validateEpisodeMapping(episodeMapping)) {
-        try {
-          await updateFileMapping(releaseId, mapping.fileId, {
-            episode_mapping: episodeMapping,
-          });
-          onMappingUpdate?.(mapping.fileId, episodeMapping);
-        } catch (err) {
-          console.error(`Failed to update mapping for ${mapping.fileId}:`, err);
+        if (!validateEpisodeMapping(episodeMapping)) {
+          return null;
         }
-      }
+
+        return {
+          file_id: mapping.fileId,
+          episode_mapping: episodeMapping,
+        };
+      })
+      .filter((item): item is { file_id: string; episode_mapping: EpisodeMappingType } => item !== null);
+
+    if (payload.length === 0) {
+      alert("No valid mappings to save.");
+      return;
+    }
+
+    try {
+      await updateFileMappings(releaseId, payload);
+      payload.forEach(({ file_id, episode_mapping }) =>
+        onMappingUpdate?.(file_id, episode_mapping)
+      );
+    } catch (err) {
+      console.error("Failed to update mappings:", err);
     }
   };
 
