@@ -5,7 +5,7 @@ import {
   ReleaseSearchResult,
   ReleaseStats,
   SeriesRequest,
-} from '../types';
+} from '../src/types';
 
 // Mock movie requests
 const mockMovieRequests: MovieRequest[] = [
