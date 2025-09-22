@@ -275,49 +275,42 @@ const mockReleases: Release[] = [
         name: 'Breaking.Bad.S01E01.Pilot.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E01.Pilot.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 1, title: 'Pilot' }
       },
       {
         id: 'f3',
         name: 'Breaking.Bad.S01E02.Cat\'s.in.the.Bag.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E02.Cat\'s.in.the.Bag.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 2, title: 'Cat\'s in the Bag...' }
       },
       {
         id: 'f4',
         name: 'Breaking.Bad.S01E03.And.the.Bag\'s.in.the.River.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E03.And.the.Bag\'s.in.the.River.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 3, title: '...And the Bag\'s in the River' }
       },
       {
         id: 'f5',
         name: 'Breaking.Bad.S01E04.Cancer.Man.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E04.Cancer.Man.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 4, title: 'Cancer Man' }
       },
       {
         id: 'f6',
         name: 'Breaking.Bad.S01E05.Gray.Matter.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E05.Gray.Matter.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 5, title: 'Gray Matter' }
       },
       {
         id: 'f7',
         name: 'Breaking.Bad.S01E06.Crazy.Handful.of.Nothin.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E06.Crazy.Handful.of.Nothin.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 6, title: 'Crazy Handful of Nothin\'' }
       },
       {
         id: 'f8',
         name: 'Breaking.Bad.S01E07.A.No-Rough-Stuff-Type.Deal.1080p.BluRay.x264-REWARD.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.S01.1080p.BluRay.x264-REWARD/Breaking.Bad.S01E07.A.No-Rough-Stuff-Type.Deal.1080p.BluRay.x264-REWARD.mkv',
-        episode_mapping: { season: 1, episode: 7, title: 'A No-Rough-Stuff-Type Deal' }
       }
     ],
     status: 'completed',
@@ -422,7 +415,6 @@ const mockReleases: Release[] = [
         name: 'Breaking.Bad.S02E01.Seven.Thirty-Seven.1080p.BluRay.x264-COMPLETE.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E01.Seven.Thirty-Seven.1080p.BluRay.x264-COMPLETE.mkv',
-        episode_mapping: { season: 2, episode: 1, title: 'Seven Thirty-Seven' },
         request_mapping: {
           request_id: '6',
           request_title: 'Breaking Bad - Season 2',
@@ -436,7 +428,6 @@ const mockReleases: Release[] = [
         name: 'Breaking.Bad.S02E02.Grilled.1080p.BluRay.x264-COMPLETE.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E02.Grilled.1080p.BluRay.x264-COMPLETE.mkv',
-        episode_mapping: { season: 2, episode: 2, title: 'Grilled' },
         request_mapping: {
           request_id: '6',
           request_title: 'Breaking Bad - Season 2',
@@ -504,11 +495,11 @@ export const updateMockReleaseFileMapping = async (
   if (release) {
     const file = release.files.find(f => f.id === fileId);
     if (file) {
-      if (mapping.episode_mapping) {
-        file.episode_mapping = mapping.episode_mapping;
-      }
       if (mapping.request_mapping) {
         file.request_mapping = mapping.request_mapping;
+      }
+      if (mapping.request_mapping === null) {
+        file.request_mapping = undefined;
       }
       return true;
     }

@@ -41,7 +41,6 @@ type NewReleasePayload = {
 
 type UpdateFileMappingPayload = {
   file_id: string;
-  episode_mapping?: ReleaseFile['episode_mapping'];
   request_mapping?: ReleaseFile['request_mapping'];
 };
 
@@ -309,9 +308,6 @@ export class MockStore {
         return;
       }
 
-      if (mapping.episode_mapping) {
-        file.episode_mapping = clone(mapping.episode_mapping);
-      }
       if (mapping.request_mapping) {
         const requestMapping = clone(mapping.request_mapping);
         requestMapping.mapping_type =
@@ -328,9 +324,6 @@ export class MockStore {
           }
         }
         file.request_mapping = requestMapping;
-      }
-      if (mapping.episode_mapping === null) {
-        file.episode_mapping = undefined;
       }
       if (mapping.request_mapping === null) {
         file.request_mapping = undefined;

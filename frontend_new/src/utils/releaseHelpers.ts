@@ -1,4 +1,9 @@
-import { EpisodeMapping, FileRequestMapping, Release, ReleaseFile } from '../types';
+import {
+  FileRequestMapping,
+  Release,
+  ReleaseFile,
+  SeriesFileRequestMapping,
+} from '../types';
 
 export const formatFileSize = (bytes: number): string => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -148,19 +153,8 @@ export const getTotalSize = (releases: Release[]): number => {
   return releases.reduce((total, release) => total + release.size, 0);
 };
 
-export const hasEpisodeMapping = (file: ReleaseFile): boolean => {
-  return !!file.episode_mapping;
-};
-
 export const hasRequestMapping = (file: ReleaseFile): boolean => {
   return !!file.request_mapping;
-};
-
-export const getFilesByEpisode = (files: ReleaseFile[], season: number, episode: number): ReleaseFile[] => {
-  return files.filter(file => 
-    file.episode_mapping?.season === season && 
-    file.episode_mapping?.episode === episode
-  );
 };
 
 export const getFilesByRequest = (files: ReleaseFile[], requestId: string): ReleaseFile[] => {
@@ -168,21 +162,15 @@ export const getFilesByRequest = (files: ReleaseFile[], requestId: string): Rele
 };
 
 export const getUnmappedFiles = (files: ReleaseFile[]): ReleaseFile[] => {
-  return files.filter(file => !file.episode_mapping && !file.request_mapping);
+  return files.filter(file => !file.request_mapping);
 };
 
-export const formatEpisodeString = (mapping: EpisodeMapping): string => {
-  const seasonStr = mapping.season.toString().padStart(2, '0');
-  const episodeStr = mapping.episode.toString().padStart(2, '0');
-  return `S${seasonStr}E${episodeStr}`;
-};
+export interface SeriesEpisodeMatch {
+  season: number;
+  episode: number;
+}
 
-export const formatEpisodeTitle = (mapping: EpisodeMapping): string => {
-  const episodeStr = formatEpisodeString(mapping);
-  return mapping.title ? `${episodeStr} - ${mapping.title}` : episodeStr;
-};
-
-export const parseEpisodeFromFilename = (filename: string): EpisodeMapping | null => {
+export const parseSeriesEpisodeFromFilename = (filename: string): SeriesEpisodeMatch | null => {
   const patterns = [
     /S(\d{1,2})E(\d{1,2})/i,
     /Season\s*(\d{1,2})\s*Episode\s*(\d{1,2})/i,
@@ -202,19 +190,6 @@ export const parseEpisodeFromFilename = (filename: string): EpisodeMapping | nul
   return null;
 };
 
-export const suggestEpisodeMapping = (file: ReleaseFile): EpisodeMapping | null => {
-  return parseEpisodeFromFilename(file.name);
-};
-
-export const validateEpisodeMapping = (mapping: EpisodeMapping): boolean => {
-  return (
-    mapping.season > 0 &&
-    mapping.episode > 0 &&
-    mapping.season <= 99 &&
-    mapping.episode <= 999
-  );
-};
-
 export const validateRequestMapping = (mapping: FileRequestMapping): boolean => {
   if (!mapping.request_id || !mapping.request_title || !mapping.mapping_type) {
     return false;
@@ -225,13 +200,14 @@ export const validateRequestMapping = (mapping: FileRequestMapping): boolean => 
   }
 
   if (mapping.mapping_type === 'series') {
-    if (mapping.season === undefined || mapping.episode === undefined) {
+    const seriesMapping = mapping as SeriesFileRequestMapping;
+    if (seriesMapping.season === undefined || seriesMapping.episode === undefined) {
       return false;
     }
-    if (mapping.season !== undefined && mapping.season <= 0) {
+    if (seriesMapping.season <= 0) {
       return false;
     }
-    if (mapping.episode !== undefined && mapping.episode <= 0) {
+    if (seriesMapping.episode <= 0) {
       return false;
     }
   }

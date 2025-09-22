@@ -575,20 +575,8 @@ components:
           format: int64
         path:
           type: string
-        episode_mapping:
-          $ref: '#/components/schemas/EpisodeMapping'
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
-    EpisodeMapping:
-      type: object
-      required: [season, episode]
-      properties:
-        season:
-          type: integer
-        episode:
-          type: integer
-        title:
-          type: string
     FileRequestMapping:
       oneOf:
         - $ref: '#/components/schemas/MovieFileRequestMapping'
@@ -657,8 +645,6 @@ components:
       properties:
         file_id:
           type: string
-        episode_mapping:
-          $ref: '#/components/schemas/EpisodeMapping'
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
     ReleaseFileMappingsUpdate:

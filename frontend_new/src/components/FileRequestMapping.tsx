@@ -27,6 +27,7 @@ import {
   formatFileSize,
   groupFilesByType,
   isVideoFile,
+  parseSeriesEpisodeFromFilename,
   validateRequestMapping,
 } from "../utils/releaseHelpers";
 
@@ -103,14 +104,13 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
       const fallbackType: FileMapping["mappingType"] =
         defaultRequest && defaultRequest.type === "series" ? "series" : "movie";
+      const inferredEpisode = parseSeriesEpisodeFromFilename(file.name);
       const fallbackSeason =
         fallbackType === "series"
-          ? file.episode_mapping?.season ?? defaultRequest?.season_number ?? 1
+          ? defaultRequest?.season_number ?? inferredEpisode?.season ?? 1
           : undefined;
       const fallbackEpisode =
-        fallbackType === "series"
-          ? file.episode_mapping?.episode ?? 1
-          : undefined;
+        fallbackType === "series" ? inferredEpisode?.episode ?? 1 : undefined;
 
       const fallbackMapping: FileMapping =
         fallbackType === "series"
@@ -119,8 +119,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
               requestId: defaultRequest?.id ?? "",
               requestTitle: defaultRequest?.title ?? "",
               mappingType: "series",
-              season: fallbackSeason ?? 1,
-              episode: fallbackEpisode ?? 1,
+              season: fallbackSeason,
+              episode: fallbackEpisode,
             }
           : {
               fileId: file.id,
@@ -165,13 +165,17 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       prev.map((mapping) => {
         if (mapping.fileId !== fileId) return mapping;
 
-        const updated: FileMapping = { ...mapping, [field]: value } as FileMapping;
+        const updated: FileMapping = {
+          ...mapping,
+          [field]: value,
+        } as FileMapping;
 
         if (field === "requestId" && typeof value === "string") {
           const request = requests.find((r) => r.id === value);
           updated.requestTitle = request?.title || "";
           if (request) {
-            updated.mappingType = request.type === "series" ? "series" : "movie";
+            updated.mappingType =
+              request.type === "series" ? "series" : "movie";
             if (updated.mappingType === "movie") {
               updated.season = undefined;
               updated.episode = undefined;
@@ -268,7 +272,14 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           request_mapping: requestMapping,
         };
       })
-      .filter((item): item is { file_id: string; request_mapping: FileRequestMappingType } => item !== null);
+      .filter(
+        (
+          item
+        ): item is {
+          file_id: string;
+          request_mapping: FileRequestMappingType;
+        } => item !== null
+      );
 
     if (payload.length === 0) {
       alert("No valid mappings to save.");
@@ -288,7 +299,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const handleBulkRequestUpdate = (requestId: string) => {
     const request = requests.find((r) => r.id === requestId);
     if (!request) return;
-    const seriesRequest = request.type === "series" ? (request as SeriesRequest) : null;
+    const seriesRequest =
+      request.type === "series" ? (request as SeriesRequest) : null;
 
     setMappings((prev) =>
       prev.map((mapping) => ({
@@ -300,10 +312,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           request.type === "series"
             ? mapping.season ?? seriesRequest?.season_number ?? 1
             : undefined,
-        episode:
-          request.type === "series"
-            ? mapping.episode ?? 1
-            : undefined,
+        episode: request.type === "series" ? mapping.episode ?? 1 : undefined,
       }))
     );
   };
@@ -325,7 +334,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     );
   };
 
-  const getFileMapping = (fileId: string) => mappings.find((m) => m.fileId === fileId);
+  const getFileMapping = (fileId: string) =>
+    mappings.find((m) => m.fileId === fileId);
 
   const getExistingMapping = (fileId: string) =>
     files.find((f) => f.id === fileId)?.request_mapping;
@@ -381,7 +391,12 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             </Checkbox>
           </Flex>
 
-          <Flex align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={3} wrap="wrap">
+          <Flex
+            align={{ base: "flex-start", md: "center" }}
+            direction={{ base: "column", md: "row" }}
+            gap={3}
+            wrap="wrap"
+          >
             <Text fontWeight="600" fontSize="sm">
               Bulk assign to request:
             </Text>
@@ -453,7 +468,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                 ? "series"
                 : "movie"
               : "movie";
-            const existingTypeLabel = existingType === "series" ? "Series" : "Movie";
+            const existingTypeLabel =
+              existingType === "series" ? "Series" : "Movie";
             const existingSeason =
               existing && existing.mapping_type === "series"
                 ? existing.season
@@ -474,7 +490,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
               >
                 <Stack spacing={3}>
                   <Flex align="center" gap={3} wrap="wrap">
-                    <Text fontSize="lg">{isVideoFile(file.name) ? "🎬" : "📄"}</Text>
+                    <Text fontSize="lg">
+                      {isVideoFile(file.name) ? "🎬" : "📄"}
+                    </Text>
                     <Text fontWeight="600" noOfLines={1} flex={1} minW={0}>
                       {file.name}
                     </Text>
@@ -496,7 +514,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                   {existing && (
                     <Text fontSize="sm" color="text.subtle">
                       Current: {existing.request_title} ({existingTypeLabel})
-                      {existingSeason !== undefined && existingEpisode !== undefined &&
+                      {existingSeason !== undefined &&
+                        existingEpisode !== undefined &&
                         ` - S${existingSeason
                           .toString()
                           .padStart(2, "0")}E${existingEpisode
@@ -507,9 +526,20 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
                   {!readonly && mapping && (
                     <Stack spacing={3}>
-                      <Grid templateColumns={{ base: "repeat(1, minmax(0, 1fr))", md: "repeat(2, minmax(0, 1fr))" }} gap={3}>
+                      <Grid
+                        templateColumns={{
+                          base: "repeat(1, minmax(0, 1fr))",
+                          md: "repeat(2, minmax(0, 1fr))",
+                        }}
+                        gap={3}
+                      >
                         <Box>
-                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                          <Text
+                            fontSize="xs"
+                            fontWeight="600"
+                            textTransform="uppercase"
+                            color="text.subtle"
+                          >
                             Request
                           </Text>
                           <Select
@@ -517,7 +547,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             value={mapping.requestId}
                             size="sm"
                             onChange={(e) =>
-                              handleMappingChange(file.id, "requestId", e.target.value)
+                              handleMappingChange(
+                                file.id,
+                                "requestId",
+                                e.target.value
+                              )
                             }
                           >
                             {movieRequests.length > 0 && (
@@ -542,14 +576,23 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                         </Box>
 
                         <Box>
-                      <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                          <Text
+                            fontSize="xs"
+                            fontWeight="600"
+                            textTransform="uppercase"
+                            color="text.subtle"
+                          >
                             Mapping Type
                           </Text>
                           <Select
                             value={mapping.mappingType}
                             size="sm"
                             onChange={(e) =>
-                              handleMappingChange(file.id, "mappingType", e.target.value as FileMapping["mappingType"])
+                              handleMappingChange(
+                                file.id,
+                                "mappingType",
+                                e.target.value as FileMapping["mappingType"]
+                              )
                             }
                           >
                             <option value="movie">Movie</option>
@@ -559,10 +602,18 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                       </Grid>
 
                       {mapping.mappingType === "series" && (
-                        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
+                        <Grid
+                          templateColumns="repeat(2, minmax(0, 1fr))"
+                          gap={3}
+                        >
                           <Box>
-                            <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
-                              Season (optional)
+                            <Text
+                              fontSize="xs"
+                              fontWeight="600"
+                              textTransform="uppercase"
+                              color="text.subtle"
+                            >
+                              Season
                             </Text>
                             <Input
                               type="number"
@@ -576,14 +627,21 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                                 handleMappingChange(
                                   file.id,
                                   "season",
-                                  e.target.value ? parseInt(e.target.value, 10) : undefined
+                                  e.target.value
+                                    ? parseInt(e.target.value, 10)
+                                    : undefined
                                 )
                               }
                             />
                           </Box>
                           <Box>
-                            <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
-                              Episode (optional)
+                            <Text
+                              fontSize="xs"
+                              fontWeight="600"
+                              textTransform="uppercase"
+                              color="text.subtle"
+                            >
+                              Episode
                             </Text>
                             <Input
                               type="number"
@@ -597,7 +655,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                                 handleMappingChange(
                                   file.id,
                                   "episode",
-                                  e.target.value ? parseInt(e.target.value, 10) : undefined
+                                  e.target.value
+                                    ? parseInt(e.target.value, 10)
+                                    : undefined
                                 )
                               }
                             />
@@ -610,7 +670,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                   {readonly && existing && (
                     <Text fontSize="sm" color="slate.100">
                       {existing.request_title} ({existingTypeLabel})
-                      {existingSeason !== undefined && existingEpisode !== undefined &&
+                      {existingSeason !== undefined &&
+                        existingEpisode !== undefined &&
                         ` - S${existingSeason
                           .toString()
                           .padStart(2, "0")}E${existingEpisode
@@ -624,7 +685,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                       <Button
                         size="sm"
                         colorScheme="blue"
-                        variant={changed && mapping?.requestId ? "solid" : "outline"}
+                        variant={
+                          changed && mapping?.requestId ? "solid" : "outline"
+                        }
                         onClick={() => handleSaveMapping(file.id)}
                         isDisabled={loading || !changed || !mapping?.requestId}
                       >
@@ -660,13 +723,16 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           borderTopColor="border.muted"
         >
           <Text fontSize="sm" color="text.subtle">
-            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved changes
+            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved
+            changes
           </Text>
           <Button
             onClick={handleSaveAllMappings}
             size="sm"
             colorScheme="blue"
-            variant={mappings.some((m) => hasChanges(m.fileId)) ? "solid" : "outline"}
+            variant={
+              mappings.some((m) => hasChanges(m.fileId)) ? "solid" : "outline"
+            }
             isDisabled={loading || !mappings.some((m) => hasChanges(m.fileId))}
           >
             {loading ? "Saving All..." : "Save All Changes"}
@@ -682,7 +748,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       )}
 
       <Text fontSize="sm" color="text.subtle">
-        Available requests: {movieRequests.length} movies, {seriesRequests.length} series
+        Available requests: {movieRequests.length} movies,{" "}
+        {seriesRequests.length} series
       </Text>
     </Stack>
   );
