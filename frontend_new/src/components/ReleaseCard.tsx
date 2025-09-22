@@ -34,7 +34,6 @@ interface ReleaseCardProps {
   onResume?: (id: string) => void;
   onDelete?: (id: string) => void;
   onViewFiles?: (release: Release) => void;
-  onEditMapping?: (release: Release) => void;
   showActions?: boolean;
   compact?: boolean;
 }
@@ -68,7 +67,6 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   onResume,
   onDelete,
   onViewFiles,
-  onEditMapping,
   showActions = true,
   compact = false,
 }) => {
@@ -239,37 +237,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             <Stack spacing={2} minW={{ base: "100%", md: "160px" }}>
               <Button
                 onClick={() => onViewFiles?.(release)}
-                variant="outline"
-                colorScheme="gray"
                 size="sm"
+                colorScheme="blue"
+                variant="solid"
                 isDisabled={isLoading}
               >
-                View Files
+                Manage Files & Mapping
               </Button>
-
-              {release.files.some(
-                (f) => !f.episode_mapping && !f.request_mapping
-              ) ? (
-                <Button
-                  onClick={() => onEditMapping?.(release)}
-                  size="sm"
-                  colorScheme="yellow"
-                  variant="solid"
-                  isDisabled={isLoading}
-                >
-                  Map Files
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => onViewFiles?.(release)}
-                  size="sm"
-                  colorScheme="blue"
-                  variant="solid"
-                  isDisabled={isLoading}
-                >
-                  View Mapping
-                </Button>
-              )}
 
               {isActive && onPause && (
                 <Button

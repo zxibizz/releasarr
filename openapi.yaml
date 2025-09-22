@@ -590,6 +590,15 @@ components:
         title:
           type: string
     FileRequestMapping:
+      oneOf:
+        - $ref: '#/components/schemas/MovieFileRequestMapping'
+        - $ref: '#/components/schemas/SeriesFileRequestMapping'
+      discriminator:
+        propertyName: mapping_type
+        mapping:
+          movie: '#/components/schemas/MovieFileRequestMapping'
+          series: '#/components/schemas/SeriesFileRequestMapping'
+    MovieFileRequestMapping:
       type: object
       required: [request_id, request_title, mapping_type]
       properties:
@@ -599,11 +608,24 @@ components:
           type: string
         mapping_type:
           type: string
-          enum: [episode, movie, season]
+          enum: [movie]
+    SeriesFileRequestMapping:
+      type: object
+      required: [request_id, request_title, mapping_type, season, episode]
+      properties:
+        request_id:
+          type: string
+        request_title:
+          type: string
+        mapping_type:
+          type: string
+          enum: [series]
         season:
           type: integer
+          minimum: 1
         episode:
           type: integer
+          minimum: 1
     ReleaseStats:
       type: object
       required:
