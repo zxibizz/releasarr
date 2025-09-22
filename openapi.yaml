@@ -1,0 +1,712 @@
+openapi: 3.0.3
+info:
+  title: Releasarr API
+  version: 0.1.0
+  description: |
+    Contract derived from the new frontend client. Captures the HTTP interface the
+    UI expects today so the backend can be validated and mocked consistently.
+servers:
+  - url: http://localhost:8001/api
+    description: Default local development server
+paths:
+  /requests:
+    get:
+      tags: [Requests]
+      summary: List media requests
+      operationId: listRequests
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Results page to retrieve (1-indexed).
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Page size the client expects.
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/MediaRequestStatus'
+          description: Filter requests by lifecycle status.
+        - in: query
+          name: type
+          schema:
+            $ref: '#/components/schemas/MediaType'
+          description: Filter by media type.
+      responses:
+        '200':
+          description: Paged list of media requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestsResponse'
+    post:
+      tags: [Requests]
+      summary: Create a media request
+      operationId: createRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequestCreate'
+      responses:
+        '201':
+          description: Created request details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+  /requests/{requestId}:
+    get:
+      tags: [Requests]
+      summary: Retrieve a single request
+      operationId: getRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Requested media request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+    put:
+      tags: [Requests]
+      summary: Update a media request
+      operationId: updateRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequestUpdate'
+      responses:
+        '200':
+          description: Updated request details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+    delete:
+      tags: [Requests]
+      summary: Delete a media request
+      operationId: deleteRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204':
+          description: Request removed.
+  /requests/{requestId}/releases:
+    get:
+      tags: [Releases]
+      summary: List releases attached to a request
+      operationId: listReleasesForRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Releases linked to the provided request.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Release'
+  /releases:
+    get:
+      tags: [Releases]
+      summary: List releases
+      operationId: listReleases
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/ReleaseStatus'
+          description: Filter releases by lifecycle status.
+        - in: query
+          name: request_id
+          schema:
+            type: string
+          description: Filter releases connected to a specific request.
+      responses:
+        '200':
+          description: List of releases.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Release'
+    post:
+      tags: [Releases]
+      summary: Register a new release sourced from a torrent
+      operationId: createRelease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddReleaseRequest'
+      responses:
+        '201':
+          description: Created release metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+  /releases/{releaseId}:
+    get:
+      tags: [Releases]
+      summary: Retrieve release details
+      operationId: getRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '200':
+          description: Release metadata and files.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+    delete:
+      tags: [Releases]
+      summary: Remove a release
+      operationId: deleteRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '204':
+          description: Release removed.
+  /releases/{releaseId}/pause:
+    post:
+      tags: [Releases]
+      summary: Pause an active release
+      operationId: pauseRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '202':
+          description: Pause accepted.
+  /releases/{releaseId}/resume:
+    post:
+      tags: [Releases]
+      summary: Resume a paused release
+      operationId: resumeRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '202':
+          description: Resume accepted.
+  /releases/stats:
+    get:
+      tags: [Releases]
+      summary: Summarise release metrics
+      operationId: getReleaseStats
+      responses:
+        '200':
+          description: Aggregated stats for releases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseStats'
+  /releases/{releaseId}/files/{fileId}/mapping:
+    put:
+      tags: [Releases]
+      summary: Update file-to-request mappings
+      operationId: updateReleaseFileMapping
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+        - $ref: '#/components/parameters/FileId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseFileMappingUpdate'
+      responses:
+        '200':
+          description: Mapping update acknowledgement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+  /torrents/search:
+    get:
+      tags: [Torrents]
+      summary: Search for torrents
+      operationId: searchTorrents
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Free-text query string.
+      responses:
+        '200':
+          description: Torrent search results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TorrentSearchResponse'
+  /torrents/download:
+    post:
+      tags: [Torrents]
+      summary: Download a torrent for a request
+      operationId: downloadTorrent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TorrentDownloadRequest'
+      responses:
+        '202':
+          description: Torrent accepted for download.
+components:
+  parameters:
+    RequestId:
+      in: path
+      name: requestId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a media request.
+    ReleaseId:
+      in: path
+      name: releaseId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a release.
+    FileId:
+      in: path
+      name: fileId
+      required: true
+      schema:
+        type: string
+      description: File identifier within a release.
+  schemas:
+    MediaType:
+      type: string
+      enum: [movie, series]
+    MediaRequestStatus:
+      type: string
+      enum: [pending, searching, downloading, completed, failed]
+    ReleaseStatus:
+      type: string
+      enum: [pending, downloading, seeding, completed, failed]
+    RequestsResponse:
+      type: object
+      required: [requests, total, page, per_page]
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaRequest'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+    BaseMediaRequest:
+      type: object
+      required:
+        - id
+        - title
+        - year
+        - poster_url
+        - overview
+        - genres
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        year:
+          type: integer
+        poster_url:
+          type: string
+          format: uri
+        overview:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/MediaRequestStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MovieRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseMediaRequest'
+        - type: object
+          required: [type, runtime, imdb_id]
+          properties:
+            type:
+              type: string
+              enum: [movie]
+            runtime:
+              type: integer
+              description: Runtime in minutes.
+            imdb_id:
+              type: string
+              description: IMDb identifier.
+    SeriesRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseMediaRequest'
+        - type: object
+          required:
+            - type
+            - season_number
+            - total_episodes
+            - series_title
+            - series_year
+            - imdb_id
+          properties:
+            type:
+              type: string
+              enum: [series]
+            season_number:
+              type: integer
+            total_episodes:
+              type: integer
+            series_title:
+              type: string
+            series_year:
+              type: integer
+            imdb_id:
+              type: string
+    MediaRequest:
+      oneOf:
+        - $ref: '#/components/schemas/MovieRequest'
+        - $ref: '#/components/schemas/SeriesRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          movie: '#/components/schemas/MovieRequest'
+          series: '#/components/schemas/SeriesRequest'
+    CreateMovieRequest:
+      type: object
+      required: [type, title, year, runtime, imdb_id]
+      properties:
+        type:
+          type: string
+          enum: [movie]
+        title:
+          type: string
+        year:
+          type: integer
+        runtime:
+          type: integer
+        imdb_id:
+          type: string
+        overview:
+          type: string
+        poster_url:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+    CreateSeriesRequest:
+      type: object
+      required:
+        - type
+        - title
+        - year
+        - season_number
+        - total_episodes
+        - series_title
+        - series_year
+        - imdb_id
+      properties:
+        type:
+          type: string
+          enum: [series]
+        title:
+          type: string
+        year:
+          type: integer
+        season_number:
+          type: integer
+        total_episodes:
+          type: integer
+        series_title:
+          type: string
+        series_year:
+          type: integer
+        imdb_id:
+          type: string
+        overview:
+          type: string
+        poster_url:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+    MediaRequestCreate:
+      oneOf:
+        - $ref: '#/components/schemas/CreateMovieRequest'
+        - $ref: '#/components/schemas/CreateSeriesRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          movie: '#/components/schemas/CreateMovieRequest'
+          series: '#/components/schemas/CreateSeriesRequest'
+    MediaRequestUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        year:
+          type: integer
+        poster_url:
+          type: string
+        overview:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/MediaRequestStatus'
+        runtime:
+          type: integer
+        imdb_id:
+          type: string
+        season_number:
+          type: integer
+        total_episodes:
+          type: integer
+        series_title:
+          type: string
+        series_year:
+          type: integer
+    Release:
+      type: object
+      required:
+        - id
+        - name
+        - hash
+        - size
+        - files
+        - status
+        - progress
+        - download_speed
+        - upload_speed
+        - seeders
+        - leechers
+        - ratio
+        - added_date
+        - request_ids
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hash:
+          type: string
+        size:
+          type: integer
+          format: int64
+          description: Total bytes.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseFile'
+        status:
+          $ref: '#/components/schemas/ReleaseStatus'
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        download_speed:
+          type: number
+          format: float
+        upload_speed:
+          type: number
+          format: float
+        seeders:
+          type: integer
+        leechers:
+          type: integer
+        ratio:
+          type: number
+          format: float
+        added_date:
+          type: string
+          format: date-time
+        completed_date:
+          type: string
+          format: date-time
+        request_ids:
+          type: array
+          items:
+            type: string
+        torrent_source:
+          type: string
+        quality:
+          type: string
+    ReleaseFile:
+      type: object
+      required: [id, name, size, path]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+        path:
+          type: string
+        episode_mapping:
+          $ref: '#/components/schemas/EpisodeMapping'
+        request_mapping:
+          $ref: '#/components/schemas/FileRequestMapping'
+    EpisodeMapping:
+      type: object
+      required: [season, episode]
+      properties:
+        season:
+          type: integer
+        episode:
+          type: integer
+        title:
+          type: string
+    FileRequestMapping:
+      type: object
+      required: [request_id, request_title, mapping_type]
+      properties:
+        request_id:
+          type: string
+        request_title:
+          type: string
+        mapping_type:
+          type: string
+          enum: [episode, movie, season]
+        season:
+          type: integer
+        episode:
+          type: integer
+    ReleaseStats:
+      type: object
+      required:
+        - total_releases
+        - active_downloads
+        - completed_releases
+        - total_size
+        - total_uploaded
+        - total_downloaded
+      properties:
+        total_releases:
+          type: integer
+        active_downloads:
+          type: integer
+        completed_releases:
+          type: integer
+        total_size:
+          type: integer
+          format: int64
+        total_uploaded:
+          type: integer
+          format: int64
+        total_downloaded:
+          type: integer
+          format: int64
+    ReleaseFileMappingUpdate:
+      type: object
+      properties:
+        episode_mapping:
+          $ref: '#/components/schemas/EpisodeMapping'
+        request_mapping:
+          $ref: '#/components/schemas/FileRequestMapping'
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+    AddReleaseRequest:
+      type: object
+      required: [magnet_link, request_ids]
+      properties:
+        magnet_link:
+          type: string
+        request_ids:
+          type: array
+          items:
+            type: string
+    TorrentResult:
+      type: object
+      required:
+        - id
+        - name
+        - size
+        - link
+        - seeders
+        - leechers
+        - quality
+        - source
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: string
+        link:
+          type: string
+          format: uri
+        seeders:
+          type: integer
+        leechers:
+          type: integer
+        quality:
+          type: string
+        source:
+          type: string
+    TorrentSearchResponse:
+      type: object
+      required: [results, query, total_results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TorrentResult'
+        query:
+          type: string
+        total_results:
+          type: integer
+    TorrentDownloadRequest:
+      type: object
+      required: [torrent_link, request_id]
+      properties:
+        torrent_link:
+          type: string
+          format: uri
+        request_id:
+          type: string
