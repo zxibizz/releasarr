@@ -13,9 +13,6 @@ jobs:
     name: Ruff Linting
     runs-on: docker
 
-    cointainer:
-      image: python:3.12-slim
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
