@@ -147,7 +147,7 @@ paths:
                   $ref: '#/components/schemas/Release'
     post:
       tags: [Releases]
-      summary: Register a new release sourced from a torrent
+      summary: Register a new release sourced from an external download
       operationId: createRelease
       requestBody:
         required: true
@@ -238,11 +238,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
-  /torrents/search:
+  /releases/search:
     get:
-      tags: [Torrents]
-      summary: Search for torrents
-      operationId: searchTorrents
+      tags: [Releases]
+      summary: Search for release sources
+      operationId: searchReleaseSources
       parameters:
         - in: query
           name: q
@@ -252,25 +252,25 @@ paths:
           description: Free-text query string.
       responses:
         '200':
-          description: Torrent search results.
+          description: Release source search results.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TorrentSearchResponse'
-  /torrents/download:
+                $ref: '#/components/schemas/ReleaseSearchResponse'
+  /releases/download:
     post:
-      tags: [Torrents]
-      summary: Download a torrent for a request
-      operationId: downloadTorrent
+      tags: [Releases]
+      summary: Download a release from a source link
+      operationId: downloadReleaseSource
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TorrentDownloadRequest'
+              $ref: '#/components/schemas/ReleaseDownloadRequest'
       responses:
         '202':
-          description: Torrent accepted for download.
+          description: Release source accepted for download.
 components:
   parameters:
     RequestId:
@@ -660,7 +660,7 @@ components:
           type: array
           items:
             type: string
-    TorrentResult:
+    ReleaseSearchResult:
       type: object
       required:
         - id
@@ -689,23 +689,23 @@ components:
           type: string
         source:
           type: string
-    TorrentSearchResponse:
+    ReleaseSearchResponse:
       type: object
       required: [results, query, total_results]
       properties:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/TorrentResult'
+            $ref: '#/components/schemas/ReleaseSearchResult'
         query:
           type: string
         total_results:
           type: integer
-    TorrentDownloadRequest:
+    ReleaseDownloadRequest:
       type: object
-      required: [torrent_link, request_id]
+      required: [source_link, request_id]
       properties:
-        torrent_link:
+        source_link:
           type: string
           format: uri
         request_id:

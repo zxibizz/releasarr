@@ -6,7 +6,7 @@ A React TypeScript frontend prototype for tracking and managing media server req
 
 - **Request Management**: View and filter media requests (movies and TV series)
 - **Detailed Request Pages**: Individual pages for each request with comprehensive media information
-- **Torrent Search**: Integrated torrent search functionality with mock data
+- **Release Search**: Integrated release source search functionality with mock data
 - **Responsive Design**: Clean, dark-themed interface optimized for media management
 - **Type Safety**: Full TypeScript implementation with comprehensive type definitions
 
@@ -17,17 +17,17 @@ A React TypeScript frontend prototype for tracking and managing media server req
 - `RequestPage`: Detailed view for individual requests
 - `RequestCard`: Reusable card component for request list items
 - `MediaInfo`: Component for displaying detailed media information
-- `TorrentSearch`: Integrated torrent search with results display
+- `ReleaseSearch`: Integrated release source search with results display
 
 ### Data Management
-- **Custom Hooks**: `useRequests` and `useTorrentSearch` for state management
+- **Custom Hooks**: `useRequests` and `useReleaseSearch` for state management
 - **Mock Data Service**: Comprehensive mock data for development and testing
 - **API Service Layer**: Prepared for easy backend integration
 
 ### Types
 - Comprehensive TypeScript interfaces for all data structures
 - Support for both movie and series requests
-- Torrent search result types
+- Release search result types
 
 ## Getting Started
 
@@ -52,10 +52,10 @@ src/
 │   ├── RequestPage.tsx
 │   ├── RequestCard.tsx
 │   ├── MediaInfo.tsx
-│   └── TorrentSearch.tsx
+│   └── ReleaseSearch.tsx
 ├── hooks/              # Custom React hooks
 │   ├── useRequests.ts
-│   └── useTorrentSearch.ts
+│   └── useReleaseSearch.ts
 ├── services/           # Data services
 │   ├── mockData.ts
 │   └── api.ts
@@ -71,7 +71,7 @@ src/
 The application includes comprehensive mock data featuring:
 - 4 movie requests with various statuses
 - 4 TV series requests (season-based)
-- Sample torrent search results
+- Sample release search results
 - Realistic media metadata (posters, descriptions, genres)
 
 ## Features Implemented
@@ -88,12 +88,12 @@ The application includes comprehensive mock data featuring:
 - IMDb integration links
 - Series-specific information (season, episodes)
 
-### Torrent Search
+### Release Source Search
 - Search form with query input
 - Results display with quality indicators
 - Seeder/leecher information
 - File size and source information
-- Mock torrent selection functionality
+- Mock release selection functionality
 
 ### User Experience
 - Loading states for all async operations
