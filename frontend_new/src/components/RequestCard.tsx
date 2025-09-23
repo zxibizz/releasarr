@@ -4,6 +4,7 @@ import {
   Flex,
   Heading,
   HStack,
+  Image,
   LinkBox,
   LinkOverlay,
   Stack,
@@ -63,6 +64,18 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
               {isMovie && ` • ${formatRuntime(request.runtime)}`}
             </Text>
           </Stack>
+
+          <Image
+            src={request.poster_url}
+            alt={`${request.title} poster`}
+            boxSize={{ base: "72px", md: "100px" }}
+            objectFit="cover"
+            borderRadius="md"
+            as={RouterLink}
+            to={`/request/${request.id}`}
+            ml={{ base: 0, md: 4 }}
+            fallbackSrc="/logo192.png"
+          />
 
           <Badge
             colorScheme={statusColorScheme[request.status]}

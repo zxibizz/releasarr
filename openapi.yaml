@@ -588,7 +588,7 @@ components:
           series: '#/components/schemas/SeriesFileRequestMapping'
     MovieFileRequestMapping:
       type: object
-      required: [request_id, request_title, mapping_type]
+      required: [request_id, mapping_type]
       properties:
         request_id:
           type: string
@@ -599,7 +599,7 @@ components:
           enum: [movie]
     SeriesFileRequestMapping:
       type: object
-      required: [request_id, request_title, mapping_type, season, episode]
+      required: [request_id, mapping_type, season, episode]
       properties:
         request_id:
           type: string
