@@ -237,6 +237,12 @@ paths:
           schema:
             type: string
           description: Free-text query string.
+        - in: query
+          name: request_id
+          required: false
+          schema:
+            type: string
+          description: Identifier of the media request initiating the search.
       responses:
         '200':
           description: Release source search results.
@@ -247,8 +253,8 @@ paths:
   /releases/download:
     post:
       tags: [Releases]
-      summary: Download a release from a source link
-      operationId: downloadReleaseSource
+      summary: Queue a release download
+      operationId: queueReleaseDownload
       requestBody:
         required: true
         content:
@@ -637,32 +643,41 @@ components:
     ReleaseSearchResult:
       type: object
       required:
-        - id
-        - name
+        - release_id
+        - release_name
         - size
-        - link
-        - seeders
-        - leechers
-        - quality
-        - source
       properties:
-        id:
+        release_id:
           type: string
-        name:
+        release_name:
           type: string
         size:
           type: string
-        link:
+        magnet_link:
           type: string
           format: uri
+          description: Magnet URI for the release when available.
+        torrent_file_url:
+          type: string
+          format: uri
+          description: Direct URL to the .torrent file when available.
+        info_url:
+          type: string
+          format: uri
+          description: Link to additional release information on the indexer.
         seeders:
           type: integer
+          minimum: 0
         leechers:
           type: integer
+          minimum: 0
         quality:
           type: string
         source:
           type: string
+        request_id:
+          type: string
+          description: Identifier of the media request that initiated the search.
     ReleaseSearchResponse:
       type: object
       required: [results, query, total_results]
@@ -677,10 +692,32 @@ components:
           type: integer
     ReleaseDownloadRequest:
       type: object
-      required: [source_link, request_id]
+      required:
+        - release_id
+        - release_name
+        - request_id
       properties:
-        source_link:
+        release_id:
+          type: string
+        release_name:
+          type: string
+        request_id:
+          type: string
+        magnet_link:
           type: string
           format: uri
-        request_id:
+          description: Magnet URI to be used for the download when available.
+        torrent_file_url:
+          type: string
+          format: uri
+          description: Direct URL to the .torrent file when available.
+        info_url:
+          type: string
+          format: uri
+          description: Reference link to the release on the indexer.
+        quality:
+          type: string
+        source:
+          type: string
+        size:
           type: string

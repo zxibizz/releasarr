@@ -94,7 +94,7 @@ export const useRelease = (id: string) => {
   };
 };
 
-export const useReleasesByRequest = (requestId: string) => {
+export const useReleasesByRequest = (requestId: string, refreshToken?: number) => {
   const [state, setState] = useState<UseReleasesState>({
     releases: [],
     loading: true,
@@ -119,7 +119,7 @@ export const useReleasesByRequest = (requestId: string) => {
     if (requestId) {
       loadReleasesByRequest(requestId);
     }
-  }, [requestId, loadReleasesByRequest]);
+  }, [requestId, refreshToken, loadReleasesByRequest]);
 
   const refetch = useCallback(() => {
     if (requestId) {

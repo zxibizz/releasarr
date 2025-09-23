@@ -36,6 +36,21 @@ type UpdateMediaRequestPayload = Partial<NewMediaRequestPayload> & {
 type NewReleasePayload = {
   magnet_link: string;
   request_ids: string[];
+  name?: string;
+  quality?: string;
+  source?: string;
+};
+
+type QueueDownloadPayload = {
+  requestId: string;
+  releaseId: string;
+  releaseName: string;
+  magnetLink?: string;
+  torrentFileUrl?: string;
+  infoUrl?: string;
+  quality?: string;
+  source?: string;
+  size?: string;
 };
 
 type UpdateFileMappingPayload = {
@@ -224,10 +239,17 @@ export class MockStore {
   async addRelease(payload: NewReleasePayload): Promise<Release> {
     const releases = await this.ensureReleases();
     const now = new Date();
+    const hashFromMagnet = (() => {
+      const match = payload.magnet_link.match(/btih:([^&]+)/i);
+      if (match && match[1]) {
+        return match[1].toLowerCase();
+      }
+      return randomId().replace(/-/g, '');
+    })();
     const newRelease: Release = {
       id: randomId(),
-      name: `Manual-${now.getTime()}`,
-      hash: randomId().replace(/-/g, ''),
+      name: payload.name ?? `Manual-${now.getTime()}`,
+      hash: hashFromMagnet,
       size: 0,
       files: [
         {
@@ -246,8 +268,69 @@ export class MockStore {
       ratio: 0,
       added_date: now.toISOString(),
       request_ids: payload.request_ids,
-      torrent_source: 'manual',
-      quality: 'unknown',
+      torrent_source: payload.source ?? 'manual',
+      quality: payload.quality ?? 'unknown',
+    };
+
+    releases.unshift(newRelease);
+    return clone(newRelease);
+  }
+
+  async queueReleaseDownload(payload: QueueDownloadPayload): Promise<Release> {
+    const releases = await this.ensureReleases();
+    const now = new Date();
+    const sanitizeName = (name: string) => name.replace(/[^a-z0-9.\-]+/gi, '.');
+    const normalizedName = sanitizeName(payload.releaseName);
+    const fallbackFileName = `${normalizedName || 'downloaded.release'}.mkv`;
+    const parseSizeLabel = (label?: string): number => {
+      if (!label) return 0;
+      const match = label.match(/([0-9]+(?:\.[0-9]+)?)\s*(kb|mb|gb|tb)/i);
+      if (!match) return 0;
+      const value = Number.parseFloat(match[1]);
+      const unit = match[2].toLowerCase();
+      const multipliers: Record<string, number> = {
+        kb: 1024,
+        mb: 1024 ** 2,
+        gb: 1024 ** 3,
+        tb: 1024 ** 4,
+      };
+      return Math.floor(value * (multipliers[unit] ?? 1));
+    };
+    const numericSize = parseSizeLabel(payload.size);
+    const hashFromMagnet = (() => {
+      if (payload.magnetLink) {
+        const match = payload.magnetLink.match(/btih:([^&]+)/i);
+        if (match && match[1]) {
+          return match[1].toLowerCase();
+        }
+      }
+      return randomId().replace(/-/g, '');
+    })();
+
+    const newRelease: Release = {
+      id: payload.releaseId || randomId(),
+      name: payload.releaseName,
+      hash: hashFromMagnet,
+      size: numericSize,
+      files: [
+        {
+          id: randomId(),
+          name: fallbackFileName,
+          size: numericSize,
+          path: payload.torrentFileUrl ?? `/downloads/${fallbackFileName}`,
+        },
+      ],
+      status: 'downloading',
+      progress: 1,
+      download_speed: 1024 * 1024,
+      upload_speed: 0,
+      seeders: Math.max(10, Math.floor(Math.random() * 800)),
+      leechers: Math.floor(Math.random() * 120),
+      ratio: 0,
+      added_date: now.toISOString(),
+      request_ids: [payload.requestId],
+      torrent_source: payload.source ?? 'manual-search',
+      quality: payload.quality ?? 'unknown',
     };
 
     releases.unshift(newRelease);
@@ -332,8 +415,11 @@ export class MockStore {
     return success;
   }
 
-  async searchReleaseCandidates(query: string): Promise<ReleaseSearchResult[]> {
-    const results = await searchMockReleaseSources(query);
+  async searchReleaseCandidates(
+    query: string,
+    requestId?: string,
+  ): Promise<ReleaseSearchResult[]> {
+    const results = await searchMockReleaseSources(query, requestId);
     return results.map((result) => clone(result));
   }
 }

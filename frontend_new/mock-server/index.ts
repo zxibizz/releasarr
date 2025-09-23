@@ -128,6 +128,17 @@ api.post('/releases', async (req, res) => {
   }
 });
 
+api.get('/releases/search', async (req, res) => {
+  const query = (req.query.q as string | undefined) ?? '';
+  const requestId = (req.query.request_id as string | undefined) ?? undefined;
+  const results = await mockStore.searchReleaseCandidates(query, requestId);
+  res.json({
+    results,
+    query,
+    total_results: results.length,
+  });
+});
+
 api.get('/releases/:releaseId', async (req, res) => {
   const release = await mockStore.getRelease(req.params.releaseId);
   if (!release) {
@@ -174,18 +185,45 @@ api.put('/releases/:releaseId/files/mapping', async (req, res) => {
   res.json({ success: true });
 });
 
-api.get('/releases/search', async (req, res) => {
-  const query = (req.query.q as string | undefined) ?? '';
-  const results = await mockStore.searchReleaseCandidates(query);
-  res.json({
-    results,
-    query,
-    total_results: results.length,
-  });
-});
+api.post('/releases/download', async (req, res) => {
+  const payload = req.body ?? {};
+  const requestId = payload.request_id as string | undefined;
+  const releaseId = payload.release_id as string | undefined;
+  const releaseName = (payload.release_name as string | undefined)?.trim();
+  const magnetLink = payload.magnet_link as string | undefined;
+  const torrentFileUrl = payload.torrent_file_url as string | undefined;
+  const infoUrl = payload.info_url as string | undefined;
+  const quality = payload.quality as string | undefined;
+  const source = payload.source as string | undefined;
+  const size = payload.size as string | undefined;
 
-api.post('/releases/download', (_req, res) => {
-  res.status(202).json({ message: 'Download queued (mock)' });
+  if (!requestId || !releaseId || !releaseName) {
+    return res
+      .status(400)
+      .json({
+        message: 'request_id, release_id, and release_name are required',
+      });
+  }
+
+  if (!magnetLink && !torrentFileUrl) {
+    return res.status(400).json({
+      message: 'Either magnet_link or torrent_file_url must be provided',
+    });
+  }
+
+  const queued = await mockStore.queueReleaseDownload({
+    requestId,
+    releaseId,
+    releaseName,
+    magnetLink,
+    torrentFileUrl,
+    infoUrl,
+    quality,
+    source,
+    size,
+  });
+
+  res.status(202).json({ message: 'Download queued (mock)', release: queued });
 });
 
 app.use(apiPath, api);
