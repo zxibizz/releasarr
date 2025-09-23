@@ -205,18 +205,6 @@ paths:
       responses:
         '202':
           description: Resume accepted.
-  /releases/stats:
-    get:
-      tags: [Releases]
-      summary: Summarise release metrics
-      operationId: getReleaseStats
-      responses:
-        '200':
-          description: Aggregated stats for releases.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseStats'
   /releases/{releaseId}/files/mapping:
     put:
       tags: [Releases]
@@ -614,31 +602,6 @@ components:
         episode:
           type: integer
           minimum: 1
-    ReleaseStats:
-      type: object
-      required:
-        - total_releases
-        - active_downloads
-        - completed_releases
-        - total_size
-        - total_uploaded
-        - total_downloaded
-      properties:
-        total_releases:
-          type: integer
-        active_downloads:
-          type: integer
-        completed_releases:
-          type: integer
-        total_size:
-          type: integer
-          format: int64
-        total_uploaded:
-          type: integer
-          format: int64
-        total_downloaded:
-          type: integer
-          format: int64
     ReleaseFileMappingInput:
       type: object
       required: [file_id]

@@ -174,11 +174,6 @@ api.put('/releases/:releaseId/files/mapping', async (req, res) => {
   res.json({ success: true });
 });
 
-api.get('/releases/stats', async (_req, res) => {
-  const stats = await mockStore.getReleaseStats();
-  res.json(stats);
-});
-
 api.get('/releases/search', async (req, res) => {
   const query = (req.query.q as string | undefined) ?? '';
   const results = await mockStore.searchReleaseCandidates(query);

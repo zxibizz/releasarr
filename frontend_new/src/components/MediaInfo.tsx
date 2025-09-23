@@ -1,11 +1,11 @@
 import {
+  AspectRatio,
   Badge,
   Box,
   Card,
   Flex,
   Heading,
   Image,
-  Link,
   SimpleGrid,
   Stack,
   Tag,
@@ -36,113 +36,125 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
   return (
     <Card p={{ base: 5, md: 6 }}>
       <Stack spacing={6}>
+        <Box w="100%" display={{ base: "block", md: "none" }}>
+          <AspectRatio ratio={2 / 3} w="100%">
+            <Image
+              src={request.poster_url}
+              alt={`${request.title} poster`}
+              borderRadius="lg"
+              objectFit="cover"
+              fallbackSrc="/logo192.png"
+            />
+          </AspectRatio>
+        </Box>
+
         <Flex
           direction={{ base: "column", md: "row" }}
-          justify="space-between"
-          align={{ base: "flex-start", md: "center" }}
-          gap={4}
+          gap={{ base: 6, md: 8 }}
+          align={{ base: "flex-start", md: "stretch" }}
         >
-          <Box>
-            <Heading size="lg" mb={2}>
-              {request.title}
-            </Heading>
-            <Flex align="center" gap={2} wrap="wrap" color="text.subtle">
-              <Text fontSize="lg" fontWeight="600">
-                {request.year}
-              </Text>
-              <Text>•</Text>
-              {isMovie ? (
-                <Text fontSize="lg">{formatRuntime(request.runtime)}</Text>
-              ) : (
-                <Text fontSize="lg">Season {request.season_number}</Text>
-              )}
-            </Flex>
+          <Box display={{ base: "none", md: "block" }} flexShrink={0}>
+            <Image
+              src={request.poster_url}
+              alt={`${request.title} poster`}
+              borderRadius="lg"
+              objectFit="cover"
+              minW="240px"
+              maxW="280px"
+              height="360px"
+              fallbackSrc="/logo192.png"
+            />
           </Box>
 
-          <Image
-            src={request.poster_url}
-            alt={`${request.title} poster`}
-            boxSize={{ base: "160px", md: "220px" }}
-            objectFit="cover"
-            borderRadius="md"
-            ml={{ base: 0, md: 4 }}
-            fallbackSrc="/logo192.png"
-          />
-
-          <Badge
-            colorScheme={statusColorScheme[request.status]}
-            variant="subtle"
-            display="inline-flex"
-            alignItems="center"
-            gap={1}
-            fontSize="sm"
-            px={3}
-            py={1.5}
-            borderRadius="md"
-            textTransform="capitalize"
-          >
-            <Text as="span" fontSize="lg" lineHeight={1}>
-              {statusIcon}
-            </Text>
-            {request.status}
-          </Badge>
-        </Flex>
-
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-          <InfoItem label="Type">
-            {isMovie ? "🎬 Movie" : "📺 TV Series"}
-          </InfoItem>
-          <InfoItem label="Created">{formatDate(request.created_at)}</InfoItem>
-          <InfoItem label="Updated">{formatDate(request.updated_at)}</InfoItem>
-          <InfoItem label="IMDb">
-            <Link
-              href={`https://www.imdb.com/title/${request.imdb_id}`}
-              isExternal
-              color="brand.400"
-              fontWeight="600"
+          <Stack spacing={{ base: 5, md: 6 }} flex={1} minW={0}>
+            <Flex
+              direction={{ base: "column", sm: "row" }}
+              align={{ base: "flex-start", sm: "flex-start" }}
+              justify="space-between"
+              gap={4}
+              w="100%"
             >
-              {request.imdb_id}
-            </Link>
-          </InfoItem>
-          {!isMovie && (
-            <InfoItem label="Series">
-              {request.series_title} ({request.series_year})
-            </InfoItem>
-          )}
-          {!isMovie && (
-            <InfoItem label="Episodes">{request.total_episodes}</InfoItem>
-          )}
-        </SimpleGrid>
+              <Stack spacing={2} minW={0}>
+                <Heading size={{ base: "lg", md: "lg" }}>{request.title}</Heading>
+                <Flex align="center" gap={2} wrap="wrap" color="text.subtle">
+                  <Text fontSize="lg" fontWeight="600">
+                    {request.year}
+                  </Text>
+                  <Text>•</Text>
+                  {isMovie ? (
+                    <Text fontSize="lg">{formatRuntime(request.runtime)}</Text>
+                  ) : (
+                    <Text fontSize="lg">Season {request.season_number}</Text>
+                  )}
+                </Flex>
+              </Stack>
 
-        <Box>
-          <Heading size="sm" mb={3}>
-            Genres
-          </Heading>
-          <Wrap spacing={2}>
-            {request.genres.map((genre) => (
-              <WrapItem key={genre}>
-                <Tag
-                  variant="subtle"
-                  colorScheme="gray"
-                  borderRadius="full"
-                  px={3}
-                  py={1}
-                >
-                  {genre}
-                </Tag>
-              </WrapItem>
-            ))}
-          </Wrap>
-        </Box>
+              <Badge
+                colorScheme={statusColorScheme[request.status]}
+                variant="subtle"
+                display="inline-flex"
+                alignItems="center"
+                gap={1}
+                fontSize="sm"
+                px={3}
+                py={1.5}
+                borderRadius="md"
+                textTransform="capitalize"
+              >
+                <Text as="span" fontSize="lg" lineHeight={1}>
+                  {statusIcon}
+                </Text>
+                {request.status}
+              </Badge>
+            </Flex>
 
-        <Box>
-          <Heading size="sm" mb={3}>
-            Overview
-          </Heading>
-          <Text fontSize="sm" color="slate.200" lineHeight="tall">
-            {request.overview}
-          </Text>
-        </Box>
+            <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
+              <InfoItem label="Type">
+                {isMovie ? "🎬 Movie" : "📺 TV Series"}
+              </InfoItem>
+              <InfoItem label="Created">{formatDate(request.created_at)}</InfoItem>
+              <InfoItem label="Updated">{formatDate(request.updated_at)}</InfoItem>
+              {!isMovie && (
+                <InfoItem label="Series">
+                  {request.series_title} ({request.series_year})
+                </InfoItem>
+              )}
+              {!isMovie && (
+                <InfoItem label="Episodes">{request.total_episodes}</InfoItem>
+              )}
+            </SimpleGrid>
+
+            <Box>
+              <Heading size="sm" mb={3}>
+                Genres
+              </Heading>
+              <Wrap spacing={2}>
+                {request.genres.map((genre) => (
+                  <WrapItem key={genre}>
+                    <Tag
+                      variant="subtle"
+                      colorScheme="gray"
+                      borderRadius="full"
+                      px={3}
+                      py={1}
+                    >
+                      {genre}
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Box>
+
+            <Box>
+              <Heading size="sm" mb={3}>
+                Overview
+              </Heading>
+              <Text fontSize="sm" color="slate.200" lineHeight="tall">
+                {request.overview}
+              </Text>
+            </Box>
+          </Stack>
+        </Flex>
       </Stack>
     </Card>
   );

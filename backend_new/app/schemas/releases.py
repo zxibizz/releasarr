@@ -1,8 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from pydantic import BaseModel
-
-from app.schemas.common import Release, ReleaseStats
+from app.schemas.common import Release
 
 
 class UpdateFileMapping(BaseModel):

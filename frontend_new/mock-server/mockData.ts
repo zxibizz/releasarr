@@ -3,7 +3,6 @@ import {
   MovieRequest,
   Release,
   ReleaseSearchResult,
-  ReleaseStats,
   SeriesRequest,
 } from '../src/types';
 
@@ -451,15 +450,6 @@ const mockReleases: Release[] = [
   }
 ];
 
-const mockReleaseStats: ReleaseStats = {
-  total_releases: 5,
-  active_downloads: 2,
-  completed_releases: 3,
-  total_size: 732802554635,
-  total_uploaded: 1465605109270,
-  total_downloaded: 732802554635
-};
-
 export const getMockReleases = async (): Promise<Release[]> => {
   await new Promise(resolve => setTimeout(resolve, 400));
   return mockReleases;
@@ -478,11 +468,6 @@ export const getMockReleasesByRequest = async (requestId: string): Promise<Relea
 export const getMockReleasesByStatus = async (status: string): Promise<Release[]> => {
   await new Promise(resolve => setTimeout(resolve, 400));
   return mockReleases.filter(release => release.status === status);
-};
-
-export const getMockReleaseStats = async (): Promise<ReleaseStats> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  return mockReleaseStats;
 };
 
 export const updateMockReleaseFileMapping = async (

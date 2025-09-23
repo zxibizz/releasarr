@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db
-from app.schemas.common import Release, ReleaseStats
+from app.schemas.common import Release
 from app.schemas.releases import NewRelease, SuccessResponse, UpdateFileMapping
 from app.services.releases import ReleaseService
 
@@ -37,14 +37,6 @@ async def create_release(
         torrent_source=torrent_source,
         quality=quality,
     )
-
-
-@router.get("/stats", response_model=ReleaseStats)
-async def release_stats(
-    session: AsyncSession = Depends(get_db),
-) -> ReleaseStats:
-    service = ReleaseService(session)
-    return await service.get_stats()
 
 
 @router.get("/{release_id}", response_model=Release)

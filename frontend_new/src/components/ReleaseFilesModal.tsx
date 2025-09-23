@@ -55,7 +55,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
         borderWidth="1px"
         borderColor="border.muted"
       >
-        <ModalHeader>📁 Manage Files — {release.name}</ModalHeader>
+        <ModalHeader>📁 Files — {release.name}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6} maxH="75vh" overflowY="auto">
           <Tabs colorScheme="blue">
