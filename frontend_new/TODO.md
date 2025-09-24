@@ -10,7 +10,7 @@
 ## Error Handling & Resilience
 
 - [x] `frontend_new/src/services/api.ts:15` Harden the fetch wrapper: detect non‑JSON success bodies, map HTTP status codes to actionable errors, and add optional abort support.
-- [ ] `frontend_new/src/hooks/useRequests.ts:14` Guard against malformed payloads (missing requests, unexpected types) before mutating state so the UI can fall back gracefully.
+- [x] `frontend_new/src/hooks/useRequests.ts:14` Guard against malformed payloads (missing requests, unexpected types) before mutating state so the UI can fall back gracefully.
 - [ ] `frontend_new/src/components/ReleaseCard.tsx:353` Protect against undefined release files/numeric fields from the backend by adding safe defaults and defensive formatting.
 - [ ] `frontend_new/src/components/RequestPage.tsx:210` Allow RequestLogsModal to cope with snake_case keys or missing timestamps by normalising data on load.
 
