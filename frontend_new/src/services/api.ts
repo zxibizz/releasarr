@@ -97,10 +97,8 @@ const isAbortError = (error: unknown): boolean => {
   return error instanceof Error && error.name === 'AbortError';
 };
 
-// API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 
-// API client class for future backend integration
 class ApiClient {
   private baseUrl: string;
 
@@ -230,7 +228,6 @@ class ApiClient {
     }
   }
 
-  // Requests endpoints
   async getRequests(options: {
     page?: number;
     perPage?: number;
@@ -264,7 +261,6 @@ class ApiClient {
     return this.request<ReleaseSearchResponse>(endpoint);
   }
 
-  // Future endpoints for real backend integration
   async createRequest(requestData: Partial<MediaRequest>): Promise<MediaRequest> {
     return this.request<MediaRequest>('/requests', {
       method: 'POST',
@@ -298,7 +294,6 @@ class ApiClient {
     );
   }
 
-  // Releases endpoints
   async getReleases(filters: { status?: Release['status']; requestId?: string } = {}): Promise<Release[]> {
     const searchParams = new URLSearchParams();
     if (filters.status) searchParams.set('status', filters.status);
@@ -342,7 +337,6 @@ class ApiClient {
     return response?.success ?? false;
   }
 
-  // Future release endpoints for real backend integration
   async pauseRelease(id: string): Promise<void> {
     return this.request<void>(`/releases/${id}/pause`, {
       method: 'POST',
@@ -369,10 +363,8 @@ class ApiClient {
   }
 }
 
-// Create and export API client instance
 export const apiClient = new ApiClient();
 
-// Convenience functions that match the current mock API
 export const fetchRequests = (options?: {
   page?: number;
   perPage?: number;
@@ -380,7 +372,6 @@ export const fetchRequests = (options?: {
   type?: MediaRequest['type'];
 }) => apiClient.getRequests(options);
 export const fetchRequest = (id: string) => apiClient.getRequest(id);
-// Release convenience functions
 export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>
   apiClient.getReleases(filters);
 export const fetchRelease = (id: string) => apiClient.getRelease(id);
@@ -400,5 +391,4 @@ export const downloadReleaseCandidate = (
 export const fetchRequestLogsApi = (requestId?: string) =>
   apiClient.getRequestLogs({ requestId });
 
-// Export the class for testing or custom instances
 export { ApiClient };
