@@ -10,7 +10,7 @@ interface RequestHeaderProps {
 
 export function RequestHeader({ request }: RequestHeaderProps) {
   return (
-    <Stack spacing={8} maxW="6xl" mx="auto">
+    <Stack spacing={8}>
       <Button as={RouterLink} to="/" variant="outline" colorScheme="blue" width="fit-content">
         ← Back to Requests
       </Button>

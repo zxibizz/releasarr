@@ -56,6 +56,7 @@ export const RequestPage: React.FC = () => {
   const [isShaking, setIsShaking] = useState(false);
   const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(null);
   const [manualSearchFocusToken, setManualSearchFocusToken] = useState(0);
+  const [hasLoadedReleases, setHasLoadedReleases] = useState(false);
   const {
     logs: requestLogs,
     isLoading: logsLoading,
@@ -131,6 +132,7 @@ export const RequestPage: React.FC = () => {
     resetLogs();
     lastShakeAtRef.current = 0;
     setExpandedStacks({});
+    setHasLoadedReleases(false);
   }, [requestId, resetLogs]);
 
   const handleViewFiles = (release: Release) => {
@@ -147,6 +149,7 @@ export const RequestPage: React.FC = () => {
     (loadedReleases: Release[]) => {
       const hasReleases = loadedReleases.length > 0;
       setHasExistingReleases(hasReleases);
+      setHasLoadedReleases(true);
 
       if (!hasReleases) {
         setManualSearchTriggered(false);
@@ -295,11 +298,15 @@ export const RequestPage: React.FC = () => {
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
 
   useEffect(() => {
+    if (!hasLoadedReleases) {
+      return;
+    }
+
     if (shouldShowSearch && !previousShouldShowSearch.current) {
       focusManualSearch();
     }
     previousShouldShowSearch.current = shouldShowSearch;
-  }, [focusManualSearch, shouldShowSearch]);
+  }, [focusManualSearch, shouldShowSearch, hasLoadedReleases]);
 
   if (showLoadingState) {
     return (

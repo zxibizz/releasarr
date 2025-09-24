@@ -235,6 +235,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   ) : null;
 
   const statusStyle = releaseStatusStyles[release.status];
+  const detailsSectionId = useMemo(() => `release-${release.id}-details`, [release.id]);
 
   if (compact) {
     return (
@@ -281,6 +282,8 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                     icon={showDetails ? <ChevronUpIcon /> : <ChevronDownIcon />}
                     variant="ghost"
                     size="sm"
+                    aria-expanded={showDetails}
+                    aria-controls={detailsSectionId}
                     onClick={() => setShowDetails((prev) => !prev)}
                   />
                   {onDelete && (
@@ -299,7 +302,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             </Flex>
 
             {showDetails && (
-              <Stack spacing={3} fontSize="xs" color="text.subtle">
+              <Stack id={detailsSectionId} spacing={3} fontSize="xs" color="text.subtle">
                 <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
                   <GridItem>
                     <Text>Seeders: {release.seeders}</Text>
