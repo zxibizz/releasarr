@@ -1,7 +1,12 @@
 import { getMockReleases, getMockRequests, searchMockReleaseSources } from './mockData';
 import { generateMockRequestLogs } from './mockLogs';
-import type { MediaRequest, Release, ReleaseFile, ReleaseSearchResult } from '../src/types';
-import type { RequestLogEntry } from '../src/types/logs';
+import type {
+  MediaRequest,
+  Release,
+  ReleaseFile,
+  ReleaseSearchResult,
+  RequestLogEntry,
+} from '../src/types';
 
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];

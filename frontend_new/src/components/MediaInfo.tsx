@@ -122,7 +122,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
                 Genres
               </Heading>
               <Wrap spacing={2}>
-                {request.genres.map((genre) => (
+                {request.genres.map((genre: string) => (
                   <WrapItem key={genre}>
                     <Tag variant="subtle" colorScheme="gray" borderRadius="full" px={3} py={1}>
                       {genre}

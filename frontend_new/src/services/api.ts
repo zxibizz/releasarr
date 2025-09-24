@@ -11,9 +11,11 @@ import type {
   ReleaseSearchResponse,
   ReleasesResponse,
   RequestsResponse,
+  RequestLogEntry,
 } from '@/types';
 import {
   asyncOperationResponseSchema,
+  logsResponseSchema,
   mediaRequestSchema,
   releaseDownloadRequestSchema,
   releaseFileMappingInputSchema,
@@ -23,7 +25,6 @@ import {
   requestsResponseSchema,
   successResponseSchema,
 } from '@/types';
-import { logsResponseSchema, type RequestLogEntry } from '@/types/logs';
 
 type ApiResponseType = 'json' | 'text' | 'auto';
 

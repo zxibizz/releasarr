@@ -6,7 +6,7 @@
   - [x] Replace CRA with Vite (or Next.js) + SWC to unblock React 19 upgrades, shrink bundles, and enable modern DX (hot-module perf, test runners).
   - [x] Upgrade TypeScript to 5.x, align React typings, and introduce shared ESLint/Prettier config with strict rules for hooks, exhaustive deps, and Chakra best-practices.
   - Add Storybook and Chromatic (or Ladle) for component previews and visual regression safety while iterating on the design system.
-  - Generate TypeScript/zod clients from `openapi.yaml` (e.g. with `openapi-typescript` + `orval`/`zodios`) instead of hand-maintaining schemas in `src/types`.
+  - [x] Generate TypeScript/zod clients from `openapi.yaml` (e.g. with `openapi-typescript` + `orval`/`zodios`) instead of hand-maintaining schemas in `src/types`.
 
 - Architecture & State Management
   - Split `RequestPage` into feature-scoped subcomponents/hooks (detail header, actions, releases, logs, manual search) to reduce the 500+ line monolith and isolate concerns.
@@ -41,8 +41,8 @@
 
 ## Implementation Plan
 
-1. [ ] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
-2. [ ] Automate contract typing: wire `openapi.yaml` into a codegen step that emits clients/zod schemas consumed by hooks and the mock server.
+1. [x] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
+2. [x] Automate contract typing: wire `openapi.yaml` into a codegen step that emits clients/zod schemas consumed by hooks and the mock server.
 3. [ ] Reorganise feature folders: split `RequestPage` into composable modules, move query keys/hooks beside components, and introduce state containers where needed.
 4. [ ] Enhance the API/services layer: batch related-request lookups, add route loaders/prefetch, and surface consistent `ApiError` messaging through shared utilities.
 5. [ ] Polish the UX: add request search/sort with URL sync, swap spinners for skeletons, tighten accessibility, and extend release visuals.

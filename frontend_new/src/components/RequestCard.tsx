@@ -128,7 +128,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 {request.type}
               </Tag>
 
-              {request.genres.slice(0, 2).map((genre) => (
+              {request.genres.slice(0, 2).map((genre: string) => (
                 <Tag
                   key={genre}
                   variant="subtle"
