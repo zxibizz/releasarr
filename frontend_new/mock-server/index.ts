@@ -185,45 +185,35 @@ api.put('/releases/:releaseId/files/mapping', async (req, res) => {
   res.json({ success: true });
 });
 
-api.post('/releases/download', async (req, res) => {
+api.post('/requests/:requestId/releases/download', async (req, res) => {
   const payload = req.body ?? {};
-  const requestId = payload.request_id as string | undefined;
+  const requestId = req.params.requestId?.trim();
   const releaseId = payload.release_id as string | undefined;
-  const releaseName = (payload.release_name as string | undefined)?.trim();
-  const magnetLink = payload.magnet_link as string | undefined;
-  const torrentFileUrl = payload.torrent_file_url as string | undefined;
-  const infoUrl = payload.info_url as string | undefined;
-  const quality = payload.quality as string | undefined;
-  const source = payload.source as string | undefined;
-  const size = payload.size as string | undefined;
-
-  if (!requestId || !releaseId || !releaseName) {
-    return res
-      .status(400)
-      .json({
-        message: 'request_id, release_id, and release_name are required',
-      });
+  if (!requestId || !releaseId) {
+    return res.status(400).json({ message: 'requestId path param and release_id are required' });
   }
 
-  if (!magnetLink && !torrentFileUrl) {
-    return res.status(400).json({
-      message: 'Either magnet_link or torrent_file_url must be provided',
+  try {
+    const queued = await mockStore.queueReleaseDownload({
+      requestId,
+      releaseId,
+    });
+
+    return res
+      .status(202)
+      .json({ message: 'Download queued (mock)', release: queued });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'release_candidate_not_found') {
+      return res.status(404).json({
+        message: 'Release candidate not found for this request',
+      });
+    }
+
+    console.error('Failed to queue release download', error);
+    return res.status(500).json({
+      message: 'Failed to queue release download',
     });
   }
-
-  const queued = await mockStore.queueReleaseDownload({
-    requestId,
-    releaseId,
-    releaseName,
-    magnetLink,
-    torrentFileUrl,
-    infoUrl,
-    quality,
-    source,
-    size,
-  });
-
-  res.status(202).json({ message: 'Download queued (mock)', release: queued });
 });
 
 app.use(apiPath, api);
