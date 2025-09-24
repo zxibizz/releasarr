@@ -7,9 +7,10 @@ import {
   Link as RouterLink,
   Outlet,
 } from "react-router-dom";
-import { RequestPage } from "./components/RequestPage";
-import { RequestsList } from "./components/RequestsList";
-import { NotFound } from "./components/NotFound";
+
+import { NotFound } from "@/components/NotFound";
+import { RequestPage } from "@/components/RequestPage";
+import { RequestsList } from "@/components/RequestsList";
 
 function Navigation() {
   const location = useLocation();

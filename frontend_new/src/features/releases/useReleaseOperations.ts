@@ -1,12 +1,13 @@
-import { useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+
+import { releasesKeys } from "@/lib/queryKeys";
 import {
   deleteRelease as deleteReleaseApi,
   pauseRelease as pauseReleaseApi,
   resumeRelease as resumeReleaseApi,
-} from "../../services/api";
-import { releasesKeys } from "../../lib/queryKeys";
+} from "@/services/api";
 
 interface OperationOptions {
   onSuccess?: () => void;
@@ -117,4 +118,3 @@ export const useReleaseOperations = (requestId?: string) => {
     resumeRelease,
   } as const;
 };
-

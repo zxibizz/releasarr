@@ -1,29 +1,29 @@
 import type { ZodType } from 'zod';
 
-import {
+import type {
+  AsyncOperationResponse,
   DownloadReleaseResponse,
+  LogsResponse,
   MediaRequest,
   Release,
   ReleaseDownloadRequest,
   ReleaseFileMappingInput,
   ReleaseSearchResponse,
-  RequestsResponse,
-  AsyncOperationResponse,
   ReleasesResponse,
-  LogsResponse,
-} from '../types';
+  RequestsResponse,
+} from '@/types';
 import {
+  asyncOperationResponseSchema,
   mediaRequestSchema,
-  requestsResponseSchema,
-  releaseSchema,
-  releasesResponseSchema,
-  releaseSearchResponseSchema,
   releaseDownloadRequestSchema,
   releaseFileMappingInputSchema,
-  asyncOperationResponseSchema,
+  releaseSchema,
+  releaseSearchResponseSchema,
+  releasesResponseSchema,
+  requestsResponseSchema,
   successResponseSchema,
-} from '../types';
-import { logsResponseSchema, type RequestLogEntry } from '../types/logs';
+} from '@/types';
+import { logsResponseSchema, type RequestLogEntry } from '@/types/logs';
 
 type ApiResponseType = 'json' | 'text' | 'auto';
 
@@ -179,7 +179,7 @@ class ApiClient {
         if (rawBody) {
           try {
             parsedBody = JSON.parse(rawBody);
-          } catch (parseError) {
+          } catch {
             parsedBody = undefined;
           }
         }

@@ -13,18 +13,20 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useReleasesByRequestQuery } from "../hooks/useReleases";
-import { Release, MediaRequest } from "../types";
-import { fetchRequest } from "../services/api";
-import { sortReleasesByStatus } from "../utils/releaseHelpers";
+
+import { useReleaseOperations } from "@/features/releases/useReleaseOperations";
+import { useReleasesByRequestQuery } from "@/hooks/useReleases";
+import { fetchRequest } from "@/services/api";
+import type { MediaRequest, Release } from "@/types";
+import { sortReleasesByStatus } from "@/utils/releaseHelpers";
+
 import ReleaseCard from "./ReleaseCard";
-import { useReleaseOperations } from "../features/releases/useReleaseOperations";
 
 interface ReleasesListProps {
   requestId: string;
-  onPauseRelease?: (id: string) => void;
-  onResumeRelease?: (id: string) => void;
-  onDeleteRelease?: (id: string) => void;
+  onPauseRelease?: (_id: string) => void;
+  onResumeRelease?: (_id: string) => void;
+  onDeleteRelease?: (_id: string) => void;
   onViewFiles?: (release: Release) => void;
   compact?: boolean;
   onReleasesLoaded?: (releases: Release[]) => void;

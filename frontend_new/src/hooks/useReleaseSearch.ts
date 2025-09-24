@@ -1,15 +1,16 @@
 import { useCallback, useState } from 'react';
+
 import {
   downloadReleaseCandidate as downloadReleaseCandidateAPI,
   searchReleaseCandidates as searchReleaseCandidatesAPI,
-} from '../services/api';
-import {
+} from '@/services/api';
+import type {
   DownloadReleaseResponse,
   ReleaseDownloadRequest,
   ReleaseSearchResponse,
   ReleaseSearchResult,
   ReleaseSearchState,
-} from '../types';
+} from '@/types';
 
 export const useReleaseSearch = () => {
   const [searchState, setSearchState] = useState<ReleaseSearchState>({

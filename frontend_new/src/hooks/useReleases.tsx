@@ -5,15 +5,16 @@ import {
   type UseMutationOptions,
   type UseQueryOptions,
 } from "@tanstack/react-query";
+
+import { releasesKeys, type ReleaseListFilters } from "@/lib/queryKeys";
 import {
   fetchRelease,
   fetchReleases,
   fetchReleasesByRequest,
   fetchReleasesByStatus,
   updateReleaseFileMappings,
-} from "../services/api";
-import type { Release, ReleaseFileMappingInput } from "../types";
-import { releasesKeys, type ReleaseListFilters } from "../lib/queryKeys";
+} from "@/services/api";
+import type { Release, ReleaseFileMappingInput } from "@/types";
 
 const missingReleaseIdError = new Error("Release identifier is required");
 const missingRequestIdError = new Error("Request identifier is required");
