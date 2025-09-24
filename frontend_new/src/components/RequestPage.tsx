@@ -44,6 +44,139 @@ const shakeKeyframes = keyframes`
   40%, 80% { transform: translateX(6px); }
 `;
 
+type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
+
+const REQUEST_LOG_LEVELS: RequestLogEntry["level"][] = [
+  "info",
+  "warning",
+  "error",
+];
+
+const toMilliseconds = (value: number): number => {
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+};
+
+const parseNumericTimestamp = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return toMilliseconds(value);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const numeric = Number.parseFloat(value);
+    if (Number.isFinite(numeric)) {
+      return toMilliseconds(numeric);
+    }
+
+    const parsedDate = Date.parse(value);
+    if (!Number.isNaN(parsedDate)) {
+      return parsedDate;
+    }
+  }
+
+  return null;
+};
+
+const coerceMetadata = (
+  value: unknown
+): Record<string, string | number | boolean> | undefined => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const entries = Object.entries(value).reduce(
+      (acc, [key, entryValue]) => {
+        if (
+          typeof entryValue === "string" ||
+          typeof entryValue === "number" ||
+          typeof entryValue === "boolean"
+        ) {
+          acc[key] = entryValue;
+        }
+        return acc;
+      },
+      {} as Record<string, string | number | boolean>
+    );
+
+    return Object.keys(entries).length > 0 ? entries : undefined;
+  }
+
+  return undefined;
+};
+
+const normalizeLogEntry = (
+  entry: unknown,
+  fallbackId: string
+): RequestLogEntry => {
+  const raw: RawRequestLogEntry =
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? (entry as RawRequestLogEntry)
+      : {};
+
+  const occurredAtCandidate =
+    raw.occurredAt ??
+    raw.occurred_at ??
+    raw.timestamp ??
+    raw.time ??
+    raw.createdAt ??
+    raw.created_at;
+
+  const occurredAt =
+    parseNumericTimestamp(occurredAtCandidate) ?? Date.now();
+
+  const idCandidate = raw.id ?? raw.logId ?? raw.log_id ?? raw.uuid ?? fallbackId;
+  const id = String(idCandidate ?? fallbackId);
+
+  const levelCandidate =
+    (raw.level ?? raw.logLevel ?? raw.log_level ?? raw.severity) as
+      | string
+      | undefined;
+  const normalizedLevel = levelCandidate?.toLowerCase().trim();
+  const level: RequestLogEntry["level"] = REQUEST_LOG_LEVELS.includes(
+    normalizedLevel as RequestLogEntry["level"]
+  )
+    ? (normalizedLevel as RequestLogEntry["level"])
+    : "info";
+
+  const messageValue = raw.message ?? raw.detail ?? raw.description ?? "";
+  const message = typeof messageValue === "string" ? messageValue : String(messageValue ?? "");
+
+  const timestampValue =
+    typeof raw.timestamp === "string"
+      ? raw.timestamp
+      : typeof raw.occurred_at === "string"
+        ? raw.occurred_at
+        : undefined;
+
+  const timestamp =
+    (timestampValue && timestampValue.trim().length > 0
+      ? timestampValue
+      : new Date(occurredAt).toLocaleString()) ?? "";
+
+  const sourceValue = raw.source ?? raw.component ?? raw.origin;
+  const source = typeof sourceValue === "string" ? sourceValue : undefined;
+
+  const stackTraceValue = raw.stackTrace ?? raw.stack_trace ?? raw.stack;
+  const stackTrace =
+    typeof stackTraceValue === "string" && stackTraceValue.trim().length > 0
+      ? stackTraceValue
+      : undefined;
+
+  return {
+    id,
+    occurredAt,
+    timestamp,
+    level,
+    message,
+    source,
+    metadata: coerceMetadata(raw.metadata ?? raw.meta ?? raw.context),
+    stackTrace,
+  };
+};
+
+const normalizeRequestLogs = (logs: unknown[]): RequestLogEntry[] => {
+  const normalizationSeed = Date.now();
+  return logs.map((log, index) =>
+    normalizeLogEntry(log, `log-${normalizationSeed}-${index}`)
+  );
+};
+
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { request, loading, error, refetch: refetchRequest } = useRequest(id || "");
@@ -207,7 +340,7 @@ export const RequestPage: React.FC = () => {
     setLogsError(null);
     try {
       const logs = await fetchRequestLogs(request.id);
-      setRequestLogs(logs);
+      setRequestLogs(normalizeRequestLogs(logs));
     } catch (err) {
       setLogsError(
         err instanceof Error ? err.message : "Failed to load logs"
