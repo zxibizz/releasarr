@@ -16,7 +16,12 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useReleasesByRequest } from "../hooks/useReleases";
 import { Release, MediaRequest } from "../types";
-import { fetchRequest, deleteRelease as deleteReleaseApi } from "../services/api";
+import {
+  fetchRequest,
+  deleteRelease as deleteReleaseApi,
+  pauseRelease as pauseReleaseApi,
+  resumeRelease as resumeReleaseApi,
+} from "../services/api";
 import { sortReleasesByStatus } from "../utils/releaseHelpers";
 import ReleaseCard from "./ReleaseCard";
 
@@ -152,6 +157,58 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     [onDeleteRelease, refetch, toast]
   );
 
+  const handlePauseRelease = useCallback(
+    async (id: string) => {
+      try {
+        await pauseReleaseApi(id);
+        toast({
+          title: "Release paused",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        onPauseRelease?.(id);
+        refetch();
+      } catch (error) {
+        console.error("Failed to pause release", error);
+        toast({
+          title: "Failed to pause release",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+        throw error;
+      }
+    },
+    [onPauseRelease, refetch, toast]
+  );
+
+  const handleResumeRelease = useCallback(
+    async (id: string) => {
+      try {
+        await resumeReleaseApi(id);
+        toast({
+          title: "Release resumed",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        onResumeRelease?.(id);
+        refetch();
+      } catch (error) {
+        console.error("Failed to resume release", error);
+        toast({
+          title: "Failed to resume release",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+        throw error;
+      }
+    },
+    [onResumeRelease, refetch, toast]
+  );
+
   if (loading) {
     return (
       <Center py={10} flexDirection="column" gap={4} color="text.subtle">
@@ -215,8 +272,8 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           <ReleaseCard
             key={release.id}
             release={release}
-            onPause={onPauseRelease}
-            onResume={onResumeRelease}
+            onPause={handlePauseRelease}
+            onResume={handleResumeRelease}
             onDelete={handleDeleteRelease}
             onViewFiles={onViewFiles}
             compact={compact}
