@@ -18,8 +18,11 @@ import {
 import React, { useState } from "react";
 import { useRequests } from "../hooks/useRequests";
 import { RequestCard } from "./RequestCard";
+import { MediaRequest } from "../types";
 
-const filterButtons = [
+type FilterKey = "all" | "movies" | "series" | MediaRequest["status"];
+
+const filterButtons: ReadonlyArray<{ key: FilterKey; label: string }> = [
   { key: "all", label: "All" },
   { key: "movies", label: "Movies" },
   { key: "series", label: "Series" },
@@ -33,9 +36,9 @@ const filterButtons = [
 export const RequestsList: React.FC = () => {
   const { requests, loading, error, fetchByStatus, fetchByType, refetch } =
     useRequests();
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
-  const handleFilterChange = async (filter: string) => {
+  const handleFilterChange = async (filter: FilterKey) => {
     setActiveFilter(filter);
 
     switch (filter) {

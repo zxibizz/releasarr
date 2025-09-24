@@ -4,19 +4,7 @@ import {
   ReleaseFile,
   SeriesFileRequestMapping,
 } from '../types';
-
-export const formatFileSize = (bytes: number): string => {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let size = bytes;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-
-  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-};
+import { formatFileSize } from './formatters';
 
 export const formatSpeed = (bytesPerSecond: number): string => {
   return `${formatFileSize(bytesPerSecond)}/s`;
@@ -275,3 +263,5 @@ export const getHealthColor = (healthScore: number): string => {
   if (healthScore >= 20) return 'text-orange-600';
   return 'text-red-600';
 };
+
+export { formatFileSize };
