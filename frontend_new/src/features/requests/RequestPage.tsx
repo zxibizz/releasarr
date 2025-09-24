@@ -15,6 +15,7 @@ import { useRequestLogs } from '@/features/requests/useRequestLogs';
 import { useRequestQuery } from '@/hooks/useRequests';
 import { releasesKeys } from '@/lib/queryKeys';
 import type { Release } from '@/types';
+import { getApiErrorInfo } from '@/utils/errors';
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -64,12 +65,19 @@ export const RequestPage: React.FC = () => {
   const toast = useToast();
 
   const showLoadingState = (isLoading || isFetching) && !request;
-  const requestErrorMessage =
-    requestError instanceof Error
-      ? requestError.message
-      : requestError
-        ? 'Failed to load request'
-        : null;
+  const requestErrorInfo = requestError
+    ? getApiErrorInfo(requestError, {
+        title: 'Unable to load this request',
+        description: 'We could not retrieve the latest data for this request.',
+      })
+    : null;
+
+  const logsErrorInfo = logsError
+    ? getApiErrorInfo(logsError, {
+        title: 'Unable to load logs',
+        description: 'We could not retrieve activity logs for this request.',
+      })
+    : null;
 
   const updateRefreshToast = useCallback(
     (options: UseToastOptions) => {
@@ -292,7 +300,7 @@ export const RequestPage: React.FC = () => {
     );
   }
 
-  if (requestErrorMessage || !request) {
+  if (requestErrorInfo || !request) {
     return (
       <Card p={8} maxW="lg" mx="auto">
         <Stack spacing={4} align="center">
@@ -301,7 +309,8 @@ export const RequestPage: React.FC = () => {
             Request not found
           </Text>
           <Text color="text.subtle" textAlign="center">
-            {requestErrorMessage || 'The requested media could not be found.'}
+            {(requestErrorInfo && requestErrorInfo.description) ||
+              'The requested media could not be found.'}
           </Text>
           <Button as={RouterLink} to="/" colorScheme="blue">
             ← Back to Requests
@@ -348,7 +357,7 @@ export const RequestPage: React.FC = () => {
         logs={requestLogs}
         requestTitle={request.title}
         isLoading={logsLoading}
-        error={logsError}
+        error={logsErrorInfo?.description ?? null}
         expandedStacks={expandedStacks}
         setExpandedStacks={setExpandedStacks}
       />

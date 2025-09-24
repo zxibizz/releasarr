@@ -15,9 +15,9 @@
   - Refactor release/request helpers to remove duplicated status/icon utilities and move view logic behind headless presenters.
 
 - Data Fetching & API Layer
-  - Teach the backend list endpoints to return relationship summaries so `ReleasesList` stops fan-out fetching each related request (batch via `/requests/summary`).
-  - Add `react-query` prefetch/loaders to route definitions (React Router data APIs) for better suspense support and SSR readiness.
-  - Centralise error handling with an error boundary + toast utilities, surfacing structured `ApiError` details and guidance.
+- [x] Teach the backend list endpoints to return relationship summaries so `ReleasesList` stops fan-out fetching each related request (batch via `/requests/summary`).
+- [x] Add `react-query` prefetch/loaders to route definitions (React Router data APIs) for better suspense support and SSR readiness.
+- [x] Centralise error handling with an error boundary + toast utilities, surfacing structured `ApiError` details and guidance.
 
 - UI/UX Enhancements
   - Persist filters/search params for `RequestsList` in the URL, add fuzzy search, sort toggles, and quick stats (counts per status/type).
@@ -43,8 +43,8 @@
 
 1. [x] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
 2. [x] Automate contract typing: wire `openapi.yaml` into a codegen step that emits clients/zod schemas consumed by hooks and the mock server.
-3. [ ] Reorganise feature folders: split `RequestPage` into composable modules, move query keys/hooks beside components, and introduce state containers where needed.
-4. [ ] Enhance the API/services layer: batch related-request lookups, add route loaders/prefetch, and surface consistent `ApiError` messaging through shared utilities.
+3. [x] Reorganise feature folders: split `RequestPage` into composable modules, move query keys/hooks beside components, and introduce state containers where needed.
+4. [x] Enhance the API/services layer: batch related-request lookups, add route loaders/prefetch, and surface consistent `ApiError` messaging through shared utilities.
 5. [ ] Polish the UX: add request search/sort with URL sync, swap spinners for skeletons, tighten accessibility, and extend release visuals.
 6. [ ] Redesign file mapping: implement form-powered mapping with virtualization, intelligent defaults, and save/undo feedback.
 7. [ ] Expand tests and DX tooling: add Vitest/Playwright suites, React Query Devtools, Storybook stories, and CI gates (lint/test/story build).
