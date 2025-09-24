@@ -12,20 +12,20 @@ import {
   Stack,
   Tag,
   Text,
-} from "@chakra-ui/react";
-import React from "react";
-import { Link as RouterLink } from "react-router-dom";
+} from '@chakra-ui/react';
+import React from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
-import { requestStatusStyles } from "@/theme/statusStyles";
-import type { MediaRequest } from "@/types";
-import { formatDate, formatRuntime, getStatusIcon } from "@/utils/formatters";
+import { requestStatusStyles } from '@/theme/statusStyles';
+import type { MediaRequest } from '@/types';
+import { formatDate, formatRuntime, getStatusIcon } from '@/utils/formatters';
 
 interface RequestCardProps {
   request: MediaRequest;
 }
 
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
-  const isMovie = request.type === "movie";
+  const isMovie = request.type === 'movie';
   const statusIcon = getStatusIcon(request.status);
   const statusStyle = requestStatusStyles[request.status];
 
@@ -35,13 +35,13 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
       role="group"
       cursor="pointer"
       transition="all 0.2s ease"
-      _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+      _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }}
       p={{ base: 5, md: 6 }}
     >
       <Stack spacing={4} height="100%">
         <Flex
-          direction={{ base: "column", md: "row" }}
-          align={{ base: "stretch", md: "flex-start" }}
+          direction={{ base: 'column', md: 'row' }}
+          align={{ base: 'stretch', md: 'flex-start' }}
           gap={{ base: 4, md: 6 }}
         >
           <Box
@@ -50,7 +50,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
             flexShrink={0}
             borderRadius="md"
             overflow="hidden"
-            display={{ base: "none", md: "block" }}
+            display={{ base: 'none', md: 'block' }}
             w="160px"
           >
             <AspectRatio ratio={2 / 3} w="100%">
@@ -66,8 +66,8 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
 
           <Stack spacing={4} flex={1} minW={0}>
             <Flex
-              direction={{ base: "column", sm: "row" }}
-              align={{ base: "flex-start", sm: "center" }}
+              direction={{ base: 'column', sm: 'row' }}
+              align={{ base: 'flex-start', sm: 'center' }}
               justify="space-between"
               gap={3}
               w="100%"
@@ -77,7 +77,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                   <LinkOverlay
                     as={RouterLink}
                     to={`/request/${request.id}`}
-                    _hover={{ textDecoration: "none" }}
+                    _hover={{ textDecoration: 'none' }}
                   >
                     {request.title}
                   </LinkOverlay>
@@ -112,7 +112,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
 
             <HStack spacing={2} flexWrap="wrap">
               <Tag
-                colorScheme={isMovie ? "red" : "blue"}
+                colorScheme={isMovie ? 'red' : 'blue'}
                 variant="subtle"
                 borderRadius="full"
                 px={3}
@@ -123,7 +123,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 letterSpacing="0.08em"
               >
                 <Text as="span" mr={1}>
-                  {isMovie ? "🎬" : "📺"}
+                  {isMovie ? '🎬' : '📺'}
                 </Text>
                 {request.type}
               </Tag>
@@ -172,13 +172,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
               </Text>
             )}
 
-            <Flex
-              mt="auto"
-              justify="space-between"
-              align="center"
-              fontSize="xs"
-              color="text.muted"
-            >
+            <Flex mt="auto" justify="space-between" align="center" fontSize="xs" color="text.muted">
               <Text>Created {formatDate(request.created_at)}</Text>
               <Text textTransform="capitalize">{request.type}</Text>
             </Flex>

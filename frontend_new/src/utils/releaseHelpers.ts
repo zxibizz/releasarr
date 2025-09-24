@@ -1,9 +1,4 @@
-import type {
-  FileRequestMapping,
-  Release,
-  ReleaseFile,
-  SeriesFileRequestMapping,
-} from '@/types';
+import type { FileRequestMapping, Release, ReleaseFile, SeriesFileRequestMapping } from '@/types';
 
 import { formatFileSize } from './formatters';
 
@@ -39,10 +34,10 @@ export const formatDuration = (seconds: number): string => {
 
 export const calculateETA = (totalSize: number, downloadedSize: number, speed: number): string => {
   if (speed === 0) return 'Unknown';
-  
+
   const remainingBytes = totalSize - downloadedSize;
   const remainingSeconds = remainingBytes / speed;
-  
+
   return formatDuration(remainingSeconds);
 };
 
@@ -82,15 +77,15 @@ export const getStatusIcon = (status: Release['status']): string => {
 
 export const sortReleasesByStatus = (releases: Release[]): Release[] => {
   const statusOrder = ['downloading', 'pending', 'seeding', 'completed', 'failed'];
-  
+
   return [...releases].sort((a, b) => {
     const aIndex = statusOrder.indexOf(a.status);
     const bIndex = statusOrder.indexOf(b.status);
-    
+
     if (aIndex !== bIndex) {
       return aIndex - bIndex;
     }
-    
+
     return new Date(b.added_date).getTime() - new Date(a.added_date).getTime();
   });
 };
@@ -99,7 +94,7 @@ export const sortReleasesByDate = (releases: Release[], ascending: boolean = fal
   return [...releases].sort((a, b) => {
     const dateA = new Date(a.added_date).getTime();
     const dateB = new Date(b.added_date).getTime();
-    
+
     return ascending ? dateA - dateB : dateB - dateA;
   });
 };
@@ -110,31 +105,36 @@ export const sortReleasesBySize = (releases: Release[], ascending: boolean = fal
   });
 };
 
-export const filterReleasesByStatus = (releases: Release[], status: Release['status']): Release[] => {
-  return releases.filter(release => release.status === status);
+export const filterReleasesByStatus = (
+  releases: Release[],
+  status: Release['status'],
+): Release[] => {
+  return releases.filter((release) => release.status === status);
 };
 
 export const filterReleasesByRequest = (releases: Release[], requestId: string): Release[] => {
-  return releases.filter(release => release.request_ids.includes(requestId));
+  return releases.filter((release) => release.request_ids.includes(requestId));
 };
 
 export const getActiveDownloads = (releases: Release[]): Release[] => {
-  return releases.filter(release => release.status === 'downloading');
+  return releases.filter((release) => release.status === 'downloading');
 };
 
 export const getCompletedReleases = (releases: Release[]): Release[] => {
-  return releases.filter(release => release.status === 'completed' || release.status === 'seeding');
+  return releases.filter(
+    (release) => release.status === 'completed' || release.status === 'seeding',
+  );
 };
 
 export const getTotalDownloadSpeed = (releases: Release[]): number => {
   return releases
-    .filter(release => release.status === 'downloading')
+    .filter((release) => release.status === 'downloading')
     .reduce((total, release) => total + release.download_speed, 0);
 };
 
 export const getTotalUploadSpeed = (releases: Release[]): number => {
   return releases
-    .filter(release => release.status === 'seeding' || release.status === 'completed')
+    .filter((release) => release.status === 'seeding' || release.status === 'completed')
     .reduce((total, release) => total + release.upload_speed, 0);
 };
 
@@ -147,11 +147,11 @@ export const hasRequestMapping = (file: ReleaseFile): boolean => {
 };
 
 export const getFilesByRequest = (files: ReleaseFile[], requestId: string): ReleaseFile[] => {
-  return files.filter(file => file.request_mapping?.request_id === requestId);
+  return files.filter((file) => file.request_mapping?.request_id === requestId);
 };
 
 export const getUnmappedFiles = (files: ReleaseFile[]): ReleaseFile[] => {
-  return files.filter(file => !file.request_mapping);
+  return files.filter((file) => !file.request_mapping);
 };
 
 export interface SeriesEpisodeMatch {
@@ -216,7 +216,9 @@ export const isSubtitleFile = (filename: string): boolean => {
   return subtitleExtensions.includes(extension);
 };
 
-export const groupFilesByType = (files: ReleaseFile[]): { video: ReleaseFile[]; subtitle: ReleaseFile[]; other: ReleaseFile[] } => {
+export const groupFilesByType = (
+  files: ReleaseFile[],
+): { video: ReleaseFile[]; subtitle: ReleaseFile[]; other: ReleaseFile[] } => {
   return files.reduce(
     (groups, file) => {
       if (isVideoFile(file.name)) {
@@ -228,7 +230,7 @@ export const groupFilesByType = (files: ReleaseFile[]): { video: ReleaseFile[]; 
       }
       return groups;
     },
-    { video: [] as ReleaseFile[], subtitle: [] as ReleaseFile[], other: [] as ReleaseFile[] }
+    { video: [] as ReleaseFile[], subtitle: [] as ReleaseFile[], other: [] as ReleaseFile[] },
   );
 };
 
@@ -250,10 +252,10 @@ export const isReleaseActive = (release: Release): boolean => {
 export const getReleaseHealthScore = (release: Release): number => {
   const seeders = release.seeders;
   const leechers = release.leechers;
-  
+
   if (seeders === 0) return 0;
   if (leechers === 0) return 100;
-  
+
   const ratio = seeders / (seeders + leechers);
   return Math.round(ratio * 100);
 };

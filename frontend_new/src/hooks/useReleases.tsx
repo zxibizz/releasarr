@@ -4,20 +4,20 @@ import {
   useQueryClient,
   type UseMutationOptions,
   type UseQueryOptions,
-} from "@tanstack/react-query";
+} from '@tanstack/react-query';
 
-import { releasesKeys, type ReleaseListFilters } from "@/lib/queryKeys";
+import { releasesKeys, type ReleaseListFilters } from '@/lib/queryKeys';
 import {
   fetchRelease,
   fetchReleases,
   fetchReleasesByRequest,
   fetchReleasesByStatus,
   updateReleaseFileMappings,
-} from "@/services/api";
-import type { Release, ReleaseFileMappingInput } from "@/types";
+} from '@/services/api';
+import type { Release, ReleaseFileMappingInput } from '@/types';
 
-const missingReleaseIdError = new Error("Release identifier is required");
-const missingRequestIdError = new Error("Request identifier is required");
+const missingReleaseIdError = new Error('Release identifier is required');
+const missingRequestIdError = new Error('Request identifier is required');
 
 type ReleasesListQueryKey = ReturnType<typeof releasesKeys.list>;
 type ReleasesByRequestQueryKey = ReturnType<typeof releasesKeys.byRequest>;
@@ -25,17 +25,17 @@ type ReleaseDetailQueryKey = ReturnType<typeof releasesKeys.detail>;
 
 type ReleasesQueryOptions<TData> = Omit<
   UseQueryOptions<Release[], unknown, TData, ReleasesListQueryKey>,
-  "queryKey" | "queryFn"
+  'queryKey' | 'queryFn'
 >;
 
 type ReleasesByRequestOptions<TData> = Omit<
   UseQueryOptions<Release[], unknown, TData, ReleasesByRequestQueryKey>,
-  "queryKey" | "queryFn"
+  'queryKey' | 'queryFn'
 >;
 
 type ReleaseQueryOptions<TData> = Omit<
   UseQueryOptions<Release, unknown, TData, ReleaseDetailQueryKey>,
-  "queryKey" | "queryFn"
+  'queryKey' | 'queryFn'
 >;
 
 type UpdateFileMappingsVariables = {
@@ -45,10 +45,10 @@ type UpdateFileMappingsVariables = {
 
 type UpdateFileMappingsOptions = Omit<
   UseMutationOptions<boolean, unknown, UpdateFileMappingsVariables>,
-  "mutationFn"
+  'mutationFn'
 >;
 
-export const useReleasesQuery = <TData = Release[]>(
+export const useReleasesQuery = <TData = Release[],>(
   filters?: ReleaseListFilters,
   options?: ReleasesQueryOptions<TData>,
 ) => {
@@ -59,14 +59,14 @@ export const useReleasesQuery = <TData = Release[]>(
   });
 };
 
-export const useReleasesByRequestQuery = <TData = Release[]>(
+export const useReleasesByRequestQuery = <TData = Release[],>(
   requestId: string | undefined,
   options?: ReleasesByRequestOptions<TData>,
 ) => {
   const { enabled: optionEnabled, ...restOptions } = options ?? {};
 
   return useQuery({
-    queryKey: requestId ? releasesKeys.byRequest(requestId) : ["releases", "by-request", "missing"],
+    queryKey: requestId ? releasesKeys.byRequest(requestId) : ['releases', 'by-request', 'missing'],
     queryFn: () => {
       if (!requestId) {
         throw missingRequestIdError;
@@ -78,8 +78,8 @@ export const useReleasesByRequestQuery = <TData = Release[]>(
   });
 };
 
-export const useReleasesByStatusQuery = <TData = Release[]>(
-  status: Release["status"] | undefined,
+export const useReleasesByStatusQuery = <TData = Release[],>(
+  status: Release['status'] | undefined,
   options?: ReleasesQueryOptions<TData>,
 ) => {
   const { enabled: optionEnabled, ...restOptions } = options ?? {};
@@ -88,7 +88,7 @@ export const useReleasesByStatusQuery = <TData = Release[]>(
     queryKey: releasesKeys.list(status ? { status } : undefined),
     queryFn: () => {
       if (!status) {
-        throw new Error("Release status is required");
+        throw new Error('Release status is required');
       }
       return fetchReleasesByStatus(status);
     },
@@ -97,14 +97,14 @@ export const useReleasesByStatusQuery = <TData = Release[]>(
   });
 };
 
-export const useReleaseQuery = <TData = Release>(
+export const useReleaseQuery = <TData = Release,>(
   id: string | undefined,
   options?: ReleaseQueryOptions<TData>,
 ) => {
   const { enabled: optionEnabled, ...restOptions } = options ?? {};
 
   return useQuery({
-    queryKey: id ? releasesKeys.detail(id) : ["releases", "detail", "missing"],
+    queryKey: id ? releasesKeys.detail(id) : ['releases', 'detail', 'missing'],
     queryFn: () => {
       if (!id) {
         throw missingReleaseIdError;
@@ -122,10 +122,13 @@ export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
   const mutation = useMutation<boolean, unknown, UpdateFileMappingsVariables>({
     mutationFn: ({ releaseId, mappings }) => updateReleaseFileMappings(releaseId, mappings),
     async onSuccess(_, { releaseId }) {
-      await queryClient.invalidateQueries({ queryKey: releasesKeys.detail(releaseId), exact: true });
+      await queryClient.invalidateQueries({
+        queryKey: releasesKeys.detail(releaseId),
+        exact: true,
+      });
       await queryClient.invalidateQueries({ queryKey: releasesKeys.all });
       await queryClient.invalidateQueries({ queryKey: releasesKeys.list(undefined), exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["releases", "by-request"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ['releases', 'by-request'], exact: false });
     },
     ...options,
   });
@@ -138,8 +141,7 @@ export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
     try {
       return await mutation.mutateAsync({ releaseId, mappings });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update file mapping";
+      const message = error instanceof Error ? error.message : 'Failed to update file mapping';
       throw new Error(message);
     }
   };
@@ -148,7 +150,11 @@ export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
     updateFileMappings,
     loading: mutation.isPending,
     error:
-      mutation.error instanceof Error ? mutation.error.message : mutation.error ? String(mutation.error) : null,
+      mutation.error instanceof Error
+        ? mutation.error.message
+        : mutation.error
+          ? String(mutation.error)
+          : null,
   };
 };
 
@@ -161,7 +167,7 @@ export const useReleaseActions = () => {
     try {
       return await mutation.mutateAsync(action);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Action failed";
+      const message = error instanceof Error ? error.message : 'Action failed';
       throw new Error(message);
     }
   };
@@ -170,6 +176,10 @@ export const useReleaseActions = () => {
     performAction,
     loading: mutation.isPending,
     error:
-      mutation.error instanceof Error ? mutation.error.message : mutation.error ? String(mutation.error) : null,
+      mutation.error instanceof Error
+        ? mutation.error.message
+        : mutation.error
+          ? String(mutation.error)
+          : null,
   };
 };

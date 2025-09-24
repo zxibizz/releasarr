@@ -14,11 +14,11 @@ import {
   Tag,
   Text,
   useToast,
-} from "@chakra-ui/react";
-import React, { useEffect, useRef, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useEffect, useRef, useState } from 'react';
 
-import { useReleaseSearch } from "@/hooks/useReleaseSearch";
-import type { ReleaseSearchResult } from "@/types";
+import { useReleaseSearch } from '@/hooks/useReleaseSearch';
+import type { ReleaseSearchResult } from '@/types';
 
 interface ReleaseSearchProps {
   requestId: string;
@@ -29,9 +29,9 @@ interface ReleaseSearchProps {
 }
 
 const qualityColorScheme: Record<string, string> = {
-  "2160p": "purple",
-  "1080p": "blue",
-  "720p": "green",
+  '2160p': 'purple',
+  '1080p': 'blue',
+  '720p': 'green',
 };
 
 export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
@@ -41,12 +41,9 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   prefillQuery,
   focusTrigger,
 }) => {
-  const { searchState, search, clearSearch, selectReleaseCandidate } =
-    useReleaseSearch();
-  const [query, setQuery] = useState("");
-  const [downloadingCandidateId, setDownloadingCandidateId] = useState<
-    string | null
-  >(null);
+  const { searchState, search, clearSearch, selectReleaseCandidate } = useReleaseSearch();
+  const [query, setQuery] = useState('');
+  const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
 
@@ -56,12 +53,11 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
       try {
         await search(query.trim(), requestId);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Search failed";
+        const message = error instanceof Error ? error.message : 'Search failed';
         toast({
-          title: "Search failed",
+          title: 'Search failed',
           description: message,
-          status: "error",
+          status: 'error',
           duration: 4000,
           isClosable: true,
         });
@@ -70,7 +66,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   };
 
   const handleClear = () => {
-    setQuery("");
+    setQuery('');
     clearSearch();
     setDownloadingCandidateId(null);
   };
@@ -80,22 +76,20 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
     try {
       const response = await selectReleaseCandidate(candidate, requestId);
       toast({
-        title: "Download queued",
-        description:
-          response?.message ?? `${candidate.release_name} queued for download`,
-        status: "success",
+        title: 'Download queued',
+        description: response?.message ?? `${candidate.release_name} queued for download`,
+        status: 'success',
         duration: 4000,
         isClosable: true,
       });
       onDownloadQueued?.();
       handleClear();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to queue download";
+      const message = error instanceof Error ? error.message : 'Failed to queue download';
       toast({
-        title: "Download failed",
+        title: 'Download failed',
         description: message,
-        status: "error",
+        status: 'error',
         duration: 4000,
         isClosable: true,
       });
@@ -133,7 +127,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         <Heading size="md">🔍 Search Release Sources</Heading>
 
         <Box as="form" onSubmit={handleSubmit}>
-          <Flex direction={{ base: "column", md: "row" }} gap={3}>
+          <Flex direction={{ base: 'column', md: 'row' }} gap={3}>
             <Input
               ref={inputRef}
               value={query}
@@ -142,19 +136,11 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               size="md"
             />
             <Flex gap={2}>
-              <Button
-                type="submit"
-                isDisabled={!query.trim() || searchState.loading}
-              >
-                {searchState.loading ? "Searching..." : "Search"}
+              <Button type="submit" isDisabled={!query.trim() || searchState.loading}>
+                {searchState.loading ? 'Searching...' : 'Search'}
               </Button>
               {(query || searchState.results.length > 0) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  colorScheme="gray"
-                  onClick={handleClear}
-                >
+                <Button type="button" variant="outline" colorScheme="gray" onClick={handleClear}>
                   Clear
                 </Button>
               )}
@@ -170,12 +156,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         )}
 
         {searchState.error && (
-          <Alert
-            status="error"
-            variant="left-accent"
-            borderRadius="lg"
-            alignItems="flex-start"
-          >
+          <Alert status="error" variant="left-accent" borderRadius="lg" alignItems="flex-start">
             <AlertIcon />
             <AlertDescription>{searchState.error}</AlertDescription>
           </Alert>
@@ -185,8 +166,8 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
           <Stack spacing={4}>
             <Flex
               justify="space-between"
-              align={{ base: "flex-start", md: "center" }}
-              direction={{ base: "column", md: "row" }}
+              align={{ base: 'flex-start', md: 'center' }}
+              direction={{ base: 'column', md: 'row' }}
               gap={2}
             >
               <Heading size="sm">Search Results</Heading>
@@ -197,16 +178,16 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
 
             <Stack spacing={3}>
               {searchState.results.map((candidate) => {
-                const qualityLabel = candidate.quality ?? "Unknown";
-                const qualityColor = qualityColorScheme[qualityLabel] || "gray";
+                const qualityLabel = candidate.quality ?? 'Unknown';
+                const qualityColor = qualityColorScheme[qualityLabel] || 'gray';
                 const seedersLabel = candidate.seeders ?? 0;
                 const leechersLabel = candidate.leechers ?? 0;
                 return (
                   <Flex
                     key={candidate.release_id}
-                    direction={{ base: "column", md: "row" }}
+                    direction={{ base: 'column', md: 'row' }}
                     justify="space-between"
-                    align={{ base: "flex-start", md: "center" }}
+                    align={{ base: 'flex-start', md: 'center' }}
                     gap={4}
                     p={4}
                     borderWidth="1px"
@@ -215,20 +196,10 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                     bg="bg.subtle"
                   >
                     <Stack spacing={2} flex={1} minW={0}>
-                      <Text
-                        fontWeight="600"
-                        fontSize="sm"
-                        color="slate.100"
-                        noOfLines={2}
-                      >
+                      <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
                         {candidate.release_name}
                       </Text>
-                      <Flex
-                        gap={3}
-                        wrap="wrap"
-                        fontSize="xs"
-                        color="text.subtle"
-                      >
+                      <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
                         <Tag
                           colorScheme={qualityColor}
                           variant="subtle"
@@ -290,13 +261,10 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                     <Button
                       onClick={() => handleCandidateSelect(candidate)}
                       size="sm"
-                      isLoading={
-                        downloadingCandidateId === candidate.release_id
-                      }
+                      isLoading={downloadingCandidateId === candidate.release_id}
                       loadingText="Queuing..."
                       isDisabled={
-                        !!downloadingCandidateId &&
-                        downloadingCandidateId !== candidate.release_id
+                        !!downloadingCandidateId && downloadingCandidateId !== candidate.release_id
                       }
                     >
                       Download

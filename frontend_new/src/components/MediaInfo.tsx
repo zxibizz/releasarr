@@ -12,26 +12,26 @@ import {
   Text,
   Wrap,
   WrapItem,
-} from "@chakra-ui/react";
-import React from "react";
+} from '@chakra-ui/react';
+import React from 'react';
 
-import { requestStatusStyles } from "@/theme/statusStyles";
-import type { MediaRequest } from "@/types";
-import { formatDate, formatRuntime, getStatusIcon } from "@/utils/formatters";
+import { requestStatusStyles } from '@/theme/statusStyles';
+import type { MediaRequest } from '@/types';
+import { formatDate, formatRuntime, getStatusIcon } from '@/utils/formatters';
 
 interface MediaInfoProps {
   request: MediaRequest;
 }
 
 export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
-  const isMovie = request.type === "movie";
+  const isMovie = request.type === 'movie';
   const statusIcon = getStatusIcon(request.status);
   const statusStyle = requestStatusStyles[request.status];
 
   return (
     <Card p={{ base: 5, md: 6 }}>
       <Stack spacing={6}>
-        <Box w="100%" display={{ base: "block", md: "none" }}>
+        <Box w="100%" display={{ base: 'block', md: 'none' }}>
           <AspectRatio ratio={2 / 3} w="100%">
             <Image
               src={request.poster_url}
@@ -44,11 +44,11 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
         </Box>
 
         <Flex
-          direction={{ base: "column", md: "row" }}
+          direction={{ base: 'column', md: 'row' }}
           gap={{ base: 6, md: 8 }}
-          align={{ base: "flex-start", md: "stretch" }}
+          align={{ base: 'flex-start', md: 'stretch' }}
         >
-          <Box display={{ base: "none", md: "block" }} flexShrink={0}>
+          <Box display={{ base: 'none', md: 'block' }} flexShrink={0}>
             <Image
               src={request.poster_url}
               alt={`${request.title} poster`}
@@ -63,14 +63,14 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
 
           <Stack spacing={{ base: 5, md: 6 }} flex={1} minW={0}>
             <Flex
-              direction={{ base: "column", sm: "row" }}
-              align={{ base: "flex-start", sm: "flex-start" }}
+              direction={{ base: 'column', sm: 'row' }}
+              align={{ base: 'flex-start', sm: 'flex-start' }}
               justify="space-between"
               gap={4}
               w="100%"
             >
               <Stack spacing={2} minW={0}>
-                <Heading size={{ base: "lg", md: "lg" }}>{request.title}</Heading>
+                <Heading size={{ base: 'lg', md: 'lg' }}>{request.title}</Heading>
                 <Flex align="center" gap={2} wrap="wrap" color="text.subtle">
                   <Text fontSize="lg" fontWeight="600">
                     {request.year}
@@ -106,9 +106,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
             </Flex>
 
             <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
-              <InfoItem label="Type">
-                {isMovie ? "🎬 Movie" : "📺 TV Series"}
-              </InfoItem>
+              <InfoItem label="Type">{isMovie ? '🎬 Movie' : '📺 TV Series'}</InfoItem>
               <InfoItem label="Created">{formatDate(request.created_at)}</InfoItem>
               <InfoItem label="Updated">{formatDate(request.updated_at)}</InfoItem>
               {!isMovie && (
@@ -116,9 +114,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
                   {request.series_title} ({request.series_year})
                 </InfoItem>
               )}
-              {!isMovie && (
-                <InfoItem label="Episodes">{request.total_episodes}</InfoItem>
-              )}
+              {!isMovie && <InfoItem label="Episodes">{request.total_episodes}</InfoItem>}
             </SimpleGrid>
 
             <Box>
@@ -128,13 +124,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
               <Wrap spacing={2}>
                 {request.genres.map((genre) => (
                   <WrapItem key={genre}>
-                    <Tag
-                      variant="subtle"
-                      colorScheme="gray"
-                      borderRadius="full"
-                      px={3}
-                      py={1}
-                    >
+                    <Tag variant="subtle" colorScheme="gray" borderRadius="full" px={3} py={1}>
                       {genre}
                     </Tag>
                   </WrapItem>
@@ -163,19 +153,8 @@ interface InfoItemProps {
 }
 
 const InfoItem: React.FC<InfoItemProps> = ({ label, children }) => (
-  <Box
-    bg="bg.subtle"
-    borderWidth="1px"
-    borderColor="border.muted"
-    borderRadius="lg"
-    p={4}
-  >
-    <Text
-      fontSize="xs"
-      textTransform="uppercase"
-      color="text.subtle"
-      letterSpacing="0.08em"
-    >
+  <Box bg="bg.subtle" borderWidth="1px" borderColor="border.muted" borderRadius="lg" p={4}>
+    <Text fontSize="xs" textTransform="uppercase" color="text.subtle" letterSpacing="0.08em">
       {label}
     </Text>
     <Text fontSize="sm" fontWeight="600" mt={2} color="slate.100">

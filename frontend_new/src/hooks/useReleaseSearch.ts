@@ -17,70 +17,74 @@ export const useReleaseSearch = () => {
     query: '',
     results: [],
     loading: false,
-    error: null
+    error: null,
   });
 
-  const search = useCallback(async (query: string, requestId?: string): Promise<ReleaseSearchResponse | null> => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) {
-      setSearchState(prev => ({
-        ...prev,
-        query: '',
-        results: [],
-        error: null
-      }));
-      return null;
-    }
-
-    setSearchState(prev => ({
-      ...prev,
-      query: trimmedQuery,
-      loading: true,
-      error: null
-    }));
-
-    try {
-      const response = await searchReleaseCandidatesAPI(trimmedQuery, requestId);
-      setSearchState(prev => ({
-        ...prev,
-        query: response?.query ?? trimmedQuery,
-        results: Array.isArray(response?.results) ? response.results : [],
-        loading: false
-      }));
-      return response ?? null;
-    } catch (err) {
-      const status = typeof err === 'object' && err !== null && 'status' in err
-        ? (err as { status?: number }).status
-        : undefined;
-
-      if (status === 404) {
-        setSearchState(prev => ({
+  const search = useCallback(
+    async (query: string, requestId?: string): Promise<ReleaseSearchResponse | null> => {
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) {
+        setSearchState((prev) => ({
           ...prev,
-          query: trimmedQuery,
+          query: '',
           results: [],
-          loading: false,
           error: null,
         }));
         return null;
       }
 
-      const message = err instanceof Error ? err.message : 'Search failed';
-      setSearchState(prev => ({
+      setSearchState((prev) => ({
         ...prev,
-        results: [],
-        loading: false,
-        error: message
+        query: trimmedQuery,
+        loading: true,
+        error: null,
       }));
-      throw new Error(message);
-    }
-  }, []);
+
+      try {
+        const response = await searchReleaseCandidatesAPI(trimmedQuery, requestId);
+        setSearchState((prev) => ({
+          ...prev,
+          query: response?.query ?? trimmedQuery,
+          results: Array.isArray(response?.results) ? response.results : [],
+          loading: false,
+        }));
+        return response ?? null;
+      } catch (err) {
+        const status =
+          typeof err === 'object' && err !== null && 'status' in err
+            ? (err as { status?: number }).status
+            : undefined;
+
+        if (status === 404) {
+          setSearchState((prev) => ({
+            ...prev,
+            query: trimmedQuery,
+            results: [],
+            loading: false,
+            error: null,
+          }));
+          return null;
+        }
+
+        const message = err instanceof Error ? err.message : 'Search failed';
+        setSearchState((prev) => ({
+          ...prev,
+          results: [],
+          loading: false,
+          error: message,
+        }));
+        throw new Error(message);
+      }
+    },
+    [],
+  );
 
   const clearSearch = useCallback(() => {
     setSearchState({
       query: '',
       results: [],
       loading: false,
-      error: null
+      error: null,
     });
   }, []);
 
@@ -96,14 +100,10 @@ export const useReleaseSearch = () => {
       };
 
       try {
-        const response = await downloadReleaseCandidateAPI(
-          resolvedRequestId,
-          payload,
-        );
+        const response = await downloadReleaseCandidateAPI(resolvedRequestId, payload);
         return response;
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to queue download';
+        const message = error instanceof Error ? error.message : 'Failed to queue download';
         throw new Error(message);
       }
     },
@@ -114,6 +114,6 @@ export const useReleaseSearch = () => {
     searchState,
     search,
     clearSearch,
-    selectReleaseCandidate
+    selectReleaseCandidate,
   };
 };

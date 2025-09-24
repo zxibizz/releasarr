@@ -1,15 +1,6 @@
-import {
-  getMockReleases,
-  getMockRequests,
-  searchMockReleaseSources,
-} from './mockData';
+import { getMockReleases, getMockRequests, searchMockReleaseSources } from './mockData';
 import { generateMockRequestLogs } from './mockLogs';
-import type {
-  MediaRequest,
-  Release,
-  ReleaseFile,
-  ReleaseSearchResult,
-} from '../src/types';
+import type { MediaRequest, Release, ReleaseFile, ReleaseSearchResult } from '../src/types';
 import type { RequestLogEntry } from '../src/types/logs';
 
 type RequestStatus = MediaRequest['status'];
@@ -103,10 +94,12 @@ export class MockStore {
     return this.requestLogsByRequestId[requestId];
   }
 
-  async listRequests(filters: {
-    status?: RequestStatus;
-    type?: RequestType;
-  } = {}): Promise<MediaRequest[]> {
+  async listRequests(
+    filters: {
+      status?: RequestStatus;
+      type?: RequestType;
+    } = {},
+  ): Promise<MediaRequest[]> {
     const { status, type } = filters;
     const requests = await this.ensureRequests();
 
@@ -187,7 +180,10 @@ export class MockStore {
     return clone(request);
   }
 
-  async updateRequest(id: string, payload: UpdateMediaRequestPayload): Promise<MediaRequest | null> {
+  async updateRequest(
+    id: string,
+    payload: UpdateMediaRequestPayload,
+  ): Promise<MediaRequest | null> {
     const requests = await this.ensureRequests();
     const request = requests.find((item) => item.id === id);
     if (!request) {
@@ -206,7 +202,8 @@ export class MockStore {
       if (payload.imdb_id) request.imdb_id = payload.imdb_id;
     } else {
       if (typeof payload.season_number === 'number') request.season_number = payload.season_number;
-      if (typeof payload.total_episodes === 'number') request.total_episodes = payload.total_episodes;
+      if (typeof payload.total_episodes === 'number')
+        request.total_episodes = payload.total_episodes;
       if (payload.series_title) request.series_title = payload.series_title;
       if (typeof payload.series_year === 'number') request.series_year = payload.series_year;
       if (payload.imdb_id) request.imdb_id = payload.imdb_id;
@@ -226,10 +223,12 @@ export class MockStore {
     return true;
   }
 
-  async listReleases(filters: {
-    status?: ReleaseStatus;
-    requestId?: string;
-  } = {}): Promise<Release[]> {
+  async listReleases(
+    filters: {
+      status?: ReleaseStatus;
+      requestId?: string;
+    } = {},
+  ): Promise<Release[]> {
     const releases = await this.ensureReleases();
     let result = releases;
 
@@ -315,9 +314,7 @@ export class MockStore {
     const releases = await this.ensureReleases();
     const now = new Date();
     const candidates = this.searchResultsByRequest[payload.requestId] ?? [];
-    const candidate = candidates.find(
-      (item) => item.release_id === payload.releaseId,
-    );
+    const candidate = candidates.find((item) => item.release_id === payload.releaseId);
 
     if (!candidate) {
       throw new Error('release_candidate_not_found');
@@ -468,17 +465,12 @@ export class MockStore {
     return success;
   }
 
-  async searchReleaseCandidates(
-    query: string,
-    requestId?: string,
-  ): Promise<ReleaseSearchResult[]> {
+  async searchReleaseCandidates(query: string, requestId?: string): Promise<ReleaseSearchResult[]> {
     const results = await searchMockReleaseSources(query, requestId);
     const clonedResults = results.map((result) => clone(result));
 
     if (requestId) {
-      this.searchResultsByRequest[requestId] = clonedResults.map((item) =>
-        clone(item),
-      );
+      this.searchResultsByRequest[requestId] = clonedResults.map((item) => clone(item));
     }
 
     return clonedResults;

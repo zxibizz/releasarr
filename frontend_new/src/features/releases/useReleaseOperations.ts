@@ -1,13 +1,13 @@
-import { useToast } from "@chakra-ui/react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useToast } from '@chakra-ui/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
-import { releasesKeys } from "@/lib/queryKeys";
+import { releasesKeys } from '@/lib/queryKeys';
 import {
   deleteRelease as deleteReleaseApi,
   pauseRelease as pauseReleaseApi,
   resumeRelease as resumeReleaseApi,
-} from "@/services/api";
+} from '@/services/api';
 
 interface OperationOptions {
   onSuccess?: () => void;
@@ -41,7 +41,7 @@ export const useReleaseOperations = (requestId?: string) => {
       toast({
         title,
         description: message,
-        status: "error",
+        status: 'error',
         duration: 4000,
         isClosable: true,
       });
@@ -54,16 +54,16 @@ export const useReleaseOperations = (requestId?: string) => {
       try {
         await deleteReleaseApi(releaseId);
         toast({
-          title: "Release deleted",
-          status: "success",
+          title: 'Release deleted',
+          status: 'success',
           duration: 3000,
           isClosable: true,
         });
         await invalidateReleaseQueries();
         options?.onSuccess?.();
       } catch (error) {
-        console.error("Failed to delete release", error);
-        handleError("Failed to delete release", error);
+        console.error('Failed to delete release', error);
+        handleError('Failed to delete release', error);
         throw error;
       }
     },
@@ -75,16 +75,16 @@ export const useReleaseOperations = (requestId?: string) => {
       try {
         await pauseReleaseApi(releaseId);
         toast({
-          title: "Release paused",
-          status: "success",
+          title: 'Release paused',
+          status: 'success',
           duration: 3000,
           isClosable: true,
         });
         await invalidateReleaseQueries();
         options?.onSuccess?.();
       } catch (error) {
-        console.error("Failed to pause release", error);
-        handleError("Failed to pause release", error);
+        console.error('Failed to pause release', error);
+        handleError('Failed to pause release', error);
         throw error;
       }
     },
@@ -96,16 +96,16 @@ export const useReleaseOperations = (requestId?: string) => {
       try {
         await resumeReleaseApi(releaseId);
         toast({
-          title: "Release resumed",
-          status: "success",
+          title: 'Release resumed',
+          status: 'success',
           duration: 3000,
           isClosable: true,
         });
         await invalidateReleaseQueries();
         options?.onSuccess?.();
       } catch (error) {
-        console.error("Failed to resume release", error);
-        handleError("Failed to resume release", error);
+        console.error('Failed to resume release', error);
+        handleError('Failed to resume release', error);
         throw error;
       }
     },

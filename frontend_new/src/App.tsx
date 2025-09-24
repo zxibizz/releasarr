@@ -1,4 +1,4 @@
-import { Box, Container, HStack, Link as ChakraLink } from "@chakra-ui/react";
+import { Box, Container, HStack, Link as ChakraLink } from '@chakra-ui/react';
 import {
   Route,
   BrowserRouter as Router,
@@ -6,16 +6,16 @@ import {
   useLocation,
   Link as RouterLink,
   Outlet,
-} from "react-router-dom";
+} from 'react-router-dom';
 
-import { NotFound } from "@/components/NotFound";
-import { RequestPage } from "@/components/RequestPage";
-import { RequestsList } from "@/components/RequestsList";
+import { NotFound } from '@/components/NotFound';
+import { RequestPage } from '@/components/RequestPage';
+import { RequestsList } from '@/components/RequestsList';
 
 function Navigation() {
   const location = useLocation();
 
-  const navItems = [{ label: "Requests", href: "/" }];
+  const navItems = [{ label: 'Requests', href: '/' }];
 
   return (
     <Box
@@ -38,7 +38,7 @@ function Navigation() {
           fontWeight="700"
           bgGradient="linear(135deg, #3b82f6, #8b5cf6)"
           bgClip="text"
-          _hover={{ textDecoration: "none" }}
+          _hover={{ textDecoration: 'none' }}
         >
           Releasarr
         </ChakraLink>
@@ -46,8 +46,8 @@ function Navigation() {
         <HStack as="ul" spacing={{ base: 4, md: 8 }} listStyleType="none" m={0}>
           {navItems.map((item) => {
             const isActive =
-              item.href === "/"
-                ? location.pathname === "/" || location.pathname.startsWith("/request")
+              item.href === '/'
+                ? location.pathname === '/' || location.pathname.startsWith('/request')
                 : location.pathname.startsWith(item.href);
             return (
               <Box as="li" key={item.href} position="relative">
@@ -56,8 +56,8 @@ function Navigation() {
                   to={item.href}
                   fontWeight="600"
                   fontSize="sm"
-                  color={isActive ? "brand.400" : "text.subtle"}
-                  _hover={{ color: "slate.100" }}
+                  color={isActive ? 'brand.400' : 'text.subtle'}
+                  _hover={{ color: 'slate.100' }}
                   pb={1}
                 >
                   {item.label}

@@ -62,12 +62,7 @@ export {
   logsResponseSchema,
   requestLogMetadataSchema,
 } from './logs';
-export type {
-  RequestLogLevel,
-  RequestLogEntry,
-  LogsResponse,
-  RequestLogMetadata,
-} from './logs';
+export type { RequestLogLevel, RequestLogEntry, LogsResponse, RequestLogMetadata } from './logs';
 
 export interface ReleaseSearchState {
   query: string;

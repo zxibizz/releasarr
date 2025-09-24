@@ -21,9 +21,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "vitest"]
   },
-  "include": [
-    "src",
-    "mock-server",
-    "vite.config.ts"
-  ]
+  "include": ["src", "mock-server", "vite.config.ts"]
 }
