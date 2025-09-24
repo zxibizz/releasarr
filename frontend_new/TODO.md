@@ -39,7 +39,7 @@
   - Publish architecture notes per feature (requests/releases/logs) and add contribution guidelines for API schema regeneration.
 
 ## Implementation Plan
-1. [ ] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
+1. [x] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
 2. [ ] Automate contract typing: wire `openapi.yaml` into a codegen step that emits clients/zod schemas consumed by hooks and the mock server.
 3. [ ] Reorganise feature folders: split `RequestPage` into composable modules, move query keys/hooks beside components, and introduce state containers where needed.
 4. [ ] Enhance the API/services layer: batch related-request lookups, add route loaders/prefetch, and surface consistent `ApiError` messaging through shared utilities.

@@ -1,6 +1,6 @@
 # Releasarr Frontend
 
-A React + TypeScript client for managing media requests and releases in Releasarr. The UI is built with Chakra UI and centralises request/release state in shared context providers so every screen stays in sync.
+A Vite-powered React + TypeScript client for managing media requests and releases in Releasarr. The UI is built with Chakra UI and centralises request/release state in shared context providers so every screen stays in sync.
 
 ## Highlights
 - Requests dashboard with filtering by media type and lifecycle state
@@ -18,9 +18,9 @@ A React + TypeScript client for managing media requests and releases in Releasar
    ```bash
    npm install
    ```
-2. Start the dev server against a running API (defaults to `http://localhost:8001/api`):
+2. Start the Vite dev server against a running API (defaults to `http://localhost:8001/api`):
    ```bash
-   npm start
+   npm run dev
    ```
 3. Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
@@ -29,12 +29,13 @@ When the backend is unavailable, launch the mock workflow:
 ```bash
 npm run dev:mock
 ```
-This spins up the Express/MSW mock service on `http://localhost:8001/api` and the React dev server concurrently. The mock honours the OpenAPI contract, including mutation endpoints, so refresh, manual search, and file mapping features behave as they would against the real API.
+This spins up the Express/MSW mock service on `http://localhost:8001/api` and the Vite dev server concurrently. The mock honours the OpenAPI contract, including mutation endpoints, so refresh, manual search, and file mapping features behave as they would against the real API.
 
 ## Scripts
-- `npm start` – CRA dev server
-- `npm run dev:mock` – dev server + OpenAPI-driven mock API
-- `npm run build` – production build
+- `npm run dev` – Vite dev server
+- `npm run dev:mock` – mock server + Vite dev server
+- `npm run build` – type-check and production build
+- `npm run preview` – preview the production build locally
 
 ## Project Structure
 ```
@@ -64,4 +65,4 @@ src/
 - Release search, manual actions, and logs share the same data caches so updates propagate instantly across cards, modals, and detail views.
 
 ## Environment Variables
-- `REACT_APP_API_URL` – base URL for the Releasarr API or mock server (defaults to `http://localhost:8001/api`).
+- `VITE_API_URL` – base URL for the Releasarr API or mock server (defaults to `http://localhost:8001/api`).
