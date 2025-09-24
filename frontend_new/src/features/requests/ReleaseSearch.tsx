@@ -5,10 +5,12 @@ import {
   Box,
   Button,
   Card,
-  Center,
   Flex,
   Heading,
+  HStack,
   Input,
+  Skeleton,
+  SkeletonText,
   Spinner,
   Stack,
   Tag,
@@ -42,7 +44,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   focusTrigger,
 }) => {
   const { searchState, search, clearSearch, selectReleaseCandidate } = useReleaseSearch();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(prefillQuery ?? '');
   const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
@@ -148,11 +150,24 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
           </Flex>
         </Box>
 
-        {searchState.loading && (
-          <Center py={10} flexDirection="column" gap={4} color="text.subtle">
-            <Spinner size="lg" color="brand.400" />
-            <Text>Searching release sources...</Text>
-          </Center>
+        {searchState.loading && searchState.results.length === 0 && (
+          <Stack spacing={3}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Stack
+                key={`search-skeleton-${index}`}
+                borderWidth="1px"
+                borderColor="border.muted"
+                borderRadius="lg"
+                bg="bg.subtle"
+                p={4}
+                spacing={3}
+              >
+                <Skeleton height="16px" width="70%" borderRadius="md" />
+                <SkeletonText noOfLines={2} spacing="2" skeletonHeight="12px" />
+                <Skeleton height="28px" width="100px" borderRadius="full" />
+              </Stack>
+            ))}
+          </Stack>
         )}
 
         {searchState.error && (
@@ -162,7 +177,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
           </Alert>
         )}
 
-        {searchState.results.length > 0 && !searchState.loading && (
+        {searchState.results.length > 0 && (
           <Stack spacing={4}>
             <Flex
               justify="space-between"
@@ -171,9 +186,17 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               gap={2}
             >
               <Heading size="sm">Search Results</Heading>
-              <Text color="text.subtle" fontSize="sm">
-                {searchState.results.length} results for "{searchState.query}"
-              </Text>
+              <HStack spacing={2} color="text.subtle" fontSize="sm" align="center">
+                <Text>
+                  {searchState.results.length} results for "{searchState.query}"
+                </Text>
+                {searchState.loading && searchState.results.length > 0 && (
+                  <HStack spacing={1} color="text.subtle">
+                    <Spinner size="xs" />
+                    <Text fontSize="xs">Updating…</Text>
+                  </HStack>
+                )}
+              </HStack>
             </Flex>
 
             <Stack spacing={3}>

@@ -5,8 +5,10 @@ import {
   AlertTitle,
   Box,
   Button,
-  Center,
+  HStack,
   Heading,
+  Skeleton,
+  SkeletonText,
   Spinner,
   Stack,
   Text,
@@ -135,14 +137,28 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
       })
     : null;
 
-  const showLoadingState = (isLoading || isFetching) && releases.length === 0;
+  const showInitialLoadingState = (isLoading || isFetching) && releases.length === 0;
+  const isBackgroundRefreshing = !showInitialLoadingState && isFetching;
 
-  if (showLoadingState) {
+  if (showInitialLoadingState) {
     return (
-      <Center py={10} flexDirection="column" gap={4} color="text.subtle">
-        <Spinner size="lg" color="brand.400" />
-        <Text>Loading releases...</Text>
-      </Center>
+      <Stack spacing={4}>
+        {Array.from({ length: compact ? 2 : 3 }).map((_, index) => (
+          <Stack
+            key={`release-skeleton-${index}`}
+            borderWidth="1px"
+            borderColor="border.muted"
+            borderRadius="xl"
+            bg="bg.subtle"
+            p={compact ? 3 : 4}
+            spacing={3}
+          >
+            <Skeleton height="18px" width="40%" borderRadius="md" />
+            <SkeletonText noOfLines={compact ? 2 : 3} spacing="2" skeletonHeight="12px" />
+            <Skeleton height="32px" width={compact ? '80px' : '120px'} borderRadius="full" />
+          </Stack>
+        ))}
+      </Stack>
     );
   }
 
@@ -200,6 +216,12 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 
   return (
     <Stack spacing={6}>
+      {isBackgroundRefreshing && (
+        <HStack spacing={2} color="text.subtle" fontSize="sm">
+          <Spinner size="sm" />
+          <Text>Refreshing releases…</Text>
+        </HStack>
+      )}
       <Stack spacing={compact ? 3 : 4}>
         {releasesToRender.map((release) => (
           <ReleaseCard

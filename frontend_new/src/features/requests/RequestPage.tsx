@@ -1,4 +1,14 @@
-import { Button, Card, Center, Spinner, Stack, Text, useDisclosure, useToast } from '@chakra-ui/react';
+import {
+  Button,
+  Card,
+  Skeleton,
+  SkeletonCircle,
+  SkeletonText,
+  Stack,
+  Text,
+  useDisclosure,
+  useToast,
+} from '@chakra-ui/react';
 import type { UseToastOptions } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -293,10 +303,49 @@ export const RequestPage: React.FC = () => {
 
   if (showLoadingState) {
     return (
-      <Center py={16} flexDirection="column" gap={4} color="text.subtle">
-        <Spinner size="lg" color="brand.400" />
-        <Text>Loading request...</Text>
-      </Center>
+      <Stack spacing={8} maxW="6xl" mx="auto">
+        <Card p={{ base: 5, md: 6 }}>
+          <Stack spacing={4}>
+            <Skeleton height="28px" width="240px" borderRadius="md" />
+            <SkeletonText noOfLines={3} spacing="2" skeletonHeight="14px" />
+            <Stack direction="row" spacing={4} align="center">
+              <SkeletonCircle size="12" />
+              <Skeleton height="20px" width="160px" borderRadius="full" />
+            </Stack>
+          </Stack>
+        </Card>
+
+        <Card p={{ base: 5, md: 6 }}>
+          <Stack spacing={4}>
+            <Skeleton height="20px" width="120px" borderRadius="md" />
+            <SkeletonText noOfLines={2} spacing="2" skeletonHeight="12px" />
+            <Stack spacing={3}>
+              {Array.from({ length: 2 }).map((_, index) => (
+                <Stack
+                  key={`release-skeleton-${index}`}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  borderColor="border.muted"
+                  bg="bg.subtle"
+                  p={4}
+                  spacing={3}
+                >
+                  <Skeleton height="18px" width="60%" borderRadius="md" />
+                  <SkeletonText noOfLines={2} spacing="2" skeletonHeight="12px" />
+                </Stack>
+              ))}
+            </Stack>
+          </Stack>
+        </Card>
+
+        <Card p={{ base: 5, md: 6 }}>
+          <Stack spacing={4}>
+            <Skeleton height="20px" width="140px" borderRadius="md" />
+            <Skeleton height="48px" borderRadius="lg" />
+            <SkeletonText noOfLines={3} spacing="2" skeletonHeight="12px" />
+          </Stack>
+        </Card>
+      </Stack>
     );
   }
 
