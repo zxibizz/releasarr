@@ -11,21 +11,14 @@ import {
   Stack,
   Text,
   VStack,
-  useToast,
 } from "@chakra-ui/react";
-import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useReleasesByRequestQuery } from "../hooks/useReleases";
 import { Release, MediaRequest } from "../types";
-import {
-  fetchRequest,
-  deleteRelease as deleteReleaseApi,
-  pauseRelease as pauseReleaseApi,
-  resumeRelease as resumeReleaseApi,
-} from "../services/api";
+import { fetchRequest } from "../services/api";
 import { sortReleasesByStatus } from "../utils/releaseHelpers";
 import ReleaseCard from "./ReleaseCard";
-import { releasesKeys } from "../lib/queryKeys";
+import { useReleaseOperations } from "../features/releases/useReleaseOperations";
 
 interface ReleasesListProps {
   requestId: string;
@@ -50,7 +43,6 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   onReleasesLoaded,
   hideEmptyState = false,
 }) => {
-  const queryClient = useQueryClient();
   const {
     data,
     isLoading,
@@ -64,15 +56,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   const [requestSummaries, setRequestSummaries] = useState<
     Record<string, RequestSummary>
   >({});
-  const toast = useToast();
-
-  const invalidateReleases = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: releasesKeys.byRequest(requestId), exact: true }),
-      queryClient.invalidateQueries({ queryKey: releasesKeys.list({ requestId }), exact: true }),
-      queryClient.invalidateQueries({ queryKey: releasesKeys.all }),
-    ]);
-  }, [queryClient, requestId]);
+  const { deleteRelease, pauseRelease, resumeRelease } = useReleaseOperations(requestId);
 
   const releasesToRender = useMemo(() => sortReleasesByStatus(releases), [releases]);
 
@@ -149,81 +133,27 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   }, [isFetching, isLoading, releases, requestId, requestSummaries]);
 
   const handleDeleteRelease = useCallback(
-    async (id: string) => {
-      try {
-        await deleteReleaseApi(id);
-        toast({
-          title: "Release deleted",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        onDeleteRelease?.(id);
-        await invalidateReleases();
-      } catch (deleteError) {
-        console.error("Failed to delete release", deleteError);
-        toast({
-          title: "Failed to delete release",
-          status: "error",
-          duration: 4000,
-          isClosable: true,
-        });
-        throw deleteError;
-      }
-    },
-    [invalidateReleases, onDeleteRelease, toast]
+    (id: string) =>
+      deleteRelease(id, {
+        onSuccess: () => onDeleteRelease?.(id),
+      }),
+    [deleteRelease, onDeleteRelease],
   );
 
   const handlePauseRelease = useCallback(
-    async (id: string) => {
-      try {
-        await pauseReleaseApi(id);
-        toast({
-          title: "Release paused",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        onPauseRelease?.(id);
-        await invalidateReleases();
-      } catch (pauseError) {
-        console.error("Failed to pause release", pauseError);
-        toast({
-          title: "Failed to pause release",
-          status: "error",
-          duration: 4000,
-          isClosable: true,
-        });
-        throw pauseError;
-      }
-    },
-    [invalidateReleases, onPauseRelease, toast]
+    (id: string) =>
+      pauseRelease(id, {
+        onSuccess: () => onPauseRelease?.(id),
+      }),
+    [onPauseRelease, pauseRelease],
   );
 
   const handleResumeRelease = useCallback(
-    async (id: string) => {
-      try {
-        await resumeReleaseApi(id);
-        toast({
-          title: "Release resumed",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        onResumeRelease?.(id);
-        await invalidateReleases();
-      } catch (resumeError) {
-        console.error("Failed to resume release", resumeError);
-        toast({
-          title: "Failed to resume release",
-          status: "error",
-          duration: 4000,
-          isClosable: true,
-        });
-        throw resumeError;
-      }
-    },
-    [invalidateReleases, onResumeRelease, toast]
+    (id: string) =>
+      resumeRelease(id, {
+        onSuccess: () => onResumeRelease?.(id),
+      }),
+    [onResumeRelease, resumeRelease],
   );
 
   const errorMessage =
