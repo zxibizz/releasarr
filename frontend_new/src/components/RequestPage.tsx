@@ -53,6 +53,9 @@ export const RequestPage: React.FC = () => {
   const [shakeSignal, setShakeSignal] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const [releasesRefreshToken, setReleasesRefreshToken] = useState(0);
+  const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(
+    null
+  );
   const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export const RequestPage: React.FC = () => {
       if (toastId && toast.isActive(toastId)) {
         toast.update(toastId, options);
       } else {
-        toast(options);
+        refreshToastIdRef.current = toast(options);
       }
     },
     [toast]
@@ -83,6 +86,7 @@ export const RequestPage: React.FC = () => {
     setReleasesRefreshToken(0);
     setHasExistingReleases(false);
     setManualSearchTriggered(false);
+    setManualSearchPrefill(null);
     setRequestLogs([]);
     setLogsError(null);
     setLogsLoading(false);
@@ -107,12 +111,43 @@ export const RequestPage: React.FC = () => {
   }, []);
 
   const handleManualSearch = useCallback(() => {
+    if (!request || !request.title) {
+      toast({
+        title: "Manual search unavailable",
+        description: "Missing request details; cannot build search query.",
+        status: "warning",
+        duration: 4000,
+        isClosable: true,
+      });
+      return;
+    }
+
     const searchAlreadyVisible = !hasExistingReleases || manualSearchTriggered;
     setManualSearchTriggered(true);
     if (searchAlreadyVisible) {
       setShakeSignal((signal) => signal + 1);
     }
-  }, [hasExistingReleases, manualSearchTriggered]);
+
+    const normalizedQuery = request.title.trim();
+    if (!normalizedQuery) {
+      toast({
+        title: "Manual search unavailable",
+        description: "Request title is empty; please update the request first.",
+        status: "warning",
+        duration: 4000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setManualSearchPrefill(normalizedQuery);
+  }, [
+    hasExistingReleases,
+    id,
+    manualSearchTriggered,
+    request,
+    toast,
+  ]);
 
   const handleRefreshStatus = useCallback(async () => {
     if (!id || isRefreshing) {
@@ -214,7 +249,12 @@ export const RequestPage: React.FC = () => {
         onClick: handleViewLogs,
       },
     ],
-    [handleManualSearch, handleRefreshStatus, handleViewLogs, isRefreshing]
+    [
+      handleManualSearch,
+      handleRefreshStatus,
+      handleViewLogs,
+      isRefreshing,
+    ]
   );
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
@@ -303,6 +343,7 @@ export const RequestPage: React.FC = () => {
             onDownloadQueued={() =>
               setReleasesRefreshToken((prevToken) => prevToken + 1)
             }
+            prefillQuery={manualSearchPrefill}
           />
         </Box>
       </Collapse>
