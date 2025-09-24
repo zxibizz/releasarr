@@ -139,6 +139,12 @@ api.get('/releases/search', async (req, res) => {
   });
 });
 
+api.get('/logs', async (req, res) => {
+  const requestId = (req.query.request_id as string | undefined)?.trim();
+  const logs = await mockStore.listRequestLogs({ requestId: requestId || undefined });
+  res.json(logs);
+});
+
 api.get('/releases/:releaseId', async (req, res) => {
   const release = await mockStore.getRelease(req.params.releaseId);
   if (!release) {

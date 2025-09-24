@@ -1,4 +1,7 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
   Box,
   Button,
   Card,
@@ -8,7 +11,17 @@ import {
   SimpleGrid,
   Spinner,
   Stack,
+  StackDivider,
   Text,
+  Badge,
+  Flex,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   useDisclosure,
 } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
@@ -16,6 +29,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
+import { fetchRequestLogs } from "../services/requestLogs";
+import { RequestLogEntry } from "../types/logs";
 import { MediaInfo } from "./MediaInfo";
 import ReleaseFilesModal from "./ReleaseFilesModal";
 import { ReleaseSearch } from "./ReleaseSearch";
@@ -36,13 +51,24 @@ export const RequestPage: React.FC = () => {
   const [shakeSignal, setShakeSignal] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const [releasesRefreshToken, setReleasesRefreshToken] = useState(0);
+  const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
 
   const filesModal = useDisclosure();
+  const {
+    isOpen: isLogsOpen,
+    onOpen: openLogs,
+    onClose: closeLogs,
+  } = useDisclosure();
 
   useEffect(() => {
     setReleasesRefreshToken(0);
     setHasExistingReleases(false);
     setManualSearchTriggered(false);
+    setRequestLogs([]);
+    setLogsError(null);
+    setLogsLoading(false);
   }, [request?.id]);
 
   const handleViewFiles = (release: Release) => {
@@ -71,6 +97,29 @@ export const RequestPage: React.FC = () => {
     }
   }, [hasExistingReleases, manualSearchTriggered]);
 
+  const loadLogs = useCallback(async () => {
+    if (!request) {
+      return;
+    }
+    setLogsLoading(true);
+    setLogsError(null);
+    try {
+      const logs = await fetchRequestLogs(request.id);
+      setRequestLogs(logs);
+    } catch (err) {
+      setLogsError(
+        err instanceof Error ? err.message : "Failed to load logs"
+      );
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [request]);
+
+  const handleViewLogs = useCallback(() => {
+    loadLogs();
+    openLogs();
+  }, [loadLogs, openLogs]);
+
   useEffect(() => {
     if (shakeSignal === 0) {
       return;
@@ -79,6 +128,7 @@ export const RequestPage: React.FC = () => {
     const timeout = window.setTimeout(() => setIsShaking(false), 500);
     return () => window.clearTimeout(timeout);
   }, [shakeSignal]);
+
 
   const actionCards = useMemo(
     () => [
@@ -98,10 +148,10 @@ export const RequestPage: React.FC = () => {
         title: "View Logs",
         description: "Check processing logs for this request",
         icon: "📋",
-        message: "View logs functionality would be implemented here",
+        onClick: handleViewLogs,
       },
     ],
-    [handleManualSearch]
+    [handleManualSearch, handleViewLogs]
   );
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
@@ -241,6 +291,166 @@ export const RequestPage: React.FC = () => {
         release={selectedRelease}
         currentRequest={request}
       />
+
+      <RequestLogsModal
+        isOpen={isLogsOpen}
+        onClose={closeLogs}
+        logs={requestLogs}
+        requestTitle={request.title}
+        isLoading={logsLoading}
+        error={logsError}
+      />
     </Stack>
+  );
+};
+
+interface RequestLogsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  logs: RequestLogEntry[];
+  requestTitle: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const levelColorScheme: Record<RequestLogEntry["level"], string> = {
+  info: "blue",
+  warning: "yellow",
+  error: "red",
+};
+
+const RequestLogsModal: React.FC<RequestLogsModalProps> = ({
+  isOpen,
+  onClose,
+  logs,
+  requestTitle,
+  isLoading,
+  error,
+}) => {
+  const sortedLogs = useMemo(
+    () => [...logs].sort((a, b) => b.occurredAt - a.occurredAt),
+    [logs]
+  );
+  const [expandedStacks, setExpandedStacks] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  useEffect(() => {
+    setExpandedStacks({});
+  }, [sortedLogs]);
+
+  const toggleStackTrace = useCallback((logId: string) => {
+    setExpandedStacks((prev) => ({
+      ...prev,
+      [logId]: !prev[logId],
+    }));
+  }, []);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
+      <ModalOverlay />
+      <ModalContent maxW="4xl" w="full">
+        <ModalHeader>Logs for {requestTitle}</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody maxH="60vh" overflowY="auto">
+          {isLoading ? (
+            <Center py={8}>
+              <Stack spacing={3} align="center">
+                <Spinner color="brand.400" />
+                <Text color="text.subtle" fontSize="sm">
+                  Loading logs...
+                </Text>
+              </Stack>
+            </Center>
+          ) : error ? (
+            <Alert status="error" variant="left-accent" borderRadius="md">
+              <AlertIcon />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : sortedLogs.length === 0 ? (
+            <Text color="text.subtle">No logs available for this request.</Text>
+          ) : (
+            <Stack spacing={4} divider={<StackDivider borderColor="border.muted" />}>
+              {sortedLogs.map((log) => (
+                <Stack key={log.id} spacing={3} fontSize="sm">
+                  <Flex justify="space-between" align="center" gap={4} wrap="wrap">
+                    <Text color="text.subtle">{log.timestamp}</Text>
+                    <Flex align="center" gap={2} wrap="wrap">
+                      {log.source && (
+                        <Badge colorScheme="gray" variant="subtle">
+                          {log.source}
+                        </Badge>
+                      )}
+                      <Badge colorScheme={levelColorScheme[log.level]}>
+                        {log.level.toUpperCase()}
+                      </Badge>
+                    </Flex>
+                  </Flex>
+                  <Text fontWeight="600" fontSize="md">
+                    {log.message}
+                  </Text>
+                  {log.metadata && (
+                    <Stack spacing={2}>
+                      <Text fontWeight="600" fontSize="xs" color="text.subtle">
+                        Context
+                      </Text>
+                      <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} fontSize="xs">
+                        {Object.entries(log.metadata).map(([key, value]) => (
+                          <Flex
+                            key={key}
+                            justify="space-between"
+                            gap={3}
+                            p={2}
+                            borderWidth="1px"
+                            borderRadius="md"
+                            bg="bg.muted"
+                          >
+                            <Text fontWeight="600">{key}</Text>
+                            <Text color="text.subtle" textAlign="right">
+                              {String(value)}
+                            </Text>
+                          </Flex>
+                        ))}
+                      </SimpleGrid>
+                    </Stack>
+                  )}
+                  {log.stackTrace && (
+                    <Stack spacing={2}>
+                      <Button
+                        variant="link"
+                        size="xs"
+                        colorScheme="red"
+                        width="fit-content"
+                        onClick={() => toggleStackTrace(log.id)}
+                      >
+                        {expandedStacks[log.id] ? "Hide stack trace" : "View stack trace"}
+                      </Button>
+                      {expandedStacks[log.id] && (
+                        <Box
+                          as="pre"
+                          fontSize="xs"
+                          fontFamily="mono"
+                          whiteSpace="pre-wrap"
+                          p={3}
+                          borderWidth="1px"
+                          borderRadius="md"
+                          bg="bg.subtle"
+                          color="text.subtle"
+                        >
+                          {log.stackTrace}
+                        </Box>
+                      )}
+                    </Stack>
+                  )}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button onClick={onClose}>Close</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 };

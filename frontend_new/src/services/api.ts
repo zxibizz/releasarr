@@ -7,6 +7,7 @@ import {
   ReleaseSearchResponse,
   RequestsResponse,
 } from '../types';
+import { RequestLogEntry } from '../types/logs';
 
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
@@ -168,6 +169,15 @@ class ApiClient {
     return this.getReleases({ status: status as Release['status'] });
   }
 
+  async getRequestLogs(params: { requestId?: string } = {}): Promise<RequestLogEntry[]> {
+    const searchParams = new URLSearchParams();
+    if (params.requestId) {
+      searchParams.set('request_id', params.requestId);
+    }
+    const query = searchParams.toString();
+    return this.request<RequestLogEntry[]>(`/logs${query ? `?${query}` : ''}`);
+  }
+
   async updateReleaseFileMappings(
     releaseId: string,
     mappings: ReleaseFileMappingInput[],
@@ -235,6 +245,8 @@ export const downloadReleaseCandidate = (
   requestId: string,
   payload: ReleaseDownloadRequest,
 ) => apiClient.downloadReleaseCandidate(requestId, payload);
+export const fetchRequestLogsApi = (requestId?: string) =>
+  apiClient.getRequestLogs({ requestId });
 
 // Export the class for testing or custom instances
 export { ApiClient };

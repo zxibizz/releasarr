@@ -3,12 +3,14 @@ import {
   getMockRequests,
   searchMockReleaseSources,
 } from './mockData';
+import { generateMockRequestLogs } from './mockLogs';
 import type {
   MediaRequest,
   Release,
   ReleaseFile,
   ReleaseSearchResult,
 } from '../src/types';
+import type { RequestLogEntry } from '../src/types/logs';
 
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];
@@ -67,6 +69,7 @@ export class MockStore {
   private requestsCache: MediaRequest[] | null = null;
   private releasesCache: Release[] | null = null;
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
+  private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
 
   private async ensureRequests(): Promise<MediaRequest[]> {
     if (!this.requestsCache) {
@@ -82,6 +85,22 @@ export class MockStore {
       this.releasesCache = releases.map((release) => clone(release));
     }
     return this.releasesCache;
+  }
+
+  private async ensureRequestLogs(requestId: string): Promise<RequestLogEntry[]> {
+    if (this.requestLogsByRequestId[requestId]) {
+      return this.requestLogsByRequestId[requestId];
+    }
+
+    const requests = await this.ensureRequests();
+    const request = requests.find((item) => item.id === requestId);
+    if (!request) {
+      this.requestLogsByRequestId[requestId] = [];
+      return this.requestLogsByRequestId[requestId];
+    }
+
+    this.requestLogsByRequestId[requestId] = generateMockRequestLogs(request);
+    return this.requestLogsByRequestId[requestId];
   }
 
   async listRequests(filters: {
@@ -222,6 +241,28 @@ export class MockStore {
     }
 
     return result.map((release) => clone(release));
+  }
+
+  async listRequestLogs(filters: { requestId?: string } = {}): Promise<RequestLogEntry[]> {
+    const { requestId } = filters;
+
+    if (requestId) {
+      const logs = await this.ensureRequestLogs(requestId);
+      const copy = clone(logs) as RequestLogEntry[];
+      copy.sort((a, b) => b.occurredAt - a.occurredAt);
+      return copy;
+    }
+
+    const requests = await this.ensureRequests();
+    const aggregated: RequestLogEntry[] = [];
+    for (const req of requests) {
+      const logs = await this.ensureRequestLogs(req.id);
+      aggregated.push(...logs);
+    }
+
+    const copy = clone(aggregated) as RequestLogEntry[];
+    copy.sort((a, b) => b.occurredAt - a.occurredAt);
+    return copy;
   }
 
   async getRelease(id: string): Promise<Release | null> {
