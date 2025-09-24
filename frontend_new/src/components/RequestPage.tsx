@@ -39,6 +39,7 @@ import { ReleaseSearch } from "./ReleaseSearch";
 import ReleasesList from "./ReleasesList";
 import { releasesKeys } from "../lib/queryKeys";
 import { useRequestLogs } from "../features/requests/useRequestLogs";
+import { logLevelStyles } from "../theme/statusStyles";
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -482,12 +483,6 @@ interface RequestLogsModalProps {
   error: string | null;
 }
 
-const levelColorScheme: Record<RequestLogEntry["level"], string> = {
-  info: "blue",
-  warning: "yellow",
-  error: "red",
-};
-
 const RequestLogsModal: React.FC<RequestLogsModalProps> = ({
   isOpen,
   onClose,
@@ -550,7 +545,12 @@ const RequestLogsModal: React.FC<RequestLogsModalProps> = ({
                           {log.source}
                         </Badge>
                       )}
-                      <Badge colorScheme={levelColorScheme[log.level]}>
+                      <Badge
+                        bg={logLevelStyles[log.level].bg}
+                        color={logLevelStyles[log.level].color}
+                        borderColor={logLevelStyles[log.level].borderColor}
+                        borderWidth="1px"
+                      >
                         {log.level.toUpperCase()}
                       </Badge>
                     </Flex>

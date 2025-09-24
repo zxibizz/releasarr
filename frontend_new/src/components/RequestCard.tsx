@@ -17,22 +17,16 @@ import React from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { MediaRequest } from "../types";
 import { formatDate, formatRuntime, getStatusIcon } from "../utils/formatters";
+import { requestStatusStyles } from "../theme/statusStyles";
 
 interface RequestCardProps {
   request: MediaRequest;
 }
 
-const statusColorScheme: Record<MediaRequest["status"], string> = {
-  pending: "yellow",
-  searching: "purple",
-  downloading: "blue",
-  completed: "green",
-  failed: "red",
-};
-
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
   const isMovie = request.type === "movie";
   const statusIcon = getStatusIcon(request.status);
+  const statusStyle = requestStatusStyles[request.status];
 
   return (
     <Card
@@ -95,8 +89,10 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
               </Stack>
 
               <Badge
-                colorScheme={statusColorScheme[request.status]}
-                variant="subtle"
+                bg={statusStyle.bg}
+                color={statusStyle.color}
+                borderColor={statusStyle.borderColor}
+                borderWidth="1px"
                 display="inline-flex"
                 alignItems="center"
                 gap={1}

@@ -16,22 +16,16 @@ import {
 import React from "react";
 import { MediaRequest } from "../types";
 import { formatDate, formatRuntime, getStatusIcon } from "../utils/formatters";
+import { requestStatusStyles } from "../theme/statusStyles";
 
 interface MediaInfoProps {
   request: MediaRequest;
 }
 
-const statusColorScheme: Record<MediaRequest["status"], string> = {
-  pending: "yellow",
-  searching: "purple",
-  downloading: "blue",
-  completed: "green",
-  failed: "red",
-};
-
 export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
   const isMovie = request.type === "movie";
   const statusIcon = getStatusIcon(request.status);
+  const statusStyle = requestStatusStyles[request.status];
 
   return (
     <Card p={{ base: 5, md: 6 }}>
@@ -90,8 +84,10 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
               </Stack>
 
               <Badge
-                colorScheme={statusColorScheme[request.status]}
-                variant="subtle"
+                bg={statusStyle.bg}
+                color={statusStyle.color}
+                borderColor={statusStyle.borderColor}
+                borderWidth="1px"
                 display="inline-flex"
                 alignItems="center"
                 gap={1}
