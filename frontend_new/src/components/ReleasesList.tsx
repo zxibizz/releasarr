@@ -14,7 +14,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useReleasesByRequest } from "../hooks/useReleases";
+import { useReleasesByRequestQuery } from "../hooks/useReleases";
 import { Release, MediaRequest } from "../types";
 import {
   fetchRequest,
@@ -50,27 +50,43 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   refreshToken,
   hideEmptyState = false,
 }) => {
-  const { releases, loading, error, refetch } = useReleasesByRequest(
-    requestId,
-    refreshToken,
-  );
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useReleasesByRequestQuery(requestId, {
+    enabled: Boolean(requestId),
+  });
+  const releases = useMemo(() => data ?? [], [data]);
   const [requestSummaries, setRequestSummaries] = useState<
     Record<string, RequestSummary>
   >({});
   const toast = useToast();
 
+  useEffect(() => {
+    if (!requestId) {
+      return;
+    }
+    if (refreshToken === undefined) {
+      return;
+    }
+    refetch();
+  }, [refetch, refreshToken, requestId]);
+
   const releasesToRender = useMemo(() => sortReleasesByStatus(releases), [releases]);
 
   useEffect(() => {
-    if (loading) {
+    if (isLoading || isFetching) {
       return;
     }
 
     onReleasesLoaded?.(releases);
-  }, [loading, releases, onReleasesLoaded]);
+  }, [isFetching, isLoading, releases, onReleasesLoaded]);
 
   useEffect(() => {
-    if (loading || releases.length === 0) {
+    if (isLoading || isFetching || releases.length === 0) {
       return;
     }
 
@@ -104,8 +120,8 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
               year: request.year,
               type: request.type,
             } as RequestSummary;
-          } catch (error) {
-            console.error("Failed to fetch related request", id, error);
+          } catch (fetchError) {
+            console.error("Failed to fetch related request", id, fetchError);
             return null;
           }
         })
@@ -131,7 +147,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [loading, releases, requestId, requestSummaries]);
+  }, [isFetching, isLoading, releases, requestId, requestSummaries]);
 
   const handleDeleteRelease = useCallback(
     async (id: string) => {
@@ -144,16 +160,16 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onDeleteRelease?.(id);
-        refetch();
-      } catch (error) {
-        console.error("Failed to delete release", error);
+        await refetch();
+      } catch (deleteError) {
+        console.error("Failed to delete release", deleteError);
         toast({
           title: "Failed to delete release",
           status: "error",
           duration: 4000,
           isClosable: true,
         });
-        throw error;
+        throw deleteError;
       }
     },
     [onDeleteRelease, refetch, toast]
@@ -170,16 +186,16 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onPauseRelease?.(id);
-        refetch();
-      } catch (error) {
-        console.error("Failed to pause release", error);
+        await refetch();
+      } catch (pauseError) {
+        console.error("Failed to pause release", pauseError);
         toast({
           title: "Failed to pause release",
           status: "error",
           duration: 4000,
           isClosable: true,
         });
-        throw error;
+        throw pauseError;
       }
     },
     [onPauseRelease, refetch, toast]
@@ -196,22 +212,27 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onResumeRelease?.(id);
-        refetch();
-      } catch (error) {
-        console.error("Failed to resume release", error);
+        await refetch();
+      } catch (resumeError) {
+        console.error("Failed to resume release", resumeError);
         toast({
           title: "Failed to resume release",
           status: "error",
           duration: 4000,
           isClosable: true,
         });
-        throw error;
+        throw resumeError;
       }
     },
     [onResumeRelease, refetch, toast]
   );
 
-  if (loading) {
+  const errorMessage =
+    error instanceof Error ? error.message : error ? "Failed to load releases" : null;
+
+  const showLoadingState = (isLoading || isFetching) && releases.length === 0;
+
+  if (showLoadingState) {
     return (
       <Center py={10} flexDirection="column" gap={4} color="text.subtle">
         <Spinner size="lg" color="brand.400" />
@@ -220,7 +241,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <Alert
         status="error"
@@ -234,13 +255,13 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         <AlertIcon />
         <Box>
           <AlertTitle fontSize="lg">Error loading releases</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorMessage}</AlertDescription>
         </Box>
         <Button
           variant="outline"
           colorScheme="blue"
           size="sm"
-          onClick={refetch}
+          onClick={() => refetch()}
         >
           Try Again
         </Button>
@@ -292,3 +313,4 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 };
 
 export default ReleasesList;
+

@@ -1,472 +1,173 @@
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationOptions,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
 import {
   fetchRelease,
   fetchReleases,
   fetchReleasesByRequest,
   fetchReleasesByStatus,
-  updateReleaseFileMappings as updateFileMappingsAPI,
-} from '../services/api';
-import { Release, ReleaseFileMappingInput } from '../types';
+  updateReleaseFileMappings,
+} from "../services/api";
+import type { Release, ReleaseFileMappingInput } from "../types";
+import { releasesKeys, type ReleaseListFilters } from "../lib/queryKeys";
 
-interface ReleaseCollectionState {
-  releases: Release[];
-  loading: boolean;
-  error: string | null;
-}
+const missingReleaseIdError = new Error("Release identifier is required");
+const missingRequestIdError = new Error("Request identifier is required");
 
-interface ReleasesContextValue {
-  getCollectionState: (key: string) => ReleaseCollectionState;
-  fetchAllReleases: (options?: { force?: boolean }) => Promise<Release[]>;
-  fetchByRequest: (
-    requestId: string,
-    options?: { force?: boolean },
-  ) => Promise<Release[]>;
-  fetchByStatus: (
-    status: string,
-    options?: { force?: boolean },
-  ) => Promise<Release[]>;
-  getReleaseFromCache: (id: string) => Release | null;
-  fetchReleaseById: (
-    id: string,
-    options?: { force?: boolean },
-  ) => Promise<Release | null>;
-  updateReleaseInCache: (release: Release) => void;
-  removeReleaseFromCache: (id: string) => void;
-}
+type ReleasesListQueryKey = ReturnType<typeof releasesKeys.list>;
+type ReleasesByRequestQueryKey = ReturnType<typeof releasesKeys.byRequest>;
+type ReleaseDetailQueryKey = ReturnType<typeof releasesKeys.detail>;
 
-const DEFAULT_COLLECTION_STATE: ReleaseCollectionState = {
-  releases: [],
-  loading: false,
-  error: null,
+type ReleasesQueryOptions<TData> = Omit<
+  UseQueryOptions<Release[], unknown, TData, ReleasesListQueryKey>,
+  "queryKey" | "queryFn"
+>;
+
+type ReleasesByRequestOptions<TData> = Omit<
+  UseQueryOptions<Release[], unknown, TData, ReleasesByRequestQueryKey>,
+  "queryKey" | "queryFn"
+>;
+
+type ReleaseQueryOptions<TData> = Omit<
+  UseQueryOptions<Release, unknown, TData, ReleaseDetailQueryKey>,
+  "queryKey" | "queryFn"
+>;
+
+type UpdateFileMappingsVariables = {
+  releaseId: string;
+  mappings: ReleaseFileMappingInput[];
 };
 
-const collectionKey = {
-  all: 'all',
-  request: (requestId: string) => `request:${requestId}`,
-  status: (status: string) => `status:${status}`,
+type UpdateFileMappingsOptions = Omit<
+  UseMutationOptions<boolean, unknown, UpdateFileMappingsVariables>,
+  "mutationFn"
+>;
+
+export const useReleasesQuery = <TData = Release[]>(
+  filters?: ReleaseListFilters,
+  options?: ReleasesQueryOptions<TData>,
+) => {
+  return useQuery({
+    queryKey: releasesKeys.list(filters),
+    queryFn: () => fetchReleases(filters),
+    ...options,
+  });
 };
 
-const ReleasesContext = createContext<ReleasesContextValue | undefined>(undefined);
+export const useReleasesByRequestQuery = <TData = Release[]>(
+  requestId: string | undefined,
+  options?: ReleasesByRequestOptions<TData>,
+) => {
+  const { enabled: optionEnabled, ...restOptions } = options ?? {};
 
-export const ReleasesProvider = ({ children }: { children: ReactNode }) => {
-  const [collections, setCollections] = useState<Record<string, ReleaseCollectionState>>({});
-  const [releaseCache, setReleaseCache] = useState<Record<string, Release>>({});
-  const collectionsRef = useRef(collections);
-
-  useEffect(() => {
-    collectionsRef.current = collections;
-  }, [collections]);
-
-  const mergeReleaseCache = useCallback((items: Release[]) => {
-    if (items.length === 0) {
-      return;
-    }
-
-    setReleaseCache((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      items.forEach((item) => {
-        const existing = next[item.id];
-        if (!existing || existing !== item) {
-          next[item.id] = item;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
-    });
-  }, []);
-
-  const updateReleaseReferences = useCallback((release: Release) => {
-    setCollections((prev) => {
-      let mutated = false;
-      const entries = Object.entries(prev).map(([key, state]) => {
-        const index = state.releases.findIndex((item) => item.id === release.id);
-        if (index === -1) {
-          return [key, state] as const;
-        }
-        const updatedReleases = [...state.releases];
-        updatedReleases[index] = release;
-        mutated = true;
-        return [key, { ...state, releases: updatedReleases }] as const;
-      });
-
-      if (!mutated) {
-        return prev;
-      }
-
-      return Object.fromEntries(entries);
-    });
-  }, []);
-
-  const removeReleaseReferences = useCallback((releaseId: string) => {
-    setCollections((prev) => {
-      let mutated = false;
-      const entries = Object.entries(prev).map(([key, state]) => {
-        const filtered = state.releases.filter((release) => release.id !== releaseId);
-        if (filtered.length === state.releases.length) {
-          return [key, state] as const;
-        }
-        mutated = true;
-        return [key, { ...state, releases: filtered }] as const;
-      });
-
-      if (!mutated) {
-        return prev;
-      }
-
-      return Object.fromEntries(entries);
-    });
-
-    setReleaseCache((prev) => {
-      if (!(releaseId in prev)) {
-        return prev;
-      }
-      const next = { ...prev };
-      delete next[releaseId];
-      return next;
-    });
-  }, []);
-
-  const setCollectionState = useCallback(
-    (key: string, updater: (current: ReleaseCollectionState) => ReleaseCollectionState) => {
-      setCollections((prev) => {
-        const current = prev[key] ?? DEFAULT_COLLECTION_STATE;
-        const nextState = updater(current);
-        if (
-          current.releases === nextState.releases &&
-          current.loading === nextState.loading &&
-          current.error === nextState.error
-        ) {
-          return prev;
-        }
-        return { ...prev, [key]: nextState };
-      });
-    },
-    [],
-  );
-
-  const fetchCollection = useCallback(
-    async (
-      key: string,
-      loader: () => Promise<Release[]>,
-      options?: { force?: boolean },
-    ) => {
-      const force = options?.force ?? false;
-      const existing = collectionsRef.current[key];
-
-      if (!force && existing && existing.releases.length > 0 && !existing.error) {
-        return existing.releases;
-      }
-
-      setCollectionState(key, (current) => ({ ...current, loading: true, error: null }));
-
-      try {
-        const releases = await loader();
-        mergeReleaseCache(releases);
-        setCollectionState(key, () => ({ releases, loading: false, error: null }));
-        return releases;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load releases';
-        setCollectionState(key, (current) => ({ ...current, loading: false, error: message }));
-        return [];
-      }
-    },
-    [mergeReleaseCache, setCollectionState],
-  );
-
-  const fetchAllReleases = useCallback(
-    async (options?: { force?: boolean }) => {
-      return fetchCollection(collectionKey.all, fetchReleases, options);
-    },
-    [fetchCollection],
-  );
-
-  const fetchByRequest = useCallback(
-    async (requestId: string, options?: { force?: boolean }) => {
+  return useQuery({
+    queryKey: requestId ? releasesKeys.byRequest(requestId) : ["releases", "by-request", "missing"],
+    queryFn: () => {
       if (!requestId) {
-        return [];
+        throw missingRequestIdError;
       }
-      return fetchCollection(collectionKey.request(requestId), () => fetchReleasesByRequest(requestId), options);
+      return fetchReleasesByRequest(requestId);
     },
-    [fetchCollection],
-  );
+    enabled: Boolean(requestId) && (optionEnabled ?? true),
+    ...restOptions,
+  });
+};
 
-  const fetchByStatus = useCallback(
-    async (status: string, options?: { force?: boolean }) => {
+export const useReleasesByStatusQuery = <TData = Release[]>(
+  status: Release["status"] | undefined,
+  options?: ReleasesQueryOptions<TData>,
+) => {
+  const { enabled: optionEnabled, ...restOptions } = options ?? {};
+
+  return useQuery({
+    queryKey: releasesKeys.list(status ? { status } : undefined),
+    queryFn: () => {
       if (!status) {
-        return [];
+        throw new Error("Release status is required");
       }
-      return fetchCollection(collectionKey.status(status), () => fetchReleasesByStatus(status), options);
+      return fetchReleasesByStatus(status);
     },
-    [fetchCollection],
-  );
+    enabled: Boolean(status) && (optionEnabled ?? true),
+    ...restOptions,
+  });
+};
 
-  const getCollectionState = useCallback(
-    (key: string): ReleaseCollectionState => collections[key] ?? DEFAULT_COLLECTION_STATE,
-    [collections],
-  );
+export const useReleaseQuery = <TData = Release>(
+  id: string | undefined,
+  options?: ReleaseQueryOptions<TData>,
+) => {
+  const { enabled: optionEnabled, ...restOptions } = options ?? {};
 
-  const getReleaseFromCache = useCallback(
-    (id: string) => releaseCache[id] ?? null,
-    [releaseCache],
-  );
-
-  const updateReleaseInCache = useCallback(
-    (release: Release) => {
-      mergeReleaseCache([release]);
-      updateReleaseReferences(release);
-    },
-    [mergeReleaseCache, updateReleaseReferences],
-  );
-
-  const fetchReleaseById = useCallback(
-    async (id: string, options?: { force?: boolean }) => {
+  return useQuery({
+    queryKey: id ? releasesKeys.detail(id) : ["releases", "detail", "missing"],
+    queryFn: () => {
       if (!id) {
-        throw new Error('Missing release identifier');
+        throw missingReleaseIdError;
       }
-
-      const force = options?.force ?? false;
-      const cached = releaseCache[id];
-      if (cached && !force) {
-        return cached;
-      }
-
-      try {
-        const release = await fetchRelease(id);
-        updateReleaseInCache(release);
-        return release;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to fetch release';
-        throw new Error(message);
-      }
+      return fetchRelease(id);
     },
-    [releaseCache, updateReleaseInCache],
-  );
+    enabled: Boolean(id) && (optionEnabled ?? true),
+    ...restOptions,
+  });
+};
 
-  const removeReleaseFromCache = useCallback(
-    (id: string) => {
-      removeReleaseReferences(id);
+export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<boolean, unknown, UpdateFileMappingsVariables>({
+    mutationFn: ({ releaseId, mappings }) => updateReleaseFileMappings(releaseId, mappings),
+    async onSuccess(_, { releaseId }) {
+      await queryClient.invalidateQueries({ queryKey: releasesKeys.detail(releaseId), exact: true });
+      await queryClient.invalidateQueries({ queryKey: releasesKeys.all });
     },
-    [removeReleaseReferences],
-  );
+    ...options,
+  });
 
-  useEffect(() => {
-    fetchAllReleases();
-  }, [fetchAllReleases]);
-
-  const value = useMemo<ReleasesContextValue>(
-    () => ({
-      getCollectionState,
-      fetchAllReleases,
-      fetchByRequest,
-      fetchByStatus,
-      getReleaseFromCache,
-      fetchReleaseById,
-      updateReleaseInCache,
-      removeReleaseFromCache,
-    }),
-    [
-      getCollectionState,
-      fetchAllReleases,
-      fetchByRequest,
-      fetchByStatus,
-      getReleaseFromCache,
-      fetchReleaseById,
-      updateReleaseInCache,
-      removeReleaseFromCache,
-    ],
-  );
-
-  return <ReleasesContext.Provider value={value}>{children}</ReleasesContext.Provider>;
-};
-
-const useReleasesContext = () => {
-  const context = useContext(ReleasesContext);
-  if (!context) {
-    throw new Error('useReleases must be used within a ReleasesProvider');
-  }
-  return context;
-};
-
-export const useReleases = () => {
-  const { getCollectionState, fetchAllReleases } = useReleasesContext();
-  const { releases, loading, error } = getCollectionState(collectionKey.all);
-
-  useEffect(() => {
-    if (!loading && !error && releases.length === 0) {
-      fetchAllReleases();
+  const updateFileMappings = async (releaseId: string, mappings: ReleaseFileMappingInput[]) => {
+    if (!releaseId) {
+      throw missingReleaseIdError;
     }
-  }, [fetchAllReleases, loading, error, releases.length]);
 
-  return {
-    releases,
-    loading,
-    error,
-    refetch: () => fetchAllReleases({ force: true }),
+    try {
+      return await mutation.mutateAsync({ releaseId, mappings });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update file mapping";
+      throw new Error(message);
+    }
   };
-};
-
-export const useRelease = (id: string) => {
-  const { getReleaseFromCache, fetchReleaseById } = useReleasesContext();
-  const cachedRelease = id ? getReleaseFromCache(id) : null;
-  const [loading, setLoading] = useState<boolean>(!cachedRelease && Boolean(id));
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchReleaseDetails = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (!id) {
-        const message = 'Missing release identifier';
-        setError(message);
-        setLoading(false);
-        return null;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await fetchReleaseById(id, options);
-        setLoading(false);
-        setError(null);
-        return result;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to fetch release';
-        setError(message);
-        setLoading(false);
-        throw new Error(message);
-      }
-    },
-    [id, fetchReleaseById],
-  );
-
-  useEffect(() => {
-    if (!id) {
-      setError('Missing release identifier');
-      setLoading(false);
-      return;
-    }
-
-    if (cachedRelease) {
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    fetchReleaseDetails().catch(() => {
-      /* errors handled via state */
-    });
-  }, [cachedRelease, fetchReleaseDetails, id]);
-
-  return {
-    release: cachedRelease,
-    loading,
-    error,
-    refetch: () => fetchReleaseDetails({ force: true }),
-  };
-};
-
-export const useReleasesByRequest = (requestId: string, refreshToken?: number) => {
-  const { getCollectionState, fetchByRequest } = useReleasesContext();
-  const { releases, loading, error } = getCollectionState(collectionKey.request(requestId));
-
-  useEffect(() => {
-    if (!requestId) {
-      return;
-    }
-    fetchByRequest(requestId, { force: Boolean(refreshToken) });
-    // refreshToken is intentionally used as part of the effect dependencies to trigger reloads
-    // when the parent toggles it.
-  }, [fetchByRequest, requestId, refreshToken]);
-
-  return {
-    releases,
-    loading,
-    error,
-    refetch: () => fetchByRequest(requestId, { force: true }),
-  };
-};
-
-export const useReleasesByStatus = (status: string) => {
-  const { getCollectionState, fetchByStatus } = useReleasesContext();
-  const { releases, loading, error } = getCollectionState(collectionKey.status(status));
-
-  useEffect(() => {
-    if (!status) {
-      return;
-    }
-    fetchByStatus(status);
-  }, [fetchByStatus, status]);
-
-  return {
-    releases,
-    loading,
-    error,
-    refetch: () => fetchByStatus(status, { force: true }),
-  };
-};
-
-export const useReleaseFileMapping = () => {
-  const { fetchReleaseById } = useReleasesContext();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const updateFileMappings = useCallback(
-    async (releaseId: string, mappings: ReleaseFileMappingInput[]) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const success = await updateFileMappingsAPI(releaseId, mappings);
-        await fetchReleaseById(releaseId, { force: true });
-        setLoading(false);
-        return success;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to update file mapping';
-        setError(errorMessage);
-        setLoading(false);
-        throw new Error(errorMessage);
-      }
-    },
-    [fetchReleaseById],
-  );
 
   return {
     updateFileMappings,
-    loading,
-    error,
+    loading: mutation.isPending,
+    error:
+      mutation.error instanceof Error ? mutation.error.message : mutation.error ? String(mutation.error) : null,
   };
 };
 
 export const useReleaseActions = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (action: () => Promise<unknown>) => action(),
+  });
 
-  const performAction = useCallback(async (action: () => Promise<unknown>) => {
-    setLoading(true);
-    setError(null);
+  const performAction = async (action: () => Promise<unknown>) => {
     try {
-      const result = await action();
-      setLoading(false);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Action failed';
-      setError(errorMessage);
-      setLoading(false);
-      throw new Error(errorMessage);
+      return await mutation.mutateAsync(action);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Action failed";
+      throw new Error(message);
     }
-  }, []);
+  };
 
   return {
     performAction,
-    loading,
-    error,
+    loading: mutation.isPending,
+    error:
+      mutation.error instanceof Error ? mutation.error.message : mutation.error ? String(mutation.error) : null,
   };
 };
+

@@ -1,11 +1,11 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ChakraProvider } from "@chakra-ui/react";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { RequestsProvider } from "./hooks/useRequests";
-import { ReleasesProvider } from "./hooks/useReleases";
 import reportWebVitals from "./reportWebVitals";
 import theme from "./theme";
+import { queryClient } from "./lib/queryClient";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -25,13 +25,12 @@ if ("serviceWorker" in navigator) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ChakraProvider theme={theme}>
-      <RequestsProvider>
-        <ReleasesProvider>
-          <App />
-        </ReleasesProvider>
-      </RequestsProvider>
-    </ChakraProvider>
+    <QueryClientProvider client={queryClient}>
+      <ChakraProvider theme={theme}>
+        <App />
+      </ChakraProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );
+
 reportWebVitals();

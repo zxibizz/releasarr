@@ -19,7 +19,7 @@ import {
 } from "@chakra-ui/react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useReleaseFileMapping } from "../hooks/useReleases";
-import { useRequests } from "../hooks/useRequests";
+import { useRequestsList } from "../hooks/useRequests";
 import {
   FileRequestMapping as FileRequestMappingType,
   ReleaseFile,
@@ -70,10 +70,20 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   } = useReleaseFileMapping();
   const {
     requests,
-    loading: requestsLoading,
+    isLoading: requestsLoading,
+    isFetching: isRequestsFetching,
     error: requestsError,
     refetch: refetchRequests,
-  } = useRequests();
+  } = useRequestsList(undefined, { staleTime: 5 * 60_000 });
+  const requestsErrorMessage =
+    requestsError instanceof Error
+      ? requestsError.message
+      : requestsError
+        ? 'Failed to load requests'
+        : null;
+
+  const showRequestsLoading = (requestsLoading || isRequestsFetching) && requests.length === 0;
+
   const toast = useToast();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
@@ -169,11 +179,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   );
 
   const disableRequestSelection =
-    requestsLoading || Boolean(requestsError) || availableRequests.length === 0;
+    showRequestsLoading || Boolean(requestsErrorMessage) || availableRequests.length === 0;
 
-  const requestPlaceholder = requestsLoading
+  const requestPlaceholder = showRequestsLoading
     ? "Loading requests..."
-    : requestsError
+    : requestsErrorMessage
       ? "Unable to load requests"
       : "Select a request...";
 
@@ -482,7 +492,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         </Stack>
       )}
 
-      {requestsLoading && (
+      {showRequestsLoading && (
         <Alert
           status="info"
           variant="subtle"
@@ -497,7 +507,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         </Alert>
       )}
 
-      {requestsError && (
+      {requestsErrorMessage && (
         <Alert
           status="error"
           borderRadius="md"
@@ -508,7 +518,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           <Flex align="center" gap={2} w="full">
             <AlertIcon />
             <AlertDescription fontSize="sm">
-              {requestsError}
+              {requestsErrorMessage}
             </AlertDescription>
           </Flex>
           <Button size="xs" onClick={() => refetchRequests()}>
@@ -517,7 +527,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         </Alert>
       )}
 
-      {!requestsLoading && !requestsError && availableRequests.length === 0 && (
+      {!showRequestsLoading && !requestsErrorMessage && availableRequests.length === 0 && (
         <Alert status="warning" variant="subtle" borderRadius="md">
           <AlertIcon />
           <AlertDescription fontSize="sm">
