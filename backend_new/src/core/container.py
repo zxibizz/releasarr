@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Any, Callable
 
 from src.application.queries.logs import ListLogsQuery
+from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.core.logging import configure_logging
 from src.db.session import get_db_manager
@@ -112,6 +113,10 @@ class AppContainer:
         self.register_singleton(
             "list_logs_use_case",
             lambda: ListLogsUseCase(query=self.resolve("list_logs_query")),
+        )
+        self.register_singleton(
+            "release_summary_query",
+            lambda: ReleaseSummaryQuery(db=self.resolve("db_manager")),
         )
 
 
