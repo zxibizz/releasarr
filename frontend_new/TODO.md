@@ -27,7 +27,7 @@
 
 - File Mapping Experience
   - [x] Rebuild `FileRequestMapping` around `react-hook-form` + combobox inputs so large season mappings are fast, undoable, and keyboard friendly.
-  - Add smart defaults by parsing filenames once and letting users bulk-apply episodes or auto-map via heuristics before manual tweaks.
+  - [x] Add smart defaults by parsing filenames once and letting users bulk-apply episodes or auto-map via heuristics before manual tweaks.
   - Virtualise long file lists and surface diff indicators when edits are pending but unsaved.
 
 - Testing & Quality Gates
