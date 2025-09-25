@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from fastapi import status
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
 from src.api.app import app
 from src.api.routes.releases import (
@@ -87,14 +87,8 @@ def override_dependency(dep: Callable[..., Any], value: Any):
         app.dependency_overrides.pop(dep, None)
 
 
-@pytest.fixture()
-async def client() -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client:
-        yield http_client
-
-
 @pytest.mark.asyncio
-async def test_list_releases_returns_results(client: AsyncClient) -> None:
+async def test_list_releases_returns_results(api_client: AsyncClient) -> None:
     release = make_release_dto()
     page = ReleasesPageDTO(releases=[release], total=1, page=1, per_page=20)
 
@@ -103,14 +97,14 @@ async def test_list_releases_returns_results(client: AsyncClient) -> None:
             return page
 
     with override_dependency(_list_use_case, FakeList()):
-        response = await client.get("/releases", headers=API_KEY_HEADER)
+        response = await api_client.get("/releases", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["releases"][0]["id"] == release.id
 
 
 @pytest.mark.asyncio
-async def test_list_releases_for_request_filters(client: AsyncClient) -> None:
+async def test_list_releases_for_request_filters(api_client: AsyncClient) -> None:
     release = make_release_dto()
     page = ReleasesPageDTO(releases=[release], total=1, page=1, per_page=20)
 
@@ -121,7 +115,7 @@ async def test_list_releases_for_request_filters(client: AsyncClient) -> None:
             return page
 
     with override_dependency(_list_use_case, FakeList()):
-        response = await client.get(
+        response = await api_client.get(
             "/requests/req-1/releases",
             params={"status": ReleaseStatus.PENDING.value},
             headers=API_KEY_HEADER,
@@ -132,13 +126,13 @@ async def test_list_releases_for_request_filters(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_releases_for_request_invalid_status(client: AsyncClient) -> None:
+async def test_list_releases_for_request_invalid_status(api_client: AsyncClient) -> None:
     class FakeList:
         async def execute(self, options):  # type: ignore[override]
             return ReleasesPageDTO(releases=[], total=0, page=1, per_page=20)
 
     with override_dependency(_list_use_case, FakeList()):
-        response = await client.get(
+        response = await api_client.get(
             "/requests/req-1/releases",
             params={"status": "bad"},
             headers=API_KEY_HEADER,
@@ -149,7 +143,7 @@ async def test_list_releases_for_request_invalid_status(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_create_release_returns_created(client: AsyncClient) -> None:
+async def test_create_release_returns_created(api_client: AsyncClient) -> None:
     release = make_release_dto()
 
     class FakeCreate:
@@ -157,7 +151,7 @@ async def test_create_release_returns_created(client: AsyncClient) -> None:
             return release
 
     with override_dependency(_create_use_case, FakeCreate()):
-        response = await client.post(
+        response = await api_client.post(
             "/releases",
             headers=API_KEY_HEADER,
             json={"magnet_link": "magnet:?xt=urn:btih:HASH", "request_ids": ["req-1"]},
@@ -168,20 +162,20 @@ async def test_create_release_returns_created(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_release_not_found_returns_404(client: AsyncClient) -> None:
+async def test_get_release_not_found_returns_404(api_client: AsyncClient) -> None:
     class FakeGet:
         async def execute(self, release_id):  # type: ignore[override]
             raise ReleaseNotFoundError(release_id)
 
     with override_dependency(_get_use_case, FakeGet()):
-        response = await client.get("/releases/missing", headers=API_KEY_HEADER)
+        response = await api_client.get("/releases/missing", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["code"] == "release_not_found"
 
 
 @pytest.mark.asyncio
-async def test_pause_release_sets_location_header(client: AsyncClient) -> None:
+async def test_pause_release_sets_location_header(api_client: AsyncClient) -> None:
     op = AsyncOperationDTO(
         operation="pause_release",
         status="accepted",
@@ -197,20 +191,20 @@ async def test_pause_release_sets_location_header(client: AsyncClient) -> None:
             return op
 
     with override_dependency(_pause_use_case, FakePause()):
-        response = await client.post("/releases/rel-1/pause", headers=API_KEY_HEADER)
+        response = await api_client.post("/releases/rel-1/pause", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_202_ACCEPTED
     assert response.headers.get("Location") == op.location
 
 
 @pytest.mark.asyncio
-async def test_update_file_mappings_returns_success(client: AsyncClient) -> None:
+async def test_update_file_mappings_returns_success(api_client: AsyncClient) -> None:
     class FakeUpdate:
         async def execute(self, command):  # type: ignore[override]
             return True
 
     with override_dependency(_update_mappings_use_case, FakeUpdate()):
-        response = await client.put(
+        response = await api_client.put(
             "/releases/rel-1/files/mapping",
             headers=API_KEY_HEADER,
             json={"files": [{"file_id": "file-1", "request_mapping": None}]},
@@ -221,13 +215,13 @@ async def test_update_file_mappings_returns_success(client: AsyncClient) -> None
 
 
 @pytest.mark.asyncio
-async def test_update_file_mappings_missing_file_returns_404(client: AsyncClient) -> None:
+async def test_update_file_mappings_missing_file_returns_404(api_client: AsyncClient) -> None:
     class FakeUpdate:
         async def execute(self, command):  # type: ignore[override]
             raise ReleaseFileNotFoundError("rel-1", "file-1")
 
     with override_dependency(_update_mappings_use_case, FakeUpdate()):
-        response = await client.put(
+        response = await api_client.put(
             "/releases/rel-1/files/mapping",
             headers=API_KEY_HEADER,
             json={"files": [{"file_id": "file-1", "request_mapping": None}]},
@@ -238,7 +232,7 @@ async def test_update_file_mappings_missing_file_returns_404(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_search_releases_returns_payload(client: AsyncClient) -> None:
+async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
     result = ReleaseSearchResultDTO(
         release_id="rel-1",
         release_name="Release 1",
@@ -259,7 +253,7 @@ async def test_search_releases_returns_payload(client: AsyncClient) -> None:
             return response_dto
 
     with override_dependency(_search_use_case, FakeSearch()):
-        response = await client.get(
+        response = await api_client.get(
             "/releases/search", params={"q": "query"}, headers=API_KEY_HEADER
         )
 
@@ -268,13 +262,13 @@ async def test_search_releases_returns_payload(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_queue_release_download_conflict_returns_409(client: AsyncClient) -> None:
+async def test_queue_release_download_conflict_returns_409(api_client: AsyncClient) -> None:
     class FakeQueue:
         async def execute(self, command):  # type: ignore[override]
             raise ReleaseDownloadConflictError(command.request_id, command.release_id)
 
     with override_dependency(_queue_download_use_case, FakeQueue()):
-        response = await client.post(
+        response = await api_client.post(
             "/requests/req-1/releases/download",
             headers=API_KEY_HEADER,
             json={"release_id": "rel-1"},
@@ -285,8 +279,8 @@ async def test_queue_release_download_conflict_returns_409(client: AsyncClient) 
 
 
 @pytest.mark.asyncio
-async def test_missing_api_key_returns_401(client: AsyncClient) -> None:
-    response = await client.get("/releases")
+async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
+    response = await api_client.get("/releases")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {
         "code": "unauthorized",
