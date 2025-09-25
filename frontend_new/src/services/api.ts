@@ -508,29 +508,4 @@ class ApiClient {
 
 export const apiClient = new ApiClient();
 
-export const fetchRequests = (options?: {
-  page?: number;
-  perPage?: number;
-  status?: MediaRequest['status'];
-  type?: MediaRequest['type'];
-}) => apiClient.getRequests(options);
-export const fetchRequest = (id: string) => apiClient.getRequest(id);
-export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>
-  apiClient.getReleases(filters);
-export const fetchRelease = (id: string) => apiClient.getRelease(id);
-export const fetchReleasesByRequest = (requestId: string) =>
-  apiClient.getReleasesByRequest(requestId);
-export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
-export const fetchRequestsSummary = (ids: string[]) => apiClient.getRequestsSummary(ids);
-export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
-  apiClient.updateReleaseFileMappings(releaseId, mappings);
-export const pauseRelease = (id: string) => apiClient.pauseRelease(id);
-export const resumeRelease = (id: string) => apiClient.resumeRelease(id);
-export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
-export const searchReleaseCandidates = (query: string, requestId?: string) =>
-  apiClient.searchReleaseCandidates(query, requestId);
-export const downloadReleaseCandidate = (requestId: string, payload: ReleaseDownloadRequest) =>
-  apiClient.downloadReleaseCandidate(requestId, payload);
-export const fetchRequestLogsApi = (requestId?: string) => apiClient.getRequestLogs({ requestId });
-
 export { ApiClient };

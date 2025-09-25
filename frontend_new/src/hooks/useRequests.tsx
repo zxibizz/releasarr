@@ -6,14 +6,16 @@ import {
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { requestsKeys, type RequestListFilters } from '@/lib/queryKeys';
-import { fetchRequest, fetchRequests } from '@/services/api';
+import { requestsApi } from '@/features/requests/api';
+import {
+  requestsKeys,
+  type RequestDetailQueryKey,
+  type RequestListFilters,
+  type RequestsListQueryKey,
+} from '@/features/requests/queryKeys';
 import type { MediaRequest, RequestsResponse } from '@/types';
 
 const missingIdError = new Error('Request identifier is required');
-
-type RequestsListQueryKey = ReturnType<typeof requestsKeys.list>;
-type RequestDetailQueryKey = ReturnType<typeof requestsKeys.detail>;
 
 type RequestsQueryOptions<TData> = Omit<
   UseQueryOptions<RequestsResponse, unknown, TData, RequestsListQueryKey>,
@@ -31,7 +33,7 @@ export const useRequestsQuery = <TData = RequestsResponse,>(
 ) => {
   return useQuery({
     queryKey: requestsKeys.list(filters),
-    queryFn: () => fetchRequests(filters),
+    queryFn: () => requestsApi.list(filters),
     ...options,
   });
 };
@@ -64,7 +66,7 @@ export const useRequestQuery = <TData = MediaRequest,>(
       if (!id) {
         throw missingIdError;
       }
-      return fetchRequest(id);
+      return requestsApi.detail(id);
     },
     enabled: Boolean(id) && (optionEnabled ?? true),
     ...restOptions,
@@ -81,7 +83,7 @@ export const usePrefetchRequest = () => {
 
     await queryClient.prefetchQuery({
       queryKey: requestsKeys.detail(id),
-      queryFn: () => fetchRequest(id),
+      queryFn: () => requestsApi.detail(id),
     });
   };
 };

@@ -30,7 +30,7 @@ import { RequestReleasesSection } from '@/features/requests/components/RequestRe
 import ReleaseFilesModal from '@/features/requests/ReleaseFilesModal';
 import { useRequestLogs } from '@/features/requests/useRequestLogs';
 import { useRequestQuery } from '@/hooks/useRequests';
-import { releasesKeys } from '@/lib/queryKeys';
+import { releasesKeys } from '@/features/releases/queryKeys';
 import type { Release } from '@/types';
 import { getApiErrorInfo } from '@/utils/errors';
 

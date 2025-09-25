@@ -6,22 +6,18 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 
-import { releasesKeys, type ReleaseListFilters } from '@/lib/queryKeys';
+import { releasesApi } from '@/features/releases/api';
 import {
-  fetchRelease,
-  fetchReleases,
-  fetchReleasesByRequest,
-  fetchReleasesByStatus,
-  updateReleaseFileMappings,
-} from '@/services/api';
+  releasesKeys,
+  type ReleaseDetailQueryKey,
+  type ReleaseListFilters,
+  type ReleasesByRequestQueryKey,
+  type ReleasesListQueryKey,
+} from '@/features/releases/queryKeys';
 import type { Release, ReleaseFileMappingInput } from '@/types';
 
 const missingReleaseIdError = new Error('Release identifier is required');
 const missingRequestIdError = new Error('Request identifier is required');
-
-type ReleasesListQueryKey = ReturnType<typeof releasesKeys.list>;
-type ReleasesByRequestQueryKey = ReturnType<typeof releasesKeys.byRequest>;
-type ReleaseDetailQueryKey = ReturnType<typeof releasesKeys.detail>;
 
 type ReleasesQueryOptions<TData> = Omit<
   UseQueryOptions<Release[], unknown, TData, ReleasesListQueryKey>,
@@ -54,7 +50,7 @@ export const useReleasesQuery = <TData = Release[],>(
 ) => {
   return useQuery({
     queryKey: releasesKeys.list(filters),
-    queryFn: () => fetchReleases(filters),
+    queryFn: () => releasesApi.list(filters),
     ...options,
   });
 };
@@ -71,7 +67,7 @@ export const useReleasesByRequestQuery = <TData = Release[],>(
       if (!requestId) {
         throw missingRequestIdError;
       }
-      return fetchReleasesByRequest(requestId);
+      return releasesApi.byRequest(requestId);
     },
     enabled: Boolean(requestId) && (optionEnabled ?? true),
     ...restOptions,
@@ -90,7 +86,7 @@ export const useReleasesByStatusQuery = <TData = Release[],>(
       if (!status) {
         throw new Error('Release status is required');
       }
-      return fetchReleasesByStatus(status);
+      return releasesApi.byStatus(status);
     },
     enabled: Boolean(status) && (optionEnabled ?? true),
     ...restOptions,
@@ -109,7 +105,7 @@ export const useReleaseQuery = <TData = Release,>(
       if (!id) {
         throw missingReleaseIdError;
       }
-      return fetchRelease(id);
+      return releasesApi.detail(id);
     },
     enabled: Boolean(id) && (optionEnabled ?? true),
     ...restOptions,
@@ -120,7 +116,7 @@ export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
   const queryClient = useQueryClient();
 
   const mutation = useMutation<boolean, unknown, UpdateFileMappingsVariables>({
-    mutationFn: ({ releaseId, mappings }) => updateReleaseFileMappings(releaseId, mappings),
+    mutationFn: ({ releaseId, mappings }) => releasesApi.updateFileMappings(releaseId, mappings),
     async onSuccess(_, { releaseId }) {
       await queryClient.invalidateQueries({
         queryKey: releasesKeys.detail(releaseId),
