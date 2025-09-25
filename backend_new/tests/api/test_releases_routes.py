@@ -110,6 +110,45 @@ async def test_list_releases_returns_results(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_releases_for_request_filters(client: AsyncClient) -> None:
+    release = make_release_dto()
+    page = ReleasesPageDTO(releases=[release], total=1, page=1, per_page=20)
+
+    class FakeList:
+        async def execute(self, options):  # type: ignore[override]
+            assert options.request_id == "req-1"
+            assert options.status == ReleaseStatus.PENDING
+            return page
+
+    with override_dependency(_list_use_case, FakeList()):
+        response = await client.get(
+            "/requests/req-1/releases",
+            params={"status": ReleaseStatus.PENDING.value},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["releases"][0]["id"] == release.id
+
+
+@pytest.mark.asyncio
+async def test_list_releases_for_request_invalid_status(client: AsyncClient) -> None:
+    class FakeList:
+        async def execute(self, options):  # type: ignore[override]
+            return ReleasesPageDTO(releases=[], total=0, page=1, per_page=20)
+
+    with override_dependency(_list_use_case, FakeList()):
+        response = await client.get(
+            "/requests/req-1/releases",
+            params={"status": "bad"},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["code"] == "invalid_status_filter"
+
+
+@pytest.mark.asyncio
 async def test_create_release_returns_created(client: AsyncClient) -> None:
     release = make_release_dto()
 
