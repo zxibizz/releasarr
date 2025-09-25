@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from src.api.dependencies import require_api_key
+from src.api.errors import api_error
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.schemas.logs import LogsResponse
 
@@ -29,7 +30,7 @@ async def list_logs(
     try:
         return await use_case.execute(page=page, per_page=per_page, request_id=request_id)
     except ValueError as exc:  # pragma: no cover - defensive whilst query validates internally
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_logs_query", str(exc)) from exc
 
 
 __all__ = ["router"]

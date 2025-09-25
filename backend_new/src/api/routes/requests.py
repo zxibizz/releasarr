@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from src.api.dependencies import require_api_key
+from src.api.errors import api_error
 from src.application.use_cases.requests import (
     CreateMediaRequestUseCase,
     CreateMovieRequestCommand,
@@ -121,14 +122,14 @@ async def list_requests(
         try:
             status_value = MediaRequestStatus(status_filter)
         except ValueError as exc:  # pragma: no cover - validated by FastAPI but kept defensive
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
 
     media_type: MediaType | None = None
     if type_filter:
         try:
             media_type = MediaType(type_filter)
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_type_filter", str(exc)) from exc
 
     options = ListRequestsOptions(
         page=page,
@@ -158,7 +159,7 @@ async def get_request(
     try:
         dto = await get_use_case.execute(request_id)
     except MediaRequestNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "request_not_found", str(exc)) from exc
     return _dto_to_schema(dto)
 
 
@@ -172,9 +173,9 @@ async def update_request(
     try:
         dto = await update_use_case.execute(request_id, command)
     except EmptyUpdatePayloadError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(status.HTTP_400_BAD_REQUEST, "empty_update", str(exc)) from exc
     except MediaRequestNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "request_not_found", str(exc)) from exc
     return _dto_to_schema(dto)
 
 
@@ -185,7 +186,7 @@ async def delete_request(
 ) -> Response:
     deleted = await delete_use_case.execute(request_id)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media request not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, "request_not_found", "Media request not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
