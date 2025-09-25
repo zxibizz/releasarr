@@ -158,6 +158,7 @@ async def test_get_request_not_found_returns_404(client: AsyncClient) -> None:
         response = await client.get("/requests/unknown", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "request_not_found"
 
 
 @pytest.mark.asyncio
@@ -170,6 +171,7 @@ async def test_patch_request_empty_payload_returns_400(client: AsyncClient) -> N
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["code"] == "empty_update"
 
 
 @pytest.mark.asyncio
@@ -184,3 +186,8 @@ async def test_delete_request_returns_204(client: AsyncClient) -> None:
 async def test_missing_api_key_returns_401(client: AsyncClient) -> None:
     response = await client.get("/requests")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {
+        "code": "unauthorized",
+        "message": "Invalid API key",
+        "details": None,
+    }

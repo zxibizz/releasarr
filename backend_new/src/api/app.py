@@ -8,10 +8,14 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 
-from src.api.errors import validation_exception_handler
+from src.api.errors import (
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from src.api.routes import register_routes
 from src.core.container import get_container
 
@@ -38,6 +42,8 @@ app = FastAPI(
 
 register_routes(app)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 @app.get("/healthz")
