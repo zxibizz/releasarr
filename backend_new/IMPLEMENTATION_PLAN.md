@@ -62,7 +62,7 @@
 ### Phase 7 – Testing & Validation
 1. Set up shared async test fixtures for database (transactional rollbacks) and HTTP clients (`httpx.AsyncClient` against FastAPI app).
 2. Write unit tests for repositories, use cases, and services, focusing on spec-derived edge cases (404/409/422, invalid pagination, async job states).
-3. Add API contract tests verifying FastAPI-generated OpenAPI matches the provided spec (Schemathesis or openapi-diff).
+3. Add API contract tests verifying FastAPI-generated OpenAPI matches the provided spec (Schemathesis or openapi-diff). *(Covered by `tests/api/test_openapi_contract.py`.)*
 4. Cover CLI/task entrypoints with smoke tests to ensure they run independently of the web server.
 
 ### Phase 8 – Deployment Readiness

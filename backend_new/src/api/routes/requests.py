@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 
 from src.api.dependencies import require_api_key
 from src.api.errors import api_error
+from src.api.responses import error_response
 from src.application.use_cases.requests import (
     CreateMediaRequestUseCase,
     CreateMovieRequestCommand,
@@ -69,6 +72,54 @@ def _get_delete_use_case(
     return container.use_cases.media_requests.delete
 
 
+LIST_REQUESTS_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Invalid pagination or filter parameters."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+CREATE_REQUEST_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed request payload."),
+    status.HTTP_422_UNPROCESSABLE_CONTENT: error_response(
+        "Validation failed for the provided fields."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+GET_REQUEST_RESPONSES = {
+    status.HTTP_404_NOT_FOUND: error_response("Request not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+UPDATE_REQUEST_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed request body."),
+    status.HTTP_404_NOT_FOUND: error_response("Request not found."),
+    status.HTTP_422_UNPROCESSABLE_CONTENT: error_response(
+        "Validation failed for at least one field."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+DELETE_REQUEST_RESPONSES = {
+    status.HTTP_404_NOT_FOUND: error_response("Request not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+
+RequestIdParam = Annotated[str, Path(..., alias="requestId")]
+
+
 def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
     if isinstance(dto, MovieRequestDTO):
         return MovieRequest(
@@ -113,7 +164,7 @@ def _page_to_response(page: MediaRequestsPageDTO) -> RequestsResponse:
     )
 
 
-@router.get("", response_model=RequestsResponse)
+@router.get("", response_model=RequestsResponse, responses=LIST_REQUESTS_RESPONSES)
 async def list_requests(
     list_use_case: ListMediaRequestsUseCase = Depends(_get_list_use_case),
     page: int = Query(default=1, ge=1),
@@ -145,7 +196,12 @@ async def list_requests(
     return _page_to_response(result)
 
 
-@router.post("", response_model=MediaRequest, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=MediaRequest,
+    status_code=status.HTTP_201_CREATED,
+    responses=CREATE_REQUEST_RESPONSES,
+)
 async def create_request(
     payload: MediaRequestCreate,
     create_use_case: CreateMediaRequestUseCase = Depends(_get_create_use_case),
@@ -155,9 +211,13 @@ async def create_request(
     return _dto_to_schema(dto)
 
 
-@router.get("/{request_id}", response_model=MediaRequest)
+@router.get(
+    "/{requestId}",
+    response_model=MediaRequest,
+    responses=GET_REQUEST_RESPONSES,
+)
 async def get_request(
-    request_id: str,
+    request_id: RequestIdParam,
     get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
 ) -> MediaRequest:
     try:
@@ -167,9 +227,13 @@ async def get_request(
     return _dto_to_schema(dto)
 
 
-@router.patch("/{request_id}", response_model=MediaRequest)
+@router.patch(
+    "/{requestId}",
+    response_model=MediaRequest,
+    responses=UPDATE_REQUEST_RESPONSES,
+)
 async def update_request(
-    request_id: str,
+    request_id: RequestIdParam,
     payload: MediaRequestUpdate,
     update_use_case: UpdateMediaRequestUseCase = Depends(_get_update_use_case),
 ) -> MediaRequest:
@@ -183,9 +247,13 @@ async def update_request(
     return _dto_to_schema(dto)
 
 
-@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{requestId}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=DELETE_REQUEST_RESPONSES,
+)
 async def delete_request(
-    request_id: str,
+    request_id: RequestIdParam,
     delete_use_case: DeleteMediaRequestUseCase = Depends(_get_delete_use_case),
 ) -> Response:
     deleted = await delete_use_case.execute(request_id)
