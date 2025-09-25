@@ -41,7 +41,7 @@
 ### Phase 4 – Application Layer & Use Cases
 - [x] Define Pydantic schemas in `src/schemas` mirroring OpenAPI payloads; include pagination envelopes, error responses, async operation descriptors.
 - [ ] Implement use cases covering:
-   - Request lifecycle (list with filters/pagination, create, retrieve, partial update, delete).
+   - [x] Request lifecycle (list with filters/pagination, create, retrieve, partial update, delete).
    - Release management (list, create, retrieve, delete, pause/resume, file mapping update, search, download queueing).
    - Logs listing sourced from structured log files (via Loguru) rather than the database.
 - [ ] Plug repositories + services into use cases with transactional context management.
