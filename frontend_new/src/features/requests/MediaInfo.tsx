@@ -15,9 +15,9 @@ import {
 } from '@chakra-ui/react';
 import React from 'react';
 
-import { requestStatusStyles } from '@/theme/statusStyles';
+import { getRequestStatusPresentation } from '@/features/status/statusPresenters';
 import type { MediaRequest } from '@/types';
-import { formatDate, formatRuntime, getStatusIcon } from '@/utils/formatters';
+import { formatDate, formatRuntime } from '@/utils/formatters';
 
 interface MediaInfoProps {
   request: MediaRequest;
@@ -25,8 +25,7 @@ interface MediaInfoProps {
 
 export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
   const isMovie = request.type === 'movie';
-  const statusIcon = getStatusIcon(request.status);
-  const statusStyle = requestStatusStyles[request.status];
+  const statusPresentation = getRequestStatusPresentation(request.status);
 
   return (
     <Card p={{ base: 5, md: 6 }}>
@@ -85,9 +84,9 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
               </Stack>
 
               <Badge
-                bg={statusStyle.bg}
-                color={statusStyle.color}
-                borderColor={statusStyle.borderColor}
+                bg={statusPresentation.badge.bg}
+                color={statusPresentation.badge.color}
+                borderColor={statusPresentation.badge.borderColor}
                 borderWidth="1px"
                 display="inline-flex"
                 alignItems="center"
@@ -96,12 +95,11 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
                 px={3}
                 py={1.5}
                 borderRadius="md"
-                textTransform="capitalize"
               >
                 <Text as="span" fontSize="lg" lineHeight={1}>
-                  {statusIcon}
+                  {statusPresentation.icon}
                 </Text>
-                {request.status}
+                {statusPresentation.label}
               </Badge>
             </Flex>
 

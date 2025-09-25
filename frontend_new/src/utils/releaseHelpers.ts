@@ -41,40 +41,6 @@ export const calculateETA = (totalSize: number, downloadedSize: number, speed: n
   return formatDuration(remainingSeconds);
 };
 
-export const getStatusColor = (status: Release['status']): string => {
-  switch (status) {
-    case 'pending':
-      return 'text-yellow-600 bg-yellow-100';
-    case 'downloading':
-      return 'text-blue-600 bg-blue-100';
-    case 'seeding':
-      return 'text-green-600 bg-green-100';
-    case 'completed':
-      return 'text-green-700 bg-green-200';
-    case 'failed':
-      return 'text-red-600 bg-red-100';
-    default:
-      return 'text-gray-600 bg-gray-100';
-  }
-};
-
-export const getStatusIcon = (status: Release['status']): string => {
-  switch (status) {
-    case 'pending':
-      return '⏳';
-    case 'downloading':
-      return '⬇️';
-    case 'seeding':
-      return '⬆️';
-    case 'completed':
-      return '✅';
-    case 'failed':
-      return '❌';
-    default:
-      return '❓';
-  }
-};
-
 export const sortReleasesByStatus = (releases: Release[]): Release[] => {
   const statusOrder = ['downloading', 'pending', 'seeding', 'completed', 'failed'];
 

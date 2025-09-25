@@ -16,9 +16,9 @@ import {
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
-import { requestStatusStyles } from '@/theme/statusStyles';
+import { getRequestStatusPresentation } from '@/features/status/statusPresenters';
 import type { MediaRequest } from '@/types';
-import { formatDate, formatRuntime, getStatusIcon } from '@/utils/formatters';
+import { formatDate, formatRuntime } from '@/utils/formatters';
 
 interface RequestCardProps {
   request: MediaRequest;
@@ -26,8 +26,7 @@ interface RequestCardProps {
 
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
   const isMovie = request.type === 'movie';
-  const statusIcon = getStatusIcon(request.status);
-  const statusStyle = requestStatusStyles[request.status];
+  const statusPresentation = getRequestStatusPresentation(request.status);
 
   return (
     <Card
@@ -90,9 +89,9 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
               </Stack>
 
               <Badge
-                bg={statusStyle.bg}
-                color={statusStyle.color}
-                borderColor={statusStyle.borderColor}
+                bg={statusPresentation.badge.bg}
+                color={statusPresentation.badge.color}
+                borderColor={statusPresentation.badge.borderColor}
                 borderWidth="1px"
                 display="inline-flex"
                 alignItems="center"
@@ -101,12 +100,11 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 px={3}
                 py={1}
                 borderRadius="md"
-                textTransform="capitalize"
               >
                 <Text as="span" fontSize="md" lineHeight={1}>
-                  {statusIcon}
+                  {statusPresentation.icon}
                 </Text>
-                {request.status}
+                {statusPresentation.label}
               </Badge>
             </Flex>
 
