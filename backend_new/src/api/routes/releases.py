@@ -62,7 +62,7 @@ def _get_container() -> AppContainer:
 
 
 def _release_repository(container: AppContainer) -> object:
-    return container.resolve("release_repository")
+    return container.release_repository
 
 
 def _list_use_case(container: AppContainer = Depends(_get_container)) -> ListReleasesUseCase:
@@ -92,24 +92,24 @@ def _update_mappings_use_case(container: AppContainer = Depends(_get_container))
 
 def _pause_use_case(container: AppContainer = Depends(_get_container)) -> PauseReleaseUseCase:
     repository = _release_repository(container)
-    lifecycle = container.resolve("release_lifecycle_service")
+    lifecycle = container.release_lifecycle_service
     return PauseReleaseUseCase(repository=repository, lifecycle_service=lifecycle)
 
 
 def _resume_use_case(container: AppContainer = Depends(_get_container)) -> ResumeReleaseUseCase:
     repository = _release_repository(container)
-    lifecycle = container.resolve("release_lifecycle_service")
+    lifecycle = container.release_lifecycle_service
     return ResumeReleaseUseCase(repository=repository, lifecycle_service=lifecycle)
 
 
 def _search_use_case(container: AppContainer = Depends(_get_container)) -> ReleaseSearchSourcesUseCase:
-    search_service = container.resolve("release_search_service")
+    search_service = container.release_search_service
     return ReleaseSearchSourcesUseCase(search_service=search_service)
 
 
 def _queue_download_use_case(container: AppContainer = Depends(_get_container)) -> QueueReleaseDownloadUseCase:
     repository = _release_repository(container)
-    download_service = container.resolve("release_download_service")
+    download_service = container.release_download_service
     return QueueReleaseDownloadUseCase(repository=repository, download_service=download_service)
 
 

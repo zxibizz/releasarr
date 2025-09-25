@@ -7,15 +7,14 @@ changing the FastAPI entrypoint signature.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import Any, Callable
+from dataclasses import dataclass
+from functools import cached_property, lru_cache
 
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.core.logging import configure_logging
-from src.db.session import get_db_manager
+from src.db.session import DBManager, get_db_manager
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
@@ -27,16 +26,9 @@ from src.infrastructure.logs import LogFileReader
 from src.settings.config import AppSettings, get_settings
 
 
-@dataclass(slots=True)
+@dataclass
 class AppContainer:
     settings: AppSettings
-    _providers: dict[str, Callable[[], Any]] = field(default_factory=dict, init=False)
-    _singletons: dict[str, Any] = field(default_factory=dict, init=False)
-
-    def __post_init__(self) -> None:
-        self._providers = {}
-        self._singletons = {}
-        self._register_defaults()
 
     def startup(self) -> None:
         """Hook for initializing resources (e.g. db engine, http clients)."""
@@ -50,74 +42,45 @@ class AppContainer:
         # Intentionally left blank until infrastructure is implemented.
         return None
 
-    def resolve(self, component: str) -> Any:
-        """Retrieve a singleton dependency by name."""
+    @cached_property
+    def db_manager(self) -> DBManager:
+        return get_db_manager()
 
-        if component in self._singletons:
-            return self._singletons[component]
+    @cached_property
+    def media_request_repository(self) -> SqlAlchemyMediaRequestRepository:
+        return SqlAlchemyMediaRequestRepository(db=self.db_manager)
 
-        factory = self._providers.get(component)
-        if factory is None:
-            msg = f"Component '{component}' is not registered"
-            raise LookupError(msg)
+    @cached_property
+    def release_repository(self) -> SqlAlchemyReleaseRepository:
+        return SqlAlchemyReleaseRepository(db=self.db_manager)
 
-        instance = factory()
-        self._singletons[component] = instance
-        return instance
+    @cached_property
+    def release_lifecycle_service(self) -> InMemoryReleaseLifecycleService:
+        return InMemoryReleaseLifecycleService()
 
-    def register_singleton(self, component: str, factory: Callable[[], Any]) -> None:
-        """Register a lazily evaluated singleton factory."""
+    @cached_property
+    def release_search_service(self) -> InMemoryReleaseSearchService:
+        return InMemoryReleaseSearchService()
 
-        self._providers[component] = factory
+    @cached_property
+    def release_download_service(self) -> InMemoryReleaseDownloadService:
+        return InMemoryReleaseDownloadService()
 
-    def _register_defaults(self) -> None:
-        """Populate default infrastructure bindings."""
+    @cached_property
+    def log_reader(self) -> LogFileReader:
+        return LogFileReader(self.settings.log_file)
 
-        self.register_singleton("settings", lambda: self.settings)
-        self.register_singleton("db_manager", get_db_manager)
-        self.register_singleton(
-            "media_request_repository",
-            lambda: SqlAlchemyMediaRequestRepository(
-                db=self.resolve("db_manager"),
-            ),
-        )
-        self.register_singleton(
-            "release_repository",
-            lambda: SqlAlchemyReleaseRepository(
-                db=self.resolve("db_manager"),
-            ),
-        )
-        self.register_singleton(
-            "release_lifecycle_service",
-            InMemoryReleaseLifecycleService,
-        )
-        self.register_singleton(
-            "release_search_service",
-            InMemoryReleaseSearchService,
-        )
-        self.register_singleton(
-            "release_download_service",
-            InMemoryReleaseDownloadService,
-        )
-        self.register_singleton(
-            "log_reader",
-            lambda: LogFileReader(self.settings.log_file),
-        )
-        self.register_singleton(
-            "list_logs_query",
-            lambda: ListLogsQuery(
-                reader=self.resolve("log_reader"),
-                settings=self.settings,
-            ),
-        )
-        self.register_singleton(
-            "list_logs_use_case",
-            lambda: ListLogsUseCase(query=self.resolve("list_logs_query")),
-        )
-        self.register_singleton(
-            "release_summary_query",
-            lambda: ReleaseSummaryQuery(db=self.resolve("db_manager")),
-        )
+    @cached_property
+    def list_logs_query(self) -> ListLogsQuery:
+        return ListLogsQuery(reader=self.log_reader, settings=self.settings)
+
+    @cached_property
+    def list_logs_use_case(self) -> ListLogsUseCase:
+        return ListLogsUseCase(query=self.list_logs_query)
+
+    @cached_property
+    def release_summary_query(self) -> ReleaseSummaryQuery:
+        return ReleaseSummaryQuery(db=self.db_manager)
 
 
 @lru_cache(maxsize=1)
