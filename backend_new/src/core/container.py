@@ -15,6 +15,7 @@ from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.core.logging import configure_logging
 from src.db.session import DBManager, get_db_manager
+from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
@@ -22,8 +23,68 @@ from src.infrastructure.releases import (
     InMemoryReleaseSearchService,
     SqlAlchemyReleaseRepository,
 )
-from src.infrastructure.logs import LogFileReader
 from src.settings.config import AppSettings, get_settings
+
+
+@dataclass
+class RepositoryContainer:
+    _container: "AppContainer"
+
+    @cached_property
+    def media_requests(self) -> SqlAlchemyMediaRequestRepository:
+        return SqlAlchemyMediaRequestRepository(db=self._container.db_manager)
+
+    @cached_property
+    def releases(self) -> SqlAlchemyReleaseRepository:
+        return SqlAlchemyReleaseRepository(db=self._container.db_manager)
+
+
+@dataclass
+class ServiceContainer:
+    _container: "AppContainer"
+
+    @cached_property
+    def release_lifecycle(self) -> InMemoryReleaseLifecycleService:
+        return InMemoryReleaseLifecycleService()
+
+    @cached_property
+    def release_search(self) -> InMemoryReleaseSearchService:
+        return InMemoryReleaseSearchService()
+
+    @cached_property
+    def release_download(self) -> InMemoryReleaseDownloadService:
+        return InMemoryReleaseDownloadService()
+
+
+@dataclass
+class QueryContainer:
+    _container: "AppContainer"
+
+    @cached_property
+    def logs(self) -> ListLogsQuery:
+        return ListLogsQuery(reader=self._container.infrastructure.log_reader, settings=self._container.settings)
+
+    @cached_property
+    def release_summary(self) -> ReleaseSummaryQuery:
+        return ReleaseSummaryQuery(db=self._container.db_manager)
+
+
+@dataclass
+class UseCaseContainer:
+    _container: "AppContainer"
+
+    @cached_property
+    def list_logs(self) -> ListLogsUseCase:
+        return ListLogsUseCase(query=self._container.queries.logs)
+
+
+@dataclass
+class InfrastructureContainer:
+    _container: "AppContainer"
+
+    @cached_property
+    def log_reader(self) -> LogFileReader:
+        return LogFileReader(self._container.settings.log_file)
 
 
 @dataclass
@@ -47,40 +108,24 @@ class AppContainer:
         return get_db_manager()
 
     @cached_property
-    def media_request_repository(self) -> SqlAlchemyMediaRequestRepository:
-        return SqlAlchemyMediaRequestRepository(db=self.db_manager)
+    def repositories(self) -> RepositoryContainer:
+        return RepositoryContainer(self)
 
     @cached_property
-    def release_repository(self) -> SqlAlchemyReleaseRepository:
-        return SqlAlchemyReleaseRepository(db=self.db_manager)
+    def services(self) -> ServiceContainer:
+        return ServiceContainer(self)
 
     @cached_property
-    def release_lifecycle_service(self) -> InMemoryReleaseLifecycleService:
-        return InMemoryReleaseLifecycleService()
+    def queries(self) -> QueryContainer:
+        return QueryContainer(self)
 
     @cached_property
-    def release_search_service(self) -> InMemoryReleaseSearchService:
-        return InMemoryReleaseSearchService()
+    def use_cases(self) -> UseCaseContainer:
+        return UseCaseContainer(self)
 
     @cached_property
-    def release_download_service(self) -> InMemoryReleaseDownloadService:
-        return InMemoryReleaseDownloadService()
-
-    @cached_property
-    def log_reader(self) -> LogFileReader:
-        return LogFileReader(self.settings.log_file)
-
-    @cached_property
-    def list_logs_query(self) -> ListLogsQuery:
-        return ListLogsQuery(reader=self.log_reader, settings=self.settings)
-
-    @cached_property
-    def list_logs_use_case(self) -> ListLogsUseCase:
-        return ListLogsUseCase(query=self.list_logs_query)
-
-    @cached_property
-    def release_summary_query(self) -> ReleaseSummaryQuery:
-        return ReleaseSummaryQuery(db=self.db_manager)
+    def infrastructure(self) -> InfrastructureContainer:
+        return InfrastructureContainer(self)
 
 
 @lru_cache(maxsize=1)

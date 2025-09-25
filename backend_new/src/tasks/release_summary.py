@@ -15,7 +15,7 @@ async def generate_summary(query: ReleaseSummaryQuery | None = None) -> ReleaseS
 
     if query is None:
         container = get_container()
-        query = container.release_summary_query
+        query = container.queries.release_summary
     return await query.fetch()
 
 
