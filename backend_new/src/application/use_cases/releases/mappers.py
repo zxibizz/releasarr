@@ -7,7 +7,6 @@ from src.application.interfaces.releases import (
     ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
-    ReleaseSearchResultRecord,
     ReleaseSearchResults,
 )
 from src.application.use_cases.releases.dto import (
@@ -100,7 +99,9 @@ def search_results_to_dto(results: ReleaseSearchResults) -> ReleaseSearchRespons
         for result in results.results
     ]
 
-    return ReleaseSearchResponseDTO(results=payload, query=results.query, total_results=results.total_results)
+    return ReleaseSearchResponseDTO(
+        results=payload, query=results.query, total_results=results.total_results
+    )
 
 
 def queued_download_to_async_operation(download: QueuedDownload) -> AsyncOperationDTO:

@@ -33,5 +33,5 @@ def test_format_summary_returns_json() -> None:
 
     payload = format_summary(summary)
 
-    assert "\"total\": 1" in payload
-    assert "\"completed\": 1" in payload
+    assert '"total": 1' in payload
+    assert '"completed": 1' in payload

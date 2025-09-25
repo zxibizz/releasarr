@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Awaitable, Callable
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
@@ -72,6 +77,7 @@ async def seed_request(
                     updated_at=datetime.now(UTC),
                 )
             )
+
     return _seed
 
 
