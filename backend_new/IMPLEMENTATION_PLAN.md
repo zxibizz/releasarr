@@ -55,15 +55,15 @@
 5. Provide FastAPI lifespan hooks for resource startup/shutdown (DB connection verification, client session cleanup) but omit background job scheduling.
 
 ### Phase 6 – Tasks & Operations
-1. Implement standalone async task runners under `src/tasks` (e.g., `sync_missing`, `import_torrent_stats`) reusable by CLI or process manager *(release summary task available via `uv run python -m src.tasks.release_summary`)*.
+1. [x] Implement standalone async task runners under `src/tasks` (e.g., `sync_missing`, `import_torrent_stats`) reusable by CLI or process manager *(release summary task available via `uv run python -m src.tasks.release_summary`)*.
 2. [x] Provide CLI entrypoints (Typer or plain `uv run` scripts) so operations can run in parallel with the API server when orchestrated externally *(see `python -m src.tasks.cli`).
-3. Ensure task runs reuse the same dependency container and logging configuration as the API for consistency.
+3. [x] Ensure task runs reuse the same dependency container and logging configuration as the API for consistency.
 
 ### Phase 7 – Testing & Validation
-1. Set up shared async test fixtures for database (transactional rollbacks) and HTTP clients (`httpx.AsyncClient` against FastAPI app).
-2. Write unit tests for repositories, use cases, and services, focusing on spec-derived edge cases (404/409/422, invalid pagination, async job states).
-3. Add API contract tests verifying FastAPI-generated OpenAPI matches the provided spec (Schemathesis or openapi-diff). *(Covered by `tests/api/test_openapi_contract.py`.)*
-4. Cover CLI/task entrypoints with smoke tests to ensure they run independently of the web server.
+1. [x] Set up shared async test fixtures for database (transactional rollbacks) and HTTP clients (`httpx.AsyncClient` against FastAPI app).
+2. [x] Write unit tests for repositories, use cases, and services, focusing on spec-derived edge cases (404/409/422, invalid pagination, async job states).
+3. [x] Add API contract tests verifying FastAPI-generated OpenAPI matches the provided spec (Schemathesis or openapi-diff). *(Covered by `tests/api/test_openapi_contract.py`.)*
+4. [x] Cover CLI/task entrypoints with smoke tests to ensure they run independently of the web server.
 
 ### Phase 8 – Deployment Readiness
 1. Integrate Alembic migrations into Docker entrypoint/CI steps; document manual migration commands.
