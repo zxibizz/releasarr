@@ -16,12 +16,12 @@
 - Standardize tooling around `uv` for dependency management and locking, and `ruff` for linting/formatting.
 
 ## Implementation Roadmap
-### Phase 0 – Project Foundations
+### Phase 0 – Project Foundations *(completed)*
 1. Initialize `pyproject.toml` configured for `uv` workflows; add `ruff`, `alembic`, `fastapi`, `pydantic`, `sqlalchemy[asyncio]`, `asyncpg` (or sqlite driver for local), `httpx`.
 2. Scaffold package layout under `src/` mirroring the layered architecture (`api`, `application`, `domain`, `infrastructure`, `db`, `core`, `schemas`, `tasks`).
 3. Configure `uv` scripts (e.g. `uv run`, `uv pip compile`), set up `ruff.toml`, and add basic CI instructions for lint/test commands.
 
-### Phase 1 – Configuration & Infrastructure
+### Phase 1 – Configuration & Infrastructure *(completed)*
 1. Implement `src/settings/config.py` using Pydantic `BaseSettings` (DB URL, API key, pagination defaults, external clients’ base URLs/tokens).
 2. Build logging configuration (Loguru or structlog) with contextual logging consistent with the spec’s logging payloads.
 3. Create database module: async engine factory, sessionmaker, and `DBManager` abstraction; ensure availability to both API and task runners.

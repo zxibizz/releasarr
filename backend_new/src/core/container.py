@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
+from src.core.logging import configure_logging
 from src.settings.config import AppSettings, get_settings
 
 
@@ -21,7 +22,7 @@ class AppContainer:
     def startup(self) -> None:
         """Hook for initializing resources (e.g. db engine, http clients)."""
 
-        # Intentionally left blank until infrastructure is implemented.
+        configure_logging(self.settings)
         return None
 
     def shutdown(self) -> None:
