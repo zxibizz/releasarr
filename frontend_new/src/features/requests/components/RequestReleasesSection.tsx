@@ -29,13 +29,11 @@ export function RequestReleasesSection({
         </Stack>
       )}
 
-      {hasExistingReleases && (
-        <ReleasesList
-          requestId={request.id}
-          onViewFiles={onViewFiles}
-          onReleasesLoaded={onReleasesLoaded}
-        />
-      )}
+      <ReleasesList
+        requestId={request.id}
+        onViewFiles={onViewFiles}
+        onReleasesLoaded={onReleasesLoaded}
+      />
     </Stack>
   );
 }
