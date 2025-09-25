@@ -1,57 +1,72 @@
-"""Central logging configuration helpers."""
+"""Central logging configuration helpers using Loguru."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
-from logging.config import dictConfig
+import sys
+from pathlib import Path
+
+from loguru import logger
 
 from src.settings.config import AppSettings
 
 
-def _build_logging_config(settings: AppSettings) -> Mapping[str, object]:
-    level = settings.log_level.upper()
+class InterceptHandler(logging.Handler):
+    """Redirect standard logging records to Loguru."""
 
-    return {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "standard": {
-                "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-            },
-            "json": {
-                "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-                "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s",
-            },
-        },
-        "handlers": {
-            "default": {
-                "class": "logging.StreamHandler",
-                "level": level,
-                "formatter": "json" if settings.log_json else "standard",
-            },
-        },
-        "root": {
-            "handlers": ["default"],
-            "level": level,
-        },
-    }
+    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - thin adapter
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        logger.bind(logger_name=record.name).opt(exception=record.exc_info).log(
+            level,
+            record.getMessage(),
+        )
 
 
 def configure_logging(settings: AppSettings) -> None:
-    """Configure the global logging module according to settings."""
+    """Configure Loguru sinks for console and file output."""
 
-    config = _build_logging_config(settings)
-    dictConfig(config)  # type: ignore[arg-type]
+    logger.remove()
+    logger.configure(extra={"request_id": None})
 
-    # Quiet overly chatty default loggers.
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    level = settings.log_level.upper()
+
+    logger.add(
+        sys.stdout,
+        level=level,
+        enqueue=True,
+        serialize=settings.log_json,
+        backtrace=False,
+        diagnose=False,
+    )
+
+    log_path = Path(settings.log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.add(
+        log_path,
+        level=level,
+        enqueue=True,
+        serialize=True,
+        rotation="10 MB",
+        retention="14 days",
+        backtrace=False,
+        diagnose=False,
+    )
+
+    logging.basicConfig(
+        handlers=[InterceptHandler()],
+        level=getattr(logging, level, logging.INFO),
+        force=True,
+    )
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Return a module-level logger."""
+def get_logger(**extra: object):
+    """Return a Loguru logger bound with optional context."""
 
-    return logging.getLogger(name)
+    return logger.bind(**extra)
 
 
-__all__ = ["configure_logging", "get_logger"]
+__all__ = ["configure_logging", "get_logger", "logger"]

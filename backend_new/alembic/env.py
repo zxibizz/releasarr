@@ -17,6 +17,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+import src.domain.models  # noqa: E402, F401  (ensure models are registered with metadata)
 from src.db import metadata  # noqa: E402  (import after path injection)
 from src.settings.config import get_settings  # noqa: E402
 
