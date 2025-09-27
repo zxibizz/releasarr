@@ -6,9 +6,12 @@ import {
   Button,
   Card,
   Flex,
+  FormControl,
+  FormLabel,
   Heading,
   HStack,
   Input,
+  Select,
   Skeleton,
   SkeletonText,
   Spinner,
@@ -18,7 +21,7 @@ import {
   VisuallyHidden,
   useToast,
 } from '@chakra-ui/react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useReleaseSearch } from '@/hooks/useReleaseSearch';
@@ -48,9 +51,115 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   const { searchState, search, clearSearch, selectReleaseCandidate } = useReleaseSearch();
   const [query, setQuery] = useState(prefillQuery ?? '');
   const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<'seeders' | 'leechers' | 'size'>('seeders');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const { t } = useTranslation();
+
+  const parseSizeToBytes = useCallback((size: string | null | undefined): number | null => {
+    if (!size) {
+      return null;
+    }
+    const match = size.trim().match(/^([\d.]+)\s*([KMGTPE]?B)$/i);
+    if (!match) {
+      return null;
+    }
+    const value = Number.parseFloat(match[1]);
+    if (Number.isNaN(value)) {
+      return null;
+    }
+    const unit = match[2].toUpperCase();
+    const multipliers: Record<string, number> = {
+      B: 1,
+      KB: 1024,
+      MB: 1024 ** 2,
+      GB: 1024 ** 3,
+      TB: 1024 ** 4,
+      PB: 1024 ** 5,
+    };
+    const multiplier = multipliers[unit];
+    if (!multiplier) {
+      return null;
+    }
+    return value * multiplier;
+  }, []);
+
+  const uniqueSources = useMemo(() => {
+    const sources = new Set<string>();
+    searchState.results.forEach((result) => {
+      if (result.source) {
+        sources.add(result.source);
+      }
+    });
+    return Array.from(sources).sort((a, b) => a.localeCompare(b));
+  }, [searchState.results]);
+
+  useEffect(() => {
+    if (sourceFilter !== 'all' && !uniqueSources.includes(sourceFilter)) {
+      setSourceFilter('all');
+    }
+  }, [sourceFilter, uniqueSources]);
+
+  const displayedResults = useMemo(() => {
+    const working = [...searchState.results];
+
+    const filtered = sourceFilter === 'all'
+      ? working
+      : working.filter((result) => result.source === sourceFilter);
+
+    const getSortValue = (candidate: ReleaseSearchResult): number | null => {
+      switch (sortField) {
+        case 'seeders':
+          return candidate.seeders ?? null;
+        case 'leechers':
+          return candidate.leechers ?? null;
+        case 'size':
+          return parseSizeToBytes(candidate.size);
+        default:
+          return null;
+      }
+    };
+
+    const sorted = filtered.sort((a, b) => {
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+
+      if (aValue == null && bValue == null) {
+        return a.release_name.localeCompare(b.release_name);
+      }
+      if (aValue == null) {
+        return 1;
+      }
+      if (bValue == null) {
+        return -1;
+      }
+
+      if (sortOrder === 'desc') {
+        const diff = bValue - aValue;
+        return diff !== 0 ? diff : a.release_name.localeCompare(b.release_name);
+      }
+
+      const diff = aValue - bValue;
+      return diff !== 0 ? diff : a.release_name.localeCompare(b.release_name);
+    });
+
+    return sorted;
+  }, [parseSizeToBytes, searchState.results, sortField, sortOrder, sourceFilter]);
+
+  const totalResults = searchState.results.length;
+  const displayedCount = displayedResults.length;
+  const summaryQuery = searchState.query || query;
+  const summaryKey =
+    displayedCount === totalResults
+      ? 'releaseSearch.results.summary'
+      : 'releaseSearch.results.summaryWithTotal';
+  const summaryText = t(summaryKey, {
+    count: displayedCount,
+    total: totalResults,
+    query: summaryQuery,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +183,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
     setQuery('');
     clearSearch();
     setDownloadingCandidateId(null);
+    setSourceFilter('all');
   };
 
   const handleCandidateSelect = async (candidate: ReleaseSearchResult) => {
@@ -198,7 +308,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
           </Alert>
         )}
 
-        {searchState.results.length > 0 && (
+        {displayedResults.length > 0 && (
           <Stack spacing={4} aria-live="polite" aria-busy={searchState.loading}>
             <Flex
               justify="space-between"
@@ -208,12 +318,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
             >
               <Heading size="sm">{t('releaseSearch.results.heading')}</Heading>
               <HStack spacing={2} color="text.subtle" fontSize="sm" align="center" role="status">
-                <Text>
-                  {t('releaseSearch.results.summary', {
-                    count: searchState.results.length,
-                    query: searchState.query,
-                  })}
-                </Text>
+                <Text>{summaryText}</Text>
                 {searchState.loading && searchState.results.length > 0 && (
                   <HStack spacing={1} color="text.subtle">
                     <Spinner size="xs" />
@@ -223,8 +328,63 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               </HStack>
             </Flex>
 
+            <Flex
+              direction={{ base: 'column', md: 'row' }}
+              gap={3}
+              align={{ base: 'stretch', md: 'flex-end' }}
+            >
+              <FormControl maxW={{ base: '100%', md: '220px' }}>
+                <FormLabel fontSize="sm" color="text.subtle">
+                  {t('releaseSearch.sort.label')}
+                </FormLabel>
+                <Select
+                  size="sm"
+                  value={sortField}
+                  onChange={(event) => setSortField(event.target.value as 'seeders' | 'leechers' | 'size')}
+                >
+                  <option value="seeders">{t('releaseSearch.sort.fields.seeders')}</option>
+                  <option value="leechers">{t('releaseSearch.sort.fields.leechers')}</option>
+                  <option value="size">{t('releaseSearch.sort.fields.size')}</option>
+                </Select>
+              </FormControl>
+
+              <FormControl maxW={{ base: '100%', md: '180px' }}>
+                <FormLabel fontSize="sm" color="text.subtle">
+                  {t('releaseSearch.sort.directionLabel')}
+                </FormLabel>
+                <Select
+                  size="sm"
+                  value={sortOrder}
+                  onChange={(event) => setSortOrder(event.target.value as 'desc' | 'asc')}
+                >
+                  <option value="desc">{t('releaseSearch.sort.directions.desc')}</option>
+                  <option value="asc">{t('releaseSearch.sort.directions.asc')}</option>
+                </Select>
+              </FormControl>
+
+              {uniqueSources.length > 0 && (
+                <FormControl maxW={{ base: '100%', md: '220px' }}>
+                  <FormLabel fontSize="sm" color="text.subtle">
+                    {t('releaseSearch.filters.source.label')}
+                  </FormLabel>
+                  <Select
+                    size="sm"
+                    value={sourceFilter}
+                    onChange={(event) => setSourceFilter(event.target.value)}
+                  >
+                    <option value="all">{t('releaseSearch.filters.source.all')}</option>
+                    {uniqueSources.map((source) => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Flex>
+
             <Stack spacing={3}>
-              {searchState.results.map((candidate) => {
+              {displayedResults.map((candidate) => {
                 const qualityLabel = candidate.quality ?? t('releaseSearch.quality.unknown');
                 const qualityColor = qualityColorScheme[qualityLabel] || 'gray';
                 const seedersLabel = candidate.seeders ?? 0;
@@ -327,7 +487,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         )}
 
         {searchState.query &&
-          searchState.results.length === 0 &&
+          displayedResults.length === 0 &&
           !searchState.loading &&
           !searchState.error && (
             <Stack

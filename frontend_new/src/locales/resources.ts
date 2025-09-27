@@ -175,7 +175,27 @@ export const resources = {
         results: {
           heading: 'Search Results',
           summary: '{{count}} results for "{{query}}"',
+          summaryWithTotal: '{{count}} of {{total}} results for "{{query}}"',
           updating: 'Updating…',
+        },
+        sort: {
+          label: 'Sort by',
+          directionLabel: 'Order',
+          fields: {
+            seeders: 'Seeders',
+            leechers: 'Leechers',
+            size: 'Size',
+          },
+          directions: {
+            desc: 'High → Low',
+            asc: 'Low → High',
+          },
+        },
+        filters: {
+          source: {
+            label: 'Source',
+            all: 'All sources',
+          },
         },
         quality: {
           unknown: 'Unknown',
@@ -422,7 +442,27 @@ export const resources = {
         results: {
           heading: 'Результаты поиска',
           summary: '{{count}} результатов для «{{query}}»',
+          summaryWithTotal: '{{count}} из {{total}} результатов для «{{query}}»',
           updating: 'Обновляем…',
+        },
+        sort: {
+          label: 'Сортировка',
+          directionLabel: 'Порядок',
+          fields: {
+            seeders: 'Сиды',
+            leechers: 'Личеры',
+            size: 'Размер',
+          },
+          directions: {
+            desc: 'По убыванию',
+            asc: 'По возрастанию',
+          },
+        },
+        filters: {
+          source: {
+            label: 'Источник',
+            all: 'Все источники',
+          },
         },
         quality: {
           unknown: 'Неизвестно',
