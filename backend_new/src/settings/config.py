@@ -15,7 +15,7 @@ class AppSettings(BaseSettings):
     api_version: str = Field(default="0.1.0")
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)
-    api_key: str | None = Field(default=None)
+    api_key: str = Field(default="dev-secret")
 
     database_url: str = Field(default="sqlite+aiosqlite:///./releasarr.db")
 

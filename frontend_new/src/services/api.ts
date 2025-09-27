@@ -128,6 +128,7 @@ const isAbortError = (error: unknown): boolean => {
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8001/api';
+const API_AUTH_KEY = (import.meta.env.VITE_API_KEY as string | undefined) ?? 'dev-secret';
 const REQUEST_SUMMARY_BATCH_LIMIT = 50;
 
 class ApiClient {
@@ -157,6 +158,9 @@ class ApiClient {
     }
     if (restOptions.body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
+    }
+    if (API_AUTH_KEY && !headers.has('X-API-Key')) {
+      headers.set('X-API-Key', API_AUTH_KEY);
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
