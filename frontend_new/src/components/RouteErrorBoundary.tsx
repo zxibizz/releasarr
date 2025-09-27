@@ -11,6 +11,7 @@ import {
   Tag,
   Text,
 } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 import {
   isRouteErrorResponse,
   useNavigate,
@@ -27,7 +28,7 @@ type RouterErrorResponse = {
   statusText: string;
 };
 
-const getRouteErrorDescription = (error: RouterErrorResponse): string => {
+const getRouteErrorDescription = (error: RouterErrorResponse, fallback: string): string => {
   if (typeof error.data === 'string' && error.data.trim().length > 0) {
     return error.data;
   }
@@ -36,19 +37,20 @@ const getRouteErrorDescription = (error: RouterErrorResponse): string => {
     return String((error.data as { message: string }).message);
   }
 
-  return error.statusText || 'An unexpected error occurred while rendering this page.';
+  return error.statusText || fallback;
 };
 
 export const RouteErrorBoundary = () => {
   const error = useRouteError();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (isRouteErrorResponse(error)) {
     if (error.status === 404) {
       return <NotFound />;
     }
 
-    const description = getRouteErrorDescription(error);
+    const description = getRouteErrorDescription(error, t('routeError.fallbackDescription'));
 
     return (
       <Stack spacing={6} py={{ base: 8, md: 12 }}>
@@ -64,19 +66,19 @@ export const RouteErrorBoundary = () => {
           <Stack spacing={3} flex="1">
             <HStack spacing={3} align="center">
               <AlertTitle fontSize="lg" fontWeight="semibold">
-                {error.status} {error.statusText || 'Request failed'}
+                {error.status} {error.statusText || t('routeError.requestFailed')}
               </AlertTitle>
               <Tag colorScheme="red" variant="subtle">
-                Router Error
+                {t('routeError.routerErrorLabel')}
               </Tag>
             </HStack>
             <AlertDescription>{description}</AlertDescription>
             <HStack spacing={3} pt={2} flexWrap="wrap">
               <Button colorScheme="blue" onClick={() => navigate(0)}>
-                Try Again
+                {t('common.tryAgain')}
               </Button>
-              <Button variant="outline" onClick={() => navigate('/') }>
-                Back to Requests
+              <Button variant="outline" onClick={() => navigate('/')}>
+                {t('common.backToRequests')}
               </Button>
             </HStack>
           </Stack>
@@ -86,8 +88,8 @@ export const RouteErrorBoundary = () => {
   }
 
   const fallback = {
-    title: 'Something went wrong',
-    description: 'We hit an unexpected issue while loading this view.',
+    title: t('routeError.genericTitle'),
+    description: t('routeError.genericDescription'),
   };
   const info = getApiErrorInfo(error, fallback);
   const debugDetails = formatErrorDebugInfo(error);
@@ -106,7 +108,7 @@ export const RouteErrorBoundary = () => {
         <Stack spacing={3} flex="1">
           <HStack spacing={3} align="center">
             <AlertTitle fontSize="lg" fontWeight="semibold">
-              {info.title ?? 'Unexpected Error'}
+              {info.title ?? t('routeError.unexpectedTitle')}
             </AlertTitle>
             {info.status ? (
               <Tag colorScheme="red" variant="subtle">
@@ -114,17 +116,17 @@ export const RouteErrorBoundary = () => {
               </Tag>
             ) : (
               <Tag colorScheme="orange" variant="subtle">
-                Client Error
+                {t('routeError.clientErrorLabel')}
               </Tag>
             )}
           </HStack>
           <AlertDescription>{info.description}</AlertDescription>
           <HStack spacing={3} pt={2} flexWrap="wrap">
             <Button colorScheme="blue" onClick={() => navigate(0)}>
-              Try Again
+              {t('common.tryAgain')}
             </Button>
-            <Button variant="outline" onClick={() => navigate('/') }>
-              Back to Requests
+            <Button variant="outline" onClick={() => navigate('/')}>
+              {t('common.backToRequests')}
             </Button>
           </HStack>
         </Stack>
@@ -139,7 +141,7 @@ export const RouteErrorBoundary = () => {
           p={4}
         >
           <Text fontSize="sm" color="text.subtle" mb={2}>
-            Error details
+            {t('routeError.errorDetails')}
           </Text>
           <Code
             display="block"

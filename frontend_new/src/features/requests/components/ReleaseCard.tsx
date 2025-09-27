@@ -21,6 +21,7 @@ import {
   WrapItem,
 } from '@chakra-ui/react';
 import React, { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { getReleaseStatusPresentation } from '@/features/status/statusPresenters';
 import type { MediaRequest, Release } from '@/types';
@@ -146,6 +147,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const { t } = useTranslation();
 
   const progress = calculateReleaseProgress(release);
   const isActive = isReleaseActive(release);
@@ -214,18 +216,17 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
       <AlertDialogOverlay>
         <AlertDialogContent>
           <AlertDialogHeader fontSize="lg" fontWeight="bold">
-            Delete release
+            {t('releaseCard.dialog.title')}
           </AlertDialogHeader>
           <AlertDialogBody>
-            This will remove the release and its file mappings from the request. Are you sure you
-            want to continue?
+            {t('releaseCard.dialog.body')}
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button colorScheme="red" onClick={confirmDelete} ml={3} isLoading={isLoading}>
-              Delete
+              {t('releaseCard.dialog.confirm')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -234,6 +235,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   ) : null;
 
   const statusPresentation = getReleaseStatusPresentation(release.status);
+  const statusLabel = useMemo(
+    () =>
+      t(`status.${statusPresentation.value}`, {
+        defaultValue: statusPresentation.label,
+      }),
+    [statusPresentation.label, statusPresentation.value, t],
+  );
   const detailsSectionId = useMemo(() => `release-${release.id}-details`, [release.id]);
 
   if (compact) {
@@ -259,7 +267,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                     px={2}
                     py={1}
                   >
-                    {statusPresentation.label}
+                    {statusLabel}
                   </Badge>
                   {isActive && <Text>{formatProgress(progress)}</Text>}
                 </Flex>
@@ -268,7 +276,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               {showActions && (
                 <Stack direction="row" spacing={2}>
                   <IconButton
-                    aria-label="View files"
+                    aria-label={t('releaseCard.aria.viewFiles')}
                     icon={<Text as="span">📁</Text>}
                     variant="ghost"
                     size="sm"
@@ -276,7 +284,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                     isDisabled={isLoading}
                   />
                   <IconButton
-                    aria-label="Toggle details"
+                    aria-label={t('releaseCard.aria.toggleDetails')}
                     icon={showDetails ? <ChevronUpIcon /> : <ChevronDownIcon />}
                     variant="ghost"
                     size="sm"
@@ -286,7 +294,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                   />
                   {onDelete && (
                     <IconButton
-                      aria-label="Delete release"
+                      aria-label={t('releaseCard.aria.delete')}
                       icon={<DeleteIcon />}
                       variant="ghost"
                       size="sm"
@@ -378,8 +386,8 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 px={3}
                 py={1}
               >
-                {statusPresentation.label}
-              </Badge>
+                    {statusLabel}
+                  </Badge>
               <Flex
                 gap={2}
                 wrap="wrap"
@@ -553,7 +561,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                   variant="solid"
                   isDisabled={isLoading}
                 >
-                  Files
+                  {t('releaseCard.buttons.files')}
                 </Button>
 
                 {isActive && onPause && (
@@ -564,7 +572,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                     variant="solid"
                     isDisabled={isLoading}
                   >
-                    Pause
+                    {t('releaseCard.buttons.pause')}
                   </Button>
                 )}
 
@@ -576,13 +584,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                     variant="solid"
                     isDisabled={isLoading}
                   >
-                    Resume
+                    {t('releaseCard.buttons.resume')}
                   </Button>
                 )}
 
                 {onDelete && (
                   <IconButton
-                    aria-label="Delete release"
+                    aria-label={t('releaseCard.aria.delete')}
                     icon={<DeleteIcon />}
                     variant="ghost"
                     size="sm"

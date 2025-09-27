@@ -13,7 +13,8 @@ import {
   Wrap,
   WrapItem,
 } from '@chakra-ui/react';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { getRequestStatusPresentation } from '@/features/status/statusPresenters';
 import type { MediaRequest } from '@/types';
@@ -26,6 +27,15 @@ interface MediaInfoProps {
 export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
   const isMovie = request.type === 'movie';
   const statusPresentation = getRequestStatusPresentation(request.status);
+  const { t } = useTranslation();
+
+  const statusLabel = useMemo(
+    () =>
+      t(`status.${statusPresentation.value}`, {
+        defaultValue: statusPresentation.label,
+      }),
+    [statusPresentation.label, statusPresentation.value, t],
+  );
 
   return (
     <Card p={{ base: 5, md: 6 }}>
@@ -34,7 +44,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
           <AspectRatio ratio={2 / 3} w="100%">
             <Image
               src={request.poster_url}
-              alt={`${request.title} poster`}
+              alt={t('requestCard.posterAlt', { title: request.title })}
               borderRadius="lg"
               objectFit="cover"
               fallbackSrc="/logo192.png"
@@ -50,7 +60,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
           <Box display={{ base: 'none', md: 'block' }} flexShrink={0}>
             <Image
               src={request.poster_url}
-              alt={`${request.title} poster`}
+              alt={t('requestCard.posterAlt', { title: request.title })}
               borderRadius="lg"
               objectFit="cover"
               minW="240px"
@@ -78,7 +88,9 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
                   {isMovie ? (
                     <Text fontSize="lg">{formatRuntime(request.runtime)}</Text>
                   ) : (
-                    <Text fontSize="lg">Season {request.season_number}</Text>
+                    <Text fontSize="lg">
+                      {t('requestCard.season', { season: request.season_number })}
+                    </Text>
                   )}
                 </Flex>
               </Stack>
@@ -99,25 +111,35 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
                 <Text as="span" fontSize="lg" lineHeight={1}>
                   {statusPresentation.icon}
                 </Text>
-                {statusPresentation.label}
+                {statusLabel}
               </Badge>
             </Flex>
 
             <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
-              <InfoItem label="Type">{isMovie ? '🎬 Movie' : '📺 TV Series'}</InfoItem>
-              <InfoItem label="Created">{formatDate(request.created_at)}</InfoItem>
-              <InfoItem label="Updated">{formatDate(request.updated_at)}</InfoItem>
+              <InfoItem label={t('mediaInfo.labels.type')}>
+                {isMovie ? `🎬 ${t('mediaType.movie')}` : `📺 ${t('mediaType.series')}`}
+              </InfoItem>
+              <InfoItem label={t('mediaInfo.labels.created')}>
+                {formatDate(request.created_at)}
+              </InfoItem>
+              <InfoItem label={t('mediaInfo.labels.updated')}>
+                {formatDate(request.updated_at)}
+              </InfoItem>
               {!isMovie && (
-                <InfoItem label="Series">
+                <InfoItem label={t('mediaInfo.labels.series')}>
                   {request.series_title} ({request.series_year})
                 </InfoItem>
               )}
-              {!isMovie && <InfoItem label="Episodes">{request.total_episodes}</InfoItem>}
+              {!isMovie && (
+                <InfoItem label={t('mediaInfo.labels.episodes')}>
+                  {t('mediaInfo.episodes', { count: request.total_episodes })}
+                </InfoItem>
+              )}
             </SimpleGrid>
 
             <Box>
               <Heading size="sm" mb={3}>
-                Genres
+                {t('mediaInfo.sections.genres')}
               </Heading>
               <Wrap spacing={2}>
                 {request.genres.map((genre: string) => (
@@ -132,7 +154,7 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
 
             <Box>
               <Heading size="sm" mb={3}>
-                Overview
+                {t('mediaInfo.sections.overview')}
               </Heading>
               <Text fontSize="sm" color="slate.200" lineHeight="tall">
                 {request.overview}

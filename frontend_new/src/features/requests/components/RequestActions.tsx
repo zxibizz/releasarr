@@ -1,5 +1,6 @@
 import { Button, Card, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface RequestActionItem {
   title: string;
@@ -16,11 +17,13 @@ interface RequestActionsProps {
 }
 
 export function RequestActions({ actions }: RequestActionsProps) {
+  const { t } = useTranslation();
+
   return (
     <Card p={{ base: 5, md: 6 }}>
       <Stack spacing={4}>
         <Text as="h2" fontSize="lg" fontWeight="700">
-          🔧 Request Actions
+          {t('requestActions.title')}
         </Text>
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
           {actions.map((action) => (

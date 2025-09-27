@@ -30,6 +30,7 @@ import {
   WrapItem,
 } from '@chakra-ui/react';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { useRequestsList } from '@/hooks/useRequests';
@@ -41,36 +42,50 @@ import { RequestCard } from './RequestCard';
 type FilterKey = 'all' | 'movies' | 'series' | MediaRequest['status'];
 type SortKey = 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc';
 
-const filterButtons: ReadonlyArray<{ key: FilterKey; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'movies', label: 'Movies' },
-  { key: 'series', label: 'Series' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'searching', label: 'Searching' },
-  { key: 'downloading', label: 'Downloading' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'failed', label: 'Failed' },
+const FILTER_KEYS: readonly FilterKey[] = [
+  'all',
+  'movies',
+  'series',
+  'pending',
+  'searching',
+  'downloading',
+  'completed',
+  'failed',
+] as const;
+
+const SORT_KEYS: readonly SortKey[] = ['created_desc', 'created_asc', 'title_asc', 'title_desc'] as const;
+
+const FILTER_CONFIGS: ReadonlyArray<{ key: FilterKey; labelKey: string }> = [
+  { key: 'all', labelKey: 'requestsList.filters.all' },
+  { key: 'movies', labelKey: 'requestsList.filters.movies' },
+  { key: 'series', labelKey: 'requestsList.filters.series' },
+  { key: 'pending', labelKey: 'status.pending' },
+  { key: 'searching', labelKey: 'status.searching' },
+  { key: 'downloading', labelKey: 'status.downloading' },
+  { key: 'completed', labelKey: 'status.completed' },
+  { key: 'failed', labelKey: 'status.failed' },
 ];
 
-const sortOptions: ReadonlyArray<{ key: SortKey; label: string }> = [
-  { key: 'created_desc', label: 'Newest first' },
-  { key: 'created_asc', label: 'Oldest first' },
-  { key: 'title_asc', label: 'Title A → Z' },
-  { key: 'title_desc', label: 'Title Z → A' },
+const SORT_CONFIGS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
+  { key: 'created_desc', labelKey: 'requestsList.sort.created_desc' },
+  { key: 'created_asc', labelKey: 'requestsList.sort.created_asc' },
+  { key: 'title_asc', labelKey: 'requestsList.sort.title_asc' },
+  { key: 'title_desc', labelKey: 'requestsList.sort.title_desc' },
 ];
 
 const DEFAULT_FILTER: FilterKey = 'all';
 const DEFAULT_SORT: SortKey = 'created_desc';
 
 const isValidFilter = (value: string | null): value is FilterKey =>
-  Boolean(value && filterButtons.some((filter) => filter.key === value));
+  Boolean(value && FILTER_KEYS.includes(value as FilterKey));
 
 const isValidSort = (value: string | null): value is SortKey =>
-  Boolean(value && sortOptions.some((option) => option.key === value));
+  Boolean(value && SORT_KEYS.includes(value as SortKey));
 
 const normalizeText = (value: string | null | undefined) => value?.trim().toLowerCase() ?? '';
 
 export const RequestsList: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeFilterParam = searchParams.get('filter');
   const sortParam = searchParams.get('sort');
@@ -87,10 +102,20 @@ export const RequestsList: React.FC = () => {
 
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
 
+  const filterButtons = useMemo(
+    () => FILTER_CONFIGS.map((config) => ({ ...config, label: t(config.labelKey) })),
+    [t],
+  );
+
+  const sortOptions = useMemo(
+    () => SORT_CONFIGS.map((config) => ({ ...config, label: t(config.labelKey) })),
+    [t],
+  );
+
   const errorInfo = error
     ? getApiErrorInfo(error, {
-        title: 'Unable to load requests',
-        description: 'We could not retrieve the latest requests from the server.',
+        title: t('requestsList.error.title'),
+        description: t('requestsList.error.description'),
       })
     : null;
 
@@ -224,7 +249,9 @@ export const RequestsList: React.FC = () => {
       >
         <AlertIcon />
         <Box>
-          <AlertTitle fontSize="lg">{errorInfo.title ?? 'Error loading requests'}</AlertTitle>
+          <AlertTitle fontSize="lg">
+            {errorInfo.title ?? t('requestsList.error.fallbackTitle')}
+          </AlertTitle>
           <AlertDescription>
             {errorInfo.description}
             {errorInfo.details && (
@@ -235,7 +262,7 @@ export const RequestsList: React.FC = () => {
           </AlertDescription>
         </Box>
         <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
-          Try Again
+          {t('common.tryAgain')}
         </Button>
       </Alert>
     );
@@ -244,9 +271,9 @@ export const RequestsList: React.FC = () => {
   return (
     <Stack spacing={{ base: 6, md: 10 }}>
       <Stack spacing={2}>
-        <Heading size="2xl">Media Requests</Heading>
+        <Heading size="2xl">{t('requestsList.title')}</Heading>
         <Text color="text.subtle" fontSize="md">
-          Track and manage your media server requests
+          {t('requestsList.subtitle')}
         </Text>
       </Stack>
 
@@ -281,7 +308,7 @@ export const RequestsList: React.FC = () => {
             <Input
               value={searchValue}
               onChange={handleSearchChange}
-              placeholder="Search requests..."
+              placeholder={t('requestsList.searchPlaceholder')}
               variant="filled"
               bg="bg.subtle"
               _focus={{ bg: 'bg.muted' }}
@@ -292,7 +319,7 @@ export const RequestsList: React.FC = () => {
             value={activeSort}
             onChange={handleSortChange}
             maxW={{ base: 'full', md: '220px' }}
-            aria-label="Sort requests"
+            aria-label={t('requestsList.sortAriaLabel')}
           >
             {sortOptions.map((option) => (
               <option key={option.key} value={option.key}>
@@ -304,7 +331,7 @@ export const RequestsList: React.FC = () => {
           {isFetching && !isLoading && (
             <HStack spacing={2} color="text.subtle">
               <Spinner size="sm" />
-              <Text fontSize="sm">Refreshing data…</Text>
+              <Text fontSize="sm">{t('requestsList.refreshing')}</Text>
             </HStack>
           )}
         </Flex>
@@ -314,19 +341,19 @@ export const RequestsList: React.FC = () => {
         <Stack spacing={3}>
           <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
             <Stat>
-              <StatLabel>Total Requests</StatLabel>
+              <StatLabel>{t('requestsList.stats.total')}</StatLabel>
               <StatNumber>{stats.total}</StatNumber>
             </Stat>
             <Stat>
-              <StatLabel>Movies</StatLabel>
+              <StatLabel>{t('requestsList.stats.movies')}</StatLabel>
               <StatNumber>{stats.byType.movie ?? 0}</StatNumber>
             </Stat>
             <Stat>
-              <StatLabel>Series</StatLabel>
+              <StatLabel>{t('requestsList.stats.series')}</StatLabel>
               <StatNumber>{stats.byType.series ?? 0}</StatNumber>
             </Stat>
             <Stat>
-              <StatLabel>Completed</StatLabel>
+              <StatLabel>{t('requestsList.stats.completed')}</StatLabel>
               <StatNumber>{stats.byStatus.completed ?? 0}</StatNumber>
             </Stat>
           </SimpleGrid>
@@ -341,7 +368,7 @@ export const RequestsList: React.FC = () => {
                 px={3}
                 py={1}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}: {stats.byStatus[status]}
+                {t(`status.${status}`)}: {stats.byStatus[status]}
               </Badge>
             ))}
           </Wrap>
@@ -355,10 +382,12 @@ export const RequestsList: React.FC = () => {
         spacing={4}
       >
         <Heading size="md" color="slate.100">
-          {activeFilter === 'all' ? 'All Requests' : `${activeLabel} Requests`}
+          {activeFilter === 'all'
+            ? t('requestsList.headings.all')
+            : t('requestsList.headings.filtered', { label: activeLabel })}
         </Heading>
         <Text color="text.subtle" fontSize="sm">
-          {filteredRequests.length} {filteredRequests.length === 1 ? 'request' : 'requests'}
+          {t('requestsList.resultsCount', { count: filteredRequests.length })}
         </Text>
       </Stack>
 
@@ -372,9 +401,9 @@ export const RequestsList: React.FC = () => {
           borderColor="border.muted"
         >
           <Text fontSize="4xl">📺</Text>
-          <Heading size="md">No requests found</Heading>
+          <Heading size="md">{t('requestsList.empty.title')}</Heading>
           <Text color="text.subtle" fontSize="sm" textAlign="center">
-            No media requests have been created yet.
+            {t('requestsList.empty.description')}
           </Text>
         </VStack>
       ) : filteredRequests.length === 0 ? (
@@ -387,9 +416,9 @@ export const RequestsList: React.FC = () => {
           borderColor="border.muted"
         >
           <Text fontSize="4xl">🧭</Text>
-          <Heading size="md">No matching requests</Heading>
+          <Heading size="md">{t('requestsList.emptyFiltered.title')}</Heading>
           <Text color="text.subtle" fontSize="sm" textAlign="center">
-            Try adjusting your filters or search query to find more results.
+            {t('requestsList.emptyFiltered.description')}
           </Text>
         </VStack>
       ) : (

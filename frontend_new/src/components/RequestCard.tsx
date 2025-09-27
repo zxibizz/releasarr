@@ -13,7 +13,8 @@ import {
   Tag,
   Text,
 } from '@chakra-ui/react';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { getRequestStatusPresentation } from '@/features/status/statusPresenters';
@@ -27,6 +28,15 @@ interface RequestCardProps {
 export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
   const isMovie = request.type === 'movie';
   const statusPresentation = getRequestStatusPresentation(request.status);
+  const { t } = useTranslation();
+
+  const statusLabel = useMemo(
+    () =>
+      t(`status.${statusPresentation.value}`, {
+        defaultValue: statusPresentation.label,
+      }),
+    [statusPresentation.label, statusPresentation.value, t],
+  );
 
   return (
     <Card
@@ -55,7 +65,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
             <AspectRatio ratio={2 / 3} w="100%">
               <Image
                 src={request.poster_url}
-                alt={`${request.title} poster`}
+                alt={t('requestCard.posterAlt', { title: request.title })}
                 objectFit="cover"
                 fallbackSrc="/logo192.png"
                 display="block"
@@ -83,7 +93,8 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 </Heading>
                 <Text fontSize="sm" color="text.subtle">
                   {request.year}
-                  {!isMovie && ` • Season ${request.season_number}`}
+                  {!isMovie &&
+                    ` • ${t('requestCard.season', { season: request.season_number })}`}
                   {isMovie && ` • ${formatRuntime(request.runtime)}`}
                 </Text>
               </Stack>
@@ -104,7 +115,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 <Text as="span" fontSize="md" lineHeight={1}>
                   {statusPresentation.icon}
                 </Text>
-                {statusPresentation.label}
+                {statusLabel}
               </Badge>
             </Flex>
 
@@ -123,7 +134,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 <Text as="span" mr={1}>
                   {isMovie ? '🎬' : '📺'}
                 </Text>
-                {request.type}
+                {t(`mediaType.${request.type}`)}
               </Tag>
 
               {request.genres.slice(0, 2).map((genre: string) => (
@@ -160,7 +171,9 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
 
             {!isMovie && (
               <Text fontSize="xs" color="text.muted">
-                <Text as="span">{request.total_episodes} episodes</Text>
+                <Text as="span">
+                  {t('requestCard.episodes', { count: request.total_episodes })}
+                </Text>
                 <Text as="span" mx={2}>
                   •
                 </Text>
@@ -171,8 +184,8 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
             )}
 
             <Flex mt="auto" justify="space-between" align="center" fontSize="xs" color="text.muted">
-              <Text>Created {formatDate(request.created_at)}</Text>
-              <Text textTransform="capitalize">{request.type}</Text>
+              <Text>{t('requestCard.createdAt', { date: formatDate(request.created_at) })}</Text>
+              <Text>{t(`mediaType.${request.type}`)}</Text>
             </Flex>
           </Stack>
         </Flex>

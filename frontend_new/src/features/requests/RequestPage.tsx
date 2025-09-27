@@ -20,8 +20,10 @@ import React, {
   useRef,
   type SetStateAction,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 
+import { releasesKeys } from '@/features/releases/queryKeys';
 import { RequestActions, type RequestActionItem } from '@/features/requests/components/RequestActions';
 import { RequestHeader } from '@/features/requests/components/RequestHeader';
 import { RequestLogsModal } from '@/features/requests/components/RequestLogsModal';
@@ -30,7 +32,6 @@ import { RequestReleasesSection } from '@/features/requests/components/RequestRe
 import ReleaseFilesModal from '@/features/requests/ReleaseFilesModal';
 import { useRequestLogs } from '@/features/requests/useRequestLogs';
 import { useRequestQuery } from '@/hooks/useRequests';
-import { releasesKeys } from '@/features/releases/queryKeys';
 import type { Release } from '@/types';
 import { getApiErrorInfo } from '@/utils/errors';
 
@@ -130,6 +131,7 @@ function requestPageReducer(state: RequestPageState, action: RequestPageAction):
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const {
     data: request,
@@ -173,15 +175,15 @@ export const RequestPage: React.FC = () => {
   const showLoadingState = (isLoading || isFetching) && !request;
   const requestErrorInfo = requestError
     ? getApiErrorInfo(requestError, {
-        title: 'Unable to load this request',
-        description: 'We could not retrieve the latest data for this request.',
+        title: t('requestPage.errors.loadRequestTitle'),
+        description: t('requestPage.errors.loadRequestDescription'),
       })
     : null;
 
   const logsErrorInfo = logsError
     ? getApiErrorInfo(logsError, {
-        title: 'Unable to load logs',
-        description: 'We could not retrieve activity logs for this request.',
+        title: t('requestPage.errors.loadLogsTitle'),
+        description: t('requestPage.errors.loadLogsDescription'),
       })
     : null;
 
@@ -250,8 +252,8 @@ export const RequestPage: React.FC = () => {
   const handleManualSearch = useCallback(() => {
     if (!request || !request.title) {
       toast({
-        title: 'Manual search unavailable',
-        description: 'Missing request details; cannot build search query.',
+        title: t('requestPage.manualSearch.unavailableTitle'),
+        description: t('requestPage.manualSearch.missingDetails'),
         status: 'warning',
         duration: 4000,
         isClosable: true,
@@ -276,8 +278,8 @@ export const RequestPage: React.FC = () => {
     const normalizedQuery = request.title.trim();
     if (!normalizedQuery) {
       toast({
-        title: 'Manual search unavailable',
-        description: 'Request title is empty; please update the request first.',
+        title: t('requestPage.manualSearch.unavailableTitle'),
+        description: t('requestPage.manualSearch.emptyDescription'),
         status: 'warning',
         duration: 4000,
         isClosable: true,
@@ -293,6 +295,7 @@ export const RequestPage: React.FC = () => {
     manualSearchTriggered,
     request,
     toast,
+    t,
   ]);
 
   const handleRefreshStatus = useCallback(async () => {
@@ -304,8 +307,8 @@ export const RequestPage: React.FC = () => {
 
     const loadingToastId = toast({
       id: `refresh-request-${id}`,
-      title: 'Refreshing status',
-      description: 'Checking for the latest updates...',
+      title: t('requestPage.toasts.refreshPendingTitle'),
+      description: t('requestPage.toasts.refreshPendingDescription'),
       status: 'info',
       duration: null,
       isClosable: false,
@@ -317,16 +320,17 @@ export const RequestPage: React.FC = () => {
       await invalidateReleases();
 
       updateRefreshToast({
-        title: 'Status refreshed',
-        description: 'Request details and releases are up to date.',
+        title: t('requestPage.toasts.refreshSuccessTitle'),
+        description: t('requestPage.toasts.refreshSuccessDescription'),
         status: 'success',
         duration: 2500,
         isClosable: true,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to refresh request';
+      const message =
+        err instanceof Error ? err.message : t('requestPage.toasts.refreshErrorFallback');
       updateRefreshToast({
-        title: 'Refresh failed',
+        title: t('requestPage.toasts.refreshErrorTitle'),
         description: message,
         status: 'error',
         duration: 4000,
@@ -344,6 +348,7 @@ export const RequestPage: React.FC = () => {
     refetchRequest,
     toast,
     updateRefreshToast,
+    t,
   ]);
 
   const handleViewLogs = useCallback(() => {
@@ -374,28 +379,28 @@ export const RequestPage: React.FC = () => {
   const actionCards: RequestActionItem[] = useMemo(
     () => [
       {
-        title: 'Refresh Status',
-        description: 'Check for updates on this request',
+        title: t('requestPage.actions.refresh.title'),
+        description: t('requestPage.actions.refresh.description'),
         icon: '🔄',
         onClick: handleRefreshStatus,
         isLoading: isRefreshing,
         isDisabled: isRefreshing,
-        loadingText: 'Refreshing...',
+        loadingText: t('requestPage.actions.refresh.loadingText'),
       },
       {
-        title: 'Manual Search',
-        description: 'Trigger a manual search for releases',
+        title: t('requestPage.actions.manualSearch.title'),
+        description: t('requestPage.actions.manualSearch.description'),
         icon: '🔍',
         onClick: handleManualSearch,
       },
       {
-        title: 'View Logs',
-        description: 'Check processing logs for this request',
+        title: t('requestPage.actions.logs.title'),
+        description: t('requestPage.actions.logs.description'),
         icon: '📋',
         onClick: handleViewLogs,
       },
     ],
-    [handleManualSearch, handleRefreshStatus, handleViewLogs, isRefreshing],
+    [handleManualSearch, handleRefreshStatus, handleViewLogs, isRefreshing, t],
   );
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
@@ -465,14 +470,14 @@ export const RequestPage: React.FC = () => {
         <Stack spacing={4} align="center">
           <Text fontSize="3xl">❌</Text>
           <Text as="h2" fontSize="lg" fontWeight="600">
-            Request not found
+            {t('requestPage.errors.notFoundTitle')}
           </Text>
           <Text color="text.subtle" textAlign="center">
             {(requestErrorInfo && requestErrorInfo.description) ||
-              'The requested media could not be found.'}
+              t('requestPage.errors.notFoundDescription')}
           </Text>
           <Button as={RouterLink} to="/" colorScheme="blue">
-            ← Back to Requests
+            {t('common.backToRequests')}
           </Button>
         </Stack>
       </Card>
