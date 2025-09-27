@@ -2,6 +2,9 @@ import { makeApi, Zodios, type ZodiosOptions } from '@zodios/core';
 import { z } from 'zod';
 
 const MediaRequestStatus = z.enum(['pending', 'searching', 'downloading', 'completed', 'failed']);
+const MediaLocalization = z
+  .object({ title: z.string().nullable(), overview: z.string().nullable() })
+  .partial();
 const BaseMediaRequest = z
   .object({
     id: z.string(),
@@ -13,6 +16,7 @@ const BaseMediaRequest = z
     status: MediaRequestStatus,
     created_at: z.string().datetime({ offset: true }),
     updated_at: z.string().datetime({ offset: true }),
+    localizations: z.record(MediaLocalization).optional(),
   })
   .passthrough();
 const MovieRequest = BaseMediaRequest.merge(
@@ -29,6 +33,7 @@ const SeriesRequest = BaseMediaRequest.merge(
       series_title: z.string(),
       series_year: z.number().int(),
       imdb_id: z.string(),
+      sonarr_series_id: z.number().int().nullish(),
     })
     .passthrough(),
 );
@@ -60,6 +65,7 @@ const CreateMovieRequest = z
     overview: z.string().optional(),
     poster_url: z.string().optional(),
     genres: z.array(z.string()).optional(),
+    localizations: z.record(MediaLocalization).optional(),
   })
   .passthrough();
 const CreateSeriesRequest = z
@@ -75,6 +81,7 @@ const CreateSeriesRequest = z
     overview: z.string().optional(),
     poster_url: z.string().optional(),
     genres: z.array(z.string()).optional(),
+    localizations: z.record(MediaLocalization).optional(),
   })
   .passthrough();
 const MediaRequestCreate = z.discriminatedUnion('type', [CreateMovieRequest, CreateSeriesRequest]);
@@ -92,6 +99,7 @@ const MediaRequestUpdate = z
     total_episodes: z.number().int().nullable(),
     series_title: z.string().nullable(),
     series_year: z.number().int().nullable(),
+    localizations: z.record(MediaLocalization).nullable(),
   })
   .partial()
   .passthrough();
@@ -224,6 +232,7 @@ const MediaType = z.enum(['movie', 'series']);
 
 export const schemas = {
   MediaRequestStatus,
+  MediaLocalization,
   BaseMediaRequest,
   MovieRequest,
   SeriesRequest,

@@ -259,6 +259,11 @@ export interface components {
             /** @description Optional diagnostic stack trace for error logs. */
             stackTrace?: string;
         };
+        /** @description Title and overview translated to a specific language. */
+        MediaLocalization: {
+            title?: string | null;
+            overview?: string | null;
+        };
         BaseMediaRequest: {
             id: string;
             title: string;
@@ -272,6 +277,10 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @description Localized titles and overviews keyed by 3-letter language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
         };
         MovieRequest: components["schemas"]["BaseMediaRequest"] & {
             /** @enum {string} */
@@ -295,6 +304,8 @@ export interface components {
             series_title: string;
             series_year: number;
             imdb_id: string;
+            /** @description Identifier of the linked Sonarr series when the request was auto-synchronised. */
+            sonarr_series_id?: number | null;
         } & {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -316,6 +327,10 @@ export interface components {
             overview?: string;
             poster_url?: string;
             genres?: string[];
+            /** @description Optional localized titles and overviews keyed by language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
         };
         CreateSeriesRequest: {
             /**
@@ -333,6 +348,10 @@ export interface components {
             overview?: string;
             poster_url?: string;
             genres?: string[];
+            /** @description Optional localized titles and overviews keyed by language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
         };
         MediaRequestCreate: components["schemas"]["CreateMovieRequest"] | components["schemas"]["CreateSeriesRequest"];
         MediaRequestUpdate: {
@@ -348,6 +367,10 @@ export interface components {
             total_episodes?: number | null;
             series_title?: string | null;
             series_year?: number | null;
+            /** @description Replace or clear localized metadata when provided. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            } | null;
         };
         Release: {
             id: string;

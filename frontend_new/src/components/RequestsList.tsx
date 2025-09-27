@@ -9,6 +9,8 @@ import {
   Button,
   Divider,
   Flex,
+  FormControl,
+  FormLabel,
   Heading,
   HStack,
   Icon,
@@ -102,6 +104,60 @@ export const RequestsList: React.FC = () => {
 
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
 
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+
+  const availableLanguages = useMemo(() => {
+    const languages = new Set<string>();
+    requests.forEach((request) => {
+      Object.keys(request.localizations ?? {}).forEach((language) => {
+        if (language) {
+          languages.add(language);
+        }
+      });
+    });
+    return Array.from(languages).sort();
+  }, [requests]);
+
+  useEffect(() => {
+    if (availableLanguages.length === 0) {
+      setSelectedLanguage(null);
+      return;
+    }
+
+    setSelectedLanguage((prev) => {
+      if (prev && availableLanguages.includes(prev)) {
+        return prev;
+      }
+
+      if (availableLanguages.includes('rus')) {
+        return 'rus';
+      }
+      if (availableLanguages.includes('eng')) {
+        return 'eng';
+      }
+
+      return availableLanguages[0];
+    });
+  }, [availableLanguages]);
+
+  const localizedRequests = useMemo(() => {
+    if (!selectedLanguage) {
+      return requests;
+    }
+
+    return requests.map((request) => {
+      const localization = request.localizations?.[selectedLanguage];
+      if (!localization) {
+        return request;
+      }
+      return {
+        ...request,
+        title: localization.title ?? request.title,
+        overview: localization.overview ?? request.overview,
+      };
+    });
+  }, [requests, selectedLanguage]);
+
   const filterButtons = useMemo(
     () => FILTER_CONFIGS.map((config) => ({ ...config, label: t(config.labelKey) })),
     [t],
@@ -151,7 +207,7 @@ export const RequestsList: React.FC = () => {
   const normalizedSearch = normalizeText(searchValue);
 
   const filteredRequests = useMemo(() => {
-    let working = [...requests];
+    let working = [...localizedRequests];
 
     if (activeFilter === 'movies') {
       working = working.filter((request) => request.type === 'movie');
@@ -188,7 +244,7 @@ export const RequestsList: React.FC = () => {
     };
 
     return working.sort(sorters[activeSort]);
-  }, [activeFilter, activeSort, normalizedSearch, requests]);
+  }, [activeFilter, activeSort, localizedRequests, normalizedSearch]);
 
   const stats = useMemo(() => {
     return requests.reduce(
@@ -314,6 +370,32 @@ export const RequestsList: React.FC = () => {
               _focus={{ bg: 'bg.muted' }}
             />
           </InputGroup>
+
+          {availableLanguages.length > 0 && (
+            <FormControl maxW={{ base: 'full', md: '220px' }}>
+              <FormLabel fontSize="sm" color="text.subtle" mb={1}>
+                {t('localization.selectorLabel')}
+              </FormLabel>
+              <Select
+                size="sm"
+                value={selectedLanguage ?? 'default'}
+                onChange={(event) =>
+                  setSelectedLanguage(event.target.value === 'default' ? null : event.target.value)
+                }
+                aria-label={t('localization.selectorLabel')}
+                bg="bg.surface"
+              >
+                <option value="default">{t('localization.defaultOption')}</option>
+                {availableLanguages.map((languageCode) => (
+                  <option key={languageCode} value={languageCode}>
+                    {t(`localization.languageNames.${languageCode}`, {
+                      defaultValue: languageCode.toUpperCase(),
+                    })}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <Select
             value={activeSort}
