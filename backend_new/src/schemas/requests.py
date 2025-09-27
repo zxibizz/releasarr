@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_serializer
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
@@ -22,6 +22,12 @@ class BaseMediaRequest(APIModel):
     status: MediaRequestStatus
     created_at: datetime
     updated_at: datetime
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_datetime(self, value: datetime) -> str:
+        if value.tzinfo is None:  # default to UTC when the database returns naive values
+            value = value.replace(tzinfo=UTC)
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class MovieRequest(BaseMediaRequest):
