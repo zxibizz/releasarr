@@ -747,6 +747,17 @@ components:
         stackTrace:
           type: string
           description: Optional diagnostic stack trace for error logs.
+    MediaLocalization:
+      type: object
+      description: Title and overview translated to a specific language.
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          nullable: true
+        overview:
+          type: string
+          nullable: true
     BaseMediaRequest:
       type: object
       required:
@@ -783,6 +794,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        localizations:
+          type: object
+          description: Localized titles and overviews keyed by 3-letter language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
     MovieRequest:
       allOf:
         - $ref: '#/components/schemas/BaseMediaRequest'
@@ -859,6 +875,11 @@ components:
           type: array
           items:
             type: string
+        localizations:
+          type: object
+          description: Optional localized titles and overviews keyed by language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
     CreateSeriesRequest:
       type: object
       required:
@@ -896,6 +917,11 @@ components:
           type: array
           items:
             type: string
+        localizations:
+          type: object
+          description: Optional localized titles and overviews keyed by language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
     MediaRequestCreate:
       oneOf:
         - $ref: '#/components/schemas/CreateMovieRequest'
@@ -945,6 +971,12 @@ components:
         series_year:
           type: integer
           nullable: true
+        localizations:
+          type: object
+          nullable: true
+          description: Replace or clear localized metadata when provided.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
     Release:
       type: object
       required:

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from src.api.dependencies import require_api_key
 from src.api.errors import api_error
 from src.api.responses import error_response
+from src.application.interfaces.media_requests import MediaLocalization as MediaLocalizationData
 from src.application.use_cases.requests import (
     CreateMediaRequestUseCase,
     CreateMovieRequestCommand,
@@ -29,6 +30,7 @@ from src.application.use_cases.requests import (
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaRequestStatus, MediaType
 from src.schemas.requests import (
+    MediaLocalization as MediaLocalizationSchema,
     MediaRequest,
     MediaRequestCreate,
     MediaRequestUpdate,
@@ -121,6 +123,7 @@ RequestIdParam = Annotated[str, Path(..., alias="requestId")]
 
 
 def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
+    localizations = _localizations_to_schema(dto.localizations)
     if isinstance(dto, MovieRequestDTO):
         return MovieRequest(
             id=dto.id,
@@ -135,6 +138,7 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
             type=dto.type.value,
             runtime=dto.runtime,
             imdb_id=dto.imdb_id,
+            localizations=localizations,
         )
     if isinstance(dto, SeriesRequestDTO):
         return SeriesRequest(
@@ -154,6 +158,7 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
             series_year=dto.series_year,
             imdb_id=dto.imdb_id,
             sonarr_series_id=dto.sonarr_series_id,
+            localizations=localizations,
         )
     raise TypeError("Unsupported DTO type")
 
@@ -267,6 +272,7 @@ def _build_create_command(
     payload: MediaRequestCreate,
 ) -> CreateMovieRequestCommand | CreateSeriesRequestCommand:
     if payload.type == MediaType.MOVIE.value:
+        localizations = _schema_to_localizations(payload.localizations)
         return CreateMovieRequestCommand(
             title=payload.title,
             year=payload.year,
@@ -275,8 +281,10 @@ def _build_create_command(
             overview=payload.overview,
             poster_url=payload.poster_url,
             genres=payload.genres,
+            localizations=localizations or None,
         )
     if payload.type == MediaType.SERIES.value:
+        localizations = _schema_to_localizations(payload.localizations)
         return CreateSeriesRequestCommand(
             title=payload.title,
             year=payload.year,
@@ -288,6 +296,7 @@ def _build_create_command(
             overview=payload.overview,
             poster_url=payload.poster_url,
             genres=payload.genres,
+            localizations=localizations or None,
         )
     msg = f"Unsupported media type '{payload.type}'"
     raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_media_type", msg)
@@ -299,8 +308,38 @@ def _build_update_command(payload: MediaRequestUpdate) -> UpdateMediaRequestComm
         value = getattr(payload, field_name)
         if field_name == "status" and value is not None:
             value = MediaRequestStatus(value)
+        if field_name == "localizations":
+            value = _schema_to_localizations(value)
         setattr(command, field_name, value)
     return command
+
+
+def _schema_to_localizations(
+    localizations: dict[str, MediaLocalizationSchema] | None,
+) -> dict[str, MediaLocalizationData]:
+    if not localizations:
+        return {}
+    return {
+        language.lower(): MediaLocalizationData(
+            title=value.title,
+            overview=value.overview,
+        )
+        for language, value in localizations.items()
+    }
+
+
+def _localizations_to_schema(
+    localizations: dict[str, MediaLocalizationData],
+) -> dict[str, MediaLocalizationSchema]:
+    if not localizations:
+        return {}
+    return {
+        language: MediaLocalizationSchema(
+            title=value.title,
+            overview=value.overview,
+        )
+        for language, value in localizations.items()
+    }
 
 
 __all__ = ["router"]

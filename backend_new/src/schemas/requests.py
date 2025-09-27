@@ -12,6 +12,11 @@ from src.schemas.common import PaginatedResponse
 from src.schemas.enums import MediaRequestStatus, MediaType
 
 
+class MediaLocalization(APIModel):
+    title: str | None = None
+    overview: str | None = None
+
+
 class BaseMediaRequest(APIModel):
     id: str
     title: str
@@ -22,6 +27,7 @@ class BaseMediaRequest(APIModel):
     status: MediaRequestStatus
     created_at: datetime
     updated_at: datetime
+    localizations: dict[str, MediaLocalization] = Field(default_factory=dict)
 
     @field_serializer("created_at", "updated_at")
     def _serialize_datetime(self, value: datetime) -> str:
@@ -58,6 +64,7 @@ class CreateMovieRequest(APIModel):
     overview: str | None = None
     poster_url: str | None = None
     genres: list[str] | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 class CreateSeriesRequest(APIModel):
@@ -72,6 +79,7 @@ class CreateSeriesRequest(APIModel):
     overview: str | None = None
     poster_url: str | None = None
     genres: list[str] | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 MediaRequestCreate = Annotated[
@@ -93,6 +101,7 @@ class MediaRequestUpdate(APIModel):
     total_episodes: int | None = None
     series_title: str | None = None
     series_year: int | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 class RequestsResponse(PaginatedResponse):
@@ -103,6 +112,7 @@ __all__ = [
     "BaseMediaRequest",
     "CreateMovieRequest",
     "CreateSeriesRequest",
+    "MediaLocalization",
     "MediaRequest",
     "MediaRequestCreate",
     "MediaRequestUpdate",

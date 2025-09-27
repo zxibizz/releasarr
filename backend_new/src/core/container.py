@@ -45,6 +45,7 @@ from src.infrastructure.releases import (
     SqlAlchemyReleaseRepository,
 )
 from src.infrastructure.sonarr import SonarrHttpClient
+from src.infrastructure.tvdb import TvdbHttpClient
 from src.settings.config import AppSettings, get_settings
 
 
@@ -83,6 +84,16 @@ class ServiceContainer:
         return SonarrHttpClient(
             base_url=settings.sonarr_url,
             api_key=settings.sonarr_api_key,
+        )
+
+    @cached_property
+    def tvdb(self) -> TvdbHttpClient | None:
+        settings = self._container.settings
+        if not settings.tvdb_api_key:
+            return None
+        return TvdbHttpClient(
+            base_url=settings.tvdb_base_url,
+            api_token=settings.tvdb_api_key,
         )
 
 
@@ -159,6 +170,8 @@ class MediaRequestUseCases:
         return SyncSonarrMediaRequestsUseCase(
             repository=self._container.repositories.media_requests,
             sonarr_service=self._container.services.sonarr,
+            tvdb_service=self._container.services.tvdb,
+            metadata_languages=self._container.settings.metadata_languages,
         )
 
 

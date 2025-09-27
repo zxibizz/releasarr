@@ -15,6 +15,7 @@ from src.application.interfaces.media_requests import (
     UpdateMediaRequestData,
 )
 from src.application.interfaces.sonarr import MissingSeriesRecord, SeriesDetails, SeriesSeasonDetails
+from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbTranslation, TvdbService
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.domain.enums import MediaRequestStatus, MediaType
 
@@ -48,6 +49,7 @@ class FakeMediaRequestRepository(MediaRequestRepository):  # type: ignore[misc]
             sonarr_series_id=data.sonarr_series_id,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
+            localizations=data.localizations,
         )
         self.records[record.id] = record
         return record
@@ -159,6 +161,7 @@ def make_existing_records() -> dict[str, MediaRequestRecord]:
             sonarr_series_id=10,
             created_at=now,
             updated_at=now,
+            localizations={},
         ),
         "req-2": MediaRequestRecord(
             id="req-2",
@@ -178,8 +181,30 @@ def make_existing_records() -> dict[str, MediaRequestRecord]:
             sonarr_series_id=10,
             created_at=now,
             updated_at=now,
+            localizations={},
         ),
     }
+
+
+class FakeTvdbService(TvdbService):
+    def __init__(self, metadata: dict[int, TvdbSeriesMetadata]) -> None:
+        self._metadata = metadata
+        self.calls: list[tuple[int, tuple[str, ...]]] = []
+
+    async def get_series(
+        self,
+        tvdb_id: int,
+        languages: tuple[str, ...] | list[str] | None = None,
+    ) -> TvdbSeriesMetadata:
+        langs: tuple[str, ...]
+        if languages is None:
+            langs = ()
+        elif isinstance(languages, tuple):
+            langs = languages
+        else:
+            langs = tuple(languages)
+        self.calls.append((tvdb_id, langs))
+        return self._metadata[tvdb_id]
 
 
 @pytest.mark.asyncio
@@ -187,8 +212,26 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     repository = FakeMediaRequestRepository(records=make_existing_records())
     missing = [MissingSeriesRecord(series_id=10, title="Example Show", season_numbers=[1, 3], tvdb_id=555, imdb_id="tt1234567")]
     sonarr = FakeSonarrService(missing=missing, catalogue={10: make_series_details()})
+    tvdb_metadata = TvdbSeriesMetadata(
+        tvdb_id=555,
+        name="Example Show",
+        overview="Default TVDB overview",
+        image_url="http://tvdb/poster",
+        year=2020,
+        genres=["Drama"],
+        translations={
+            "eng": TvdbTranslation(language="eng", title="Example Show", overview="English overview"),
+            "rus": TvdbTranslation(language="rus", title="Пример шоу", overview="Русское описание"),
+        },
+    )
+    tvdb = FakeTvdbService(metadata={555: tvdb_metadata})
 
-    use_case = SyncSonarrMediaRequestsUseCase(repository=repository, sonarr_service=sonarr)
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=tvdb,
+        metadata_languages=("rus", "eng"),
+    )
     result = await use_case.execute()
 
     assert result.created == 1
@@ -199,9 +242,13 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
     assert season_one is not None
     assert season_one.status == MediaRequestStatus.PENDING
-    assert season_one.title == "Example Show - Season 1"
+    assert season_one.title == "Пример шоу - Season 1"
     assert season_one.total_episodes == 10
     assert season_one.imdb_id == "tt1234567"
+    assert season_one.poster_url == "http://poster"
+    assert "rus" in season_one.localizations
+    assert season_one.localizations["rus"].title == "Пример шоу"
+    assert season_one.localizations["eng"].title == "Example Show"
 
     # Season 2 should now be marked as completed
     season_two = await repository.find_by_sonarr(sonarr_series_id=10, season_number=2)
@@ -212,6 +259,12 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     season_three = await repository.find_by_sonarr(sonarr_series_id=10, season_number=3)
     assert season_three is not None
     assert season_three.status == MediaRequestStatus.PENDING
-    assert season_three.title == "Example Show - Season 3"
+    assert season_three.title == "Пример шоу - Season 3"
     assert season_three.series_title == "Example Show"
     assert season_three.series_year == 2020
+    assert season_three.poster_url == "http://poster"
+    assert season_three.localizations["eng"].overview == "English overview"
+    assert season_three.localizations["rus"].overview == "Русское описание"
+
+    # TVDB client should be invoked once per series
+    assert tvdb.calls == [(555, ("rus", "eng"))]

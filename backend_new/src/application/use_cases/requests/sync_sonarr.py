@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -9,11 +10,13 @@ from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
+    MediaLocalization,
     MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
 from src.application.interfaces.sonarr import MissingSeriesRecord, SeriesDetails, SonarrService
+from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
 
@@ -35,16 +38,22 @@ class SyncSonarrMediaRequestsUseCase:
         *,
         repository: MediaRequestRepository,
         sonarr_service: SonarrService,
+        tvdb_service: TvdbService | None,
+        metadata_languages: Sequence[str] | None = None,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._sonarr = sonarr_service
+        self._tvdb = tvdb_service
+        self._metadata_languages = tuple(language.lower() for language in metadata_languages or ())
         self._logger = logger or get_logger(component="sync_sonarr_requests")
+        self._metadata_cache: dict[int, TvdbSeriesMetadata | None] = {}
 
     async def execute(self) -> SyncSonarrResult:
         """Populate media requests for missing Sonarr seasons."""
 
         result = SyncSonarrResult()
+        self._metadata_cache.clear()
         missing_series = await self._sonarr.get_missing_series()
         missing_keys = {
             (item.series_id, season_number)
@@ -80,15 +89,22 @@ class SyncSonarrMediaRequestsUseCase:
             season_number=season_number,
         )
 
+        metadata = await self._load_tvdb_metadata(details)
+        localizations = self._build_localizations(metadata, details)
+
         season_info = details.seasons.get(season_number)
         total_episodes = season_info.total_episode_count if season_info else 0
-        title = self._build_request_title(details.title, season_number)
+        localized_series_title = self._select_localized_value(
+            localizations, "title", details.title
+        )
+        title = self._build_request_title(localized_series_title, season_number)
         year = details.year or 0
         series_year = details.year or year
         genres = list(details.genres)
         imdb_id = details.imdb_id
-        overview = details.overview
-        poster_url = details.poster_url
+        overview_value = self._select_localized_value(localizations, "overview", details.overview)
+        overview = overview_value or None
+        poster_url = details.poster_url or (metadata.image_url if metadata else None)
 
         if existing is None:
             data = CreateMediaRequestData(
@@ -107,6 +123,7 @@ class SyncSonarrMediaRequestsUseCase:
                 series_year=series_year,
                 status=MediaRequestStatus.PENDING,
                 sonarr_series_id=details.id,
+                localizations=localizations,
             )
             await self._repository.create_request(data)
             self._logger.debug(
@@ -130,6 +147,7 @@ class SyncSonarrMediaRequestsUseCase:
             series_title=details.title,
             series_year=series_year,
             sonarr_series_id=details.id,
+            localizations=localizations,
         )
         await self._repository.update_request(existing.id, update)
         self._logger.debug(
@@ -171,6 +189,98 @@ class SyncSonarrMediaRequestsUseCase:
         if season_number <= 0:
             return f"{series_title} - Specials"
         return f"{series_title} - Season {season_number}"
+
+    async def _load_tvdb_metadata(self, details: SeriesDetails) -> TvdbSeriesMetadata | None:
+        if self._tvdb is None or not details.tvdb_id:
+            return None
+        cached = self._metadata_cache.get(details.tvdb_id)
+        if cached is not None or details.tvdb_id in self._metadata_cache:
+            return cached
+        try:
+            metadata = await self._tvdb.get_series(details.tvdb_id, self._metadata_languages)
+        except Exception as exc:  # pragma: no cover - defensive against HTTP failures
+            self._logger.warning(
+                "Failed to fetch TVDB metadata",
+                error=str(exc),
+                sonarr_series_id=details.id,
+                tvdb_id=details.tvdb_id,
+            )
+            self._metadata_cache[details.tvdb_id] = None
+            return None
+        self._metadata_cache[details.tvdb_id] = metadata
+        return metadata
+
+    def _build_localizations(
+        self,
+        metadata: TvdbSeriesMetadata | None,
+        details: SeriesDetails,
+    ) -> dict[str, MediaLocalization]:
+        localizations: dict[str, MediaLocalization] = {}
+        if metadata is not None:
+            for language, translation in metadata.translations.items():
+                localizations[language] = MediaLocalization(
+                    title=translation.title,
+                    overview=translation.overview,
+                )
+        self._merge_default_localization(localizations, details)
+        return localizations
+
+    def _merge_default_localization(
+        self,
+        localizations: dict[str, MediaLocalization],
+        details: SeriesDetails,
+    ) -> None:
+        english_key = "eng"
+        localization = localizations.get(english_key)
+        if localization is None:
+            localizations[english_key] = MediaLocalization(
+                title=details.title,
+                overview=details.overview,
+            )
+            return
+        if not localization.title:
+            localization.title = details.title
+        if not localization.overview:
+            localization.overview = details.overview
+
+    def _select_localized_value(
+        self,
+        localizations: dict[str, MediaLocalization],
+        attribute: str,
+        fallback: str | None,
+    ) -> str:
+        preferred = self._pick_preferred_localization(localizations, attribute)
+        if preferred:
+            return preferred
+        any_value = self._pick_any_localization(localizations, attribute)
+        if any_value:
+            return any_value
+        return fallback or ""
+
+    def _pick_preferred_localization(
+        self,
+        localizations: dict[str, MediaLocalization],
+        attribute: str,
+    ) -> str | None:
+        for language in self._metadata_languages:
+            localization = localizations.get(language)
+            if not localization:
+                continue
+            value = getattr(localization, attribute, None)
+            if value:
+                return value
+        return None
+
+    def _pick_any_localization(
+        self,
+        localizations: dict[str, MediaLocalization],
+        attribute: str,
+    ) -> str | None:
+        for localization in localizations.values():
+            value = getattr(localization, attribute, None)
+            if value:
+                return value
+        return None
 
 
 __all__ = ["SyncSonarrMediaRequestsUseCase", "SyncSonarrResult"]

@@ -30,6 +30,10 @@ class AppSettings(BaseSettings):
     sonarr_url: str = Field(default="http://localhost:8989/api/v3")
     sonarr_api_key: str = Field(default="")
 
+    tvdb_base_url: str = Field(default="https://api4.thetvdb.com/v4")
+    tvdb_api_key: str = Field(default="")
+    metadata_languages: tuple[str, ...] = Field(default=("eng", "rus"))
+
     model_config = {
         "env_prefix": "RELEASARR_",
         "env_file": ".env",

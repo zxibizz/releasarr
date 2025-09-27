@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
 from src.domain.enums import MediaRequestStatus, MediaType
+
+
+@dataclass(slots=True)
+class MediaLocalization:
+    """Localized title/overview pair for a specific language."""
+
+    title: str | None = None
+    overview: str | None = None
 
 
 @dataclass(slots=True)
@@ -30,6 +38,7 @@ class MediaRequestRecord:
     created_at: datetime
     updated_at: datetime
     sonarr_series_id: int | None = None
+    localizations: dict[str, MediaLocalization] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -51,6 +60,7 @@ class CreateMediaRequestData:
     series_year: int | None
     status: MediaRequestStatus
     sonarr_series_id: int | None = None
+    localizations: dict[str, MediaLocalization] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -70,6 +80,7 @@ class UpdateMediaRequestData:
     series_title: str | None = None
     series_year: int | None = None
     sonarr_series_id: int | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 class MediaRequestRepository(Protocol):
@@ -115,6 +126,7 @@ class MediaRequestRepository(Protocol):
 
 __all__ = [
     "CreateMediaRequestData",
+    "MediaLocalization",
     "MediaRequestRecord",
     "MediaRequestRepository",
     "UpdateMediaRequestData",
