@@ -15,7 +15,7 @@ class AppSettings(BaseSettings):
     api_version: str = Field(default="0.1.0")
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)
-    api_key: str = Field(default="dev-secret")
+    api_key: str | None = Field(default=None)
 
     database_url: str = Field(default="sqlite+aiosqlite:///./releasarr.db")
 
@@ -26,6 +26,9 @@ class AppSettings(BaseSettings):
     default_page: int = Field(default=1)
     default_page_size: int = Field(default=20)
     max_page_size: int = Field(default=100)
+
+    sonarr_url: str = Field(default="http://localhost:8989/api/v3")
+    sonarr_api_key: str = Field(default="")
 
     model_config = {
         "env_prefix": "RELEASARR_",

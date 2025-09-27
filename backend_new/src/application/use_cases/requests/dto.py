@@ -36,6 +36,7 @@ class SeriesRequestDTO(BaseMediaRequestDTO):
     series_title: str = ""
     series_year: int = 0
     imdb_id: str = ""
+    sonarr_series_id: int | None = None
 
 
 MediaRequestDTO = MovieRequestDTO | SeriesRequestDTO

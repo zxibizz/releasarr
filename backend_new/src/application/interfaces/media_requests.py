@@ -29,6 +29,7 @@ class MediaRequestRecord:
     series_year: int | None
     created_at: datetime
     updated_at: datetime
+    sonarr_series_id: int | None = None
 
 
 @dataclass(slots=True)
@@ -49,6 +50,7 @@ class CreateMediaRequestData:
     series_title: str | None
     series_year: int | None
     status: MediaRequestStatus
+    sonarr_series_id: int | None = None
 
 
 @dataclass(slots=True)
@@ -67,6 +69,7 @@ class UpdateMediaRequestData:
     total_episodes: int | None = None
     series_title: str | None = None
     series_year: int | None = None
+    sonarr_series_id: int | None = None
 
 
 class MediaRequestRepository(Protocol):
@@ -97,6 +100,17 @@ class MediaRequestRepository(Protocol):
 
     async def delete_request(self, request_id: str) -> bool:
         """Remove a media request. Returns True if a row was deleted."""
+
+    async def find_by_sonarr(
+        self,
+        *,
+        sonarr_series_id: int,
+        season_number: int,
+    ) -> MediaRequestRecord | None:
+        """Look up a Sonarr-backed request by series and season."""
+
+    async def list_sonarr_requests(self) -> list[MediaRequestRecord]:
+        """Return all requests linked to Sonarr series identifiers."""
 
 
 __all__ = [

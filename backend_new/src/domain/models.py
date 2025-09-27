@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -76,6 +77,11 @@ class MediaRequest(Base):
             " OR media_type = 'series'",
             name="ck_media_requests_movie_series_fields",
         ),
+        UniqueConstraint(
+            "sonarr_series_id",
+            "season_number",
+            name="uq_media_requests_sonarr_series_season",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -100,6 +106,7 @@ class MediaRequest(Base):
     total_episodes: Mapped[int | None] = mapped_column(Integer)
     series_title: Mapped[str | None] = mapped_column(String(255))
     series_year: Mapped[int | None] = mapped_column(Integer)
+    sonarr_series_id: Mapped[int | None] = mapped_column(Integer, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

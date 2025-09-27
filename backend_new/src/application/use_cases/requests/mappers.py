@@ -41,6 +41,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
     series_title = record.series_title or record.title
     series_year = record.series_year or record.year
     imdb_id = record.imdb_id or ""
+    sonarr_series_id = record.sonarr_series_id
 
     return SeriesRequestDTO(
         season_number=season_number,
@@ -48,6 +49,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
         series_title=series_title,
         series_year=series_year,
         imdb_id=imdb_id,
+        sonarr_series_id=sonarr_series_id,
         **base_kwargs,
     )
 

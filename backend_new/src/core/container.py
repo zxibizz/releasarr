@@ -32,6 +32,7 @@ from src.application.use_cases.requests.create_request import CreateMediaRequest
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
+from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
 from src.core.logging import configure_logging
 from src.db.session import DBManager, get_db_manager
@@ -43,6 +44,7 @@ from src.infrastructure.releases import (
     InMemoryReleaseSearchService,
     SqlAlchemyReleaseRepository,
 )
+from src.infrastructure.sonarr import SonarrHttpClient
 from src.settings.config import AppSettings, get_settings
 
 
@@ -74,6 +76,14 @@ class ServiceContainer:
     @cached_property
     def release_download(self) -> InMemoryReleaseDownloadService:
         return InMemoryReleaseDownloadService()
+
+    @cached_property
+    def sonarr(self) -> SonarrHttpClient:
+        settings = self._container.settings
+        return SonarrHttpClient(
+            base_url=settings.sonarr_url,
+            api_key=settings.sonarr_api_key,
+        )
 
 
 @dataclass
@@ -143,6 +153,13 @@ class MediaRequestUseCases:
     @cached_property
     def delete(self) -> DeleteMediaRequestUseCase:
         return DeleteMediaRequestUseCase(repository=self._container.repositories.media_requests)
+
+    @cached_property
+    def sync_sonarr(self) -> SyncSonarrMediaRequestsUseCase:
+        return SyncSonarrMediaRequestsUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+        )
 
 
 @dataclass

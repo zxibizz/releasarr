@@ -53,6 +53,7 @@ class CreateMediaRequestUseCase:
             series_title=None,
             series_year=None,
             status=MediaRequestStatus.PENDING,
+            sonarr_series_id=None,
         )
 
     def _build_series_data(
@@ -76,6 +77,7 @@ class CreateMediaRequestUseCase:
             series_title=command.series_title,
             series_year=command.series_year,
             status=MediaRequestStatus.PENDING,
+            sonarr_series_id=None,
         )
 
     def _normalise_genres(self, genres: list[str] | None) -> list[str]:
