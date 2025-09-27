@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, Sequence
 
 
@@ -13,6 +13,7 @@ class TvdbTranslation:
     language: str
     title: str | None = None
     overview: str | None = None
+    season_overviews: dict[int, str | None] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

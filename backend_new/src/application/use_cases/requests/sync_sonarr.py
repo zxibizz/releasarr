@@ -90,13 +90,11 @@ class SyncSonarrMediaRequestsUseCase:
         )
 
         metadata = await self._load_tvdb_metadata(details)
-        localizations = self._build_localizations(metadata, details)
+        localizations = self._build_localizations(metadata, details, season_number)
 
         season_info = details.seasons.get(season_number)
         total_episodes = season_info.total_episode_count if season_info else 0
-        localized_series_title = self._select_localized_value(
-            localizations, "title", details.title
-        )
+        localized_series_title = self._select_localized_value(localizations, "title", details.title)
         title = self._build_request_title(localized_series_title, season_number)
         year = details.year or 0
         series_year = details.year or year
@@ -214,13 +212,15 @@ class SyncSonarrMediaRequestsUseCase:
         self,
         metadata: TvdbSeriesMetadata | None,
         details: SeriesDetails,
+        season_number: int,
     ) -> dict[str, MediaLocalization]:
         localizations: dict[str, MediaLocalization] = {}
         if metadata is not None:
             for language, translation in metadata.translations.items():
+                season_overview = translation.season_overviews.get(season_number)
                 localizations[language] = MediaLocalization(
                     title=translation.title,
-                    overview=translation.overview,
+                    overview=season_overview or translation.overview,
                 )
         self._merge_default_localization(localizations, details)
         return localizations
