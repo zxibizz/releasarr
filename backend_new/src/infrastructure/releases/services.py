@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+import tempfile
 
 from src.application.interfaces.releases import (
     QueuedDownload,
@@ -77,20 +79,45 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
 class InMemoryReleaseDownloadService(ReleaseDownloadService):
     """Download service queuing releases and tracking requested operations."""
 
-    queued: list[tuple[str, str]] = field(default_factory=list)
+    download_dir: Path = field(
+        default_factory=lambda: Path(tempfile.gettempdir()) / "releasarr-downloads"
+    )
+    downloads: list[tuple[str, str, Path]] = field(default_factory=list)
 
-    async def queue_download(self, request_id: str, release_id: str) -> QueuedDownload:
-        self.queued.append((request_id, release_id))
-        operation_id = f"queue:{request_id}:{release_id}"
-        location = f"/operations/{operation_id}"
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        try:
+            self.download_dir.mkdir(parents=True, exist_ok=True)
+            file_path = self.download_dir / f"{release_id}.torrent"
+            file_path.write_text(magnet_link, encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                f"Failed to download torrent for release '{release_id}': {exc}"
+            ) from exc
+
+        self.downloads.append((request_id, release_id, file_path))
+        operation_id = f"download:{request_id}:{release_id}"
+        details = {
+            "request_id": request_id,
+            "release_id": release_id,
+            "file_path": str(file_path),
+            "ingest_source": "magnet",
+        }
+        if torrent_bytes is not None:
+            details["torrent_bytes_len"] = len(torrent_bytes)
         return QueuedDownload(
             operation="queue_download",
-            status="accepted",
+            status="completed",
             operation_id=operation_id,
-            location=location,
+            location=None,
             message=None,
             resource_id=release_id,
-            details={"request_id": request_id, "release_id": release_id},
+            details=details,
         )
 
 

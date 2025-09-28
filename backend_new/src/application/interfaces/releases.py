@@ -169,8 +169,14 @@ class ReleaseSearchService(Protocol):
 class ReleaseDownloadService(Protocol):
     """Queue releases for download operations."""
 
-    async def queue_download(self, request_id: str, release_id: str) -> QueuedDownload:
-        """Queue a release download for the provided request identifier."""
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        """Download a release for the provided request identifier."""
 
 
 __all__ = [

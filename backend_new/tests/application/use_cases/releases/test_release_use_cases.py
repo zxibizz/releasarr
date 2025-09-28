@@ -30,6 +30,7 @@ from src.application.use_cases.releases.delete_release import DeleteReleaseUseCa
 from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
     ReleaseDownloadConflictError,
+    ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
@@ -172,17 +173,23 @@ class FakeDownloadService:
     def __init__(self, queued: QueuedDownload | None = None) -> None:
         self.queued = queued or QueuedDownload(
             operation="queue_download",
-            status="accepted",
+            status="completed",
             operation_id="op-1",
-            location="http://example.test/ops/op-1",
+            location=None,
             message=None,
             resource_id="rel-1",
             details={"request_id": "req-1"},
         )
-        self.calls: list[tuple[str, str]] = []
+        self.calls: list[tuple[str, str, str, bytes | None]] = []
 
-    async def queue_download(self, request_id: str, release_id: str) -> QueuedDownload:
-        self.calls.append((request_id, release_id))
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        self.calls.append((request_id, release_id, magnet_link, torrent_bytes))
         return QueuedDownload(
             operation=self.queued.operation,
             status=self.queued.status,
@@ -190,8 +197,24 @@ class FakeDownloadService:
             location=self.queued.location,
             message=self.queued.message,
             resource_id=release_id,
-            details={"request_id": request_id, "release_id": release_id},
+            details=self._build_details(request_id, release_id, magnet_link, torrent_bytes),
         )
+
+    def _build_details(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None,
+    ) -> dict[str, object]:
+        details: dict[str, object] = {
+            "request_id": request_id,
+            "release_id": release_id,
+            "magnet_link": magnet_link,
+        }
+        if torrent_bytes is not None:
+            details["torrent_bytes_len"] = len(torrent_bytes)
+        return details
 
 
 class FakeSearchService:
@@ -212,6 +235,17 @@ class FakeSearchService:
         if self.torrent_bytes is not None:
             return self.torrent_bytes
         raise RuntimeError("torrent not available in fake search service")
+
+
+class FailingDownloadService(FakeDownloadService):
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        raise RuntimeError("client offline")
 
 
 @pytest.mark.asyncio
@@ -443,7 +477,23 @@ async def test_queue_release_download_returns_operation() -> None:
     result = await use_case.execute(command)
 
     assert result.operation == "queue_download"
-    assert download_service.calls == [("req-1", "rel-1")]
+    expected_magnet = "magnet:?xt=urn:btih:hash-rel-1&dn=Release+rel-1"
+    assert download_service.calls == [("req-1", "rel-1", expected_magnet, None)]
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_reports_failure() -> None:
+    release = make_release_record("rel-1", request_ids=["req-1"])
+    repository = FakeReleaseRepository({release.id: release})
+    download_service = FailingDownloadService()
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[], query="", total_results=0)
+    )
+    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+
+    command = QueueReleaseDownloadCommand(request_id="req-1", release_id="rel-1")
+    with pytest.raises(ReleaseDownloadFailedError):
+        await use_case.execute(command)
 
 
 @pytest.mark.asyncio
@@ -476,6 +526,55 @@ async def test_queue_release_download_creates_release_from_search() -> None:
     assert repository.last_created is not None
     created_release_id = download_service.calls[0][1]
     assert created_release_id in repository.releases
+    assert download_service.calls[0][2] == "magnet:?xt=urn:btih:ABC123"
+    assert download_service.calls[0][3] is None
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = ReleaseSearchResultRecord(
+        release_id="candidate-2",
+        release_name="Candidate From Torrent",
+        size="1 GB",
+        magnet_link=None,
+        torrent_file_url="https://example.test/torrent",
+        info_url=None,
+        seeders=5,
+        leechers=1,
+        quality="720p",
+        source="indexer",
+        request_id="req-2",
+    )
+    search_results = ReleaseSearchResults(results=[candidate], query="query", total_results=1)
+    search_service = FakeSearchService(search_results, torrent_bytes=b"torrent-data")
+
+    class DummyTorrent:
+        magnet_link = "magnet:?xt=urn:btih:DUMMYHASH"
+
+    def fake_from_string(cls, payload):  # type: ignore[unused-argument]
+        return DummyTorrent()
+
+    import importlib
+
+    queue_module = importlib.import_module(
+        "src.application.use_cases.releases.queue_release_download"
+    )
+    monkeypatch.setattr(
+        queue_module.Torrent,
+        "from_string",
+        classmethod(fake_from_string),
+    )
+
+    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    command = QueueReleaseDownloadCommand(request_id="req-2", release_id="candidate-2")
+
+    result = await use_case.execute(command)
+
+    assert result.operation == "queue_download"
+    assert download_service.calls[0][2] == "magnet:?xt=urn:btih:DUMMYHASH"
+    assert download_service.calls[0][3] == b"torrent-data"
 
 
 @pytest.mark.asyncio

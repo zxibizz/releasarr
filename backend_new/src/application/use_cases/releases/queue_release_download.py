@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from urllib.parse import quote_plus
+
 from loguru import logger
 from torrentool.api import Torrent
 
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
+    ReleaseRecord,
     ReleaseRepository,
     ReleaseSearchService,
 )
@@ -15,6 +18,7 @@ from src.application.use_cases.releases.commands import QueueReleaseDownloadComm
 from src.application.use_cases.releases.dto import AsyncOperationDTO
 from src.application.use_cases.releases.exceptions import (
     ReleaseDownloadConflictError,
+    ReleaseDownloadFailedError,
     ReleaseNotFoundError,
 )
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
@@ -36,6 +40,9 @@ class QueueReleaseDownloadUseCase:
     async def execute(self, command: QueueReleaseDownloadCommand) -> AsyncOperationDTO:
         release = await self._repository.get_release(command.release_id)
         effective_request_id = command.request_id
+        magnet_link: str | None = None
+        torrent_bytes: bytes | None = None
+
         if release is None:
             candidate = self._search_service.resolve(command.release_id)
             if candidate is None:
@@ -60,6 +67,7 @@ class QueueReleaseDownloadUseCase:
                         release_id=command.release_id,
                         error=str(exc),
                     )
+                    torrent_bytes = None
 
             if not magnet_link:
                 raise ReleaseNotFoundError(command.release_id)
@@ -84,9 +92,28 @@ class QueueReleaseDownloadUseCase:
             release_id = release.id
             if command.request_id not in release.request_ids:
                 raise ReleaseDownloadConflictError(command.request_id, command.release_id)
+            magnet_link = self._magnet_from_release(release)
 
-        queued = await self._download_service.queue_download(effective_request_id, release_id)
+        magnet_link = magnet_link or self._magnet_from_release(release)
+
+        try:
+            queued = await self._download_service.queue_download(
+                effective_request_id,
+                release_id,
+                magnet_link,
+                torrent_bytes,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ReleaseDownloadFailedError(release_id, str(exc)) from exc
+
         return queued_download_to_async_operation(queued)
+
+    def _magnet_from_release(self, release: ReleaseRecord) -> str:
+        quoted_name = quote_plus(release.name) if release.name else None
+        magnet = f"magnet:?xt=urn:btih:{release.info_hash}"
+        if quoted_name:
+            magnet = f"{magnet}&dn={quoted_name}"
+        return magnet
 
 
 __all__ = ["QueueReleaseDownloadUseCase"]

@@ -39,6 +39,15 @@ class AppSettings(BaseSettings):
     prowlarr_categories: tuple[int, ...] = Field(default=())
     prowlarr_timeout: float = Field(default=20.0)
 
+    qbittorrent_url: str = Field(default="")
+    qbittorrent_username: str = Field(default="")
+    qbittorrent_password: str = Field(default="")
+    qbittorrent_save_path: str | None = Field(default=None)
+    qbittorrent_category: str | None = Field(default=None)
+    qbittorrent_tag_prefix: str | None = Field(default=None)
+    qbittorrent_paused: bool = Field(default=False)
+    qbittorrent_timeout: float = Field(default=15.0)
+
     model_config = {
         "env_prefix": "RELEASARR_",
         "env_file": ".env",
