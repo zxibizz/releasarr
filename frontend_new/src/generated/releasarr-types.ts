@@ -396,10 +396,10 @@ export interface components {
             /** Format: date-time */
             added_date: string;
             /** Format: date-time */
-            completed_date?: string;
+            completed_date?: string | null;
             request_ids: string[];
-            torrent_source?: string;
-            quality?: string;
+            torrent_source?: string | null;
+            quality?: string | null;
         };
         ReleaseFile: {
             id: string;

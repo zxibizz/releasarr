@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Sequence
 
 import httpx
@@ -23,6 +23,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
     timeout_seconds: float = 15.0
     categories: Sequence[int] | None = None
     _transport: httpx.BaseTransport | None = None
+    _cache: dict[str, ReleaseSearchResultRecord] = field(default_factory=dict)
 
     async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
         params: list[tuple[str, str]] = [("query", query), ("type", "search")]
@@ -57,6 +58,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
                 continue
             record = self._map_result(item, query, request_id)
             if record is not None:
+                self._cache[record.release_id] = record
                 results.append(record)
 
         results.sort(key=lambda result: (-(result.seeders or 0), result.release_name.lower()))
@@ -135,6 +137,17 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
         message = self._safe_str(payload.get("message"))
         unavailable = "all selected indexers" in message.lower() if message else False
         return unavailable
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        return self._cache.get(release_id)
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        headers = {"X-Api-Key": self.api_key}
+        timeout = httpx.Timeout(self.timeout_seconds)
+        async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
+            response = await client.get(url, headers=headers)
+        response.raise_for_status()
+        return response.content
 
 
 __all__ = ["ProwlarrReleaseSearchService"]

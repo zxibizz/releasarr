@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid4
 
@@ -66,11 +66,15 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
             return records, total
 
     async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
-        info_hash, display_name = self._parse_magnet(data.magnet_link)
+        info_hash, _ = self._parse_magnet(data.magnet_link)
+        release_id = data.id
+        release_name = data.name
+        torrent_source = data.source
+        quality = data.quality
         async with self.db.transaction() as session:
             release_model = models.Release(
-                id=uuid4().hex,
-                name=display_name,
+                id=release_id,
+                name=release_name,
                 info_hash=info_hash,
                 size_bytes=0,
                 status=ReleaseStatus.PENDING,
@@ -80,8 +84,8 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
                 seeders=0,
                 leechers=0,
                 ratio=0.0,
-                torrent_source="magnet",
-                quality=None,
+                torrent_source=torrent_source,
+                quality=quality,
             )
             release_model.requests = []
             session.add(release_model)
@@ -219,12 +223,18 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
 
     def _to_record(self, release: models.Release) -> ReleaseRecord:
         files = [self._to_file_record(file) for file in release.files]
+        info_hash = release.info_hash or release.id
+        size_bytes = release.size_bytes or 0
         request_ids = [request.id for request in release.requests]
+        added_at = self._ensure_datetime(release.added_at) or datetime.now(UTC)
+        completed_at = self._ensure_datetime(release.completed_at)
+        torrent_source = release.torrent_source or None
+        quality = release.quality or None
         return ReleaseRecord(
             id=release.id,
             name=release.name,
-            info_hash=release.info_hash,
-            size_bytes=release.size_bytes,
+            info_hash=info_hash,
+            size_bytes=size_bytes,
             status=release.status,
             progress=release.progress,
             download_speed=release.download_speed,
@@ -232,11 +242,11 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
             seeders=release.seeders,
             leechers=release.leechers,
             ratio=release.ratio,
-            added_at=self._ensure_datetime(release.added_at),
-            completed_at=self._ensure_datetime(release.completed_at),
+            added_at=added_at,
+            completed_at=completed_at,
             request_ids=request_ids,
-            torrent_source=release.torrent_source,
-            quality=release.quality,
+            torrent_source=torrent_source,
+            quality=quality,
             files=files,
         )
 
@@ -259,7 +269,11 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
         )
 
     def _ensure_datetime(self, value: datetime | None) -> datetime | None:
-        return value
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
 
 __all__ = ["SqlAlchemyReleaseRepository"]

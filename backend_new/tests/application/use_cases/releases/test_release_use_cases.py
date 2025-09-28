@@ -183,17 +183,35 @@ class FakeDownloadService:
 
     async def queue_download(self, request_id: str, release_id: str) -> QueuedDownload:
         self.calls.append((request_id, release_id))
-        return self.queued
+        return QueuedDownload(
+            operation=self.queued.operation,
+            status=self.queued.status,
+            operation_id=self.queued.operation_id,
+            location=self.queued.location,
+            message=self.queued.message,
+            resource_id=release_id,
+            details={"request_id": request_id, "release_id": release_id},
+        )
 
 
 class FakeSearchService:
-    def __init__(self, results: ReleaseSearchResults) -> None:
+    def __init__(self, results: ReleaseSearchResults, torrent_bytes: bytes | None = None) -> None:
         self.results = results
         self.calls: list[tuple[str, str | None]] = []
+        self.torrent_bytes = torrent_bytes
+        self.cache = {record.release_id: record for record in results.results}
 
     async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
         self.calls.append((query, request_id))
         return self.results
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        return self.cache.get(release_id)
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        if self.torrent_bytes is not None:
+            return self.torrent_bytes
+        raise RuntimeError("torrent not available in fake search service")
 
 
 @pytest.mark.asyncio
@@ -401,7 +419,10 @@ async def test_queue_release_download_conflict() -> None:
     release = make_release_record("rel-1", request_ids=["req-1"])
     repository = FakeReleaseRepository({release.id: release})
     download_service = FakeDownloadService()
-    use_case = QueueReleaseDownloadUseCase(repository, download_service)
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[], query="", total_results=0)
+    )
+    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-2", release_id="rel-1")
     with pytest.raises(ReleaseDownloadConflictError):
@@ -413,13 +434,48 @@ async def test_queue_release_download_returns_operation() -> None:
     release = make_release_record("rel-1", request_ids=["req-1"])
     repository = FakeReleaseRepository({release.id: release})
     download_service = FakeDownloadService()
-    use_case = QueueReleaseDownloadUseCase(repository, download_service)
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[], query="", total_results=0)
+    )
+    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-1", release_id="rel-1")
     result = await use_case.execute(command)
 
     assert result.operation == "queue_download"
     assert download_service.calls == [("req-1", "rel-1")]
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_creates_release_from_search() -> None:
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = ReleaseSearchResultRecord(
+        release_id="candidate-1",
+        release_name="Candidate Release",
+        size="1 GB",
+        magnet_link="magnet:?xt=urn:btih:ABC123",
+        torrent_file_url=None,
+        info_url=None,
+        seeders=10,
+        leechers=2,
+        quality="1080p",
+        source="indexer",
+        request_id="req-1",
+    )
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="query", total_results=1)
+    )
+    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+
+    command = QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-1")
+    result = await use_case.execute(command)
+
+    assert result.operation == "queue_download"
+    # Ensure a new release was created and download was queued with the new identifier.
+    assert repository.last_created is not None
+    created_release_id = download_service.calls[0][1]
+    assert created_release_id in repository.releases
 
 
 @pytest.mark.asyncio
