@@ -11,26 +11,28 @@ on:
 jobs:
   lint:
     name: Ruff Linting
-    runs-on: docker
-
+    runs-on: ubuntu
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Run Ruff checks
-        uses: docker://python:3.12-slim
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          entrypoint: /bin/bash
-          args: |-
-            -c "
-            cd backend
-            pip install uv
-            uv venv     
-            echo 'Running Ruff linting checks...'
-            uv run ruff check ./src
-            echo 'Running Ruff format checks...'
-            uv run ruff format --check ./src
-            "
+          python-version: '3.12'
+
+      - name: Install uv and dependencies
+        run: |
+          pip install uv
+          uv venv
+
+      - name: Run Ruff linting
+        working-directory: backend
+        run: uv run ruff check ./src
+
+      - name: Run Ruff formatting
+        working-directory: backend
+        run: uv run ruff format --check ./src
 
   build-and-push:
     name: Build and Push Docker Image
