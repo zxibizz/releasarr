@@ -48,7 +48,7 @@ class UseCase_ExportFinishedSeries:
         for release in finished_not_uploaded_releases:
             import_files = self._get_import_files(release)
             if not import_files:
-                print("No files to import =(")
+                self.logger.info("No files to import")
                 continue
 
             try:
