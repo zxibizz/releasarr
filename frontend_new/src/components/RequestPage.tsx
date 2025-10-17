@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { MediaInfo } from "./MediaInfo";
+import ReleasesList from "./ReleasesList";
 import { TorrentSearch } from "./TorrentSearch";
 
 export const RequestPage: React.FC = () => {
@@ -56,6 +57,27 @@ export const RequestPage: React.FC = () => {
       {/* Torrent Search */}
       <div style={{ marginBottom: "2rem" }}>
         <TorrentSearch requestId={request.id} requestTitle={request.title} />
+      </div>
+
+      {/* Releases Section */}
+      <div style={{ marginBottom: "2rem" }}>
+        <div className="card">
+          <h3
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: "600",
+              color: "#f1f5f9",
+              marginBottom: "1rem",
+            }}
+          >
+            📦 Releases
+          </h3>
+          <p style={{ color: "#94a3b8", marginBottom: "1.5rem" }}>
+            Torrent releases associated with this request
+          </p>
+
+          <ReleasesList requestId={request.id} />
+        </div>
       </div>
 
       {/* Additional Actions */}
