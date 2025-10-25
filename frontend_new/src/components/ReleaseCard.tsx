@@ -531,7 +531,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
             {release.files.some(
               (f) => !f.episode_mapping && !f.request_mapping
-            ) && (
+            ) ? (
               <button
                 onClick={() => onEditMapping?.(release)}
                 className="btn"
@@ -545,6 +545,21 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 disabled={isLoading}
               >
                 Map Files
+              </button>
+            ) : (
+              <button
+                onClick={() => onViewFiles?.(release)}
+                className="btn"
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.5rem 0.75rem",
+                  background: "rgba(59, 130, 246, 0.2)",
+                  color: "#3b82f6",
+                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                }}
+                disabled={isLoading}
+              >
+                View Mapping
               </button>
             )}
 

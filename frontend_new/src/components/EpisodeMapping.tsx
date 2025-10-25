@@ -165,78 +165,130 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Episode Mapping
+    <div style={{ background: "transparent" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: "600",
+              color: "#f1f5f9",
+              margin: 0,
+            }}
+          >
+            📺 Episode Mapping
           </h3>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          )}
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#94a3b8",
+              marginTop: "0.25rem",
+              margin: 0,
+            }}
+          >
+            Map release files to specific episodes for series content.
+          </p>
         </div>
-        <p className="text-sm text-gray-600 mt-1">
-          Map release files to specific episodes for series content.
-        </p>
       </div>
 
-      <div className="p-6">
+      <div>
         {/* Controls */}
         {!readonly && (
-          <div className="mb-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center space-x-2">
+          <div style={{ marginBottom: "1.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "1rem",
+                marginBottom: "1rem",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
                 <input
                   type="checkbox"
                   id="showOnlyVideo"
                   checked={showOnlyVideo}
                   onChange={(e) => setShowOnlyVideo(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  style={{
+                    accentColor: "#3b82f6",
+                  }}
                 />
                 <label
                   htmlFor="showOnlyVideo"
-                  className="text-sm text-gray-700"
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#f1f5f9",
+                  }}
                 >
                   Show only video files ({video.length})
                 </label>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
                 <input
                   type="checkbox"
                   id="autoSuggest"
                   checked={autoSuggest}
                   onChange={(e) => setAutoSuggest(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  style={{
+                    accentColor: "#3b82f6",
+                  }}
                 />
-                <label htmlFor="autoSuggest" className="text-sm text-gray-700">
+                <label
+                  htmlFor="autoSuggest"
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#f1f5f9",
+                  }}
+                >
                   Auto-suggest from filenames
                 </label>
               </div>
 
               <button
                 onClick={handleAutoSuggest}
-                className="px-3 py-2 bg-blue-100 text-blue-700 text-sm rounded-md hover:bg-blue-200 transition-colors"
+                className="btn btn-secondary"
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.5rem 0.75rem",
+                }}
               >
                 Re-suggest All
               </button>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <label
+                style={{
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                  color: "#f1f5f9",
+                }}
+              >
                 Bulk set season:
               </label>
-              <div className="flex space-x-2">
+              <div style={{ display: "flex", gap: "0.5rem" }}>
                 {[1, 2, 3, 4, 5].map((season) => (
                   <button
                     key={season}
                     onClick={() => handleBulkSeasonUpdate(season)}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors"
+                    className="btn btn-secondary"
+                    style={{
+                      fontSize: "0.75rem",
+                      padding: "0.25rem 0.5rem",
+                    }}
                   >
                     S{season.toString().padStart(2, "0")}
                   </button>
@@ -248,16 +300,20 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
 
         {/* Error Display */}
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-            <div className="text-red-800 text-sm">{error}</div>
+          <div className="error" style={{ marginBottom: "1rem" }}>
+            <div style={{ fontSize: "0.875rem" }}>{error}</div>
           </div>
         )}
 
         {/* Files List */}
-        <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {displayFiles.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No {showOnlyVideo ? "video " : ""}files to map.
+            <div className="empty-state">
+              <div className="empty-state-icon">📁</div>
+              <h3 className="empty-state-title">No files to map</h3>
+              <p className="empty-state-description">
+                No {showOnlyVideo ? "video " : ""}files available for mapping.
+              </p>
             </div>
           ) : (
             displayFiles.map((file) => {
@@ -268,43 +324,110 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
               return (
                 <div
                   key={file.id}
-                  className={`border rounded-lg p-4 ${
-                    existing
-                      ? "border-green-200 bg-green-50"
-                      : "border-gray-200 bg-white"
-                  }`}
+                  className="card"
+                  style={{
+                    padding: "1rem",
+                    background: existing
+                      ? "rgba(34, 197, 94, 0.1)"
+                      : "rgba(71, 85, 105, 0.2)",
+                    border: existing
+                      ? "1px solid rgba(34, 197, 94, 0.2)"
+                      : "1px solid rgba(148, 163, 184, 0.1)",
+                  }}
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-lg">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "1rem",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <span style={{ fontSize: "1.125rem" }}>
                           {isVideoFile(file.name) ? "🎬" : "📄"}
                         </span>
-                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                        <h4
+                          style={{
+                            fontSize: "0.875rem",
+                            fontWeight: "600",
+                            color: "#f1f5f9",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            flex: 1,
+                          }}
+                        >
                           {file.name}
                         </h4>
                         {existing && (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                          <span
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              background: "rgba(34, 197, 94, 0.2)",
+                              color: "#4ade80",
+                              fontSize: "0.625rem",
+                              borderRadius: "9999px",
+                              border: "1px solid rgba(34, 197, 94, 0.3)",
+                            }}
+                          >
                             Mapped
                           </span>
                         )}
                         {changed && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                          <span
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              background: "rgba(251, 191, 36, 0.2)",
+                              color: "#fbbf24",
+                              fontSize: "0.625rem",
+                              borderRadius: "9999px",
+                              border: "1px solid rgba(251, 191, 36, 0.3)",
+                            }}
+                          >
                             Changed
                           </span>
                         )}
                       </div>
 
                       {existing && (
-                        <div className="text-sm text-gray-600 mb-2">
+                        <div
+                          style={{
+                            fontSize: "0.875rem",
+                            color: "#94a3b8",
+                            marginBottom: "0.5rem",
+                          }}
+                        >
                           Current: {formatEpisodeTitle(existing)}
                         </div>
                       )}
 
                       {!readonly && mapping && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(120px, 1fr))",
+                            gap: "0.75rem",
+                          }}
+                        >
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "0.75rem",
+                                fontWeight: "600",
+                                color: "#f1f5f9",
+                                marginBottom: "0.25rem",
+                              }}
+                            >
                               Season
                             </label>
                             <input
@@ -319,12 +442,25 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
                                   parseInt(e.target.value) || 1
                                 )
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="form-input"
+                              style={{
+                                width: "100%",
+                                fontSize: "0.875rem",
+                                padding: "0.5rem 0.75rem",
+                              }}
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "0.75rem",
+                                fontWeight: "600",
+                                color: "#f1f5f9",
+                                marginBottom: "0.25rem",
+                              }}
+                            >
                               Episode
                             </label>
                             <input
@@ -339,12 +475,25 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
                                   parseInt(e.target.value) || 1
                                 )
                               }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="form-input"
+                              style={{
+                                width: "100%",
+                                fontSize: "0.875rem",
+                                padding: "0.5rem 0.75rem",
+                              }}
                             />
                           </div>
 
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "0.75rem",
+                                fontWeight: "600",
+                                color: "#f1f5f9",
+                                marginBottom: "0.25rem",
+                              }}
+                            >
                               Title (optional)
                             </label>
                             <input
@@ -358,20 +507,36 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
                                 )
                               }
                               placeholder="Episode title"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="form-input"
+                              style={{
+                                width: "100%",
+                                fontSize: "0.875rem",
+                                padding: "0.5rem 0.75rem",
+                              }}
                             />
                           </div>
                         </div>
                       )}
 
                       {readonly && existing && (
-                        <div className="text-sm text-gray-900">
+                        <div
+                          style={{
+                            fontSize: "0.875rem",
+                            color: "#f1f5f9",
+                          }}
+                        >
                           {formatEpisodeTitle(existing)}
                         </div>
                       )}
 
                       {mapping && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div
+                          style={{
+                            marginTop: "0.5rem",
+                            fontSize: "0.75rem",
+                            color: "#94a3b8",
+                          }}
+                        >
                           Preview: {formatEpisodeString(mapping)}
                           {mapping.title && ` - ${mapping.title}`}
                         </div>
@@ -379,15 +544,25 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
                     </div>
 
                     {!readonly && (
-                      <div className="flex flex-col space-y-2">
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem",
+                        }}
+                      >
                         <button
                           onClick={() => handleSaveMapping(file.id)}
                           disabled={loading || !changed}
-                          className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                            changed
-                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          className={`btn ${
+                            changed ? "btn-primary" : "btn-secondary"
                           }`}
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.5rem 0.75rem",
+                            opacity: changed ? 1 : 0.5,
+                            cursor: changed ? "pointer" : "not-allowed",
+                          }}
                         >
                           {loading ? "Saving..." : "Save"}
                         </button>
@@ -402,23 +577,50 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
 
         {/* Bulk Actions */}
         {!readonly && displayFiles.length > 0 && (
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-600">
+          <div
+            style={{
+              marginTop: "1.5rem",
+              paddingTop: "1rem",
+              borderTop: "1px solid rgba(148, 163, 184, 0.1)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.875rem",
+                  color: "#94a3b8",
+                }}
+              >
                 {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved
                 changes
               </div>
-              <div className="flex space-x-3">
+              <div style={{ display: "flex", gap: "0.75rem" }}>
                 <button
                   onClick={handleSaveAllMappings}
                   disabled={
                     loading || !mappings.some((m) => hasChanges(m.fileId))
                   }
-                  className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                  className={`btn ${
                     mappings.some((m) => hasChanges(m.fileId))
-                      ? "bg-green-100 text-green-700 hover:bg-green-200"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      ? "btn-primary"
+                      : "btn-secondary"
                   }`}
+                  style={{
+                    fontSize: "0.875rem",
+                    padding: "0.5rem 1rem",
+                    opacity: mappings.some((m) => hasChanges(m.fileId))
+                      ? 1
+                      : 0.5,
+                    cursor: mappings.some((m) => hasChanges(m.fileId))
+                      ? "pointer"
+                      : "not-allowed",
+                  }}
                 >
                   {loading ? "Saving All..." : "Save All Changes"}
                 </button>
@@ -429,8 +631,19 @@ const EpisodeMapping: React.FC<EpisodeMappingProps> = ({
 
         {/* File Type Summary */}
         {!showOnlyVideo && (
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
+          <div
+            style={{
+              marginTop: "1.5rem",
+              paddingTop: "1rem",
+              borderTop: "1px solid rgba(148, 163, 184, 0.1)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.875rem",
+                color: "#94a3b8",
+              }}
+            >
               File types: {video.length} video, {subtitle.length} subtitle,{" "}
               {other.length} other
             </div>
