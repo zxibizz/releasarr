@@ -1,3 +1,21 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+  Box,
+  Button,
+  Card,
+  Center,
+  Flex,
+  Heading,
+  Select,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import React, { useMemo, useState } from "react";
 import { useReleasesByRequest } from "../hooks/useReleases";
 import { Release } from "../types";
@@ -34,6 +52,21 @@ type FilterOption =
   | "completed"
   | "failed";
 
+const sortLabels: Record<SortOption, string> = {
+  status: "Status",
+  date: "Date",
+  size: "Size",
+};
+
+const filterOptions: { key: FilterOption; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "downloading", label: "Downloading" },
+  { key: "pending", label: "Pending" },
+  { key: "seeding", label: "Seeding" },
+  { key: "completed", label: "Completed" },
+  { key: "failed", label: "Failed" },
+];
+
 const ReleasesList: React.FC<ReleasesListProps> = ({
   requestId,
   onPauseRelease,
@@ -52,15 +85,10 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   const filteredAndSortedReleases = useMemo(() => {
     let filtered = releases;
 
-    // Apply filter
     if (filterBy !== "all") {
-      filtered = filterReleasesByStatus(
-        releases,
-        filterBy as Release["status"]
-      );
+      filtered = filterReleasesByStatus(releases, filterBy as Release["status"]);
     }
 
-    // Apply sort
     switch (sortBy) {
       case "status":
         return sortReleasesByStatus(filtered);
@@ -99,294 +127,143 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <span>Loading releases...</span>
-      </div>
+      <Center py={10} flexDirection="column" gap={4} color="text.subtle">
+        <Spinner size="lg" color="brand.400" />
+        <Text>Loading releases...</Text>
+      </Center>
     );
   }
 
   if (error) {
     return (
-      <div className="error">
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <div style={{ marginRight: "0.5rem" }}>❌</div>
-          <div>
-            <h3
-              style={{
-                fontSize: "0.875rem",
-                fontWeight: "600",
-                marginBottom: "0.25rem",
-              }}
-            >
-              Error loading releases
-            </h3>
-            <p style={{ fontSize: "0.875rem", margin: 0 }}>{error}</p>
-          </div>
-        </div>
-        <button
-          onClick={refetch}
-          className="btn btn-secondary"
-          style={{
-            marginTop: "0.75rem",
-            fontSize: "0.75rem",
-            padding: "0.5rem 0.75rem",
-          }}
-        >
+      <Alert
+        status="error"
+        variant="subtle"
+        borderRadius="xl"
+        p={6}
+        flexDirection="column"
+        alignItems="flex-start"
+        gap={4}
+      >
+        <AlertIcon />
+        <Box>
+          <AlertTitle fontSize="lg">Error loading releases</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Box>
+        <Button variant="outline" colorScheme="blue" size="sm" onClick={refetch}>
           Try Again
-        </button>
-      </div>
+        </Button>
+      </Alert>
     );
   }
 
   if (releases.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">📦</div>
-        <h3 className="empty-state-title">No releases found</h3>
-        <p className="empty-state-description">
+      <VStack
+        spacing={3}
+        py={16}
+        bg="bg.subtle"
+        borderRadius="xl"
+        borderWidth="1px"
+        borderColor="border.muted"
+      >
+        <Text fontSize="4xl">📦</Text>
+        <Heading size="md">No releases found</Heading>
+        <Text color="text.subtle" fontSize="sm">
           No torrent releases have been added for this request yet.
-        </p>
-      </div>
+        </Text>
+      </VStack>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {/* Stats */}
+    <Stack spacing={6}>
       {showStats && (
-        <div className="card" style={{ padding: "1rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-              gap: "1rem",
-              textAlign: "center",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: "700",
-                  color: "#3b82f6",
-                }}
-              >
-                {stats.total}
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                Total
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: "700",
-                  color: "#fb923c",
-                }}
-              >
-                {stats.active}
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                Active
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: "700",
-                  color: "#4ade80",
-                }}
-              >
-                {stats.completed}
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                Completed
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "700",
-                  color: "#3b82f6",
-                }}
-              >
-                {formatSpeed(stats.downloadSpeed)}
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                Download
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "700",
-                  color: "#4ade80",
-                }}
-              >
-                {formatSpeed(stats.uploadSpeed)}
-              </div>
-              <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-                Upload
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card p={6}>
+          <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4} textAlign="center">
+            <StatItem label="Total" value={stats.total} accent="brand.400" />
+            <StatItem label="Active" value={stats.active} accent="orange.300" />
+            <StatItem label="Completed" value={stats.completed} accent="green.300" />
+            <StatItem label="Download" value={formatSpeed(stats.downloadSpeed)} accent="brand.300" />
+            <StatItem label="Upload" value={formatSpeed(stats.uploadSpeed)} accent="green.300" />
+          </SimpleGrid>
+        </Card>
       )}
 
-      {/* Controls */}
-      <div className="card" style={{ padding: "1rem" }}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1rem",
-            }}
+      <Card p={6}>
+        <Stack spacing={4}>
+          <Flex
+            direction={{ base: "column", lg: "row" }}
+            gap={4}
+            justify="space-between"
+            align={{ base: "flex-start", lg: "center" }}
           >
-            {/* Filter */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <label
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                }}
-              >
-                Filter:
-              </label>
-              <select
+            <Flex align="center" gap={3} wrap="wrap">
+              <Text fontWeight="600">Filter:</Text>
+              <Select
                 value={filterBy}
                 onChange={(e) => setFilterBy(e.target.value as FilterOption)}
-                className="form-select"
-                style={{
-                  minWidth: "150px",
-                  fontSize: "0.875rem",
-                  padding: "0.5rem 0.75rem",
-                }}
+                maxW="220px"
+                size="sm"
+                variant="filled"
               >
-                <option value="all">All ({releases.length})</option>
-                <option value="downloading">
-                  Downloading (
-                  {filterReleasesByStatus(releases, "downloading").length})
-                </option>
-                <option value="pending">
-                  Pending ({filterReleasesByStatus(releases, "pending").length})
-                </option>
-                <option value="seeding">
-                  Seeding ({filterReleasesByStatus(releases, "seeding").length})
-                </option>
-                <option value="completed">
-                  Completed (
-                  {filterReleasesByStatus(releases, "completed").length})
-                </option>
-                <option value="failed">
-                  Failed ({filterReleasesByStatus(releases, "failed").length})
-                </option>
-              </select>
-            </div>
+                {filterOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label} ({
+                      option.key === "all"
+                        ? releases.length
+                        : filterReleasesByStatus(releases, option.key as Release["status"]).length
+                    })
+                  </option>
+                ))}
+              </Select>
+            </Flex>
 
-            {/* Sort */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <label
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                }}
-              >
-                Sort by:
-              </label>
-              <div style={{ display: "flex", gap: "0.25rem" }}>
-                <button
-                  onClick={() => handleSortChange("status")}
-                  className={`btn ${
-                    sortBy === "status" ? "btn-primary" : "btn-secondary"
-                  }`}
-                  style={{ fontSize: "0.75rem", padding: "0.5rem 0.75rem" }}
-                >
-                  Status {sortBy === "status" && (sortAscending ? "↑" : "↓")}
-                </button>
-                <button
-                  onClick={() => handleSortChange("date")}
-                  className={`btn ${
-                    sortBy === "date" ? "btn-primary" : "btn-secondary"
-                  }`}
-                  style={{ fontSize: "0.75rem", padding: "0.5rem 0.75rem" }}
-                >
-                  Date {sortBy === "date" && (sortAscending ? "↑" : "↓")}
-                </button>
-                <button
-                  onClick={() => handleSortChange("size")}
-                  className={`btn ${
-                    sortBy === "size" ? "btn-primary" : "btn-secondary"
-                  }`}
-                  style={{ fontSize: "0.75rem", padding: "0.5rem 0.75rem" }}
-                >
-                  Size {sortBy === "size" && (sortAscending ? "↑" : "↓")}
-                </button>
-              </div>
-            </div>
+            <Flex align="center" gap={2} wrap="wrap">
+              <Text fontWeight="600">Sort by:</Text>
+              {(["status", "date", "size"] as SortOption[]).map((option) => {
+                const isActive = sortBy === option;
+                return (
+                  <Button
+                    key={option}
+                    size="sm"
+                    colorScheme="blue"
+                    variant={isActive ? "solid" : "outline"}
+                    onClick={() => handleSortChange(option)}
+                  >
+                    {sortLabels[option]} {isActive && (sortAscending ? "↑" : "↓")}
+                  </Button>
+                );
+              })}
+            </Flex>
 
-            {/* Refresh */}
-            <button
-              onClick={refetch}
-              className="btn btn-secondary"
-              style={{ fontSize: "0.75rem", padding: "0.5rem 0.75rem" }}
-            >
+            <Button size="sm" variant="outline" colorScheme="blue" onClick={refetch}>
               🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </Flex>
 
-      {/* Results count */}
-      {filterBy !== "all" && (
-        <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
-          Showing {filteredAndSortedReleases.length} of {releases.length}{" "}
-          releases
-        </div>
-      )}
+          {filterBy !== "all" && (
+            <Text fontSize="sm" color="text.subtle">
+              Showing {filteredAndSortedReleases.length} of {releases.length} releases
+            </Text>
+          )}
+        </Stack>
+      </Card>
 
-      {/* Releases List */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: compact ? "0.5rem" : "1rem",
-        }}
-      >
+      <Stack spacing={compact ? 3 : 4}>
         {filteredAndSortedReleases.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">🔍</div>
-            <h3 className="empty-state-title">No releases match your filter</h3>
-            <p className="empty-state-description">
-              Try adjusting your filter criteria to see more results.
-            </p>
-            <button
-              onClick={() => setFilterBy("all")}
-              className="btn btn-primary"
-              style={{ marginTop: "0.75rem", fontSize: "0.875rem" }}
-            >
-              Show All Releases
-            </button>
-          </div>
+          <Card p={6} textAlign="center">
+            <Stack spacing={3} align="center">
+              <Text fontSize="3xl">🔍</Text>
+              <Heading size="sm">No releases match your filter</Heading>
+              <Text color="text.subtle" fontSize="sm">
+                Try adjusting your filter criteria to see more results.
+              </Text>
+              <Button size="sm" colorScheme="blue" onClick={() => setFilterBy("all")}>
+                Show All Releases
+              </Button>
+            </Stack>
+          </Card>
         ) : (
           filteredAndSortedReleases.map((release) => (
             <ReleaseCard
@@ -401,9 +278,26 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
             />
           ))
         )}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 };
+
+interface StatItemProps {
+  label: string;
+  value: number | string;
+  accent: string;
+}
+
+const StatItem: React.FC<StatItemProps> = ({ label, value, accent }) => (
+  <Box>
+    <Text fontSize="2xl" fontWeight="700" color={accent}>
+      {value}
+    </Text>
+    <Text fontSize="sm" color="text.subtle">
+      {label}
+    </Text>
+  </Box>
+);
 
 export default ReleasesList;

@@ -1,3 +1,17 @@
+import {
+  Badge,
+  Box,
+  Card,
+  Flex,
+  Heading,
+  Link,
+  SimpleGrid,
+  Stack,
+  Tag,
+  Text,
+  Wrap,
+  WrapItem,
+} from "@chakra-ui/react";
 import React from "react";
 import { MediaRequest } from "../types";
 import { formatDate, formatRuntime, getStatusIcon } from "../utils/formatters";
@@ -6,167 +20,135 @@ interface MediaInfoProps {
   request: MediaRequest;
 }
 
+const statusColorScheme: Record<MediaRequest["status"], string> = {
+  pending: "yellow",
+  searching: "purple",
+  downloading: "blue",
+  completed: "green",
+  failed: "red",
+};
+
 export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
   const isMovie = request.type === "movie";
   const statusIcon = getStatusIcon(request.status);
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* Header with Title and Status */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
+    <Card p={{ base: 5, md: 6 }}>
+      <Stack spacing={6}>
+        <Flex
+          direction={{ base: "column", md: "row" }}
+          justify="space-between"
+          align={{ base: "flex-start", md: "center" }}
+          gap={4}
         >
-          <div>
-            <h2
-              style={{
-                fontSize: "2rem",
-                fontWeight: "700",
-                color: "#f1f5f9",
-                marginBottom: "0.5rem",
-              }}
-            >
+          <Box>
+            <Heading size="lg" mb={2}>
               {request.title}
-            </h2>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "#94a3b8",
-                fontSize: "1.125rem",
-              }}
+            </Heading>
+            <Flex align="center" gap={2} wrap="wrap" color="text.subtle">
+              <Text fontSize="lg" fontWeight="600">
+                {request.year}
+              </Text>
+              <Text>•</Text>
+              {isMovie ? (
+                <Text fontSize="lg">{formatRuntime(request.runtime)}</Text>
+              ) : (
+                <Text fontSize="lg">Season {request.season_number}</Text>
+              )}
+            </Flex>
+          </Box>
+
+          <Badge
+            colorScheme={statusColorScheme[request.status]}
+            variant="subtle"
+            display="inline-flex"
+            alignItems="center"
+            gap={1}
+            fontSize="sm"
+            px={3}
+            py={1.5}
+            borderRadius="md"
+            textTransform="capitalize"
+          >
+            <Text as="span" fontSize="lg" lineHeight={1}>
+              {statusIcon}
+            </Text>
+            {request.status}
+          </Badge>
+        </Flex>
+
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <InfoItem label="Type">
+            {isMovie ? "🎬 Movie" : "📺 TV Series"}
+          </InfoItem>
+          <InfoItem label="Created">{formatDate(request.created_at)}</InfoItem>
+          <InfoItem label="Updated">{formatDate(request.updated_at)}</InfoItem>
+          <InfoItem label="IMDb">
+            <Link
+              href={`https://www.imdb.com/title/${request.imdb_id}`}
+              isExternal
+              color="brand.400"
+              fontWeight="600"
             >
-              <span>{request.year}</span>
-              {!isMovie && (
-                <>
-                  <span>•</span>
-                  <span>Season {request.season_number}</span>
-                </>
-              )}
-              {isMovie && (
-                <>
-                  <span>•</span>
-                  <span>{formatRuntime(request.runtime)}</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className={`status-badge ${request.status}`}>
-            <span>{statusIcon}</span>
-            <span>{request.status}</span>
-          </div>
-        </div>
-
-        {/* Media Information Grid */}
-        <div className="media-info">
-          <div className="info-item">
-            <div className="info-label">Type</div>
-            <div className="info-value">
-              {request.type === "movie" ? "🎬 Movie" : "📺 TV Series"}
-            </div>
-          </div>
-
-          <div className="info-item">
-            <div className="info-label">Created</div>
-            <div className="info-value">{formatDate(request.created_at)}</div>
-          </div>
-
-          <div className="info-item">
-            <div className="info-label">Updated</div>
-            <div className="info-value">{formatDate(request.updated_at)}</div>
-          </div>
-
-          <div className="info-item">
-            <div className="info-label">IMDb</div>
-            <div className="info-value">
-              <a
-                href={`https://www.imdb.com/title/${request.imdb_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#3b82f6", textDecoration: "underline" }}
-              >
-                {request.imdb_id}
-              </a>
-            </div>
-          </div>
-
+              {request.imdb_id}
+            </Link>
+          </InfoItem>
           {!isMovie && (
-            <>
-              <div className="info-item">
-                <div className="info-label">Series</div>
-                <div className="info-value">
-                  {request.series_title} ({request.series_year})
-                </div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">Episodes</div>
-                <div className="info-value">{request.total_episodes}</div>
-              </div>
-            </>
+            <InfoItem label="Series">
+              {request.series_title} ({request.series_year})
+            </InfoItem>
           )}
-        </div>
+          {!isMovie && (
+            <InfoItem label="Episodes">{request.total_episodes}</InfoItem>
+          )}
+        </SimpleGrid>
 
-        {/* Genres */}
-        <div>
-          <h3
-            style={{
-              fontSize: "1.125rem",
-              fontWeight: "600",
-              color: "#f1f5f9",
-              marginBottom: "0.75rem",
-            }}
-          >
+        <Box>
+          <Heading size="sm" mb={3}>
             Genres
-          </h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          </Heading>
+          <Wrap spacing={2}>
             {request.genres.map((genre) => (
-              <span
-                key={genre}
-                style={{
-                  padding: "0.375rem 0.75rem",
-                  background: "rgba(71, 85, 105, 0.5)",
-                  color: "#cbd5e1",
-                  fontSize: "0.875rem",
-                  borderRadius: "9999px",
-                  border: "1px solid rgba(148, 163, 184, 0.2)",
-                }}
-              >
-                {genre}
-              </span>
+              <WrapItem key={genre}>
+                <Tag variant="subtle" colorScheme="gray" borderRadius="full" px={3} py={1}>
+                  {genre}
+                </Tag>
+              </WrapItem>
             ))}
-          </div>
-        </div>
+          </Wrap>
+        </Box>
 
-        {/* Overview */}
-        <div>
-          <h3
-            style={{
-              fontSize: "1.125rem",
-              fontWeight: "600",
-              color: "#f1f5f9",
-              marginBottom: "0.75rem",
-            }}
-          >
+        <Box>
+          <Heading size="sm" mb={3}>
             Overview
-          </h3>
-          <p
-            style={{
-              color: "#cbd5e1",
-              lineHeight: "1.6",
-              fontSize: "0.875rem",
-            }}
-          >
+          </Heading>
+          <Text fontSize="sm" color="slate.200" lineHeight="tall">
             {request.overview}
-          </p>
-        </div>
-      </div>
-    </div>
+          </Text>
+        </Box>
+      </Stack>
+    </Card>
   );
 };
+
+interface InfoItemProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+const InfoItem: React.FC<InfoItemProps> = ({ label, children }) => (
+  <Box
+    bg="bg.subtle"
+    borderWidth="1px"
+    borderColor="border.muted"
+    borderRadius="lg"
+    p={4}
+  >
+    <Text fontSize="xs" textTransform="uppercase" color="text.subtle" letterSpacing="0.08em">
+      {label}
+    </Text>
+    <Text fontSize="sm" fontWeight="600" mt={2} color="slate.100">
+      {children}
+    </Text>
+  </Box>
+);
