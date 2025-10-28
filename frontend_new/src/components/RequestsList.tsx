@@ -1,6 +1,34 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+  Box,
+  Button,
+  Center,
+  Heading,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Text,
+  VStack,
+  Wrap,
+  WrapItem,
+} from "@chakra-ui/react";
 import React, { useState } from "react";
 import { useRequests } from "../hooks/useRequests";
 import { RequestCard } from "./RequestCard";
+
+const filterButtons = [
+  { key: "all", label: "All" },
+  { key: "movies", label: "Movies" },
+  { key: "series", label: "Series" },
+  { key: "pending", label: "Pending" },
+  { key: "searching", label: "Searching" },
+  { key: "downloading", label: "Downloading" },
+  { key: "completed", label: "Completed" },
+  { key: "failed", label: "Failed" },
+];
 
 export const RequestsList: React.FC = () => {
   const { requests, loading, error, fetchByStatus, fetchByType, refetch } =
@@ -20,116 +48,114 @@ export const RequestsList: React.FC = () => {
       case "series":
         await fetchByType("series");
         break;
-      case "pending":
-      case "searching":
-      case "downloading":
-      case "completed":
-      case "failed":
-        await fetchByStatus(filter);
-        break;
       default:
-        await refetch();
+        await fetchByStatus(filter);
     }
   };
 
-  const filterButtons = [
-    { key: "all", label: "All" },
-    { key: "movies", label: "Movies" },
-    { key: "series", label: "Series" },
-    { key: "pending", label: "Pending" },
-    { key: "approved", label: "Approved" },
-    { key: "completed", label: "Completed" },
-    { key: "rejected", label: "Rejected" },
-  ];
-
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <span>Loading requests...</span>
-      </div>
+      <Center py={16} flexDirection="column" gap={4} color="text.subtle">
+        <Spinner size="lg" color="brand.400" />
+        <Text>Loading requests...</Text>
+      </Center>
     );
   }
 
   if (error) {
     return (
-      <div className="error">
-        <div>❌ Error loading requests</div>
-        <p>{error}</p>
-        <button onClick={refetch} className="btn btn-secondary">
+      <Alert
+        status="error"
+        variant="subtle"
+        borderRadius="xl"
+        p={6}
+        flexDirection="column"
+        alignItems="flex-start"
+        gap={4}
+      >
+        <AlertIcon />
+        <Box>
+          <AlertTitle fontSize="lg">Error loading requests</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Box>
+        <Button variant="outline" colorScheme="blue" size="sm" onClick={refetch}>
           Try Again
-        </button>
-      </div>
+        </Button>
+      </Alert>
     );
   }
 
+  const activeLabel =
+    filterButtons.find((filter) => filter.key === activeFilter)?.label || "All";
+
   return (
-    <div className="fade-in">
-      {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title">Media Requests</h1>
-        <p className="page-subtitle">
+    <Stack spacing={{ base: 6, md: 10 }}>
+      <Stack spacing={2}>
+        <Heading size="2xl">Media Requests</Heading>
+        <Text color="text.subtle" fontSize="md">
           Track and manage your media server requests
-        </p>
-      </div>
+        </Text>
+      </Stack>
 
-      {/* Filter Tabs */}
-      <div className="filter-tabs">
-        {filterButtons.map((filter) => (
-          <button
-            key={filter.key}
-            onClick={() => handleFilterChange(filter.key)}
-            className={`filter-tab ${
-              activeFilter === filter.key ? "active" : ""
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
+      <Box
+        bg="bg.subtle"
+        borderRadius="xl"
+        borderWidth="1px"
+        borderColor="border.muted"
+        p={3}
+      >
+        <Wrap spacing={2}>
+          {filterButtons.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <WrapItem key={filter.key}>
+                <Button
+                  size="sm"
+                  colorScheme="blue"
+                  variant={isActive ? "solid" : "outline"}
+                  onClick={() => handleFilterChange(filter.key)}
+                >
+                  {filter.label}
+                </Button>
+              </WrapItem>
+            );
+          })}
+        </Wrap>
+      </Box>
 
-      {/* Results Summary */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <h2
-            style={{ fontSize: "1.25rem", fontWeight: "600", color: "#f1f5f9" }}
-          >
-            {activeFilter === "all"
-              ? "All Requests"
-              : `${
-                  filterButtons.find((f) => f.key === activeFilter)?.label
-                } Requests`}
-          </h2>
-          <span style={{ color: "#94a3b8", fontSize: "0.875rem" }}>
-            {requests.length} {requests.length === 1 ? "request" : "requests"}
-          </span>
-        </div>
-      </div>
+      <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "flex-start", md: "center" }} spacing={4}>
+        <Heading size="md" color="slate.100">
+          {activeFilter === "all" ? "All Requests" : `${activeLabel} Requests`}
+        </Heading>
+        <Text color="text.subtle" fontSize="sm">
+          {requests.length} {requests.length === 1 ? "request" : "requests"}
+        </Text>
+      </Stack>
 
-      {/* Requests Grid */}
       {requests.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📺</div>
-          <h3 className="empty-state-title">No requests found</h3>
-          <p className="empty-state-description">
+        <VStack
+          spacing={3}
+          py={16}
+          bg="bg.subtle"
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor="border.muted"
+        >
+          <Text fontSize="4xl">📺</Text>
+          <Heading size="md">No requests found</Heading>
+          <Text color="text.subtle" fontSize="sm" textAlign="center">
             {activeFilter === "all"
               ? "No media requests have been created yet."
               : `No requests match the "${activeFilter}" filter.`}
-          </p>
-        </div>
+          </Text>
+        </VStack>
       ) : (
-        <div className="card-grid">
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
           {requests.map((request) => (
             <RequestCard key={request.id} request={request} />
           ))}
-        </div>
+        </SimpleGrid>
       )}
-    </div>
+    </Stack>
   );
 };

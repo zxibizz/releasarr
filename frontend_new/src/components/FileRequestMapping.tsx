@@ -1,4 +1,21 @@
-import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  Box,
+  Button,
+  Checkbox,
+  Flex,
+  Grid,
+  Heading,
+  Input,
+  Select,
+  Stack,
+  Tag,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useReleaseFileMapping } from "../hooks/useReleases";
 import { useRequests } from "../hooks/useRequests";
 import {
@@ -33,7 +50,6 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   releaseId,
   files,
   onMappingUpdate,
-  onClose,
   readonly = false,
 }) => {
   const { updateFileMapping, loading, error } = useReleaseFileMapping();
@@ -46,7 +62,6 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const displayFiles = showOnlyVideo ? video : files;
 
   useEffect(() => {
-    // Initialize mappings from existing data
     const initialMappings = displayFiles.map((file) => {
       const existing = file.request_mapping;
 
@@ -63,6 +78,21 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     setMappings(initialMappings);
   }, [displayFiles]);
 
+  const availableRequests = useMemo(
+    () => requests.filter((request) => request.status !== "failed"),
+    [requests]
+  );
+
+  const movieRequests = useMemo(
+    () => availableRequests.filter((request) => request.type === "movie"),
+    [availableRequests]
+  );
+
+  const seriesRequests = useMemo(
+    () => availableRequests.filter((request) => request.type === "series"),
+    [availableRequests]
+  );
+
   const handleMappingChange = (
     fileId: string,
     field: keyof Omit<FileMapping, "fileId">,
@@ -70,24 +100,23 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   ) => {
     setMappings((prev) =>
       prev.map((mapping) => {
-        if (mapping.fileId === fileId) {
-          const updated = { ...mapping, [field]: value };
+        if (mapping.fileId !== fileId) return mapping;
 
-          // Auto-update request title when request ID changes
-          if (field === "requestId") {
-            const request = requests.find((r) => r.id === value);
-            updated.requestTitle = request?.title || "";
+        const updated: FileMapping = { ...mapping, [field]: value } as FileMapping;
 
-            // Auto-suggest mapping type based on request type
-            if (request) {
-              updated.mappingType =
-                request.type === "series" ? "episode" : "movie";
-            }
+        if (field === "requestId" && typeof value === "string") {
+          const request = requests.find((r) => r.id === value);
+          updated.requestTitle = request?.title || "";
+          if (request) {
+            updated.mappingType = request.type === "series" ? "episode" : "movie";
           }
-
-          return updated;
         }
-        return mapping;
+
+        if (field === "mappingType" && value !== "season") {
+          updated.season = undefined;
+        }
+
+        return updated;
       })
     );
   };
@@ -114,8 +143,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         request_mapping: requestMapping,
       });
       onMappingUpdate?.(fileId, requestMapping);
-    } catch (error) {
-      console.error("Failed to update mapping:", error);
+    } catch (err) {
+      console.error("Failed to update mapping:", err);
     }
   };
 
@@ -137,11 +166,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             request_mapping: requestMapping,
           });
           onMappingUpdate?.(mapping.fileId, requestMapping);
-        } catch (error) {
-          console.error(
-            `Failed to update mapping for ${mapping.fileId}:`,
-            error
-          );
+        } catch (err) {
+          console.error(`Failed to update mapping for ${mapping.fileId}:`, err);
         }
       }
     }
@@ -178,14 +204,10 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     );
   };
 
-  const getFileMapping = (fileId: string) => {
-    return mappings.find((m) => m.fileId === fileId);
-  };
+  const getFileMapping = (fileId: string) => mappings.find((m) => m.fileId === fileId);
 
-  const getExistingMapping = (fileId: string) => {
-    const file = files.find((f) => f.id === fileId);
-    return file?.request_mapping;
-  };
+  const getExistingMapping = (fileId: string) =>
+    files.find((f) => f.id === fileId)?.request_mapping;
 
   const hasChanges = (fileId: string) => {
     const current = getFileMapping(fileId);
@@ -204,672 +226,332 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     );
   };
 
-  const getAvailableRequests = () => {
-    return requests.filter((request) => request.status !== "failed");
-  };
-
-  const groupRequestsByType = () => {
-    const availableRequests = getAvailableRequests();
-    return {
-      movies: availableRequests.filter((r) => r.type === "movie"),
-      series: availableRequests.filter((r) => r.type === "series"),
-    };
-  };
-
-  const { movies, series } = groupRequestsByType();
-
   return (
-    <div style={{ background: "transparent" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div>
-          <h3
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: "600",
-              color: "#f1f5f9",
-              margin: 0,
-            }}
-          >
-            🔗 File Request Mapping
-          </h3>
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "#94a3b8",
-              marginTop: "0.25rem",
-              margin: 0,
-            }}
-          >
-            Map release files to specific requests for cross-request
-            collections.
-          </p>
-        </div>
-      </div>
+    <Stack spacing={6}>
+      <Stack spacing={1}>
+        <Heading size="md">🔗 File Request Mapping</Heading>
+        <Text fontSize="sm" color="text.subtle">
+          Map release files to other requests to manage shared content.
+        </Text>
+      </Stack>
 
-      <div>
-        {/* Controls */}
-        {!readonly && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1rem",
-              }}
+      {!readonly && (
+        <Stack spacing={4}>
+          <Flex gap={4} wrap="wrap">
+            <Checkbox
+              isChecked={showOnlyVideo}
+              onChange={(e) => setShowOnlyVideo(e.target.checked)}
+              colorScheme="blue"
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              Show only video files ({video.length})
+            </Checkbox>
+          </Flex>
+
+          <Flex align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={3} wrap="wrap">
+            <Text fontWeight="600" fontSize="sm">
+              Bulk assign to request:
+            </Text>
+            <Select
+              placeholder="Select a request..."
+              value={selectedRequest}
+              onChange={(e) => {
+                setSelectedRequest(e.target.value);
+                if (e.target.value) {
+                  handleBulkRequestUpdate(e.target.value);
+                }
+              }}
+              maxW="320px"
+              size="sm"
+            >
+              {movieRequests.length > 0 && (
+                <optgroup label="Movies">
+                  {movieRequests.map((request) => (
+                    <option key={request.id} value={request.id}>
+                      {request.title} ({request.year})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {seriesRequests.length > 0 && (
+                <optgroup label="Series">
+                  {seriesRequests.map((request) => (
+                    <option key={request.id} value={request.id}>
+                      {request.title} ({request.year})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </Flex>
+        </Stack>
+      )}
+
+      {error && (
+        <Alert status="error" borderRadius="md" alignItems="flex-start">
+          <AlertIcon />
+          <AlertDescription fontSize="sm">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Stack spacing={4}>
+        {displayFiles.length === 0 ? (
+          <VStack
+            spacing={3}
+            py={12}
+            bg="bg.subtle"
+            borderRadius="xl"
+            borderWidth="1px"
+            borderColor="border.muted"
+          >
+            <Text fontSize="3xl">📁</Text>
+            <Heading size="sm">No files to map</Heading>
+            <Text fontSize="sm" color="text.subtle" textAlign="center">
+              No {showOnlyVideo ? "video " : ""}files available for mapping.
+            </Text>
+          </VStack>
+        ) : (
+          displayFiles.map((file) => {
+            const mapping = getFileMapping(file.id);
+            const existing = getExistingMapping(file.id);
+            const changed = hasChanges(file.id);
+
+            return (
+              <Box
+                key={file.id}
+                borderWidth="1px"
+                borderRadius="lg"
+                borderColor={existing ? "blue.400" : "border.muted"}
+                bg={existing ? "rgba(59, 130, 246, 0.14)" : "bg.subtle"}
+                p={4}
               >
-                <input
-                  type="checkbox"
-                  id="showOnlyVideo"
-                  checked={showOnlyVideo}
-                  onChange={(e) => setShowOnlyVideo(e.target.checked)}
-                  style={{
-                    accentColor: "#3b82f6",
-                  }}
-                />
-                <label
-                  htmlFor="showOnlyVideo"
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#f1f5f9",
-                  }}
-                >
-                  Show only video files ({video.length})
-                </label>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <label
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: "600",
-                  color: "#f1f5f9",
-                }}
-              >
-                Bulk assign to request:
-              </label>
-              <select
-                value={selectedRequest}
-                onChange={(e) => {
-                  setSelectedRequest(e.target.value);
-                  if (e.target.value) {
-                    handleBulkRequestUpdate(e.target.value);
-                  }
-                }}
-                className="form-select"
-                style={{
-                  minWidth: "200px",
-                  fontSize: "0.875rem",
-                  padding: "0.5rem 0.75rem",
-                }}
-              >
-                <option value="">Select a request...</option>
-                {movies.length > 0 && (
-                  <optgroup label="Movies">
-                    {movies.map((request) => (
-                      <option key={request.id} value={request.id}>
-                        {request.title} ({request.year})
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {series.length > 0 && (
-                  <optgroup label="Series">
-                    {series.map((request) => (
-                      <option key={request.id} value={request.id}>
-                        {request.title} ({request.year})
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="error" style={{ marginBottom: "1rem" }}>
-            <div style={{ fontSize: "0.875rem" }}>{error}</div>
-          </div>
-        )}
-
-        {/* Files List */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {displayFiles.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">📁</div>
-              <h3 className="empty-state-title">No files to map</h3>
-              <p className="empty-state-description">
-                No {showOnlyVideo ? "video " : ""}files available for mapping.
-              </p>
-            </div>
-          ) : (
-            displayFiles.map((file) => {
-              const mapping = getFileMapping(file.id);
-              const existing = getExistingMapping(file.id);
-              const changed = hasChanges(file.id);
-
-              return (
-                <div
-                  key={file.id}
-                  className="card"
-                  style={{
-                    padding: "1rem",
-                    background: existing
-                      ? "rgba(59, 130, 246, 0.1)"
-                      : "rgba(71, 85, 105, 0.2)",
-                    border: existing
-                      ? "1px solid rgba(59, 130, 246, 0.2)"
-                      : "1px solid rgba(148, 163, 184, 0.1)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "1rem",
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          marginBottom: "0.5rem",
-                        }}
-                      >
-                        <span style={{ fontSize: "1.125rem" }}>
-                          {isVideoFile(file.name) ? "🎬" : "📄"}
-                        </span>
-                        <h4
-                          style={{
-                            fontSize: "0.875rem",
-                            fontWeight: "600",
-                            color: "#f1f5f9",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                          }}
-                        >
-                          {file.name}
-                        </h4>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#94a3b8",
-                          }}
-                        >
-                          ({formatFileSize(file.size)})
-                        </span>
-                        {existing && (
-                          <span
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              background: "rgba(59, 130, 246, 0.2)",
-                              color: "#3b82f6",
-                              fontSize: "0.625rem",
-                              borderRadius: "9999px",
-                              border: "1px solid rgba(59, 130, 246, 0.3)",
-                            }}
-                          >
-                            Mapped
-                          </span>
-                        )}
-                        {changed && (
-                          <span
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              background: "rgba(251, 191, 36, 0.2)",
-                              color: "#fbbf24",
-                              fontSize: "0.625rem",
-                              borderRadius: "9999px",
-                              border: "1px solid rgba(251, 191, 36, 0.3)",
-                            }}
-                          >
-                            Changed
-                          </span>
-                        )}
-                      </div>
-
-                      {existing && (
-                        <div
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "#94a3b8",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          Current: {existing.request_title} (
-                          {existing.mapping_type})
-                          {existing.season &&
-                            existing.episode &&
-                            ` - S${existing.season
-                              .toString()
-                              .padStart(2, "0")}E${existing.episode
-                              .toString()
-                              .padStart(2, "0")}`}
-                        </div>
-                      )}
-
-                      {!readonly && mapping && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "0.75rem",
-                          }}
-                        >
-                          {/* Request Selection */}
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "0.75rem",
-                            }}
-                          >
-                            <div>
-                              <label
-                                style={{
-                                  display: "block",
-                                  fontSize: "0.75rem",
-                                  fontWeight: "600",
-                                  color: "#f1f5f9",
-                                  marginBottom: "0.25rem",
-                                }}
-                              >
-                                Request
-                              </label>
-                              <select
-                                value={mapping.requestId}
-                                onChange={(e) =>
-                                  handleMappingChange(
-                                    file.id,
-                                    "requestId",
-                                    e.target.value
-                                  )
-                                }
-                                className="form-select"
-                                style={{
-                                  width: "100%",
-                                  fontSize: "0.875rem",
-                                  padding: "0.5rem 0.75rem",
-                                }}
-                              >
-                                <option value="">Select request...</option>
-                                {movies.length > 0 && (
-                                  <optgroup label="Movies">
-                                    {movies.map((request) => (
-                                      <option
-                                        key={request.id}
-                                        value={request.id}
-                                      >
-                                        {request.title} ({request.year})
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                )}
-                                {series.length > 0 && (
-                                  <optgroup label="Series">
-                                    {series.map((request) => (
-                                      <option
-                                        key={request.id}
-                                        value={request.id}
-                                      >
-                                        {request.title} ({request.year})
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                )}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label
-                                style={{
-                                  display: "block",
-                                  fontSize: "0.75rem",
-                                  fontWeight: "600",
-                                  color: "#f1f5f9",
-                                  marginBottom: "0.25rem",
-                                }}
-                              >
-                                Mapping Type
-                              </label>
-                              <select
-                                value={mapping.mappingType}
-                                onChange={(e) =>
-                                  handleMappingChange(
-                                    file.id,
-                                    "mappingType",
-                                    e.target.value as
-                                      | "episode"
-                                      | "movie"
-                                      | "season"
-                                  )
-                                }
-                                className="form-select"
-                                style={{
-                                  width: "100%",
-                                  fontSize: "0.875rem",
-                                  padding: "0.5rem 0.75rem",
-                                }}
-                              >
-                                <option value="movie">Movie</option>
-                                <option value="episode">Episode</option>
-                                <option value="season">Season</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Episode Details (for series) */}
-                          {mapping.mappingType === "episode" && (
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: "0.75rem",
-                              }}
-                            >
-                              <div>
-                                <label
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.75rem",
-                                    fontWeight: "600",
-                                    color: "#f1f5f9",
-                                    marginBottom: "0.25rem",
-                                  }}
-                                >
-                                  Season
-                                </label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="99"
-                                  value={mapping.season?.toString() || ""}
-                                  onChange={(e) =>
-                                    handleMappingChange(
-                                      file.id,
-                                      "season",
-                                      e.target.value
-                                        ? parseInt(e.target.value)
-                                        : undefined
-                                    )
-                                  }
-                                  className="form-input"
-                                  style={{
-                                    width: "100%",
-                                    fontSize: "0.875rem",
-                                    padding: "0.5rem 0.75rem",
-                                  }}
-                                />
-                              </div>
-
-                              <div>
-                                <label
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.75rem",
-                                    fontWeight: "600",
-                                    color: "#f1f5f9",
-                                    marginBottom: "0.25rem",
-                                  }}
-                                >
-                                  Episode
-                                </label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="999"
-                                  value={mapping.episode?.toString() || ""}
-                                  onChange={(e) =>
-                                    handleMappingChange(
-                                      file.id,
-                                      "episode",
-                                      e.target.value
-                                        ? parseInt(e.target.value)
-                                        : undefined
-                                    )
-                                  }
-                                  className="form-input"
-                                  style={{
-                                    width: "100%",
-                                    fontSize: "0.875rem",
-                                    padding: "0.5rem 0.75rem",
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {mapping.mappingType === "season" && (
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr",
-                                gap: "0.75rem",
-                              }}
-                            >
-                              <div>
-                                <label
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.75rem",
-                                    fontWeight: "600",
-                                    color: "#f1f5f9",
-                                    marginBottom: "0.25rem",
-                                  }}
-                                >
-                                  Season
-                                </label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="99"
-                                  value={mapping.season?.toString() || ""}
-                                  onChange={(e) =>
-                                    handleMappingChange(
-                                      file.id,
-                                      "season",
-                                      e.target.value
-                                        ? parseInt(e.target.value)
-                                        : undefined
-                                    )
-                                  }
-                                  className="form-input"
-                                  style={{
-                                    width: "100%",
-                                    fontSize: "0.875rem",
-                                    padding: "0.5rem 0.75rem",
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {readonly && existing && (
-                        <div
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "#f1f5f9",
-                          }}
-                        >
-                          {existing.request_title} ({existing.mapping_type})
-                          {existing.season &&
-                            existing.episode &&
-                            ` - S${existing.season
-                              .toString()
-                              .padStart(2, "0")}E${existing.episode
-                              .toString()
-                              .padStart(2, "0")}`}
-                        </div>
-                      )}
-                    </div>
-
-                    {!readonly && (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.5rem",
-                        }}
-                      >
-                        <button
-                          onClick={() => handleSaveMapping(file.id)}
-                          disabled={loading || !changed || !mapping?.requestId}
-                          className={`btn ${
-                            changed && mapping?.requestId
-                              ? "btn-primary"
-                              : "btn-secondary"
-                          }`}
-                          style={{
-                            fontSize: "0.75rem",
-                            padding: "0.5rem 0.75rem",
-                            opacity: changed && mapping?.requestId ? 1 : 0.5,
-                            cursor:
-                              changed && mapping?.requestId
-                                ? "pointer"
-                                : "not-allowed",
-                          }}
-                        >
-                          {loading ? "Saving..." : "Save"}
-                        </button>
-
-                        {mapping?.requestId && (
-                          <button
-                            onClick={() => handleClearMapping(file.id)}
-                            className="btn"
-                            style={{
-                              fontSize: "0.75rem",
-                              padding: "0.5rem 0.75rem",
-                              background: "rgba(239, 68, 68, 0.2)",
-                              color: "#f87171",
-                              border: "1px solid rgba(239, 68, 68, 0.3)",
-                            }}
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
+                <Stack spacing={3}>
+                  <Flex align="center" gap={3} wrap="wrap">
+                    <Text fontSize="lg">{isVideoFile(file.name) ? "🎬" : "📄"}</Text>
+                    <Text fontWeight="600" noOfLines={1} flex={1} minW={0}>
+                      {file.name}
+                    </Text>
+                    <Text fontSize="xs" color="text.subtle">
+                      ({formatFileSize(file.size)})
+                    </Text>
+                    {existing && (
+                      <Tag colorScheme="blue" variant="subtle" size="sm">
+                        Mapped
+                      </Tag>
                     )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                    {changed && (
+                      <Tag colorScheme="yellow" variant="subtle" size="sm">
+                        Changed
+                      </Tag>
+                    )}
+                  </Flex>
 
-        {/* Bulk Actions */}
-        {!readonly && displayFiles.length > 0 && (
-          <div
-            style={{
-              marginTop: "1.5rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid rgba(148, 163, 184, 0.1)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "0.875rem",
-                  color: "#94a3b8",
-                }}
-              >
-                {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved
-                changes
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem" }}>
-                <button
-                  onClick={handleSaveAllMappings}
-                  disabled={
-                    loading || !mappings.some((m) => hasChanges(m.fileId))
-                  }
-                  className={`btn ${
-                    mappings.some((m) => hasChanges(m.fileId))
-                      ? "btn-primary"
-                      : "btn-secondary"
-                  }`}
-                  style={{
-                    fontSize: "0.875rem",
-                    padding: "0.5rem 1rem",
-                    opacity: mappings.some((m) => hasChanges(m.fileId))
-                      ? 1
-                      : 0.5,
-                    cursor: mappings.some((m) => hasChanges(m.fileId))
-                      ? "pointer"
-                      : "not-allowed",
-                  }}
-                >
-                  {loading ? "Saving All..." : "Save All Changes"}
-                </button>
-              </div>
-            </div>
-          </div>
+                  {existing && (
+                    <Text fontSize="sm" color="text.subtle">
+                      Current: {existing.request_title} ({existing.mapping_type})
+                      {existing.season && existing.episode &&
+                        ` - S${existing.season.toString().padStart(2, "0")}E${existing.episode
+                          .toString()
+                          .padStart(2, "0")}`}
+                    </Text>
+                  )}
+
+                  {!readonly && mapping && (
+                    <Stack spacing={3}>
+                      <Grid templateColumns={{ base: "repeat(1, minmax(0, 1fr))", md: "repeat(2, minmax(0, 1fr))" }} gap={3}>
+                        <Box>
+                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                            Request
+                          </Text>
+                          <Select
+                            placeholder="Select request..."
+                            value={mapping.requestId}
+                            size="sm"
+                            onChange={(e) =>
+                              handleMappingChange(file.id, "requestId", e.target.value)
+                            }
+                          >
+                            {movieRequests.length > 0 && (
+                              <optgroup label="Movies">
+                                {movieRequests.map((request) => (
+                                  <option key={request.id} value={request.id}>
+                                    {request.title} ({request.year})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {seriesRequests.length > 0 && (
+                              <optgroup label="Series">
+                                {seriesRequests.map((request) => (
+                                  <option key={request.id} value={request.id}>
+                                    {request.title} ({request.year})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </Select>
+                        </Box>
+
+                        <Box>
+                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                            Mapping Type
+                          </Text>
+                          <Select
+                            value={mapping.mappingType}
+                            size="sm"
+                            onChange={(e) =>
+                              handleMappingChange(file.id, "mappingType", e.target.value as FileMapping["mappingType"])
+                            }
+                          >
+                            <option value="movie">Movie</option>
+                            <option value="season">Season</option>
+                            <option value="episode">Episode</option>
+                          </Select>
+                        </Box>
+                      </Grid>
+
+                      {mapping.mappingType === "season" && (
+                        <Box>
+                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                            Season
+                          </Text>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={99}
+                            value={mapping.season ?? 1}
+                            size="sm"
+                            onChange={(e) =>
+                              handleMappingChange(
+                                file.id,
+                                "season",
+                                e.target.value ? parseInt(e.target.value, 10) : 1
+                              )
+                            }
+                          />
+                        </Box>
+                      )}
+
+                      {mapping.mappingType === "episode" && (
+                        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
+                          <Box>
+                            <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                              Season
+                            </Text>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={mapping.season ?? 1}
+                              size="sm"
+                              onChange={(e) =>
+                                handleMappingChange(
+                                  file.id,
+                                  "season",
+                                  e.target.value ? parseInt(e.target.value, 10) : 1
+                                )
+                              }
+                            />
+                          </Box>
+                          <Box>
+                            <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                              Episode
+                            </Text>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={999}
+                              value={mapping.episode ?? 1}
+                              size="sm"
+                              onChange={(e) =>
+                                handleMappingChange(
+                                  file.id,
+                                  "episode",
+                                  e.target.value ? parseInt(e.target.value, 10) : 1
+                                )
+                              }
+                            />
+                          </Box>
+                        </Grid>
+                      )}
+                    </Stack>
+                  )}
+
+                  {readonly && existing && (
+                    <Text fontSize="sm" color="slate.100">
+                      {existing.request_title} ({existing.mapping_type})
+                      {existing.season && existing.episode &&
+                        ` - S${existing.season.toString().padStart(2, "0")}E${existing.episode
+                          .toString()
+                          .padStart(2, "0")}`}
+                    </Text>
+                  )}
+
+                  {!readonly && (
+                    <Flex gap={2} justify="flex-end" flexWrap="wrap">
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        variant={changed && mapping?.requestId ? "solid" : "outline"}
+                        onClick={() => handleSaveMapping(file.id)}
+                        isDisabled={loading || !changed || !mapping?.requestId}
+                      >
+                        {loading ? "Saving..." : "Save"}
+                      </Button>
+                      {mapping?.requestId && (
+                        <Button
+                          size="sm"
+                          colorScheme="red"
+                          variant="outline"
+                          onClick={() => handleClearMapping(file.id)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </Flex>
+                  )}
+                </Stack>
+              </Box>
+            );
+          })
         )}
+      </Stack>
 
-        {/* File Type Summary */}
-        {!showOnlyVideo && (
-          <div
-            style={{
-              marginTop: "1.5rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid rgba(148, 163, 184, 0.1)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "#94a3b8",
-              }}
-            >
-              File types: {video.length} video, {subtitle.length} subtitle,{" "}
-              {other.length} other
-            </div>
-          </div>
-        )}
-
-        {/* Available Requests Summary */}
-        <div
-          style={{
-            marginTop: "1.5rem",
-            paddingTop: "1rem",
-            borderTop: "1px solid rgba(148, 163, 184, 0.1)",
-          }}
+      {!readonly && displayFiles.length > 0 && (
+        <Flex
+          direction={{ base: "column", md: "row" }}
+          justify="space-between"
+          align={{ base: "flex-start", md: "center" }}
+          gap={3}
+          pt={4}
+          borderTopWidth="1px"
+          borderTopColor="border.muted"
         >
-          <div
-            style={{
-              fontSize: "0.875rem",
-              color: "#94a3b8",
-            }}
+          <Text fontSize="sm" color="text.subtle">
+            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved changes
+          </Text>
+          <Button
+            onClick={handleSaveAllMappings}
+            size="sm"
+            colorScheme="blue"
+            variant={mappings.some((m) => hasChanges(m.fileId)) ? "solid" : "outline"}
+            isDisabled={loading || !mappings.some((m) => hasChanges(m.fileId))}
           >
-            Available requests: {movies.length} movies, {series.length} series
-          </div>
-        </div>
-      </div>
-    </div>
+            {loading ? "Saving All..." : "Save All Changes"}
+          </Button>
+        </Flex>
+      )}
+
+      {!showOnlyVideo && (
+        <Text fontSize="sm" color="text.subtle">
+          File types: {video.length} video, {subtitle.length} subtitle,{" "}
+          {other.length} other
+        </Text>
+      )}
+
+      <Text fontSize="sm" color="text.subtle">
+        Available requests: {movieRequests.length} movies, {seriesRequests.length} series
+      </Text>
+    </Stack>
   );
 };
 
