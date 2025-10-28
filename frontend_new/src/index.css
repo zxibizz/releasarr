@@ -1,3 +1,6 @@
+/* Import design tokens */
+@import "./styles/tokens.css";
+
 /* Modern CSS reset and base styles */
 * {
   box-sizing: border-box;
