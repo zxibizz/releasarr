@@ -58,11 +58,16 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<string>("");
 
-  const { video, subtitle, other } = groupFilesByType(files);
-  const displayFiles = showOnlyVideo ? video : files;
+  const groupedFiles = useMemo(() => groupFilesByType(files), [files]);
+  const { video, subtitle, other } = groupedFiles;
+  const displayFiles = useMemo(
+    () => (showOnlyVideo ? video : files),
+    [showOnlyVideo, video, files]
+  );
 
   useEffect(() => {
-    const initialMappings = displayFiles.map((file) => {
+    const sourceFiles = showOnlyVideo ? video : files;
+    const initialMappings = sourceFiles.map((file) => {
       const existing = file.request_mapping;
 
       return {
@@ -76,7 +81,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     });
 
     setMappings(initialMappings);
-  }, [displayFiles]);
+  }, [files, video, showOnlyVideo]);
 
   const availableRequests = useMemo(
     () => requests.filter((request) => request.status !== "failed"),

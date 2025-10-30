@@ -1,3 +1,4 @@
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import {
   Badge,
   Button,
@@ -13,7 +14,6 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
-import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import React, { useState } from "react";
 import { Release } from "../types";
 import {
@@ -93,7 +93,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
   if (compact) {
     return (
-      <Card p={4}>
+      <Card
+        p={4}
+        bg="bg.subtle"
+        borderWidth="1px"
+        borderColor="border.muted"
+        borderRadius="lg"
+      >
         <Stack spacing={4}>
           <Flex align="flex-start" justify="space-between" gap={4}>
             <Stack spacing={2} flex={1} minW={0}>
@@ -153,8 +159,12 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 </GridItem>
                 <GridItem>
                   <Text>
-                    Health: {" "}
-                    <Text as="span" fontWeight="600" color={getHealthColor(healthScore)}>
+                    Health:{" "}
+                    <Text
+                      as="span"
+                      fontWeight="600"
+                      color={getHealthColor(healthScore)}
+                    >
                       {healthScore}%
                     </Text>
                   </Text>
@@ -174,7 +184,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   }
 
   return (
-    <Card p={{ base: 5, md: 6 }}>
+    <Card
+      p={{ base: 5, md: 6 }}
+      bg="bg.subtle"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="lg"
+    >
       <Stack spacing={6}>
         <Flex
           direction={{ base: "column", md: "row" }}
@@ -185,11 +201,22 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
           <Stack spacing={3} flex={1} minW={0}>
             <Flex align="center" gap={3} wrap="wrap">
               <Text fontSize="2xl">{getStatusIcon(release.status)}</Text>
-              <Text fontWeight="700" fontSize="lg" color="slate.100" noOfLines={2}>
+              <Text
+                fontWeight="700"
+                fontSize="lg"
+                color="slate.100"
+                noOfLines={2}
+              >
                 {release.name}
               </Text>
             </Flex>
-            <Flex gap={3} wrap="wrap" align="center" fontSize="sm" color="text.subtle">
+            <Flex
+              gap={3}
+              wrap="wrap"
+              align="center"
+              fontSize="sm"
+              color="text.subtle"
+            >
               <Badge
                 colorScheme={statusColorScheme[release.status]}
                 variant="subtle"
@@ -220,7 +247,9 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 View Files
               </Button>
 
-              {release.files.some((f) => !f.episode_mapping && !f.request_mapping) ? (
+              {release.files.some(
+                (f) => !f.episode_mapping && !f.request_mapping
+              ) ? (
                 <Button
                   onClick={() => onEditMapping?.(release)}
                   size="sm"
@@ -297,7 +326,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
           </Stack>
         )}
 
-        <Grid templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }} gap={4}>
+        <Grid
+          templateColumns={{
+            base: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, minmax(0, 1fr))",
+          }}
+          gap={4}
+        >
           <GridItem textAlign="center">
             <Text fontSize="xs" color="text.subtle">
               Seeders
@@ -326,7 +361,11 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             <Text fontSize="xs" color="text.subtle">
               Health
             </Text>
-            <Text fontSize="lg" fontWeight="600" color={getHealthColor(healthScore)}>
+            <Text
+              fontSize="lg"
+              fontWeight="600"
+              color={getHealthColor(healthScore)}
+            >
               {healthScore}%
             </Text>
           </GridItem>
@@ -337,13 +376,17 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             {release.download_speed > 0 && (
               <Flex align="center" gap={2}>
                 <Text color="blue.300">↓</Text>
-                <Text fontWeight="600">{formatSpeed(release.download_speed)}</Text>
+                <Text fontWeight="600">
+                  {formatSpeed(release.download_speed)}
+                </Text>
               </Flex>
             )}
             {release.upload_speed > 0 && (
               <Flex align="center" gap={2}>
                 <Text color="green.300">↑</Text>
-                <Text fontWeight="600">{formatSpeed(release.upload_speed)}</Text>
+                <Text fontWeight="600">
+                  {formatSpeed(release.upload_speed)}
+                </Text>
               </Flex>
             )}
           </Flex>
@@ -358,7 +401,9 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
         <Flex gap={4} flexWrap="wrap" fontSize="sm" color="text.muted">
           <Text>Added: {formatDate(release.added_date)}</Text>
-          {release.completed_date && <Text>Completed: {formatDate(release.completed_date)}</Text>}
+          {release.completed_date && (
+            <Text>Completed: {formatDate(release.completed_date)}</Text>
+          )}
         </Flex>
 
         {release.request_ids.length > 0 && (
@@ -369,7 +414,14 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             <Wrap spacing={2}>
               {release.request_ids.map((requestId) => (
                 <WrapItem key={requestId}>
-                  <Tag colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1} fontSize="xs">
+                  <Tag
+                    colorScheme="blue"
+                    variant="subtle"
+                    borderRadius="full"
+                    px={3}
+                    py={1}
+                    fontSize="xs"
+                  >
                     {requestId}
                   </Tag>
                 </WrapItem>

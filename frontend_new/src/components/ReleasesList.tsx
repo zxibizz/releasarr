@@ -86,7 +86,10 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     let filtered = releases;
 
     if (filterBy !== "all") {
-      filtered = filterReleasesByStatus(releases, filterBy as Release["status"]);
+      filtered = filterReleasesByStatus(
+        releases,
+        filterBy as Release["status"]
+      );
     }
 
     switch (sortBy) {
@@ -150,7 +153,12 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           <AlertTitle fontSize="lg">Error loading releases</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Box>
-        <Button variant="outline" colorScheme="blue" size="sm" onClick={refetch}>
+        <Button
+          variant="outline"
+          colorScheme="blue"
+          size="sm"
+          onClick={refetch}
+        >
           Try Again
         </Button>
       </Alert>
@@ -179,18 +187,46 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   return (
     <Stack spacing={6}>
       {showStats && (
-        <Card p={6}>
-          <SimpleGrid columns={{ base: 2, md: 5 }} spacing={4} textAlign="center">
-            <StatItem label="Total" value={stats.total} accent="brand.400" />
-            <StatItem label="Active" value={stats.active} accent="orange.300" />
-            <StatItem label="Completed" value={stats.completed} accent="green.300" />
-            <StatItem label="Download" value={formatSpeed(stats.downloadSpeed)} accent="brand.300" />
-            <StatItem label="Upload" value={formatSpeed(stats.uploadSpeed)} accent="green.300" />
+        <Card
+          p={6}
+          bg="bg.subtle"
+          borderWidth="1px"
+          borderColor="border.muted"
+          borderRadius="lg"
+        >
+          <SimpleGrid columns={{ base: 1, sm: 2, md: 5 }} spacing={4}>
+            <StatItem label="Total" value={stats.total} colorScheme="purple" />
+            <StatItem
+              label="Active"
+              value={stats.active}
+              colorScheme="orange"
+            />
+            <StatItem
+              label="Completed"
+              value={stats.completed}
+              colorScheme="green"
+            />
+            <StatItem
+              label="Download"
+              value={formatSpeed(stats.downloadSpeed)}
+              colorScheme="blue"
+            />
+            <StatItem
+              label="Upload"
+              value={formatSpeed(stats.uploadSpeed)}
+              colorScheme="teal"
+            />
           </SimpleGrid>
         </Card>
       )}
 
-      <Card p={6}>
+      <Card
+        p={6}
+        bg="bg.subtle"
+        borderWidth="1px"
+        borderColor="border.muted"
+        borderRadius="lg"
+      >
         <Stack spacing={4}>
           <Flex
             direction={{ base: "column", lg: "row" }}
@@ -209,11 +245,14 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
               >
                 {filterOptions.map((option) => (
                   <option key={option.key} value={option.key}>
-                    {option.label} ({
-                      option.key === "all"
-                        ? releases.length
-                        : filterReleasesByStatus(releases, option.key as Release["status"]).length
-                    })
+                    {option.label} (
+                    {option.key === "all"
+                      ? releases.length
+                      : filterReleasesByStatus(
+                          releases,
+                          option.key as Release["status"]
+                        ).length}
+                    )
                   </option>
                 ))}
               </Select>
@@ -231,20 +270,27 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
                     variant={isActive ? "solid" : "outline"}
                     onClick={() => handleSortChange(option)}
                   >
-                    {sortLabels[option]} {isActive && (sortAscending ? "↑" : "↓")}
+                    {sortLabels[option]}{" "}
+                    {isActive && (sortAscending ? "↑" : "↓")}
                   </Button>
                 );
               })}
             </Flex>
 
-            <Button size="sm" variant="outline" colorScheme="blue" onClick={refetch}>
+            <Button
+              size="sm"
+              variant="outline"
+              colorScheme="blue"
+              onClick={refetch}
+            >
               🔄 Refresh
             </Button>
           </Flex>
 
           {filterBy !== "all" && (
             <Text fontSize="sm" color="text.subtle">
-              Showing {filteredAndSortedReleases.length} of {releases.length} releases
+              Showing {filteredAndSortedReleases.length} of {releases.length}{" "}
+              releases
             </Text>
           )}
         </Stack>
@@ -259,7 +305,11 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
               <Text color="text.subtle" fontSize="sm">
                 Try adjusting your filter criteria to see more results.
               </Text>
-              <Button size="sm" colorScheme="blue" onClick={() => setFilterBy("all")}>
+              <Button
+                size="sm"
+                colorScheme="blue"
+                onClick={() => setFilterBy("all")}
+              >
                 Show All Releases
               </Button>
             </Stack>
@@ -286,18 +336,57 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 interface StatItemProps {
   label: string;
   value: number | string;
-  accent: string;
+  colorScheme: keyof typeof STAT_COLOR_MAP;
 }
 
-const StatItem: React.FC<StatItemProps> = ({ label, value, accent }) => (
-  <Box>
-    <Text fontSize="2xl" fontWeight="700" color={accent}>
-      {value}
-    </Text>
-    <Text fontSize="sm" color="text.subtle">
-      {label}
-    </Text>
-  </Box>
-);
+const STAT_COLOR_MAP = {
+  blue: {
+    bg: "rgba(59, 130, 246, 0.2)",
+    border: "rgba(59, 130, 246, 0.35)",
+    text: "blue.200",
+  },
+  teal: {
+    bg: "rgba(45, 212, 191, 0.18)",
+    border: "rgba(45, 212, 191, 0.35)",
+    text: "teal.200",
+  },
+  green: {
+    bg: "rgba(34, 197, 94, 0.18)",
+    border: "rgba(34, 197, 94, 0.32)",
+    text: "green.200",
+  },
+  orange: {
+    bg: "rgba(251, 146, 60, 0.22)",
+    border: "rgba(251, 146, 60, 0.35)",
+    text: "orange.200",
+  },
+  purple: {
+    bg: "rgba(139, 92, 246, 0.2)",
+    border: "rgba(139, 92, 246, 0.38)",
+    text: "purple.200",
+  },
+} as const;
+
+const StatItem: React.FC<StatItemProps> = ({ label, value, colorScheme }) => {
+  const colors = STAT_COLOR_MAP[colorScheme] ?? STAT_COLOR_MAP.blue;
+
+  return (
+    <Box
+      bg={colors.bg}
+      borderWidth="1px"
+      borderColor={colors.border}
+      borderRadius="lg"
+      p={4}
+      textAlign="left"
+    >
+      <Text fontSize="2xl" fontWeight="700" color={colors.text}>
+        {value}
+      </Text>
+      <Text fontSize="sm" color="text.subtle">
+        {label}
+      </Text>
+    </Box>
+  );
+};
 
 export default ReleasesList;
