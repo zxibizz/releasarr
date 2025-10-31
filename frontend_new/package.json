@@ -18,6 +18,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.16",
+    "msw": "^2.3.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
@@ -51,5 +52,10 @@
   },
   "devDependencies": {
     "@types/react-router-dom": "^5.3.3"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

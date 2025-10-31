@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { searchMockTorrents } from '../services/mockData';
+import { searchTorrents as searchTorrentsAPI } from '../services/api';
 import { SearchState, TorrentResult } from '../types';
 
 export const useTorrentSearch = () => {
@@ -29,10 +29,10 @@ export const useTorrentSearch = () => {
     }));
 
     try {
-      const results = await searchMockTorrents(query);
+      const response = await searchTorrentsAPI(query);
       setSearchState(prev => ({
         ...prev,
-        results,
+        results: response.results,
         loading: false
       }));
     } catch (err) {
