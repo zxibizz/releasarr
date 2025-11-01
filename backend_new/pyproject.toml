@@ -1,0 +1,29 @@
+[project]
+name = "releasarr-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Releasarr frontend"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = ["Releasarr Team <dev@releasarr.local>"]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy>=2.0.32",
+    "alembic>=1.13.2",
+    "httpx[http2]>=0.27.0",
+    "pydantic>=2.8.2",
+    "pydantic-settings>=2.5.2",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.19.0",
+    "loguru>=0.7.2",
+    "python-dotenv>=1.0.1"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.2",
+    "pytest-asyncio>=0.23.8",
+    "black>=24.8.0",
+    "isort>=5.13.2",
+    "ruff>=0.6.0"
+]
