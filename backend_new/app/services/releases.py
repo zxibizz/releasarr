@@ -5,12 +5,13 @@ from typing import Sequence
 
 from loguru import logger
 from sqlalchemy import Select, func, select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.clients.factory import get_clients
 from app.models import MediaRequest, Release, ReleaseFile
-from app.schemas.common import Release as ReleaseSchema, ReleaseFile as ReleaseFileSchema
+from app.schemas.common import Release as ReleaseSchema
+from app.schemas.common import ReleaseFile as ReleaseFileSchema
 from app.schemas.common import ReleaseStats
 from app.schemas.releases import SuccessResponse, UpdateFileMapping
 
@@ -31,7 +32,11 @@ class ReleaseService:
         if request_id:
             query = query.join(Release.requests).where(MediaRequest.id == request_id)
         query = query.order_by(Release.added_date.desc())
-        query = query.options(selectinload(Release.requests), selectinload(Release.files))
+        query = query.options(
+            selectinload(Release.requests),
+            selectinload(Release.files),
+            selectinload(Release.file_matchings),
+        )
         releases: Sequence[Release] = (await self.session.scalars(query)).all()
         return [self._to_schema(release) for release in releases]
 
@@ -39,7 +44,9 @@ class ReleaseService:
         release = await self.session.get(Release, release_id)
         if not release:
             return None
-        await self.session.refresh(release, attribute_names=["requests", "files"])
+        await self.session.refresh(
+            release, attribute_names=["requests", "files", "file_matchings"]
+        )
         return self._to_schema(release)
 
     async def get_request_releases(self, request_id: int) -> list[ReleaseSchema]:
@@ -47,7 +54,11 @@ class ReleaseService:
             select(Release)
             .join(Release.requests)
             .where(MediaRequest.id == request_id)
-            .options(selectinload(Release.requests), selectinload(Release.files))
+            .options(
+                selectinload(Release.requests),
+                selectinload(Release.files),
+                selectinload(Release.file_matchings),
+            )
         )
         releases = (await self.session.scalars(query)).all()
         return [self._to_schema(release) for release in releases]
@@ -67,6 +78,7 @@ class ReleaseService:
             quality=quality,
             status="pending",
             added_date=datetime.utcnow(),
+            search=name,
         )
         if request_ids:
             related_requests = (
@@ -132,7 +144,9 @@ class ReleaseService:
                 select(func.count(Release.id)).where(Release.status == "completed")
             )
         ) or 0
-        total_size = await self.session.scalar(select(func.coalesce(func.sum(Release.size), 0)))
+        total_size = await self.session.scalar(
+            select(func.coalesce(func.sum(Release.size), 0))
+        )
         total_uploaded = await self.session.scalar(
             select(func.coalesce(func.sum(Release.upload_speed), 0))
         )
@@ -158,11 +172,13 @@ class ReleaseService:
         if not release:
             return False
         if not self.clients.prowlarr.enabled or not self.clients.qbittorrent.enabled:
-            logger.debug("Skipping torrent download; external clients disabled")
+            logger.info("Skipping torrent download; external clients disabled")
             return False
 
         torrent_data = await self.clients.prowlarr.download_torrent(download_url)
-        await self.clients.qbittorrent.add_torrent(torrent_data, save_path=request_save_path)
+        await self.clients.qbittorrent.add_torrent(
+            torrent_data, save_path=request_save_path
+        )
         release.status = "downloading"
         await self.session.commit()
         return True
