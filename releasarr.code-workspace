@@ -5,6 +5,12 @@
 			"name": "root"
 		},
 		{
+			"path": "frontend_new",
+		},
+		{
+			"path": "backend_new",
+		},
+		{
 			"path": "frontend",
 		},
 		{
