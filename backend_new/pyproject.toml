@@ -16,7 +16,8 @@ dependencies = [
     "asyncpg>=0.29.0",
     "aiosqlite>=0.19.0",
     "loguru>=0.7.2",
-    "python-dotenv>=1.0.1"
+    "python-dotenv>=1.0.1",
+    "torrentool>=1.1.4"
 ]
 
 [tool.uv]
