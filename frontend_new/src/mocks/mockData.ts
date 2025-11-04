@@ -2,9 +2,9 @@ import {
   MediaRequest,
   MovieRequest,
   Release,
+  ReleaseSearchResult,
   ReleaseStats,
   SeriesRequest,
-  TorrentResult,
 } from '../types';
 
 // Mock movie requests
@@ -139,8 +139,8 @@ const mockSeriesRequests: SeriesRequest[] = [
   }
 ];
 
-// Mock torrent results
-const mockTorrentResults: TorrentResult[] = [
+// Mock release search candidates
+const mockReleaseSearchResults: ReleaseSearchResult[] = [
   {
     id: 't1',
     name: 'The.Dark.Knight.2008.1080p.BluRay.x264-SPARKS',
@@ -208,19 +208,21 @@ export const getMockRequest = async (id: string): Promise<MediaRequest | null> =
   return allMockRequests.find(request => request.id === id) || null;
 };
 
-export const searchMockTorrents = async (query: string): Promise<TorrentResult[]> => {
+export const searchMockReleaseSources = async (
+  query: string,
+): Promise<ReleaseSearchResult[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 800));
-  
+
   if (!query.trim()) {
     return [];
   }
-  
-  // Filter torrents based on query
-  const filteredResults = mockTorrentResults.filter(torrent =>
-    torrent.name.toLowerCase().includes(query.toLowerCase())
+
+  // Filter releases based on query
+  const filteredResults = mockReleaseSearchResults.filter(candidate =>
+    candidate.name.toLowerCase().includes(query.toLowerCase())
   );
-  
+
   return filteredResults;
 };
 

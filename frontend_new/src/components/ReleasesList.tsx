@@ -178,7 +178,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         <Text fontSize="4xl">📦</Text>
         <Heading size="md">No releases found</Heading>
         <Text color="text.subtle" fontSize="sm">
-          No torrent releases have been added for this request yet.
+          No releases have been added for this request yet.
         </Text>
       </VStack>
     );

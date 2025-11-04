@@ -25,7 +25,7 @@ import EpisodeMapping from "./EpisodeMapping";
 import FileRequestMapping from "./FileRequestMapping";
 import { MediaInfo } from "./MediaInfo";
 import ReleasesList from "./ReleasesList";
-import { TorrentSearch } from "./TorrentSearch";
+import { ReleaseSearch } from "./ReleaseSearch";
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -92,14 +92,14 @@ export const RequestPage: React.FC = () => {
 
       <MediaInfo request={request} />
 
-      <TorrentSearch requestId={request.id} requestTitle={request.title} />
+      <ReleaseSearch requestId={request.id} requestTitle={request.title} />
 
       <Card p={{ base: 5, md: 6 }}>
         <Stack spacing={4}>
           <Stack spacing={1}>
             <Heading size="md">📦 Releases</Heading>
             <Text color="text.subtle" fontSize="sm">
-              Torrent releases associated with this request
+              Releases linked to this request
             </Text>
           </Stack>
 
