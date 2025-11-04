@@ -81,8 +81,8 @@ export interface ReleaseStats {
   total_downloaded: number;
 }
 
-// Torrent search types
-export interface TorrentResult {
+// Release search types exposed to the UI when adding a release
+export interface ReleaseSearchResult {
   id: string;
   name: string;
   size: string;
@@ -93,9 +93,9 @@ export interface TorrentResult {
   source: string;
 }
 
-export interface SearchState {
+export interface ReleaseSearchState {
   query: string;
-  results: TorrentResult[];
+  results: ReleaseSearchResult[];
   loading: boolean;
   error: string | null;
 }
@@ -108,8 +108,8 @@ export interface RequestsResponse {
   per_page: number;
 }
 
-export interface TorrentSearchResponse {
-  results: TorrentResult[];
+export interface ReleaseSearchResponse {
+  results: ReleaseSearchResult[];
   query: string;
   total_results: number;
 }

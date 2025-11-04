@@ -151,10 +151,10 @@ export const handlers = [
     return HttpResponse.json(stats);
   }),
 
-  http.get(`${API_BASE}/torrents/search`, async ({ request }) => {
+  http.get(`${API_BASE}/releases/search`, async ({ request }) => {
     const url = new URL(request.url);
     const query = url.searchParams.get('q') ?? '';
-    const results = await mockStore.searchTorrents(query);
+    const results = await mockStore.searchReleaseCandidates(query);
     return HttpResponse.json({
       results,
       query,
@@ -162,7 +162,7 @@ export const handlers = [
     });
   }),
 
-  http.post(`${API_BASE}/torrents/download`, async () => {
+  http.post(`${API_BASE}/releases/download`, async () => {
     return HttpResponse.json({ message: 'Download queued (mock)' }, { status: 202 });
   }),
 ];

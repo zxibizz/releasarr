@@ -1,14 +1,14 @@
 import {
   getMockReleases,
   getMockRequests,
-  searchMockTorrents,
+  searchMockReleaseSources,
 } from './mockData';
 import type {
   MediaRequest,
   Release,
   ReleaseFile,
+  ReleaseSearchResult,
   ReleaseStats,
-  TorrentResult,
 } from '../../src/types';
 
 type RequestStatus = MediaRequest['status'];
@@ -330,8 +330,8 @@ export class MockStore {
     };
   }
 
-  async searchTorrents(query: string): Promise<TorrentResult[]> {
-    const results = await searchMockTorrents(query);
+  async searchReleaseCandidates(query: string): Promise<ReleaseSearchResult[]> {
+    const results = await searchMockReleaseSources(query);
     return results.map((result) => clone(result));
   }
 }

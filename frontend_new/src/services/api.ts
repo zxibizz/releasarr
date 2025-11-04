@@ -1,4 +1,10 @@
-import { MediaRequest, Release, ReleaseStats, RequestsResponse, TorrentSearchResponse } from '../types';
+import {
+  MediaRequest,
+  Release,
+  ReleaseSearchResponse,
+  ReleaseStats,
+  RequestsResponse,
+} from '../types';
 
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
@@ -65,11 +71,11 @@ class ApiClient {
     return this.request<MediaRequest>(`/requests/${id}`);
   }
 
-  async searchTorrents(query: string): Promise<TorrentSearchResponse> {
+  async searchReleaseCandidates(query: string): Promise<ReleaseSearchResponse> {
     const searchParams = new URLSearchParams();
     searchParams.set('q', query);
-    const endpoint = `/torrents/search?${searchParams.toString()}`;
-    return this.request<TorrentSearchResponse>(endpoint);
+    const endpoint = `/releases/search?${searchParams.toString()}`;
+    return this.request<ReleaseSearchResponse>(endpoint);
   }
 
   // Future endpoints for real backend integration
@@ -93,10 +99,10 @@ class ApiClient {
     });
   }
 
-  async downloadTorrent(torrentLink: string, requestId: string): Promise<void> {
-    return this.request<void>('/torrents/download', {
+  async downloadReleaseCandidate(sourceLink: string, requestId: string): Promise<void> {
+    return this.request<void>('/releases/download', {
       method: 'POST',
-      body: JSON.stringify({ torrent_link: torrentLink, request_id: requestId }),
+      body: JSON.stringify({ source_link: sourceLink, request_id: requestId }),
     });
   }
 
@@ -159,10 +165,10 @@ class ApiClient {
     });
   }
 
-  async addRelease(torrentData: { magnet_link: string; request_ids: string[] }): Promise<Release> {
+  async addRelease(releaseData: { magnet_link: string; request_ids: string[] }): Promise<Release> {
     return this.request<Release>('/releases', {
       method: 'POST',
-      body: JSON.stringify(torrentData),
+      body: JSON.stringify(releaseData),
     });
   }
 }
@@ -178,7 +184,8 @@ export const fetchRequests = (options?: {
   type?: MediaRequest['type'];
 }) => apiClient.getRequests(options);
 export const fetchRequest = (id: string) => apiClient.getRequest(id);
-export const searchTorrents = (query: string) => apiClient.searchTorrents(query);
+export const searchReleaseCandidates = (query: string) =>
+  apiClient.searchReleaseCandidates(query);
 
 // Release convenience functions
 export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>

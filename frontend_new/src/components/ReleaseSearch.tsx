@@ -15,10 +15,10 @@ import {
   Text,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
-import { useTorrentSearch } from "../hooks/useTorrentSearch";
-import { TorrentResult } from "../types";
+import { useReleaseSearch } from "../hooks/useReleaseSearch";
+import { ReleaseSearchResult } from "../types";
 
-interface TorrentSearchProps {
+interface ReleaseSearchProps {
   requestId: string;
   requestTitle: string;
 }
@@ -29,12 +29,12 @@ const qualityColorScheme: Record<string, string> = {
   "720p": "green",
 };
 
-export const TorrentSearch: React.FC<TorrentSearchProps> = ({
+export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   requestId,
   requestTitle,
 }) => {
-  const { searchState, search, clearSearch, selectTorrent } =
-    useTorrentSearch();
+  const { searchState, search, clearSearch, selectReleaseCandidate } =
+    useReleaseSearch();
   const [query, setQuery] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -49,22 +49,22 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
     clearSearch();
   };
 
-  const handleTorrentSelect = (torrent: TorrentResult) => {
-    selectTorrent(torrent);
-    alert(`Selected torrent: ${torrent.name}`);
+  const handleCandidateSelect = (candidate: ReleaseSearchResult) => {
+    selectReleaseCandidate(candidate);
+    alert(`Selected release option: ${candidate.name}`);
   };
 
   return (
     <Card p={{ base: 5, md: 6 }}>
       <Stack spacing={6}>
-        <Heading size="md">🔍 Search Torrents</Heading>
+        <Heading size="md">🔍 Search Release Sources</Heading>
 
         <Box as="form" onSubmit={handleSubmit}>
           <Flex direction={{ base: "column", md: "row" }} gap={3}>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search torrents for "${requestTitle}"...`}
+              placeholder={`Search release sources for "${requestTitle}"...`}
               size="md"
             />
             <Flex gap={2}>
@@ -86,7 +86,7 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
         {searchState.loading && (
           <Center py={10} flexDirection="column" gap={4} color="text.subtle">
             <Spinner size="lg" color="brand.400" />
-            <Text>Searching torrents...</Text>
+            <Text>Searching release sources...</Text>
           </Center>
         )}
 
@@ -107,9 +107,9 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
             </Flex>
 
             <Stack spacing={3}>
-              {searchState.results.map((torrent) => (
+              {searchState.results.map((candidate) => (
                 <Flex
-                  key={torrent.id}
+                  key={candidate.id}
                   direction={{ base: "column", md: "row" }}
                   justify="space-between"
                   align={{ base: "flex-start", md: "center" }}
@@ -122,26 +122,26 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
                 >
                   <Stack spacing={2} flex={1} minW={0}>
                     <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
-                      {torrent.name}
+                      {candidate.name}
                     </Text>
                     <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
                       <Tag
-                        colorScheme={qualityColorScheme[torrent.quality] || "gray"}
+                        colorScheme={qualityColorScheme[candidate.quality] || "gray"}
                         variant="subtle"
                         borderRadius="full"
                         px={3}
                         py={1}
                       >
-                        {torrent.quality}
+                        {candidate.quality}
                       </Tag>
-                      <Text>📦 {torrent.size}</Text>
-                      <Text color="green.300">⬆️ {torrent.seeders}</Text>
-                      <Text color="red.300">⬇️ {torrent.leechers}</Text>
-                      <Text>🏷️ {torrent.source}</Text>
+                      <Text>📦 {candidate.size}</Text>
+                      <Text color="green.300">⬆️ {candidate.seeders}</Text>
+                      <Text color="red.300">⬇️ {candidate.leechers}</Text>
+                      <Text>🏷️ {candidate.source}</Text>
                     </Flex>
                   </Stack>
 
-                  <Button onClick={() => handleTorrentSelect(torrent)} size="sm">
+                  <Button onClick={() => handleCandidateSelect(candidate)} size="sm">
                     Select
                   </Button>
                 </Flex>
@@ -164,7 +164,7 @@ export const TorrentSearch: React.FC<TorrentSearchProps> = ({
               bg="bg.subtle"
             >
               <Text fontSize="4xl">🔍</Text>
-              <Heading size="sm">No torrents found</Heading>
+              <Heading size="sm">No release sources found</Heading>
               <Text color="text.subtle" fontSize="sm" textAlign="center" px={6}>
                 Try adjusting your search terms or check back later.
               </Text>

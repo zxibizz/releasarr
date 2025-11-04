@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
-import { searchTorrents as searchTorrentsAPI } from '../services/api';
-import { SearchState, TorrentResult } from '../types';
+import { searchReleaseCandidates as searchReleaseCandidatesAPI } from '../services/api';
+import { ReleaseSearchResult, ReleaseSearchState } from '../types';
 
-export const useTorrentSearch = () => {
-  const [searchState, setSearchState] = useState<SearchState>({
+export const useReleaseSearch = () => {
+  const [searchState, setSearchState] = useState<ReleaseSearchState>({
     query: '',
     results: [],
     loading: false,
@@ -29,7 +29,7 @@ export const useTorrentSearch = () => {
     }));
 
     try {
-      const response = await searchTorrentsAPI(query);
+      const response = await searchReleaseCandidatesAPI(query);
       setSearchState(prev => ({
         ...prev,
         results: response.results,
@@ -54,9 +54,9 @@ export const useTorrentSearch = () => {
     });
   }, []);
 
-  const selectTorrent = useCallback((torrent: TorrentResult) => {
+  const selectReleaseCandidate = useCallback((candidate: ReleaseSearchResult) => {
     // In a real implementation, this would trigger the download
-    console.log('Selected torrent:', torrent);
+    console.log('Selected release candidate:', candidate);
     // You could add additional logic here like showing a success message
   }, []);
 
@@ -64,6 +64,6 @@ export const useTorrentSearch = () => {
     searchState,
     search,
     clearSearch,
-    selectTorrent
+    selectReleaseCandidate
   };
 };
