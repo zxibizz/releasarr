@@ -133,12 +133,11 @@ export const handlers = [
     return new HttpResponse(null, { status: 202 });
   }),
 
-  http.put(`${API_BASE}/releases/:releaseId/files/:fileId/mapping`, async ({ params, request }) => {
-    const payload = (await request.json()) as any;
-    const success = await mockStore.updateFileMapping(
+  http.put(`${API_BASE}/releases/:releaseId/files/mapping`, async ({ params, request }) => {
+    const payload = (await request.json()) as { files?: any[] };
+    const success = await mockStore.updateFileMappings(
       params.releaseId as string,
-      params.fileId as string,
-      payload,
+      payload?.files ?? [],
     );
     if (!success) {
       return HttpResponse.json({ message: 'Release or file not found' }, { status: 404 });

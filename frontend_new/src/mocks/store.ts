@@ -40,6 +40,7 @@ type NewReleasePayload = {
 };
 
 type UpdateFileMappingPayload = {
+  file_id: string;
   episode_mapping?: ReleaseFile['episode_mapping'];
   request_mapping?: ReleaseFile['request_mapping'];
 };
@@ -288,24 +289,41 @@ export class MockStore {
     return true;
   }
 
-  async updateFileMapping(
+  async updateFileMappings(
     releaseId: string,
-    fileId: string,
-    mapping: UpdateFileMappingPayload,
+    mappings: UpdateFileMappingPayload[],
   ): Promise<boolean> {
     const releases = await this.ensureReleases();
     const release = releases.find((item) => item.id === releaseId);
     if (!release) return false;
-    const file = release.files.find((item) => item.id === fileId);
-    if (!file) return false;
+    if (!Array.isArray(mappings) || mappings.length === 0) {
+      return false;
+    }
 
-    if (mapping.episode_mapping) {
-      file.episode_mapping = clone(mapping.episode_mapping);
-    }
-    if (mapping.request_mapping) {
-      file.request_mapping = clone(mapping.request_mapping);
-    }
-    return true;
+    let success = true;
+
+    mappings.forEach((mapping) => {
+      const file = release.files.find((item) => item.id === mapping.file_id);
+      if (!file) {
+        success = false;
+        return;
+      }
+
+      if (mapping.episode_mapping) {
+        file.episode_mapping = clone(mapping.episode_mapping);
+      }
+      if (mapping.request_mapping) {
+        file.request_mapping = clone(mapping.request_mapping);
+      }
+      if (mapping.episode_mapping === null) {
+        file.episode_mapping = undefined;
+      }
+      if (mapping.request_mapping === null) {
+        file.request_mapping = undefined;
+      }
+    });
+
+    return success;
   }
 
   async getReleaseStats(): Promise<ReleaseStats> {

@@ -217,20 +217,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleaseStats'
-  /releases/{releaseId}/files/{fileId}/mapping:
+  /releases/{releaseId}/files/mapping:
     put:
       tags: [Releases]
-      summary: Update file-to-request mappings
-      operationId: updateReleaseFileMapping
+      summary: Update mappings for release files
+      operationId: updateReleaseFileMappings
       parameters:
         - $ref: '#/components/parameters/ReleaseId'
-        - $ref: '#/components/parameters/FileId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReleaseFileMappingUpdate'
+              $ref: '#/components/schemas/ReleaseFileMappingsUpdate'
       responses:
         '200':
           description: Mapping update acknowledgement.
@@ -287,13 +286,6 @@ components:
       schema:
         type: string
       description: Unique identifier for a release.
-    FileId:
-      in: path
-      name: fileId
-      required: true
-      schema:
-        type: string
-      description: File identifier within a release.
   schemas:
     MediaType:
       type: string
@@ -637,13 +629,24 @@ components:
         total_downloaded:
           type: integer
           format: int64
-    ReleaseFileMappingUpdate:
+    ReleaseFileMappingInput:
       type: object
+      required: [file_id]
       properties:
+        file_id:
+          type: string
         episode_mapping:
           $ref: '#/components/schemas/EpisodeMapping'
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
+    ReleaseFileMappingsUpdate:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseFileMappingInput'
     SuccessResponse:
       type: object
       required: [success]
