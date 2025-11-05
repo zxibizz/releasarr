@@ -52,7 +52,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   onMappingUpdate,
   readonly = false,
 }) => {
-  const { updateFileMapping, loading, error } = useReleaseFileMapping();
+  const { updateFileMappings, loading, error } = useReleaseFileMapping();
   const { requests } = useRequests();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
@@ -144,9 +144,12 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     }
 
     try {
-      await updateFileMapping(releaseId, fileId, {
-        request_mapping: requestMapping,
-      });
+      await updateFileMappings(releaseId, [
+        {
+          file_id: fileId,
+          request_mapping: requestMapping,
+        },
+      ]);
       onMappingUpdate?.(fileId, requestMapping);
     } catch (err) {
       console.error("Failed to update mapping:", err);
@@ -154,27 +157,41 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   };
 
   const handleSaveAllMappings = async () => {
-    for (const mapping of mappings) {
-      if (!mapping.requestId) continue;
+    const payload = mappings
+      .map((mapping) => {
+        if (!mapping.requestId) return null;
 
-      const requestMapping: FileRequestMappingType = {
-        request_id: mapping.requestId,
-        request_title: mapping.requestTitle,
-        mapping_type: mapping.mappingType,
-        season: mapping.season,
-        episode: mapping.episode,
-      };
+        const requestMapping: FileRequestMappingType = {
+          request_id: mapping.requestId,
+          request_title: mapping.requestTitle,
+          mapping_type: mapping.mappingType,
+          season: mapping.season,
+          episode: mapping.episode,
+        };
 
-      if (validateRequestMapping(requestMapping)) {
-        try {
-          await updateFileMapping(releaseId, mapping.fileId, {
-            request_mapping: requestMapping,
-          });
-          onMappingUpdate?.(mapping.fileId, requestMapping);
-        } catch (err) {
-          console.error(`Failed to update mapping for ${mapping.fileId}:`, err);
+        if (!validateRequestMapping(requestMapping)) {
+          return null;
         }
-      }
+
+        return {
+          file_id: mapping.fileId,
+          request_mapping: requestMapping,
+        };
+      })
+      .filter((item): item is { file_id: string; request_mapping: FileRequestMappingType } => item !== null);
+
+    if (payload.length === 0) {
+      alert("No valid mappings to save.");
+      return;
+    }
+
+    try {
+      await updateFileMappings(releaseId, payload);
+      payload.forEach(({ file_id, request_mapping }) =>
+        onMappingUpdate?.(file_id, request_mapping)
+      );
+    } catch (err) {
+      console.error("Failed to update mappings:", err);
     }
   };
 

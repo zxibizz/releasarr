@@ -5,9 +5,9 @@ import {
     fetchReleasesByRequest,
     fetchReleasesByStatus,
     fetchReleaseStats,
-    updateReleaseFileMapping as updateFileMappingAPI
+    updateReleaseFileMappings as updateFileMappingsAPI
 } from '../services/api';
-import { Release, ReleaseStats } from '../types';
+import { Release, ReleaseFileMappingInput, ReleaseStats } from '../types';
 
 export interface UseReleasesState {
   releases: Release[];
@@ -218,15 +218,14 @@ export const useReleaseFileMapping = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateFileMapping = useCallback(async (
+  const updateFileMappings = useCallback(async (
     releaseId: string,
-    fileId: string,
-    mapping: { episode_mapping?: any; request_mapping?: any }
+    mappings: ReleaseFileMappingInput[],
   ) => {
     setLoading(true);
     setError(null);
     try {
-      const success = await updateFileMappingAPI(releaseId, fileId, mapping);
+      const success = await updateFileMappingsAPI(releaseId, mappings);
       setLoading(false);
       return success;
     } catch (error) {
@@ -238,7 +237,7 @@ export const useReleaseFileMapping = () => {
   }, []);
 
   return {
-    updateFileMapping,
+    updateFileMappings,
     loading,
     error,
   };
