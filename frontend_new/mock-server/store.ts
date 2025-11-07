@@ -9,7 +9,7 @@ import type {
   ReleaseFile,
   ReleaseSearchResult,
   ReleaseStats,
-} from '../../src/types';
+} from '../src/types';
 
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];
