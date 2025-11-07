@@ -41,7 +41,17 @@ A React TypeScript frontend prototype for tracking and managing media server req
    npm start
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) to view the application
+3. Open [http://localhost:3000](http://localhost:3000) to view the application. If the real backend is not available yet, use the mock workflow below.
+
+### Running with the OpenAPI mock server
+
+The frontend can run entirely against the OpenAPI contract using the local mock server:
+
+```bash
+npm run dev:mock
+```
+
+This command launches an Express-based mock API (powered by the project’s MSW handlers and mock data) on `http://localhost:8001/api` while simultaneously starting the React dev server. The mock API serves deterministic data from `mock-server` and honours all mutating endpoints, so flows like creating requests or updating release mappings work as expected. The live OpenAPI contract is available at [http://localhost:8001/openapi.yaml](http://localhost:8001/openapi.yaml) while the mock server is running.
 
 ## Project Structure
 
