@@ -313,7 +313,21 @@ export class MockStore {
         file.episode_mapping = clone(mapping.episode_mapping);
       }
       if (mapping.request_mapping) {
-        file.request_mapping = clone(mapping.request_mapping);
+        const requestMapping = clone(mapping.request_mapping);
+        requestMapping.mapping_type =
+          requestMapping.mapping_type === 'movie' ? 'movie' : 'series';
+        if (requestMapping.mapping_type === 'movie') {
+          delete requestMapping.season;
+          delete requestMapping.episode;
+        } else {
+          if (typeof requestMapping.season !== 'number' || requestMapping.season <= 0) {
+            requestMapping.season = 1;
+          }
+          if (typeof requestMapping.episode !== 'number' || requestMapping.episode <= 0) {
+            requestMapping.episode = 1;
+          }
+        }
+        file.request_mapping = requestMapping;
       }
       if (mapping.episode_mapping === null) {
         file.episode_mapping = undefined;

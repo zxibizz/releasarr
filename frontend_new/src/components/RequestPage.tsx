@@ -1,16 +1,8 @@
 import {
-  Box,
   Button,
   Card,
   Center,
-  Flex,
   Heading,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
   SimpleGrid,
   Spinner,
   Stack,
@@ -21,11 +13,10 @@ import React, { useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
-import EpisodeMapping from "./EpisodeMapping";
-import FileRequestMapping from "./FileRequestMapping";
 import { MediaInfo } from "./MediaInfo";
 import ReleasesList from "./ReleasesList";
 import { ReleaseSearch } from "./ReleaseSearch";
+import ReleaseFilesModal from "./ReleaseFilesModal";
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,21 +24,14 @@ export const RequestPage: React.FC = () => {
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
 
   const filesModal = useDisclosure();
-  const mappingModal = useDisclosure();
 
   const handleViewFiles = (release: Release) => {
     setSelectedRelease(release);
     filesModal.onOpen();
   };
 
-  const handleEditMapping = (release: Release) => {
-    setSelectedRelease(release);
-    mappingModal.onOpen();
-  };
-
-  const closeModals = () => {
+  const closeModal = () => {
     filesModal.onClose();
-    mappingModal.onClose();
     setSelectedRelease(null);
   };
 
@@ -103,11 +87,7 @@ export const RequestPage: React.FC = () => {
             </Text>
           </Stack>
 
-          <ReleasesList
-            requestId={request.id}
-            onViewFiles={handleViewFiles}
-            onEditMapping={handleEditMapping}
-          />
+          <ReleasesList requestId={request.id} onViewFiles={handleViewFiles} />
         </Stack>
       </Card>
 
@@ -146,17 +126,11 @@ export const RequestPage: React.FC = () => {
         </Stack>
       </Card>
 
-      <FilesModal
+      <ReleaseFilesModal
         isOpen={filesModal.isOpen}
-        onClose={closeModals}
+        onClose={closeModal}
         release={selectedRelease}
-      />
-
-      <MappingModal
-        isOpen={mappingModal.isOpen}
-        onClose={closeModals}
-        release={selectedRelease}
-        requestType={request.type}
+        currentRequest={request}
       />
     </Stack>
   );
@@ -182,129 +156,3 @@ const actionCards = [
     message: "View logs functionality would be implemented here",
   },
 ];
-
-interface FilesModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  release: Release | null;
-}
-
-const FilesModal: React.FC<FilesModalProps> = ({ isOpen, onClose, release }) => (
-  <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
-    <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
-    <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
-      <ModalHeader>
-        📁 Files
-        {release ? ` in ${release.name}` : ""}
-      </ModalHeader>
-      <ModalCloseButton />
-      <ModalBody>
-        {release ? (
-          <Stack spacing={4}>
-            {release.files.map((file) => (
-              <Card key={file.id} p={4} bg="bg.subtle" borderWidth="1px" borderColor="border.muted">
-                <Stack spacing={3}>
-                  <Flex align="flex-start" gap={3} wrap="wrap">
-                    <Box flex={1} minW={0}>
-                      <Text fontWeight="600" wordBreak="break-all">
-                        {file.name}
-                      </Text>
-                      <Flex gap={4} fontSize="sm" color="text.subtle" mt={1}>
-                        <Text>
-                          Size: {(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB
-                        </Text>
-                        <Text>Progress: 100%</Text>
-                      </Flex>
-                    </Box>
-                  </Flex>
-
-                  <ProgressSection title="Episode Mapping" color="blue.300">
-                    {file.episode_mapping ? (
-                      <Text fontSize="sm" color="blue.200">
-                        📺 S{file.episode_mapping.season.toString().padStart(2, "0")}
-                        E{file.episode_mapping.episode.toString().padStart(2, "0")}
-                        {file.episode_mapping.title && ` - ${file.episode_mapping.title}`}
-                      </Text>
-                    ) : (
-                      <Text fontSize="sm" color="text.subtle">
-                        No episode mapping configured
-                      </Text>
-                    )}
-                  </ProgressSection>
-
-                  <ProgressSection title="Request Mapping" color="purple.300">
-                    {file.request_mapping ? (
-                      <Text fontSize="sm" color="purple.200">
-                        🔗 {file.request_mapping.request_title || file.request_mapping.request_id}
-                        {file.request_mapping.season && file.request_mapping.episode &&
-                          ` - S${file.request_mapping.season.toString().padStart(2, "0")}E${file.request_mapping.episode
-                            ?.toString()
-                            .padStart(2, "0")}`}
-                      </Text>
-                    ) : (
-                      <Text fontSize="sm" color="text.subtle">
-                        No request mapping configured
-                      </Text>
-                    )}
-                  </ProgressSection>
-                </Stack>
-              </Card>
-            ))}
-          </Stack>
-        ) : (
-          <Text color="text.subtle">No release selected.</Text>
-        )}
-      </ModalBody>
-    </ModalContent>
-  </Modal>
-);
-
-interface MappingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  release: Release | null;
-  requestType: "movie" | "series";
-}
-
-const MappingModal: React.FC<MappingModalProps> = ({
-  isOpen,
-  onClose,
-  release,
-  requestType,
-}) => {
-  if (!release) return null;
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
-      <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
-      <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
-        <ModalHeader>🗺️ Map Files{release ? ` - ${release.name}` : ""}</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody pb={6} maxH="75vh" overflowY="auto">
-          {release && requestType === "series" ? (
-            <EpisodeMapping releaseId={release.id} files={release.files} onMappingUpdate={() => {}} />
-          ) : release ? (
-            <FileRequestMapping releaseId={release.id} files={release.files} onMappingUpdate={() => {}} />
-          ) : (
-            <Text color="text.subtle">No release selected.</Text>
-          )}
-        </ModalBody>
-      </ModalContent>
-    </Modal>
-  );
-};
-
-interface ProgressSectionProps {
-  title: string;
-  color: string;
-  children: React.ReactNode;
-}
-
-const ProgressSection: React.FC<ProgressSectionProps> = ({ title, color, children }) => (
-  <Stack spacing={2}>
-    <Text fontSize="xs" textTransform="uppercase" fontWeight="600" color={color}>
-      {title}
-    </Text>
-    {children}
-  </Stack>
-);
