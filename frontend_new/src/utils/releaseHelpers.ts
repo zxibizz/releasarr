@@ -216,12 +216,27 @@ export const validateEpisodeMapping = (mapping: EpisodeMapping): boolean => {
 };
 
 export const validateRequestMapping = (mapping: FileRequestMapping): boolean => {
-  return (
-    !!mapping.request_id &&
-    !!mapping.request_title &&
-    !!mapping.mapping_type &&
-    ['episode', 'movie', 'season'].includes(mapping.mapping_type)
-  );
+  if (!mapping.request_id || !mapping.request_title || !mapping.mapping_type) {
+    return false;
+  }
+
+  if (!['movie', 'series'].includes(mapping.mapping_type)) {
+    return false;
+  }
+
+  if (mapping.mapping_type === 'series') {
+    if (mapping.season === undefined || mapping.episode === undefined) {
+      return false;
+    }
+    if (mapping.season !== undefined && mapping.season <= 0) {
+      return false;
+    }
+    if (mapping.episode !== undefined && mapping.episode <= 0) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 export const isVideoFile = (filename: string): boolean => {

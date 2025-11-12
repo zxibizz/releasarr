@@ -38,7 +38,6 @@ interface ReleasesListProps {
   onResumeRelease?: (id: string) => void;
   onDeleteRelease?: (id: string) => void;
   onViewFiles?: (release: Release) => void;
-  onEditMapping?: (release: Release) => void;
   compact?: boolean;
   showStats?: boolean;
 }
@@ -73,7 +72,6 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   onResumeRelease,
   onDeleteRelease,
   onViewFiles,
-  onEditMapping,
   compact = false,
   showStats = true,
 }) => {
@@ -323,7 +321,6 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
               onResume={onResumeRelease}
               onDelete={onDeleteRelease}
               onViewFiles={onViewFiles}
-              onEditMapping={onEditMapping}
               compact={compact}
             />
           ))

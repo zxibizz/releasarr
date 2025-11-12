@@ -21,6 +21,7 @@ import { useRequests } from "../hooks/useRequests";
 import {
   FileRequestMapping as FileRequestMappingType,
   ReleaseFile,
+  SeriesRequest,
 } from "../types";
 import {
   formatFileSize,
@@ -35,13 +36,19 @@ interface FileRequestMappingProps {
   onMappingUpdate?: (fileId: string, mapping: FileRequestMappingType) => void;
   onClose?: () => void;
   readonly?: boolean;
+  defaultRequest?: {
+    id: string;
+    title: string;
+    type: "movie" | "series";
+    season_number?: number;
+  };
 }
 
 interface FileMapping {
   fileId: string;
   requestId: string;
   requestTitle: string;
-  mappingType: "episode" | "movie" | "season";
+  mappingType: "movie" | "series";
   season?: number;
   episode?: number;
 }
@@ -51,12 +58,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   files,
   onMappingUpdate,
   readonly = false,
+  defaultRequest,
 }) => {
   const { updateFileMappings, loading, error } = useReleaseFileMapping();
   const { requests } = useRequests();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<string>("");
+  const [selectedRequest, setSelectedRequest] = useState<string>(
+    defaultRequest?.id ?? ""
+  );
 
   const groupedFiles = useMemo(() => groupFilesByType(files), [files]);
   const { video, subtitle, other } = groupedFiles;
@@ -69,19 +79,67 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     const sourceFiles = showOnlyVideo ? video : files;
     const initialMappings = sourceFiles.map((file) => {
       const existing = file.request_mapping;
+      if (existing) {
+        if (existing.mapping_type === "series") {
+          return {
+            fileId: file.id,
+            requestId: existing.request_id,
+            requestTitle: existing.request_title,
+            mappingType: "series",
+            season: existing.season,
+            episode: existing.episode,
+          } as FileMapping;
+        }
 
-      return {
-        fileId: file.id,
-        requestId: existing?.request_id || "",
-        requestTitle: existing?.request_title || "",
-        mappingType: existing?.mapping_type || "movie",
-        season: existing?.season,
-        episode: existing?.episode,
-      };
+        return {
+          fileId: file.id,
+          requestId: existing.request_id,
+          requestTitle: existing.request_title,
+          mappingType: "movie",
+          season: undefined,
+          episode: undefined,
+        } as FileMapping;
+      }
+
+      const fallbackType: FileMapping["mappingType"] =
+        defaultRequest && defaultRequest.type === "series" ? "series" : "movie";
+      const fallbackSeason =
+        fallbackType === "series"
+          ? file.episode_mapping?.season ?? defaultRequest?.season_number ?? 1
+          : undefined;
+      const fallbackEpisode =
+        fallbackType === "series"
+          ? file.episode_mapping?.episode ?? 1
+          : undefined;
+
+      const fallbackMapping: FileMapping =
+        fallbackType === "series"
+          ? {
+              fileId: file.id,
+              requestId: defaultRequest?.id ?? "",
+              requestTitle: defaultRequest?.title ?? "",
+              mappingType: "series",
+              season: fallbackSeason ?? 1,
+              episode: fallbackEpisode ?? 1,
+            }
+          : {
+              fileId: file.id,
+              requestId: defaultRequest?.id ?? "",
+              requestTitle: defaultRequest?.title ?? "",
+              mappingType: "movie",
+            };
+
+      return fallbackMapping;
     });
 
     setMappings(initialMappings);
-  }, [files, video, showOnlyVideo]);
+  }, [files, video, showOnlyVideo, defaultRequest]);
+
+  useEffect(() => {
+    if (defaultRequest?.id && !selectedRequest) {
+      setSelectedRequest(defaultRequest.id);
+    }
+  }, [defaultRequest?.id, selectedRequest]);
 
   const availableRequests = useMemo(
     () => requests.filter((request) => request.status !== "failed"),
@@ -113,12 +171,26 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           const request = requests.find((r) => r.id === value);
           updated.requestTitle = request?.title || "";
           if (request) {
-            updated.mappingType = request.type === "series" ? "episode" : "movie";
+            updated.mappingType = request.type === "series" ? "series" : "movie";
+            if (updated.mappingType === "movie") {
+              updated.season = undefined;
+              updated.episode = undefined;
+            } else {
+              updated.season = updated.season ?? 1;
+              updated.episode = updated.episode ?? 1;
+            }
           }
         }
 
-        if (field === "mappingType" && value !== "season") {
-          updated.season = undefined;
+        if (field === "mappingType") {
+          const type = value as FileMapping["mappingType"];
+          if (type === "movie") {
+            updated.season = undefined;
+            updated.episode = undefined;
+          } else {
+            updated.season = updated.season ?? 1;
+            updated.episode = updated.episode ?? 1;
+          }
         }
 
         return updated;
@@ -130,13 +202,22 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     const mapping = mappings.find((m) => m.fileId === fileId);
     if (!mapping || !mapping.requestId) return;
 
-    const requestMapping: FileRequestMappingType = {
-      request_id: mapping.requestId,
-      request_title: mapping.requestTitle,
-      mapping_type: mapping.mappingType,
-      season: mapping.season,
-      episode: mapping.episode,
-    };
+    let requestMapping: FileRequestMappingType;
+    if (mapping.mappingType === "series") {
+      requestMapping = {
+        request_id: mapping.requestId,
+        request_title: mapping.requestTitle,
+        mapping_type: "series",
+        season: mapping.season ?? 1,
+        episode: mapping.episode ?? 1,
+      };
+    } else {
+      requestMapping = {
+        request_id: mapping.requestId,
+        request_title: mapping.requestTitle,
+        mapping_type: "movie",
+      };
+    }
 
     if (!validateRequestMapping(requestMapping)) {
       alert("Invalid request mapping. Please check all required fields.");
@@ -161,13 +242,22 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       .map((mapping) => {
         if (!mapping.requestId) return null;
 
-        const requestMapping: FileRequestMappingType = {
-          request_id: mapping.requestId,
-          request_title: mapping.requestTitle,
-          mapping_type: mapping.mappingType,
-          season: mapping.season,
-          episode: mapping.episode,
-        };
+        let requestMapping: FileRequestMappingType;
+        if (mapping.mappingType === "series") {
+          requestMapping = {
+            request_id: mapping.requestId,
+            request_title: mapping.requestTitle,
+            mapping_type: "series",
+            season: mapping.season ?? 1,
+            episode: mapping.episode ?? 1,
+          };
+        } else {
+          requestMapping = {
+            request_id: mapping.requestId,
+            request_title: mapping.requestTitle,
+            mapping_type: "movie",
+          };
+        }
 
         if (!validateRequestMapping(requestMapping)) {
           return null;
@@ -198,13 +288,22 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const handleBulkRequestUpdate = (requestId: string) => {
     const request = requests.find((r) => r.id === requestId);
     if (!request) return;
+    const seriesRequest = request.type === "series" ? (request as SeriesRequest) : null;
 
     setMappings((prev) =>
       prev.map((mapping) => ({
         ...mapping,
         requestId,
         requestTitle: request.title,
-        mappingType: request.type === "series" ? "episode" : "movie",
+        mappingType: request.type === "series" ? "series" : "movie",
+        season:
+          request.type === "series"
+            ? mapping.season ?? seriesRequest?.season_number ?? 1
+            : undefined,
+        episode:
+          request.type === "series"
+            ? mapping.episode ?? 1
+            : undefined,
       }))
     );
   };
@@ -234,6 +333,19 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const hasChanges = (fileId: string) => {
     const current = getFileMapping(fileId);
     const existing = getExistingMapping(fileId);
+    const existingType: FileMapping["mappingType"] = existing
+      ? existing.mapping_type === "series"
+        ? "series"
+        : "movie"
+      : "movie";
+    const existingSeason =
+      existing && existing.mapping_type === "series"
+        ? existing.season
+        : undefined;
+    const existingEpisode =
+      existing && existing.mapping_type === "series"
+        ? existing.episode
+        : undefined;
 
     if (!current) return false;
     if (!existing && !current.requestId) return false;
@@ -242,9 +354,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     return (
       current.requestId !== (existing?.request_id || "") ||
       current.requestTitle !== (existing?.request_title || "") ||
-      current.mappingType !== (existing?.mapping_type || "movie") ||
-      current.season !== existing?.season ||
-      current.episode !== existing?.episode
+      current.mappingType !== existingType ||
+      current.season !== existingSeason ||
+      current.episode !== existingEpisode
     );
   };
 
@@ -336,6 +448,20 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             const mapping = getFileMapping(file.id);
             const existing = getExistingMapping(file.id);
             const changed = hasChanges(file.id);
+            const existingType: FileMapping["mappingType"] = existing
+              ? existing.mapping_type === "series"
+                ? "series"
+                : "movie"
+              : "movie";
+            const existingTypeLabel = existingType === "series" ? "Series" : "Movie";
+            const existingSeason =
+              existing && existing.mapping_type === "series"
+                ? existing.season
+                : undefined;
+            const existingEpisode =
+              existing && existing.mapping_type === "series"
+                ? existing.episode
+                : undefined;
 
             return (
               <Box
@@ -369,9 +495,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
                   {existing && (
                     <Text fontSize="sm" color="text.subtle">
-                      Current: {existing.request_title} ({existing.mapping_type})
-                      {existing.season && existing.episode &&
-                        ` - S${existing.season.toString().padStart(2, "0")}E${existing.episode
+                      Current: {existing.request_title} ({existingTypeLabel})
+                      {existingSeason !== undefined && existingEpisode !== undefined &&
+                        ` - S${existingSeason
+                          .toString()
+                          .padStart(2, "0")}E${existingEpisode
                           .toString()
                           .padStart(2, "0")}`}
                     </Text>
@@ -414,7 +542,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                         </Box>
 
                         <Box>
-                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
+                      <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                             Mapping Type
                           </Text>
                           <Select
@@ -425,70 +553,51 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             }
                           >
                             <option value="movie">Movie</option>
-                            <option value="season">Season</option>
-                            <option value="episode">Episode</option>
+                            <option value="series">Series</option>
                           </Select>
                         </Box>
                       </Grid>
 
-                      {mapping.mappingType === "season" && (
-                        <Box>
-                          <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
-                            Season
-                          </Text>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={99}
-                            value={mapping.season ?? 1}
-                            size="sm"
-                            onChange={(e) =>
-                              handleMappingChange(
-                                file.id,
-                                "season",
-                                e.target.value ? parseInt(e.target.value, 10) : 1
-                              )
-                            }
-                          />
-                        </Box>
-                      )}
-
-                      {mapping.mappingType === "episode" && (
+                      {mapping.mappingType === "series" && (
                         <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
                           <Box>
                             <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
-                              Season
+                              Season (optional)
                             </Text>
                             <Input
                               type="number"
                               min={1}
                               max={99}
-                              value={mapping.season ?? 1}
+                              value={mapping.season ?? ""}
+                              placeholder="e.g. 2"
                               size="sm"
+                              isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
                                   "season",
-                                  e.target.value ? parseInt(e.target.value, 10) : 1
+                                  e.target.value ? parseInt(e.target.value, 10) : undefined
                                 )
                               }
                             />
                           </Box>
                           <Box>
                             <Text fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
-                              Episode
+                              Episode (optional)
                             </Text>
                             <Input
                               type="number"
                               min={1}
                               max={999}
-                              value={mapping.episode ?? 1}
+                              value={mapping.episode ?? ""}
+                              placeholder="e.g. 5"
                               size="sm"
+                              isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
                                   "episode",
-                                  e.target.value ? parseInt(e.target.value, 10) : 1
+                                  e.target.value ? parseInt(e.target.value, 10) : undefined
                                 )
                               }
                             />
@@ -500,9 +609,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
                   {readonly && existing && (
                     <Text fontSize="sm" color="slate.100">
-                      {existing.request_title} ({existing.mapping_type})
-                      {existing.season && existing.episode &&
-                        ` - S${existing.season.toString().padStart(2, "0")}E${existing.episode
+                      {existing.request_title} ({existingTypeLabel})
+                      {existingSeason !== undefined && existingEpisode !== undefined &&
+                        ` - S${existingSeason
+                          .toString()
+                          .padStart(2, "0")}E${existingEpisode
                           .toString()
                           .padStart(2, "0")}`}
                     </Text>

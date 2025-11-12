@@ -426,7 +426,7 @@ const mockReleases: Release[] = [
         request_mapping: {
           request_id: '6',
           request_title: 'Breaking Bad - Season 2',
-          mapping_type: 'episode',
+          mapping_type: 'series',
           season: 2,
           episode: 1
         }
@@ -440,7 +440,7 @@ const mockReleases: Release[] = [
         request_mapping: {
           request_id: '6',
           request_title: 'Breaking Bad - Season 2',
-          mapping_type: 'episode',
+          mapping_type: 'series',
           season: 2,
           episode: 2
         }
