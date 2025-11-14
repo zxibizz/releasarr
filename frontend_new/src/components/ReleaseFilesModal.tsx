@@ -16,10 +16,8 @@ import {
   Text,
 } from "@chakra-ui/react";
 import React, { useMemo } from "react";
-import EpisodeMapping from "./EpisodeMapping";
-import FileRequestMapping from "./FileRequestMapping";
 import { MediaRequest, Release } from "../types";
-import { formatEpisodeString } from "../utils/releaseHelpers";
+import FileRequestMapping from "./FileRequestMapping";
 
 interface ReleaseFilesModalProps {
   isOpen: boolean;
@@ -52,7 +50,11 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
-      <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
+      <ModalContent
+        bg="bg.surface"
+        borderWidth="1px"
+        borderColor="border.muted"
+      >
         <ModalHeader>📁 Manage Files — {release.name}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6} maxH="75vh" overflowY="auto">
@@ -65,12 +67,14 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
               <TabPanel px={0}>
                 <Stack spacing={4}>
                   {release.files.map((file) => {
-                    const episodeSummary = file.episode_mapping
-                      ? formatEpisodeString(file.episode_mapping)
-                      : "Not mapped";
                     const requestMappingSummary = file.request_mapping
-                      ? `${file.request_mapping.request_title || file.request_mapping.request_id} (${
-                          file.request_mapping.mapping_type === "series" ? "Series" : "Movie"
+                      ? `${
+                          file.request_mapping.request_title ||
+                          file.request_mapping.request_id
+                        } (${
+                          file.request_mapping.mapping_type === "series"
+                            ? "Series"
+                            : "Movie"
                         })`
                       : "Not mapped";
                     const seriesMappingSummary =
@@ -82,7 +86,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                             .padStart(2, "0")}E${file.request_mapping.episode
                             .toString()
                             .padStart(2, "0")}`
-                        : null;
+                        : "Not mapped";
 
                     return (
                       <Card
@@ -100,7 +104,11 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                               </Text>
                               <Flex gap={4} fontSize="sm" color="text.subtle">
                                 <Text>
-                                  Size: {(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB
+                                  Size:{" "}
+                                  {(file.size / (1024 * 1024 * 1024)).toFixed(
+                                    2
+                                  )}{" "}
+                                  GB
                                 </Text>
                                 <Text>Progress: 100%</Text>
                               </Flex>
@@ -116,12 +124,13 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                             >
                               Mapping
                             </Text>
-                            <Stack spacing={1} fontSize="sm" color="text.subtle">
-                              <Text>Episode: {episodeSummary}</Text>
+                            <Stack
+                              spacing={1}
+                              fontSize="sm"
+                              color="text.subtle"
+                            >
                               <Text>Request: {requestMappingSummary}</Text>
-                              {seriesMappingSummary && (
-                                <Text>Series Mapping: {seriesMappingSummary}</Text>
-                              )}
+                              <Text>Episode: {seriesMappingSummary}</Text>
                             </Stack>
                           </Stack>
                         </Stack>
@@ -132,29 +141,19 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
               </TabPanel>
 
               <TabPanel px={0}>
-                <Stack spacing={8}>
-                  {currentRequest.type === "series" && (
-                    <EpisodeMapping
-                      releaseId={release.id}
-                      files={release.files}
-                      onMappingUpdate={() => {}}
-                    />
-                  )}
-
-                  <FileRequestMapping
-                    releaseId={release.id}
-                    files={release.files}
-                    onMappingUpdate={() => {}}
-                    defaultRequest={defaultMappingRequest}
-                  />
-                </Stack>
+                <FileRequestMapping
+                  releaseId={release.id}
+                  files={release.files}
+                  onMappingUpdate={() => {}}
+                  defaultRequest={defaultMappingRequest}
+                />
               </TabPanel>
-        </TabPanels>
-      </Tabs>
-    </ModalBody>
-  </ModalContent>
-</Modal>
-);
+            </TabPanels>
+          </Tabs>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
 };
 
 export default ReleaseFilesModal;
