@@ -4,6 +4,7 @@ import {
   Card,
   Flex,
   Heading,
+  Image,
   Link,
   SimpleGrid,
   Stack,
@@ -58,6 +59,16 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
             </Flex>
           </Box>
 
+          <Image
+            src={request.poster_url}
+            alt={`${request.title} poster`}
+            boxSize={{ base: "160px", md: "220px" }}
+            objectFit="cover"
+            borderRadius="md"
+            ml={{ base: 0, md: 4 }}
+            fallbackSrc="/logo192.png"
+          />
+
           <Badge
             colorScheme={statusColorScheme[request.status]}
             variant="subtle"
@@ -110,7 +121,13 @@ export const MediaInfo: React.FC<MediaInfoProps> = ({ request }) => {
           <Wrap spacing={2}>
             {request.genres.map((genre) => (
               <WrapItem key={genre}>
-                <Tag variant="subtle" colorScheme="gray" borderRadius="full" px={3} py={1}>
+                <Tag
+                  variant="subtle"
+                  colorScheme="gray"
+                  borderRadius="full"
+                  px={3}
+                  py={1}
+                >
                   {genre}
                 </Tag>
               </WrapItem>
@@ -144,7 +161,12 @@ const InfoItem: React.FC<InfoItemProps> = ({ label, children }) => (
     borderRadius="lg"
     p={4}
   >
-    <Text fontSize="xs" textTransform="uppercase" color="text.subtle" letterSpacing="0.08em">
+    <Text
+      fontSize="xs"
+      textTransform="uppercase"
+      color="text.subtle"
+      letterSpacing="0.08em"
+    >
       {label}
     </Text>
     <Text fontSize="sm" fontWeight="600" mt={2} color="slate.100">

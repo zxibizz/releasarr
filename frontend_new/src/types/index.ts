@@ -44,13 +44,13 @@ export interface ReleaseFileMappingInput {
 
 export interface MovieFileRequestMapping {
   request_id: string;
-  request_title: string;
+  request_title?: string;
   mapping_type: 'movie';
 }
 
 export interface SeriesFileRequestMapping {
   request_id: string;
-  request_title: string;
+  request_title?: string;
   mapping_type: 'series';
   season: number;
   episode: number;
