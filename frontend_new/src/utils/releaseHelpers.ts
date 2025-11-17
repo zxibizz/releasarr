@@ -191,7 +191,7 @@ export const parseSeriesEpisodeFromFilename = (filename: string): SeriesEpisodeM
 };
 
 export const validateRequestMapping = (mapping: FileRequestMapping): boolean => {
-  if (!mapping.request_id || !mapping.request_title || !mapping.mapping_type) {
+  if (!mapping.request_id || !mapping.mapping_type) {
     return false;
   }
 

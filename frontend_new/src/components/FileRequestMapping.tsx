@@ -206,90 +206,103 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     const mapping = mappings.find((m) => m.fileId === fileId);
     if (!mapping || !mapping.requestId) return;
 
-    let requestMapping: FileRequestMappingType;
+    let requestMappingPayload: FileRequestMappingType;
     if (mapping.mappingType === "series") {
-      requestMapping = {
+      requestMappingPayload = {
         request_id: mapping.requestId,
-        request_title: mapping.requestTitle,
         mapping_type: "series",
         season: mapping.season ?? 1,
         episode: mapping.episode ?? 1,
       };
     } else {
-      requestMapping = {
+      requestMappingPayload = {
         request_id: mapping.requestId,
-        request_title: mapping.requestTitle,
         mapping_type: "movie",
       };
     }
 
-    if (!validateRequestMapping(requestMapping)) {
+    if (!validateRequestMapping(requestMappingPayload)) {
       alert("Invalid request mapping. Please check all required fields.");
       return;
     }
+
+    const requestMappingForState: FileRequestMappingType = {
+      ...requestMappingPayload,
+      request_title: mapping.requestTitle,
+    };
 
     try {
       await updateFileMappings(releaseId, [
         {
           file_id: fileId,
-          request_mapping: requestMapping,
+          request_mapping: requestMappingPayload,
         },
       ]);
-      onMappingUpdate?.(fileId, requestMapping);
+      onMappingUpdate?.(fileId, requestMappingForState);
     } catch (err) {
       console.error("Failed to update mapping:", err);
     }
   };
 
   const handleSaveAllMappings = async () => {
-    const payload = mappings
-      .map((mapping) => {
-        if (!mapping.requestId) return null;
+    const preparedMappings = mappings.reduce<
+      {
+        fileId: string;
+        payload: FileRequestMappingType;
+        stateMapping: FileRequestMappingType;
+      }[]
+    >((acc, mapping) => {
+      if (!mapping.requestId) {
+        return acc;
+      }
 
-        let requestMapping: FileRequestMappingType;
-        if (mapping.mappingType === "series") {
-          requestMapping = {
-            request_id: mapping.requestId,
-            request_title: mapping.requestTitle,
-            mapping_type: "series",
-            season: mapping.season ?? 1,
-            episode: mapping.episode ?? 1,
-          };
-        } else {
-          requestMapping = {
-            request_id: mapping.requestId,
-            request_title: mapping.requestTitle,
-            mapping_type: "movie",
-          };
-        }
-
-        if (!validateRequestMapping(requestMapping)) {
-          return null;
-        }
-
-        return {
-          file_id: mapping.fileId,
-          request_mapping: requestMapping,
+      let requestMappingPayload: FileRequestMappingType;
+      if (mapping.mappingType === "series") {
+        requestMappingPayload = {
+          request_id: mapping.requestId,
+          mapping_type: "series",
+          season: mapping.season ?? 1,
+          episode: mapping.episode ?? 1,
         };
-      })
-      .filter(
-        (
-          item
-        ): item is {
-          file_id: string;
-          request_mapping: FileRequestMappingType;
-        } => item !== null
-      );
+      } else {
+        requestMappingPayload = {
+          request_id: mapping.requestId,
+          mapping_type: "movie",
+        };
+      }
 
-    if (payload.length === 0) {
+      if (!validateRequestMapping(requestMappingPayload)) {
+        return acc;
+      }
+
+      const stateMapping: FileRequestMappingType = {
+        ...requestMappingPayload,
+        request_title: mapping.requestTitle,
+      };
+
+      acc.push({
+        fileId: mapping.fileId,
+        payload: requestMappingPayload,
+        stateMapping,
+      });
+
+      return acc;
+    }, []);
+
+    if (preparedMappings.length === 0) {
       alert("No valid mappings to save.");
       return;
     }
 
+    const payload = preparedMappings.map(({ fileId, payload }) => ({
+      file_id: fileId,
+      request_mapping: payload,
+    }));
+
     try {
       await updateFileMappings(releaseId, payload);
-      payload.forEach(({ file_id, request_mapping }) =>
-        onMappingUpdate?.(file_id, request_mapping)
+      preparedMappings.forEach(({ fileId, stateMapping }) =>
+        onMappingUpdate?.(fileId, stateMapping)
       );
     } catch (err) {
       console.error("Failed to update mappings:", err);
