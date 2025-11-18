@@ -4,10 +4,9 @@ import {
     fetchReleases,
     fetchReleasesByRequest,
     fetchReleasesByStatus,
-    fetchReleaseStats,
     updateReleaseFileMappings as updateFileMappingsAPI
 } from '../services/api';
-import { Release, ReleaseFileMappingInput, ReleaseStats } from '../types';
+import { Release, ReleaseFileMappingInput } from '../types';
 
 export interface UseReleasesState {
   releases: Release[];
@@ -17,12 +16,6 @@ export interface UseReleasesState {
 
 export interface UseReleaseState {
   release: Release | null;
-  loading: boolean;
-  error: string | null;
-}
-
-export interface UseReleaseStatsState {
-  stats: ReleaseStats | null;
   loading: boolean;
   error: string | null;
 }
@@ -172,41 +165,6 @@ export const useReleasesByStatus = (status: string) => {
       loadReleasesByStatus(status);
     }
   }, [status, loadReleasesByStatus]);
-
-  return {
-    ...state,
-    refetch,
-  };
-};
-
-export const useReleaseStats = () => {
-  const [state, setState] = useState<UseReleaseStatsState>({
-    stats: null,
-    loading: true,
-    error: null,
-  });
-
-  const loadReleaseStats = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    try {
-      const stats = await fetchReleaseStats();
-      setState({ stats, loading: false, error: null });
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to load release stats',
-      }));
-    }
-  }, []);
-
-  useEffect(() => {
-    loadReleaseStats();
-  }, [loadReleaseStats]);
-
-  const refetch = useCallback(() => {
-    loadReleaseStats();
-  }, [loadReleaseStats]);
 
   return {
     ...state,

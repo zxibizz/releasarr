@@ -54,13 +54,3 @@ class Release(BaseModel):
     torrent_source: str | None = None
     quality: str | None = None
 
-
-class ReleaseStats(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    total_releases: int
-    active_downloads: int
-    completed_releases: int
-    total_size: int
-    total_uploaded: int
-    total_downloaded: int

@@ -62,14 +62,3 @@ class Release(Base):
     )
     show: Mapped["Show | None"] = relationship("Show", back_populates="releases")
 
-
-class ReleaseStatsAggregate(Base):
-    __tablename__ = "release_stats"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    total_releases: Mapped[int] = mapped_column(Integer, default=0)
-    active_downloads: Mapped[int] = mapped_column(Integer, default=0)
-    completed_releases: Mapped[int] = mapped_column(Integer, default=0)
-    total_size: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_uploaded: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_downloaded: Mapped[int] = mapped_column(BigInteger, default=0)

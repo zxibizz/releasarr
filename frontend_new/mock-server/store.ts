@@ -8,7 +8,6 @@ import type {
   Release,
   ReleaseFile,
   ReleaseSearchResult,
-  ReleaseStats,
 } from '../src/types';
 
 type RequestStatus = MediaRequest['status'];
@@ -331,28 +330,6 @@ export class MockStore {
     });
 
     return success;
-  }
-
-  async getReleaseStats(): Promise<ReleaseStats> {
-    const releases = await this.ensureReleases();
-    const totalSize = releases.reduce((sum, release) => sum + release.size, 0);
-    const totalDownloaded = releases.reduce(
-      (sum, release) => sum + Math.round((release.size * release.progress) / 100),
-      0,
-    );
-    const totalUploaded = releases.reduce(
-      (sum, release) => sum + Math.round(release.size * release.ratio),
-      0,
-    );
-
-    return {
-      total_releases: releases.length,
-      active_downloads: releases.filter((release) => release.status === 'downloading').length,
-      completed_releases: releases.filter((release) => release.status === 'completed').length,
-      total_size: totalSize,
-      total_uploaded: totalUploaded,
-      total_downloaded: totalDownloaded,
-    };
   }
 
   async searchReleaseCandidates(query: string): Promise<ReleaseSearchResult[]> {
