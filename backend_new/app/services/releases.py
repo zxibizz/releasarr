@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Sequence
 
 from loguru import logger
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,7 +12,6 @@ from app.clients.factory import get_clients
 from app.models import MediaRequest, Release, ReleaseFile
 from app.schemas.common import Release as ReleaseSchema
 from app.schemas.common import ReleaseFile as ReleaseFileSchema
-from app.schemas.common import ReleaseStats
 from app.schemas.releases import SuccessResponse, UpdateFileMapping
 
 
@@ -131,36 +130,6 @@ class ReleaseService:
         file.episode = (mapping.episode_mapping or {}).get("episode")
         await self.session.commit()
         return SuccessResponse()
-
-    async def get_stats(self) -> ReleaseStats:
-        total = await self.session.scalar(select(func.count(Release.id))) or 0
-        active = (
-            await self.session.scalar(
-                select(func.count(Release.id)).where(Release.status == "downloading")
-            )
-        ) or 0
-        completed = (
-            await self.session.scalar(
-                select(func.count(Release.id)).where(Release.status == "completed")
-            )
-        ) or 0
-        total_size = await self.session.scalar(
-            select(func.coalesce(func.sum(Release.size), 0))
-        )
-        total_uploaded = await self.session.scalar(
-            select(func.coalesce(func.sum(Release.upload_speed), 0))
-        )
-        total_downloaded = await self.session.scalar(
-            select(func.coalesce(func.sum(Release.download_speed), 0))
-        )
-        return ReleaseStats(
-            total_releases=total,
-            active_downloads=active,
-            completed_releases=completed,
-            total_size=total_size or 0,
-            total_uploaded=total_uploaded or 0,
-            total_downloaded=total_downloaded or 0,
-        )
 
     async def attach_torrent(
         self,

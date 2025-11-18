@@ -9,19 +9,20 @@ import {
   Text,
   useDisclosure,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
 import { MediaInfo } from "./MediaInfo";
-import ReleasesList from "./ReleasesList";
-import { ReleaseSearch } from "./ReleaseSearch";
 import ReleaseFilesModal from "./ReleaseFilesModal";
+import { ReleaseSearch } from "./ReleaseSearch";
+import ReleasesList from "./ReleasesList";
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { request, loading, error } = useRequest(id || "");
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
+  const [shouldShowSearch, setShouldShowSearch] = useState(false);
 
   const filesModal = useDisclosure();
 
@@ -34,6 +35,10 @@ export const RequestPage: React.FC = () => {
     filesModal.onClose();
     setSelectedRelease(null);
   };
+
+  const handleReleasesLoaded = useCallback((loadedReleases: Release[]) => {
+    setShouldShowSearch(loadedReleases.length === 0);
+  }, []);
 
   if (loading) {
     return (
@@ -63,7 +68,13 @@ export const RequestPage: React.FC = () => {
 
   return (
     <Stack spacing={8} maxW="6xl" mx="auto">
-      <Button as={RouterLink} to="/" variant="outline" colorScheme="blue" width="fit-content">
+      <Button
+        as={RouterLink}
+        to="/"
+        variant="outline"
+        colorScheme="blue"
+        width="fit-content"
+      >
         ← Back to Requests
       </Button>
 
@@ -76,7 +87,9 @@ export const RequestPage: React.FC = () => {
 
       <MediaInfo request={request} />
 
-      <ReleaseSearch requestId={request.id} requestTitle={request.title} />
+      {shouldShowSearch && (
+        <ReleaseSearch requestId={request.id} requestTitle={request.title} />
+      )}
 
       <Card p={{ base: 5, md: 6 }}>
         <Stack spacing={4}>
@@ -87,7 +100,11 @@ export const RequestPage: React.FC = () => {
             </Text>
           </Stack>
 
-          <ReleasesList requestId={request.id} onViewFiles={handleViewFiles} />
+          <ReleasesList
+            requestId={request.id}
+            onViewFiles={handleViewFiles}
+            onReleasesLoaded={handleReleasesLoaded}
+          />
         </Stack>
       </Card>
 

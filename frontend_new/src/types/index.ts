@@ -80,15 +80,6 @@ export interface Release {
   quality?: string;
 }
 
-export interface ReleaseStats {
-  total_releases: number;
-  active_downloads: number;
-  completed_releases: number;
-  total_size: number;
-  total_uploaded: number;
-  total_downloaded: number;
-}
-
 // Release search types exposed to the UI when adding a release
 export interface ReleaseSearchResult {
   id: string;

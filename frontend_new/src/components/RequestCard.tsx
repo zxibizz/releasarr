@@ -1,5 +1,7 @@
 import {
+  AspectRatio,
   Badge,
+  Box,
   Card,
   Flex,
   Heading,
@@ -43,130 +45,147 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
     >
       <Stack spacing={4} height="100%">
         <Flex
-          align={{ base: "flex-start", md: "center" }}
-          justify="space-between"
-          gap={4}
-          flexWrap="wrap"
+          direction={{ base: "column", md: "row" }}
+          align={{ base: "stretch", md: "flex-start" }}
+          gap={{ base: 4, md: 6 }}
         >
-          <Stack spacing={1} minW={0} flex={1}>
-            <Heading size="md" noOfLines={2}>
-              <LinkOverlay
-                as={RouterLink}
-                to={`/request/${request.id}`}
-                _hover={{ textDecoration: "none" }}
-              >
-                {request.title}
-              </LinkOverlay>
-            </Heading>
-            <Text fontSize="sm" color="text.subtle">
-              {request.year}
-              {!isMovie && ` • Season ${request.season_number}`}
-              {isMovie && ` • ${formatRuntime(request.runtime)}`}
-            </Text>
-          </Stack>
-
-          <Image
-            src={request.poster_url}
-            alt={`${request.title} poster`}
-            boxSize={{ base: "72px", md: "100px" }}
-            objectFit="cover"
-            borderRadius="md"
+          <Box
             as={RouterLink}
             to={`/request/${request.id}`}
-            ml={{ base: 0, md: 4 }}
-            fallbackSrc="/logo192.png"
-          />
-
-          <Badge
-            colorScheme={statusColorScheme[request.status]}
-            variant="subtle"
-            display="inline-flex"
-            alignItems="center"
-            gap={1}
-            fontSize="xs"
-            px={3}
-            py={1}
+            flexShrink={0}
             borderRadius="md"
-            textTransform="capitalize"
+            overflow="hidden"
+            display={{ base: "none", md: "block" }}
+            w="160px"
           >
-            <Text as="span" fontSize="md" lineHeight={1}>
-              {statusIcon}
-            </Text>
-            {request.status}
-          </Badge>
-        </Flex>
+            <AspectRatio ratio={2 / 3} w="100%">
+              <Image
+                src={request.poster_url}
+                alt={`${request.title} poster`}
+                objectFit="cover"
+                fallbackSrc="/logo192.png"
+                display="block"
+              />
+            </AspectRatio>
+          </Box>
 
-        <HStack spacing={2} flexWrap="wrap">
-          <Tag
-            colorScheme={isMovie ? "red" : "blue"}
-            variant="subtle"
-            borderRadius="full"
-            px={3}
-            py={1}
-            fontSize="xs"
-            fontWeight="600"
-            textTransform="uppercase"
-            letterSpacing="0.08em"
-          >
-            <Text as="span" mr={1}>
-              {isMovie ? "🎬" : "📺"}
-            </Text>
-            {request.type}
-          </Tag>
-
-          {request.genres.slice(0, 2).map((genre) => (
-            <Tag
-              key={genre}
-              variant="subtle"
-              colorScheme="gray"
-              borderRadius="md"
-              px={2}
-              py={1}
-              fontSize="xs"
+          <Stack spacing={4} flex={1} minW={0}>
+            <Flex
+              direction={{ base: "column", sm: "row" }}
+              align={{ base: "flex-start", sm: "center" }}
+              justify="space-between"
+              gap={3}
+              w="100%"
             >
-              {genre}
-            </Tag>
-          ))}
+              <Stack spacing={1} minW={0}>
+                <Heading size="md" noOfLines={2}>
+                  <LinkOverlay
+                    as={RouterLink}
+                    to={`/request/${request.id}`}
+                    _hover={{ textDecoration: "none" }}
+                  >
+                    {request.title}
+                  </LinkOverlay>
+                </Heading>
+                <Text fontSize="sm" color="text.subtle">
+                  {request.year}
+                  {!isMovie && ` • Season ${request.season_number}`}
+                  {isMovie && ` • ${formatRuntime(request.runtime)}`}
+                </Text>
+              </Stack>
 
-          {request.genres.length > 2 && (
-            <Tag
-              variant="subtle"
-              colorScheme="gray"
-              borderRadius="md"
-              px={2}
-              py={1}
+              <Badge
+                colorScheme={statusColorScheme[request.status]}
+                variant="subtle"
+                display="inline-flex"
+                alignItems="center"
+                gap={1}
+                fontSize="xs"
+                px={3}
+                py={1}
+                borderRadius="md"
+                textTransform="capitalize"
+              >
+                <Text as="span" fontSize="md" lineHeight={1}>
+                  {statusIcon}
+                </Text>
+                {request.status}
+              </Badge>
+            </Flex>
+
+            <HStack spacing={2} flexWrap="wrap">
+              <Tag
+                colorScheme={isMovie ? "red" : "blue"}
+                variant="subtle"
+                borderRadius="full"
+                px={3}
+                py={1}
+                fontSize="xs"
+                fontWeight="600"
+                textTransform="uppercase"
+                letterSpacing="0.08em"
+              >
+                <Text as="span" mr={1}>
+                  {isMovie ? "🎬" : "📺"}
+                </Text>
+                {request.type}
+              </Tag>
+
+              {request.genres.slice(0, 2).map((genre) => (
+                <Tag
+                  key={genre}
+                  variant="subtle"
+                  colorScheme="gray"
+                  borderRadius="md"
+                  px={2}
+                  py={1}
+                  fontSize="xs"
+                >
+                  {genre}
+                </Tag>
+              ))}
+
+              {request.genres.length > 2 && (
+                <Tag
+                  variant="subtle"
+                  colorScheme="gray"
+                  borderRadius="md"
+                  px={2}
+                  py={1}
+                  fontSize="xs"
+                >
+                  +{request.genres.length - 2}
+                </Tag>
+              )}
+            </HStack>
+
+            <Text fontSize="sm" color="slate.200" noOfLines={3}>
+              {request.overview}
+            </Text>
+
+            {!isMovie && (
+              <Text fontSize="xs" color="text.muted">
+                <Text as="span">{request.total_episodes} episodes</Text>
+                <Text as="span" mx={2}>
+                  •
+                </Text>
+                <Text as="span">
+                  {request.series_title} ({request.series_year})
+                </Text>
+              </Text>
+            )}
+
+            <Flex
+              mt="auto"
+              justify="space-between"
+              align="center"
               fontSize="xs"
+              color="text.muted"
             >
-              +{request.genres.length - 2}
-            </Tag>
-          )}
-        </HStack>
-
-        <Text fontSize="sm" color="slate.200" noOfLines={3}>
-          {request.overview}
-        </Text>
-
-        {!isMovie && (
-          <Text fontSize="xs" color="text.muted">
-            <Text as="span">{request.total_episodes} episodes</Text>
-            <Text as="span" mx={2}>
-              •
-            </Text>
-            <Text as="span">
-              {request.series_title} ({request.series_year})
-            </Text>
-          </Text>
-        )}
-
-        <Flex
-          mt="auto"
-          justify="space-between"
-          align="center"
-          fontSize="xs"
-          color="text.muted"
-        >
-          <Text>Created {formatDate(request.created_at)}</Text>
-          <Text textTransform="capitalize">{request.type}</Text>
+              <Text>Created {formatDate(request.created_at)}</Text>
+              <Text textTransform="capitalize">{request.type}</Text>
+            </Flex>
+          </Stack>
         </Flex>
       </Stack>
     </Card>

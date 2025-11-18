@@ -3,7 +3,6 @@ import {
   Release,
   ReleaseFileMappingInput,
   ReleaseSearchResponse,
-  ReleaseStats,
   RequestsResponse,
 } from '../types';
 
@@ -128,10 +127,6 @@ class ApiClient {
     return this.getReleases({ status: status as Release['status'] });
   }
 
-  async getReleaseStats(): Promise<ReleaseStats> {
-    return this.request<ReleaseStats>('/releases/stats');
-  }
-
   async updateReleaseFileMappings(
     releaseId: string,
     mappings: ReleaseFileMappingInput[],
@@ -193,9 +188,9 @@ export const fetchReleases = (filters?: { status?: Release['status']; requestId?
 export const fetchRelease = (id: string) => apiClient.getRelease(id);
 export const fetchReleasesByRequest = (requestId: string) => apiClient.getReleasesByRequest(requestId);
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
-export const fetchReleaseStats = () => apiClient.getReleaseStats();
 export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
   apiClient.updateReleaseFileMappings(releaseId, mappings);
+export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
 
 // Export the class for testing or custom instances
 export { ApiClient };
