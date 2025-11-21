@@ -141,50 +141,60 @@ const mockSeriesRequests: SeriesRequest[] = [
 // Mock release search candidates
 const mockReleaseSearchResults: ReleaseSearchResult[] = [
   {
-    id: 't1',
-    name: 'The.Dark.Knight.2008.1080p.BluRay.x264-SPARKS',
+    release_id: 't1',
+    release_name: 'The.Dark.Knight.2008.1080p.BluRay.x264-SPARKS',
     size: '8.74 GB',
-    link: 'magnet:?xt=urn:btih:example1',
+    magnet_link: 'magnet:?xt=urn:btih:example1',
+    torrent_file_url: 'https://example.com/torrents/the-dark-knight-1080p.torrent',
+    info_url: 'https://example.com/releases/the-dark-knight-1080p',
     seeders: 1247,
     leechers: 23,
     quality: '1080p',
     source: 'SPARKS'
   },
   {
-    id: 't2',
-    name: 'The.Dark.Knight.2008.2160p.UHD.BluRay.x265-TERMINAL',
+    release_id: 't2',
+    release_name: 'The.Dark.Knight.2008.2160p.UHD.BluRay.x265-TERMINAL',
     size: '15.2 GB',
-    link: 'magnet:?xt=urn:btih:example2',
+    magnet_link: 'magnet:?xt=urn:btih:example2',
+    torrent_file_url: 'https://example.com/torrents/the-dark-knight-2160p.torrent',
+    info_url: 'https://example.com/releases/the-dark-knight-2160p',
     seeders: 892,
     leechers: 45,
     quality: '2160p',
     source: 'TERMINAL'
   },
   {
-    id: 't3',
-    name: 'The.Dark.Knight.2008.720p.BluRay.x264-YIFY',
+    release_id: 't3',
+    release_name: 'The.Dark.Knight.2008.720p.BluRay.x264-YIFY',
     size: '1.2 GB',
-    link: 'magnet:?xt=urn:btih:example3',
+    magnet_link: 'magnet:?xt=urn:btih:example3',
+    torrent_file_url: 'https://example.com/torrents/the-dark-knight-720p.torrent',
+    info_url: 'https://example.com/releases/the-dark-knight-720p',
     seeders: 2156,
     leechers: 67,
     quality: '720p',
     source: 'YIFY'
   },
   {
-    id: 't4',
-    name: 'Inception.2010.1080p.BluRay.x264-LEVERAGE',
+    release_id: 't4',
+    release_name: 'Inception.2010.1080p.BluRay.x264-LEVERAGE',
     size: '7.95 GB',
-    link: 'magnet:?xt=urn:btih:example4',
+    magnet_link: 'magnet:?xt=urn:btih:example4',
+    torrent_file_url: 'https://example.com/torrents/inception-1080p.torrent',
+    info_url: 'https://example.com/releases/inception-1080p',
     seeders: 934,
     leechers: 12,
     quality: '1080p',
     source: 'LEVERAGE'
   },
   {
-    id: 't5',
-    name: 'Breaking.Bad.S01.1080p.BluRay.x264-REWARD',
+    release_id: 't5',
+    release_name: 'Breaking.Bad.S01.1080p.BluRay.x264-REWARD',
     size: '12.4 GB',
-    link: 'magnet:?xt=urn:btih:example5',
+    magnet_link: 'magnet:?xt=urn:btih:example5',
+    torrent_file_url: 'https://example.com/torrents/breaking-bad-s01.torrent',
+    info_url: 'https://example.com/releases/breaking-bad-s01',
     seeders: 567,
     leechers: 34,
     quality: '1080p',
@@ -209,6 +219,7 @@ export const getMockRequest = async (id: string): Promise<MediaRequest | null> =
 
 export const searchMockReleaseSources = async (
   query: string,
+  requestId?: string,
 ): Promise<ReleaseSearchResult[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 800));
@@ -219,10 +230,13 @@ export const searchMockReleaseSources = async (
 
   // Filter releases based on query
   const filteredResults = mockReleaseSearchResults.filter(candidate =>
-    candidate.name.toLowerCase().includes(query.toLowerCase())
+    candidate.release_name.toLowerCase().includes(query.toLowerCase())
   );
 
-  return filteredResults;
+  return filteredResults.map(candidate => ({
+    ...candidate,
+    ...(requestId ? { request_id: requestId } : {}),
+  }));
 };
 
 export const getMockRequestsByStatus = async (status: string): Promise<MediaRequest[]> => {
