@@ -9,7 +9,7 @@ import {
   Text,
   useDisclosure,
 } from "@chakra-ui/react";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
@@ -23,8 +23,13 @@ export const RequestPage: React.FC = () => {
   const { request, loading, error } = useRequest(id || "");
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [shouldShowSearch, setShouldShowSearch] = useState(false);
+  const [releasesRefreshToken, setReleasesRefreshToken] = useState(0);
 
   const filesModal = useDisclosure();
+
+  useEffect(() => {
+    setReleasesRefreshToken(0);
+  }, [request?.id]);
 
   const handleViewFiles = (release: Release) => {
     setSelectedRelease(release);
@@ -88,7 +93,13 @@ export const RequestPage: React.FC = () => {
       <MediaInfo request={request} />
 
       {shouldShowSearch && (
-        <ReleaseSearch requestId={request.id} requestTitle={request.title} />
+        <ReleaseSearch
+          requestId={request.id}
+          requestTitle={request.title}
+          onDownloadQueued={() =>
+            setReleasesRefreshToken((prevToken) => prevToken + 1)
+          }
+        />
       )}
 
       <Card p={{ base: 5, md: 6 }}>
@@ -104,6 +115,7 @@ export const RequestPage: React.FC = () => {
             requestId={request.id}
             onViewFiles={handleViewFiles}
             onReleasesLoaded={handleReleasesLoaded}
+            refreshToken={releasesRefreshToken}
           />
         </Stack>
       </Card>

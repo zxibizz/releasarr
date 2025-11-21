@@ -1,6 +1,8 @@
 import {
+  DownloadReleaseResponse,
   MediaRequest,
   Release,
+  ReleaseDownloadRequest,
   ReleaseFileMappingInput,
   ReleaseSearchResponse,
   RequestsResponse,
@@ -30,16 +32,43 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+      const text = await response.text();
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      if (response.status === 204 || response.status === 205) {
-        return undefined as T;
+        const errorMessage = (() => {
+          if (!text) {
+            return `Request failed with status ${response.status}`;
+          }
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && typeof parsed.message === 'string') {
+              return parsed.message;
+            }
+          } catch (error) {
+            // ignore JSON parse errors
+          }
+          return `Request failed with status ${response.status}`;
+        })();
+
+        const error = new Error(errorMessage) as Error & {
+          status?: number;
+          body?: string;
+          details?: unknown;
+        };
+        error.status = response.status;
+        if (text) {
+          error.body = text;
+          try {
+            error.details = JSON.parse(text);
+          } catch (parseError) {
+            // body is not JSON, keep raw text only
+          }
+        }
+
+        throw error;
       }
 
-      const text = await response.text();
-      if (!text) {
+      if (response.status === 204 || response.status === 205 || !text) {
         return undefined as T;
       }
 
@@ -71,9 +100,15 @@ class ApiClient {
     return this.request<MediaRequest>(`/requests/${id}`);
   }
 
-  async searchReleaseCandidates(query: string): Promise<ReleaseSearchResponse> {
+  async searchReleaseCandidates(
+    query: string,
+    requestId?: string,
+  ): Promise<ReleaseSearchResponse> {
     const searchParams = new URLSearchParams();
     searchParams.set('q', query);
+    if (requestId) {
+      searchParams.set('request_id', requestId);
+    }
     const endpoint = `/releases/search?${searchParams.toString()}`;
     return this.request<ReleaseSearchResponse>(endpoint);
   }
@@ -99,10 +134,12 @@ class ApiClient {
     });
   }
 
-  async downloadReleaseCandidate(sourceLink: string, requestId: string): Promise<void> {
-    return this.request<void>('/releases/download', {
+  async downloadReleaseCandidate(
+    payload: ReleaseDownloadRequest,
+  ): Promise<DownloadReleaseResponse> {
+    return this.request<DownloadReleaseResponse>('/releases/download', {
       method: 'POST',
-      body: JSON.stringify({ source_link: sourceLink, request_id: requestId }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -179,9 +216,6 @@ export const fetchRequests = (options?: {
   type?: MediaRequest['type'];
 }) => apiClient.getRequests(options);
 export const fetchRequest = (id: string) => apiClient.getRequest(id);
-export const searchReleaseCandidates = (query: string) =>
-  apiClient.searchReleaseCandidates(query);
-
 // Release convenience functions
 export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>
   apiClient.getReleases(filters);
@@ -191,6 +225,10 @@ export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesBy
 export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
   apiClient.updateReleaseFileMappings(releaseId, mappings);
 export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
+export const searchReleaseCandidates = (query: string, requestId?: string) =>
+  apiClient.searchReleaseCandidates(query, requestId);
+export const downloadReleaseCandidate = (payload: ReleaseDownloadRequest) =>
+  apiClient.downloadReleaseCandidate(payload);
 
 // Export the class for testing or custom instances
 export { ApiClient };

@@ -82,14 +82,17 @@ export interface Release {
 
 // Release search types exposed to the UI when adding a release
 export interface ReleaseSearchResult {
-  id: string;
-  name: string;
+  release_id: string;
+  release_name: string;
   size: string;
-  link: string;
-  seeders: number;
-  leechers: number;
-  quality: string;
-  source: string;
+  magnet_link?: string;
+  torrent_file_url?: string;
+  info_url?: string;
+  seeders?: number;
+  leechers?: number;
+  quality?: string;
+  source?: string;
+  request_id?: string;
 }
 
 export interface ReleaseSearchState {
@@ -111,4 +114,21 @@ export interface ReleaseSearchResponse {
   results: ReleaseSearchResult[];
   query: string;
   total_results: number;
+}
+
+export interface DownloadReleaseResponse {
+  message: string;
+  release: Release;
+}
+
+export interface ReleaseDownloadRequest {
+  release_id: string;
+  release_name: string;
+  request_id: string;
+  magnet_link?: string;
+  torrent_file_url?: string;
+  info_url?: string;
+  quality?: string;
+  source?: string;
+  size?: string;
 }

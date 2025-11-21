@@ -28,6 +28,7 @@ interface ReleasesListProps {
   onViewFiles?: (release: Release) => void;
   compact?: boolean;
   onReleasesLoaded?: (releases: Release[]) => void;
+  refreshToken?: number;
 }
 
 type RequestSummary = Pick<MediaRequest, "id" | "title" | "year" | "type">;
@@ -40,8 +41,12 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   onViewFiles,
   compact = false,
   onReleasesLoaded,
+  refreshToken,
 }) => {
-  const { releases, loading, error, refetch } = useReleasesByRequest(requestId);
+  const { releases, loading, error, refetch } = useReleasesByRequest(
+    requestId,
+    refreshToken,
+  );
   const [requestSummaries, setRequestSummaries] = useState<
     Record<string, RequestSummary>
   >({});

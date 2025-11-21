@@ -13,6 +13,7 @@ import {
   Stack,
   Tag,
   Text,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
 import { useReleaseSearch } from "../hooks/useReleaseSearch";
@@ -21,6 +22,7 @@ import { ReleaseSearchResult } from "../types";
 interface ReleaseSearchProps {
   requestId: string;
   requestTitle: string;
+  onDownloadQueued?: () => void;
 }
 
 const qualityColorScheme: Record<string, string> = {
@@ -32,26 +34,56 @@ const qualityColorScheme: Record<string, string> = {
 export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   requestId,
   requestTitle,
+  onDownloadQueued,
 }) => {
   const { searchState, search, clearSearch, selectReleaseCandidate } =
     useReleaseSearch();
   const [query, setQuery] = useState("");
+  const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(
+    null
+  );
+  const toast = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      search(query.trim());
+      search(query.trim(), requestId);
     }
   };
 
   const handleClear = () => {
     setQuery("");
     clearSearch();
+    setDownloadingCandidateId(null);
   };
 
-  const handleCandidateSelect = (candidate: ReleaseSearchResult) => {
-    selectReleaseCandidate(candidate);
-    alert(`Selected release option: ${candidate.name}`);
+  const handleCandidateSelect = async (candidate: ReleaseSearchResult) => {
+    setDownloadingCandidateId(candidate.release_id);
+    try {
+      const response = await selectReleaseCandidate(candidate, requestId);
+      toast({
+        title: "Download queued",
+        description:
+          response?.message ?? `${candidate.release_name} queued for download`,
+        status: "success",
+        duration: 4000,
+        isClosable: true,
+      });
+      onDownloadQueued?.();
+      handleClear();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to queue download";
+      toast({
+        title: "Download failed",
+        description: message,
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setDownloadingCandidateId(null);
+    }
   };
 
   return (
@@ -107,45 +139,112 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
             </Flex>
 
             <Stack spacing={3}>
-              {searchState.results.map((candidate) => (
-                <Flex
-                  key={candidate.id}
-                  direction={{ base: "column", md: "row" }}
-                  justify="space-between"
-                  align={{ base: "flex-start", md: "center" }}
-                  gap={4}
-                  p={4}
-                  borderWidth="1px"
-                  borderColor="border.muted"
-                  borderRadius="lg"
-                  bg="bg.subtle"
-                >
-                  <Stack spacing={2} flex={1} minW={0}>
-                    <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
-                      {candidate.name}
-                    </Text>
-                    <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
-                      <Tag
-                        colorScheme={qualityColorScheme[candidate.quality] || "gray"}
-                        variant="subtle"
-                        borderRadius="full"
-                        px={3}
-                        py={1}
-                      >
-                        {candidate.quality}
-                      </Tag>
-                      <Text>📦 {candidate.size}</Text>
-                      <Text color="green.300">⬆️ {candidate.seeders}</Text>
-                      <Text color="red.300">⬇️ {candidate.leechers}</Text>
-                      <Text>🏷️ {candidate.source}</Text>
-                    </Flex>
-                  </Stack>
+              {searchState.results.map((candidate) => {
+                const qualityLabel = candidate.quality ?? "Unknown";
+                const qualityColor = qualityColorScheme[qualityLabel] || "gray";
+                const seedersLabel = candidate.seeders ?? 0;
+                const leechersLabel = candidate.leechers ?? 0;
+                const isDownloadable = Boolean(
+                  candidate.magnet_link || candidate.torrent_file_url
+                );
 
-                  <Button onClick={() => handleCandidateSelect(candidate)} size="sm">
-                    Select
-                  </Button>
-                </Flex>
-              ))}
+                return (
+                  <Flex
+                    key={candidate.release_id}
+                    direction={{ base: "column", md: "row" }}
+                    justify="space-between"
+                    align={{ base: "flex-start", md: "center" }}
+                    gap={4}
+                    p={4}
+                    borderWidth="1px"
+                    borderColor="border.muted"
+                    borderRadius="lg"
+                    bg="bg.subtle"
+                  >
+                    <Stack spacing={2} flex={1} minW={0}>
+                      <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
+                        {candidate.release_name}
+                      </Text>
+                      <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
+                        <Tag
+                          colorScheme={qualityColor}
+                          variant="subtle"
+                          borderRadius="full"
+                          px={3}
+                          py={1}
+                        >
+                          {qualityLabel}
+                        </Tag>
+                        <Text>📦 {candidate.size}</Text>
+                        <Text color="green.300">⬆️ {seedersLabel}</Text>
+                        <Text color="red.300">⬇️ {leechersLabel}</Text>
+                        {candidate.source && <Text>🏷️ {candidate.source}</Text>}
+                        {!isDownloadable && (
+                          <Text color="yellow.300">
+                            ⚠️ No magnet or torrent link available
+                          </Text>
+                        )}
+                        {candidate.magnet_link && (
+                          <Button
+                            as="a"
+                            href={candidate.magnet_link}
+                            target="_self"
+                            rel="noopener noreferrer"
+                            size="xs"
+                            variant="link"
+                            colorScheme="orange"
+                            px={0}
+                          >
+                            Magnet link ↗
+                          </Button>
+                        )}
+                        {candidate.info_url && (
+                          <Button
+                            as="a"
+                            href={candidate.info_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="xs"
+                            variant="link"
+                            colorScheme="blue"
+                            px={0}
+                          >
+                            View info ↗
+                          </Button>
+                        )}
+                        {candidate.torrent_file_url && (
+                          <Button
+                            as="a"
+                            href={candidate.torrent_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="xs"
+                            variant="link"
+                            colorScheme="green"
+                            px={0}
+                          >
+                            Torrent file ↗
+                          </Button>
+                        )}
+                      </Flex>
+                    </Stack>
+
+                    <Button
+                      onClick={() => handleCandidateSelect(candidate)}
+                      size="sm"
+                      isLoading={downloadingCandidateId === candidate.release_id}
+                      loadingText="Queuing..."
+                      isDisabled={
+                        !isDownloadable ||
+                        (!!downloadingCandidateId &&
+                          downloadingCandidateId !== candidate.release_id)
+                      }
+                    >
+                      Download
+                    </Button>
+                  </Flex>
+                );
+              })}
             </Stack>
           </Stack>
         )}
