@@ -39,9 +39,9 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   const { searchState, search, clearSearch, selectReleaseCandidate } =
     useReleaseSearch();
   const [query, setQuery] = useState("");
-  const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(
-    null
-  );
+  const [downloadingCandidateId, setDownloadingCandidateId] = useState<
+    string | null
+  >(null);
   const toast = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -107,7 +107,12 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                 {searchState.loading ? "Searching..." : "Search"}
               </Button>
               {(query || searchState.results.length > 0) && (
-                <Button type="button" variant="outline" colorScheme="gray" onClick={handleClear}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  colorScheme="gray"
+                  onClick={handleClear}
+                >
                   Clear
                 </Button>
               )}
@@ -123,7 +128,12 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         )}
 
         {searchState.error && (
-          <Alert status="error" variant="left-accent" borderRadius="lg" alignItems="flex-start">
+          <Alert
+            status="error"
+            variant="left-accent"
+            borderRadius="lg"
+            alignItems="flex-start"
+          >
             <AlertIcon />
             <AlertDescription>{searchState.error}</AlertDescription>
           </Alert>
@@ -131,7 +141,12 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
 
         {searchState.results.length > 0 && !searchState.loading && (
           <Stack spacing={4}>
-            <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={2}>
+            <Flex
+              justify="space-between"
+              align={{ base: "flex-start", md: "center" }}
+              direction={{ base: "column", md: "row" }}
+              gap={2}
+            >
               <Heading size="sm">Search Results</Heading>
               <Text color="text.subtle" fontSize="sm">
                 {searchState.results.length} results for "{searchState.query}"
@@ -144,10 +159,6 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                 const qualityColor = qualityColorScheme[qualityLabel] || "gray";
                 const seedersLabel = candidate.seeders ?? 0;
                 const leechersLabel = candidate.leechers ?? 0;
-                const isDownloadable = Boolean(
-                  candidate.magnet_link || candidate.torrent_file_url
-                );
-
                 return (
                   <Flex
                     key={candidate.release_id}
@@ -162,10 +173,20 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                     bg="bg.subtle"
                   >
                     <Stack spacing={2} flex={1} minW={0}>
-                      <Text fontWeight="600" fontSize="sm" color="slate.100" noOfLines={2}>
+                      <Text
+                        fontWeight="600"
+                        fontSize="sm"
+                        color="slate.100"
+                        noOfLines={2}
+                      >
                         {candidate.release_name}
                       </Text>
-                      <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
+                      <Flex
+                        gap={3}
+                        wrap="wrap"
+                        fontSize="xs"
+                        color="text.subtle"
+                      >
                         <Tag
                           colorScheme={qualityColor}
                           variant="subtle"
@@ -179,11 +200,6 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                         <Text color="green.300">⬆️ {seedersLabel}</Text>
                         <Text color="red.300">⬇️ {leechersLabel}</Text>
                         {candidate.source && <Text>🏷️ {candidate.source}</Text>}
-                        {!isDownloadable && (
-                          <Text color="yellow.300">
-                            ⚠️ No magnet or torrent link available
-                          </Text>
-                        )}
                         {candidate.magnet_link && (
                           <Button
                             as="a"
@@ -232,12 +248,13 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                     <Button
                       onClick={() => handleCandidateSelect(candidate)}
                       size="sm"
-                      isLoading={downloadingCandidateId === candidate.release_id}
+                      isLoading={
+                        downloadingCandidateId === candidate.release_id
+                      }
                       loadingText="Queuing..."
                       isDisabled={
-                        !isDownloadable ||
-                        (!!downloadingCandidateId &&
-                          downloadingCandidateId !== candidate.release_id)
+                        !!downloadingCandidateId &&
+                        downloadingCandidateId !== candidate.release_id
                       }
                     >
                       Download

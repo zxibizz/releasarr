@@ -135,12 +135,16 @@ class ApiClient {
   }
 
   async downloadReleaseCandidate(
+    requestId: string,
     payload: ReleaseDownloadRequest,
   ): Promise<DownloadReleaseResponse> {
-    return this.request<DownloadReleaseResponse>('/releases/download', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    return this.request<DownloadReleaseResponse>(
+      `/requests/${requestId}/releases/download`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
   }
 
   // Releases endpoints
@@ -227,8 +231,10 @@ export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFi
 export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
 export const searchReleaseCandidates = (query: string, requestId?: string) =>
   apiClient.searchReleaseCandidates(query, requestId);
-export const downloadReleaseCandidate = (payload: ReleaseDownloadRequest) =>
-  apiClient.downloadReleaseCandidate(payload);
+export const downloadReleaseCandidate = (
+  requestId: string,
+  payload: ReleaseDownloadRequest,
+) => apiClient.downloadReleaseCandidate(requestId, payload);
 
 // Export the class for testing or custom instances
 export { ApiClient };

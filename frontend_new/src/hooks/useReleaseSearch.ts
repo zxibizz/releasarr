@@ -85,24 +85,15 @@ export const useReleaseSearch = () => {
         throw new Error('A request id is required to download a release.');
       }
 
-      if (!candidate.magnet_link && !candidate.torrent_file_url) {
-        throw new Error('This release does not provide a magnet link or torrent URL.');
-      }
-
       const payload: ReleaseDownloadRequest = {
         release_id: candidate.release_id,
-        release_name: candidate.release_name,
-        request_id: resolvedRequestId,
-        magnet_link: candidate.magnet_link,
-        torrent_file_url: candidate.torrent_file_url,
-        info_url: candidate.info_url,
-        quality: candidate.quality,
-        source: candidate.source,
-        size: candidate.size,
       };
 
       try {
-        const response = await downloadReleaseCandidateAPI(payload);
+        const response = await downloadReleaseCandidateAPI(
+          resolvedRequestId,
+          payload,
+        );
         return response;
       } catch (error) {
         const message =

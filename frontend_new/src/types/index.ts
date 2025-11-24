@@ -123,12 +123,4 @@ export interface DownloadReleaseResponse {
 
 export interface ReleaseDownloadRequest {
   release_id: string;
-  release_name: string;
-  request_id: string;
-  magnet_link?: string;
-  torrent_file_url?: string;
-  info_url?: string;
-  quality?: string;
-  source?: string;
-  size?: string;
 }
