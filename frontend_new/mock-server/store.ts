@@ -44,13 +44,6 @@ type NewReleasePayload = {
 type QueueDownloadPayload = {
   requestId: string;
   releaseId: string;
-  releaseName: string;
-  magnetLink?: string;
-  torrentFileUrl?: string;
-  infoUrl?: string;
-  quality?: string;
-  source?: string;
-  size?: string;
 };
 
 type UpdateFileMappingPayload = {
@@ -73,6 +66,7 @@ const randomId = () => {
 export class MockStore {
   private requestsCache: MediaRequest[] | null = null;
   private releasesCache: Release[] | null = null;
+  private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
 
   private async ensureRequests(): Promise<MediaRequest[]> {
     if (!this.requestsCache) {
@@ -279,8 +273,17 @@ export class MockStore {
   async queueReleaseDownload(payload: QueueDownloadPayload): Promise<Release> {
     const releases = await this.ensureReleases();
     const now = new Date();
+    const candidates = this.searchResultsByRequest[payload.requestId] ?? [];
+    const candidate = candidates.find(
+      (item) => item.release_id === payload.releaseId,
+    );
+
+    if (!candidate) {
+      throw new Error('release_candidate_not_found');
+    }
+
     const sanitizeName = (name: string) => name.replace(/[^a-z0-9.\-]+/gi, '.');
-    const normalizedName = sanitizeName(payload.releaseName);
+    const normalizedName = sanitizeName(candidate.release_name);
     const fallbackFileName = `${normalizedName || 'downloaded.release'}.mkv`;
     const parseSizeLabel = (label?: string): number => {
       if (!label) return 0;
@@ -296,10 +299,10 @@ export class MockStore {
       };
       return Math.floor(value * (multipliers[unit] ?? 1));
     };
-    const numericSize = parseSizeLabel(payload.size);
+    const numericSize = parseSizeLabel(candidate.size);
     const hashFromMagnet = (() => {
-      if (payload.magnetLink) {
-        const match = payload.magnetLink.match(/btih:([^&]+)/i);
+      if (candidate.magnet_link) {
+        const match = candidate.magnet_link.match(/btih:([^&]+)/i);
         if (match && match[1]) {
           return match[1].toLowerCase();
         }
@@ -308,8 +311,8 @@ export class MockStore {
     })();
 
     const newRelease: Release = {
-      id: payload.releaseId || randomId(),
-      name: payload.releaseName,
+      id: candidate.release_id || randomId(),
+      name: candidate.release_name,
       hash: hashFromMagnet,
       size: numericSize,
       files: [
@@ -317,7 +320,7 @@ export class MockStore {
           id: randomId(),
           name: fallbackFileName,
           size: numericSize,
-          path: payload.torrentFileUrl ?? `/downloads/${fallbackFileName}`,
+          path: candidate.torrent_file_url ?? `/downloads/${fallbackFileName}`,
         },
       ],
       status: 'downloading',
@@ -329,8 +332,8 @@ export class MockStore {
       ratio: 0,
       added_date: now.toISOString(),
       request_ids: [payload.requestId],
-      torrent_source: payload.source ?? 'manual-search',
-      quality: payload.quality ?? 'unknown',
+      torrent_source: candidate.source ?? 'manual-search',
+      quality: candidate.quality ?? 'unknown',
     };
 
     releases.unshift(newRelease);
@@ -420,7 +423,15 @@ export class MockStore {
     requestId?: string,
   ): Promise<ReleaseSearchResult[]> {
     const results = await searchMockReleaseSources(query, requestId);
-    return results.map((result) => clone(result));
+    const clonedResults = results.map((result) => clone(result));
+
+    if (requestId) {
+      this.searchResultsByRequest[requestId] = clonedResults.map((item) =>
+        clone(item),
+      );
+    }
+
+    return clonedResults;
   }
 }
 

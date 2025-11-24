@@ -250,11 +250,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleaseSearchResponse'
-  /releases/download:
+  /requests/{requestId}/releases/download:
     post:
       tags: [Releases]
-      summary: Queue a release download
+      summary: Queue a release download for a request
       operationId: queueReleaseDownload
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
       requestBody:
         required: true
         content:
@@ -694,30 +696,6 @@ components:
       type: object
       required:
         - release_id
-        - release_name
-        - request_id
       properties:
         release_id:
-          type: string
-        release_name:
-          type: string
-        request_id:
-          type: string
-        magnet_link:
-          type: string
-          format: uri
-          description: Magnet URI to be used for the download when available.
-        torrent_file_url:
-          type: string
-          format: uri
-          description: Direct URL to the .torrent file when available.
-        info_url:
-          type: string
-          format: uri
-          description: Reference link to the release on the indexer.
-        quality:
-          type: string
-        source:
-          type: string
-        size:
           type: string
