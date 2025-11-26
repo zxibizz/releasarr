@@ -266,6 +266,27 @@ paths:
       responses:
         '202':
           description: Release source accepted for download.
+  /logs:
+    get:
+      tags: [Logs]
+      summary: List request processing logs
+      operationId: listRequestLogs
+      parameters:
+        - in: query
+          name: request_id
+          required: false
+          schema:
+            type: string
+          description: Filter logs to a single media request identifier.
+      responses:
+        '200':
+          description: Request logs matching the supplied filters.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestLogEntry'
 components:
   parameters:
     RequestId:
@@ -292,6 +313,9 @@ components:
     ReleaseStatus:
       type: string
       enum: [pending, downloading, seeding, completed, failed]
+    RequestLogLevel:
+      type: string
+      enum: [info, warning, error]
     RequestsResponse:
       type: object
       required: [requests, total, page, per_page]
@@ -309,6 +333,43 @@ components:
         per_page:
           type: integer
           minimum: 1
+    RequestLogMetadata:
+      type: object
+      additionalProperties:
+        anyOf:
+          - type: string
+          - type: number
+          - type: boolean
+    RequestLogEntry:
+      type: object
+      required:
+        - id
+        - occurredAt
+        - timestamp
+        - level
+        - message
+      properties:
+        id:
+          type: string
+        occurredAt:
+          type: integer
+          format: int64
+          description: Milliseconds since Unix epoch when the event occurred.
+        timestamp:
+          type: string
+          description: Human-readable timestamp formatted for display.
+        level:
+          $ref: '#/components/schemas/RequestLogLevel'
+        message:
+          type: string
+        source:
+          type: string
+          description: Origin system or component.
+        metadata:
+          $ref: '#/components/schemas/RequestLogMetadata'
+        stackTrace:
+          type: string
+          description: Optional diagnostic stack trace for error logs.
     BaseMediaRequest:
       type: object
       required:
