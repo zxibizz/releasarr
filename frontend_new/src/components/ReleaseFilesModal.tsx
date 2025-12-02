@@ -15,8 +15,12 @@ import {
   Tabs,
   Text,
 } from "@chakra-ui/react";
-import React, { useMemo } from "react";
-import { MediaRequest, Release } from "../types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  MediaRequest,
+  Release,
+  FileRequestMapping as FileRequestMappingType,
+} from "../types";
 import FileRequestMapping from "./FileRequestMapping";
 
 interface ReleaseFilesModalProps {
@@ -32,6 +36,22 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
   release,
   currentRequest,
 }) => {
+  const [localRelease, setLocalRelease] = useState<Release | null>(release);
+
+  useEffect(() => {
+    if (!release) {
+      setLocalRelease(null);
+      return;
+    }
+
+    setLocalRelease((prev) => {
+      if (!prev || prev.id !== release.id) {
+        return release;
+      }
+      return prev;
+    });
+  }, [release]);
+
   const defaultMappingRequest = useMemo(
     () => ({
       id: currentRequest.id,
@@ -45,7 +65,32 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
     [currentRequest]
   );
 
-  if (!release) return null;
+  const activeRelease = localRelease;
+
+  const handleMappingUpdate = useCallback(
+    (fileId: string, mapping: FileRequestMappingType) => {
+      setLocalRelease((prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          files: prev.files.map((file) =>
+            file.id === fileId
+              ? {
+                  ...file,
+                  request_mapping: mapping,
+                }
+              : file
+          ),
+        };
+      });
+    },
+    []
+  );
+
+  if (!activeRelease) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
@@ -55,7 +100,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
         borderWidth="1px"
         borderColor="border.muted"
       >
-        <ModalHeader>📁 Files — {release.name}</ModalHeader>
+        <ModalHeader>📁 Files — {activeRelease.name}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6} maxH="75vh" overflowY="auto">
           <Tabs colorScheme="blue">
@@ -66,7 +111,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
             <TabPanels mt={4}>
               <TabPanel px={0}>
                 <Stack spacing={4}>
-                  {release.files.map((file) => {
+                  {activeRelease.files.map((file) => {
                     const requestMappingSummary = file.request_mapping
                       ? `${
                           file.request_mapping.request_title ||
@@ -142,9 +187,9 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
 
               <TabPanel px={0}>
                 <FileRequestMapping
-                  releaseId={release.id}
-                  files={release.files}
-                  onMappingUpdate={() => {}}
+                  releaseId={activeRelease.id}
+                  files={activeRelease.files}
+                  onMappingUpdate={handleMappingUpdate}
                   defaultRequest={defaultMappingRequest}
                 />
               </TabPanel>
