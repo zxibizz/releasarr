@@ -238,6 +238,8 @@ export const fetchReleasesByRequest = (requestId: string) => apiClient.getReleas
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
 export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
   apiClient.updateReleaseFileMappings(releaseId, mappings);
+export const pauseRelease = (id: string) => apiClient.pauseRelease(id);
+export const resumeRelease = (id: string) => apiClient.resumeRelease(id);
 export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
 export const searchReleaseCandidates = (query: string, requestId?: string) =>
   apiClient.searchReleaseCandidates(query, requestId);
