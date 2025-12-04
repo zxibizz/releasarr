@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchRequest as fetchRequestAPI, fetchRequests as fetchRequestsAPI } from '../services/api';
 import { MediaRequest, RequestsResponse } from '../types';
 
@@ -47,25 +47,38 @@ export const useRequest = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRequest = async () => {
+  const fetchRequest = useCallback(async () => {
+    if (!id) {
+      setRequest(null);
+      setError('Missing request identifier');
+      setLoading(false);
+      return null;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const data = await fetchRequestAPI(id);
       setRequest(data);
+      return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch request');
+      const message = err instanceof Error ? err.message : 'Failed to fetch request';
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    if (id) {
-      fetchRequest();
+    if (!id) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+
+    fetchRequest().catch(() => {
+      // Errors are handled via local state; suppress console noise here.
+    });
+  }, [id, fetchRequest]);
 
   return {
     request,

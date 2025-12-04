@@ -23,9 +23,11 @@ import {
   ModalHeader,
   ModalOverlay,
   useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
+import type { UseToastOptions } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequest } from "../hooks/useRequests";
 import { Release } from "../types";
@@ -44,7 +46,7 @@ const shakeKeyframes = keyframes`
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { request, loading, error } = useRequest(id || "");
+  const { request, loading, error, refetch: refetchRequest } = useRequest(id || "");
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [hasExistingReleases, setHasExistingReleases] = useState(false);
   const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
@@ -54,6 +56,8 @@ export const RequestPage: React.FC = () => {
   const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshToastIdRef = useRef<string | number | undefined>(undefined);
 
   const filesModal = useDisclosure();
   const {
@@ -61,6 +65,19 @@ export const RequestPage: React.FC = () => {
     onOpen: openLogs,
     onClose: closeLogs,
   } = useDisclosure();
+  const toast = useToast();
+
+  const updateRefreshToast = useCallback(
+    (options: UseToastOptions) => {
+      const toastId = refreshToastIdRef.current;
+      if (toastId && toast.isActive(toastId)) {
+        toast.update(toastId, options);
+      } else {
+        toast(options);
+      }
+    },
+    [toast]
+  );
 
   useEffect(() => {
     setReleasesRefreshToken(0);
@@ -96,6 +113,49 @@ export const RequestPage: React.FC = () => {
       setShakeSignal((signal) => signal + 1);
     }
   }, [hasExistingReleases, manualSearchTriggered]);
+
+  const handleRefreshStatus = useCallback(async () => {
+    if (!id || isRefreshing) {
+      return;
+    }
+
+    setIsRefreshing(true);
+
+    const loadingToastId = toast({
+      id: `refresh-request-${id}`,
+      title: "Refreshing status",
+      description: "Checking for the latest updates...",
+      status: "info",
+      duration: null,
+      isClosable: false,
+    });
+    refreshToastIdRef.current = loadingToastId;
+
+    try {
+      await refetchRequest();
+      setReleasesRefreshToken((token) => token + 1);
+
+      updateRefreshToast({
+        title: "Status refreshed",
+        description: "Request details and releases are up to date.",
+        status: "success",
+        duration: 2500,
+        isClosable: true,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to refresh request";
+      updateRefreshToast({
+        title: "Refresh failed",
+        description: message,
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsRefreshing(false);
+      refreshToastIdRef.current = undefined;
+    }
+  }, [id, isRefreshing, refetchRequest, toast, updateRefreshToast]);
 
   const loadLogs = useCallback(async () => {
     if (!request) {
@@ -136,7 +196,10 @@ export const RequestPage: React.FC = () => {
         title: "Refresh Status",
         description: "Check for updates on this request",
         icon: "🔄",
-        message: "Refresh functionality would be implemented here",
+        onClick: handleRefreshStatus,
+        isLoading: isRefreshing,
+        isDisabled: isRefreshing,
+        loadingText: "Refreshing...",
       },
       {
         title: "Manual Search",
@@ -151,7 +214,7 @@ export const RequestPage: React.FC = () => {
         onClick: handleViewLogs,
       },
     ],
-    [handleManualSearch, handleViewLogs]
+    [handleManualSearch, handleRefreshStatus, handleViewLogs, isRefreshing]
   );
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
@@ -263,12 +326,11 @@ export const RequestPage: React.FC = () => {
                 flexDirection="column"
                 alignItems="flex-start"
                 onClick={() => {
-                  if (action.onClick) {
-                    action.onClick();
-                  } else if (action.message) {
-                    alert(action.message);
-                  }
+                  void action.onClick?.();
                 }}
+                isDisabled={action.isDisabled}
+                isLoading={action.isLoading}
+                loadingText={action.loadingText}
               >
                 <Text fontSize="2xl" mb={2}>
                   {action.icon}
