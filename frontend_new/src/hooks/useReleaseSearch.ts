@@ -6,6 +6,7 @@ import {
 import {
   DownloadReleaseResponse,
   ReleaseDownloadRequest,
+  ReleaseSearchResponse,
   ReleaseSearchResult,
   ReleaseSearchState,
 } from '../types';
@@ -18,32 +19,34 @@ export const useReleaseSearch = () => {
     error: null
   });
 
-  const search = useCallback(async (query: string, requestId?: string) => {
-    if (!query.trim()) {
+  const search = useCallback(async (query: string, requestId?: string): Promise<ReleaseSearchResponse | null> => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
       setSearchState(prev => ({
         ...prev,
         query: '',
         results: [],
         error: null
       }));
-      return;
+      return null;
     }
 
     setSearchState(prev => ({
       ...prev,
-      query,
+      query: trimmedQuery,
       loading: true,
       error: null
     }));
 
     try {
-      const response = await searchReleaseCandidatesAPI(query, requestId);
+      const response = await searchReleaseCandidatesAPI(trimmedQuery, requestId);
       setSearchState(prev => ({
         ...prev,
-        query: response?.query ?? query,
+        query: response?.query ?? trimmedQuery,
         results: Array.isArray(response?.results) ? response.results : [],
         loading: false
       }));
+      return response ?? null;
     } catch (err) {
       const status = typeof err === 'object' && err !== null && 'status' in err
         ? (err as { status?: number }).status
@@ -52,20 +55,22 @@ export const useReleaseSearch = () => {
       if (status === 404) {
         setSearchState(prev => ({
           ...prev,
-          query,
+          query: trimmedQuery,
           results: [],
           loading: false,
           error: null,
         }));
-        return;
+        return null;
       }
 
+      const message = err instanceof Error ? err.message : 'Search failed';
       setSearchState(prev => ({
         ...prev,
         results: [],
         loading: false,
-        error: err instanceof Error ? err.message : 'Search failed'
+        error: message
       }));
+      throw new Error(message);
     }
   }, []);
 
