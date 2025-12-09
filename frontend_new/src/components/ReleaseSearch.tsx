@@ -15,7 +15,7 @@ import {
   Text,
   useToast,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useReleaseSearch } from "../hooks/useReleaseSearch";
 import { ReleaseSearchResult } from "../types";
 
@@ -23,6 +23,7 @@ interface ReleaseSearchProps {
   requestId: string;
   requestTitle: string;
   onDownloadQueued?: () => void;
+  prefillQuery?: string | null;
 }
 
 const qualityColorScheme: Record<string, string> = {
@@ -35,6 +36,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   requestId,
   requestTitle,
   onDownloadQueued,
+  prefillQuery,
 }) => {
   const { searchState, search, clearSearch, selectReleaseCandidate } =
     useReleaseSearch();
@@ -44,10 +46,22 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   >(null);
   const toast = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      search(query.trim(), requestId);
+      try {
+        await search(query.trim(), requestId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Search failed";
+        toast({
+          title: "Search failed",
+          description: message,
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+      }
     }
   };
 
@@ -85,6 +99,14 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
       setDownloadingCandidateId(null);
     }
   };
+
+  useEffect(() => {
+    if (prefillQuery === undefined) {
+      return;
+    }
+
+    setQuery(prefillQuery?.trim() ?? "");
+  }, [prefillQuery]);
 
   return (
     <Card p={{ base: 5, md: 6 }}>

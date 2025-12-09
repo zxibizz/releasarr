@@ -3,7 +3,7 @@
 ## Critical Functionality
 
 - [x] `frontend_new/src/components/RequestPage.tsx:133` Wire the “Refresh Status” card into useRequest().refetch and trigger a paired releases refetch, with optimistic UI and toast feedback.
-- [ ] `frontend_new/src/components/RequestPage.tsx:139` Replace the manual search placeholder with the real backend trigger (per OpenAPI) and surface success/error states to the user.
+- [x] `frontend_new/src/components/RequestPage.tsx:139` Replace the manual search placeholder with the real backend trigger (per OpenAPI) and surface success/error states to the user.
 - [x] `frontend_new/src/components/ReleasesList.tsx:23` Implement pause/resume handlers that call the existing API methods (expose them from services/api.ts) and pass them through to ReleaseCard.
 - [x] `frontend_new/src/components/ReleaseFilesModal.tsx:147` Preserve updated file mappings locally (or refetch the release) instead of the current no-op onMappingUpdate.
 
