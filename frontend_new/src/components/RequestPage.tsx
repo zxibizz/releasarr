@@ -102,13 +102,26 @@ export const RequestPage: React.FC = () => {
     setSelectedRelease(null);
   };
 
-  const handleReleasesLoaded = useCallback((loadedReleases: Release[]) => {
-    const hasReleases = loadedReleases.length > 0;
-    setHasExistingReleases(hasReleases);
-    if (!hasReleases) {
-      setManualSearchTriggered(false);
-    }
-  }, []);
+  const handleReleasesLoaded = useCallback(
+    (loadedReleases: Release[]) => {
+      const hasReleases = loadedReleases.length > 0;
+      setHasExistingReleases(hasReleases);
+
+      if (!hasReleases) {
+        setManualSearchTriggered(false);
+        const normalizedTitle = request?.title?.trim() ?? "";
+        setManualSearchPrefill((prev) => {
+          if (prev && prev.trim().length > 0) {
+            return prev;
+          }
+          return normalizedTitle || null;
+        });
+      } else {
+        setManualSearchPrefill(null);
+      }
+    },
+    [request?.title]
+  );
 
   const handleManualSearch = useCallback(() => {
     if (!request || !request.title) {
@@ -141,13 +154,7 @@ export const RequestPage: React.FC = () => {
     }
 
     setManualSearchPrefill(normalizedQuery);
-  }, [
-    hasExistingReleases,
-    id,
-    manualSearchTriggered,
-    request,
-    toast,
-  ]);
+  }, [hasExistingReleases, manualSearchTriggered, request, toast]);
 
   const handleRefreshStatus = useCallback(async () => {
     if (!id || isRefreshing) {
@@ -306,7 +313,7 @@ export const RequestPage: React.FC = () => {
 
       <MediaInfo request={request} />
 
-      <Card p={{ base: 5, md: 6 }}>
+      <Card p={{ base: 5, md: 6 }} display={hasExistingReleases ? "block" : "none"}>
         <Stack spacing={4}>
           <Stack spacing={1}>
             <Heading size="md">📦 Releases</Heading>
@@ -320,6 +327,7 @@ export const RequestPage: React.FC = () => {
             onViewFiles={handleViewFiles}
             onReleasesLoaded={handleReleasesLoaded}
             refreshToken={releasesRefreshToken}
+            hideEmptyState
           />
         </Stack>
       </Card>
