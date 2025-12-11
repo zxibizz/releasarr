@@ -34,6 +34,7 @@ interface ReleasesListProps {
   compact?: boolean;
   onReleasesLoaded?: (releases: Release[]) => void;
   refreshToken?: number;
+  hideEmptyState?: boolean;
 }
 
 type RequestSummary = Pick<MediaRequest, "id" | "title" | "year" | "type">;
@@ -47,6 +48,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   compact = false,
   onReleasesLoaded,
   refreshToken,
+  hideEmptyState = false,
 }) => {
   const { releases, loading, error, refetch } = useReleasesByRequest(
     requestId,
@@ -247,6 +249,9 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   }
 
   if (releases.length === 0) {
+    if (hideEmptyState) {
+      return null;
+    }
     return (
       <VStack
         spacing={3}

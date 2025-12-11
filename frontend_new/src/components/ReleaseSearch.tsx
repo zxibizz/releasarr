@@ -101,11 +101,11 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   };
 
   useEffect(() => {
-    if (prefillQuery === undefined) {
+    if (prefillQuery === undefined || prefillQuery === null) {
       return;
     }
 
-    setQuery(prefillQuery?.trim() ?? "");
+    setQuery(prefillQuery.trim());
   }, [prefillQuery]);
 
   return (
