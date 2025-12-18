@@ -9,6 +9,94 @@ import {
 } from '../types';
 import { RequestLogEntry } from '../types/logs';
 
+type ApiResponseType = 'json' | 'text' | 'auto';
+
+interface ApiRequestOptions extends RequestInit {
+  responseType?: ApiResponseType;
+  timeoutMs?: number;
+}
+
+interface ApiErrorParams {
+  message: string;
+  status?: number;
+  body?: string;
+  details?: unknown;
+  url?: string;
+  isAbortError?: boolean;
+  cause?: unknown;
+}
+
+export class ApiError extends Error {
+  status?: number;
+  body?: string;
+  details?: unknown;
+  url?: string;
+  isAbortError: boolean;
+
+  constructor({ message, status, body, details, url, isAbortError = false, cause }: ApiErrorParams) {
+    super(message, { cause });
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+    this.details = details;
+    this.url = url;
+    this.isAbortError = isAbortError;
+  }
+}
+
+const HTTP_STATUS_MESSAGES: Record<number, string> = {
+  400: 'The request was invalid. Please check the data and try again.',
+  401: 'Authentication is required to complete this action.',
+  403: 'You do not have permission to complete this action.',
+  404: 'The requested resource could not be found.',
+  409: 'A conflict prevented this action from completing.',
+  422: 'The server could not process the provided data.',
+  429: 'Too many requests — please wait before trying again.',
+  500: 'The server encountered an error. Please try again later.',
+  502: 'Bad gateway — the upstream service returned an invalid response.',
+  503: 'The service is temporarily unavailable. Please try again soon.',
+  504: 'The service timed out while processing the request.',
+};
+
+const getStatusMessage = (status: number): string => {
+  if (HTTP_STATUS_MESSAGES[status]) {
+    return HTTP_STATUS_MESSAGES[status];
+  }
+  const statusFamily = Math.floor(status / 100);
+  if (statusFamily === 4) {
+    return 'The server could not process the request. Please verify the input and retry.';
+  }
+  if (statusFamily === 5) {
+    return 'A server error occurred. Please try again later.';
+  }
+  return `Request failed with status ${status}`;
+};
+
+const resolveResponseType = (requested: ApiResponseType, contentType: string): Exclude<ApiResponseType, 'auto'> => {
+  if (requested === 'json' || requested === 'text') {
+    return requested;
+  }
+
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes('application/json') || normalized.includes('+json')) {
+    return 'json';
+  }
+
+  return 'text';
+};
+
+const isAbortError = (error: unknown): boolean => {
+  if (!error) {
+    return false;
+  }
+
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+
+  return error instanceof Error && error.name === 'AbortError';
+};
+
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 
@@ -20,63 +108,125 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  private async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const {
+      responseType = 'auto',
+      timeoutMs,
+      signal: externalSignal,
+      headers: customHeaders,
+      ...restOptions
+    } = options;
+
+    const headers = new Headers(customHeaders ?? undefined);
+    if (!headers.has('Accept')) {
+      headers.set('Accept', 'application/json');
+    }
+    if (restOptions.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let abortController: AbortController | undefined;
+
+    if (typeof timeoutMs === 'number') {
+      abortController = new AbortController();
+
+      if (externalSignal) {
+        if (externalSignal.aborted) {
+          abortController.abort();
+        } else {
+          externalSignal.addEventListener('abort', () => abortController?.abort(), { once: true });
+        }
+      }
+
+      timeoutId = setTimeout(() => abortController?.abort(), timeoutMs);
+    }
+
+    const fetchSignal = abortController ? abortController.signal : externalSignal;
 
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      ...options,
+      ...restOptions,
+      headers,
+      signal: fetchSignal,
     };
 
     try {
       const response = await fetch(url, config);
-      const text = await response.text();
+      const rawBody = await response.text();
+      const contentType = response.headers.get('content-type') ?? '';
 
       if (!response.ok) {
-        const errorMessage = (() => {
-          if (!text) {
-            return `Request failed with status ${response.status}`;
-          }
+        let parsedBody: unknown;
+        if (rawBody) {
           try {
-            const parsed = JSON.parse(text);
-            if (parsed && typeof parsed.message === 'string') {
-              return parsed.message;
-            }
-          } catch (error) {
-            // ignore JSON parse errors
-          }
-          return `Request failed with status ${response.status}`;
-        })();
-
-        const error = new Error(errorMessage) as Error & {
-          status?: number;
-          body?: string;
-          details?: unknown;
-        };
-        error.status = response.status;
-        if (text) {
-          error.body = text;
-          try {
-            error.details = JSON.parse(text);
+            parsedBody = JSON.parse(rawBody);
           } catch (parseError) {
-            // body is not JSON, keep raw text only
+            parsedBody = undefined;
           }
         }
 
-        throw error;
+        const messageFromBody =
+          parsedBody && typeof (parsedBody as { message?: unknown }).message === 'string'
+            ? String((parsedBody as { message: string }).message)
+            : undefined;
+
+        const errorMessage = messageFromBody ?? getStatusMessage(response.status);
+
+        throw new ApiError({
+          message: errorMessage,
+          status: response.status,
+          body: rawBody || undefined,
+          details: parsedBody,
+          url,
+        });
       }
 
-      if (response.status === 204 || response.status === 205 || !text) {
+      if (response.status === 204 || response.status === 205 || !rawBody) {
         return undefined as T;
       }
 
-      return JSON.parse(text) as T;
+      const resolvedType = resolveResponseType(responseType, contentType);
+
+      if (resolvedType === 'json') {
+        try {
+          return JSON.parse(rawBody) as T;
+        } catch (parseError) {
+          throw new ApiError({
+            message: 'Failed to parse JSON response from the server.',
+            status: response.status,
+            body: rawBody,
+            details: parseError instanceof Error ? { message: parseError.message } : undefined,
+            url,
+          });
+        }
+      }
+
+      return rawBody as unknown as T;
     } catch (error) {
+      if (isAbortError(error)) {
+        throw new ApiError({
+          message: 'The request was aborted.',
+          url,
+          isAbortError: true,
+          cause: error,
+        });
+      }
+
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
       console.error('API request failed:', error);
-      throw error;
+      throw new ApiError({
+        message: error instanceof Error ? error.message : 'Network request failed.',
+        url,
+        cause: error,
+      });
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
