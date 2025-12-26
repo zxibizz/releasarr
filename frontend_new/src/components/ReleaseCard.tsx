@@ -78,8 +78,67 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const ensureFiniteNumber = (value: unknown, fallback = 0) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+};
+
+const clampPercentage = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value < 0) {
+    return 0;
+  }
+
+  if (value > 100) {
+    return 100;
+  }
+
+  return value;
+};
+
+const sanitizeRelease = (release: Release): Release => {
+  const size = Math.max(0, ensureFiniteNumber(release.size));
+  const progress = clampPercentage(ensureFiniteNumber(release.progress));
+  const downloadSpeed = Math.max(0, ensureFiniteNumber(release.download_speed));
+  const uploadSpeed = Math.max(0, ensureFiniteNumber(release.upload_speed));
+  const seeders = Math.max(0, ensureFiniteNumber(release.seeders));
+  const leechers = Math.max(0, ensureFiniteNumber(release.leechers));
+  const ratio = Math.max(0, ensureFiniteNumber(release.ratio));
+
+  return {
+    ...release,
+    files: Array.isArray(release.files) ? release.files : [],
+    request_ids: Array.isArray(release.request_ids)
+      ? release.request_ids.filter(
+          (id): id is string => typeof id === "string" && id.trim().length > 0
+        )
+      : [],
+    status: (release.status ?? "pending") as Release["status"],
+    size,
+    progress,
+    download_speed: downloadSpeed,
+    upload_speed: uploadSpeed,
+    seeders,
+    leechers,
+    ratio,
+  };
+};
+
 const ReleaseCard: React.FC<ReleaseCardProps> = ({
-  release,
+  release: releaseProp,
   onPause,
   onResume,
   onDelete,
@@ -89,6 +148,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   currentRequestId,
   requestSummaries,
 }) => {
+  const release = useMemo(() => sanitizeRelease(releaseProp), [releaseProp]);
   const [showDetails, setShowDetails] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
