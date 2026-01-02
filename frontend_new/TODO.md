@@ -16,9 +16,9 @@
 
 ## UX & Interaction
 
-- [ ] `frontend_new/src/components/FileRequestMapping.tsx:101` Surface loading/error states from useRequests() so the mapping UI doesn’t render empty dropdowns without context.
-- [ ] `frontend_new/src/components/RequestPage.tsx:224` Auto-scroll or focus the manual search area when prompted and debounce repeated shake animations for accessibility.
-- [ ] `frontend_new/src/components/ReleasesList.tsx:155` Replace destructive browser alerts with Chakra toasts/confirmations for mapping validation and delete flows.
+- [x] `frontend_new/src/components/FileRequestMapping.tsx:101` Surface loading/error states from useRequests() so the mapping UI doesn’t render empty dropdowns without context.
+- [x] `frontend_new/src/components/RequestPage.tsx:224` Auto-scroll or focus the manual search area when prompted and debounce repeated shake animations for accessibility.
+- [x] `frontend_new/src/components/ReleasesList.tsx:155` Replace destructive browser alerts with Chakra toasts/confirmations for mapping validation and delete flows.
 
 ## Architecture & Refactoring
 

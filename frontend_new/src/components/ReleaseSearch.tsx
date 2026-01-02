@@ -15,7 +15,7 @@ import {
   Text,
   useToast,
 } from "@chakra-ui/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useReleaseSearch } from "../hooks/useReleaseSearch";
 import { ReleaseSearchResult } from "../types";
 
@@ -24,6 +24,7 @@ interface ReleaseSearchProps {
   requestTitle: string;
   onDownloadQueued?: () => void;
   prefillQuery?: string | null;
+  focusTrigger?: number;
 }
 
 const qualityColorScheme: Record<string, string> = {
@@ -37,6 +38,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   requestTitle,
   onDownloadQueued,
   prefillQuery,
+  focusTrigger,
 }) => {
   const { searchState, search, clearSearch, selectReleaseCandidate } =
     useReleaseSearch();
@@ -44,6 +46,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   const [downloadingCandidateId, setDownloadingCandidateId] = useState<
     string | null
   >(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,7 +109,22 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
     }
 
     setQuery(prefillQuery.trim());
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+      inputRef.current?.select();
+    });
   }, [prefillQuery]);
+
+  useEffect(() => {
+    if (!focusTrigger || focusTrigger <= 0) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+      inputRef.current?.select();
+    });
+  }, [focusTrigger]);
 
   return (
     <Card p={{ base: 5, md: 6 }}>
@@ -116,6 +134,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         <Box as="form" onSubmit={handleSubmit}>
           <Flex direction={{ base: "column", md: "row" }} gap={3}>
             <Input
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search release sources for "${requestTitle}"...`}
