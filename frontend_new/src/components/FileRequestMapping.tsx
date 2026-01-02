@@ -10,10 +10,12 @@ import {
   Heading,
   Input,
   Select,
+  Spinner,
   Stack,
   Tag,
   Text,
   VStack,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useReleaseFileMapping } from "../hooks/useReleases";
@@ -61,8 +63,18 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   readonly = false,
   defaultRequest,
 }) => {
-  const { updateFileMappings, loading, error } = useReleaseFileMapping();
-  const { requests } = useRequests();
+  const {
+    updateFileMappings,
+    loading: isSaving,
+    error: mappingError,
+  } = useReleaseFileMapping();
+  const {
+    requests,
+    loading: requestsLoading,
+    error: requestsError,
+    refetch: refetchRequests,
+  } = useRequests();
+  const toast = useToast();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<string>(
@@ -156,6 +168,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     [availableRequests]
   );
 
+  const disableRequestSelection =
+    requestsLoading || Boolean(requestsError) || availableRequests.length === 0;
+
+  const requestPlaceholder = requestsLoading
+    ? "Loading requests..."
+    : requestsError
+      ? "Unable to load requests"
+      : "Select a request...";
+
   const handleMappingChange = (
     fileId: string,
     field: keyof Omit<FileMapping, "fileId">,
@@ -222,7 +243,13 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     }
 
     if (!validateRequestMapping(requestMappingPayload)) {
-      alert("Invalid request mapping. Please check all required fields.");
+      toast({
+        title: "Invalid mapping",
+        description: "Please fill in all required fields before saving.",
+        status: "warning",
+        duration: 4000,
+        isClosable: true,
+      });
       return;
     }
 
@@ -290,7 +317,13 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     }, []);
 
     if (preparedMappings.length === 0) {
-      alert("No valid mappings to save.");
+      toast({
+        title: "Nothing to save",
+        description: "Select at least one valid mapping before saving.",
+        status: "info",
+        duration: 3500,
+        isClosable: true,
+      });
       return;
     }
 
@@ -414,7 +447,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
               Bulk assign to request:
             </Text>
             <Select
-              placeholder="Select a request..."
+              placeholder={requestPlaceholder}
               value={selectedRequest}
               onChange={(e) => {
                 setSelectedRequest(e.target.value);
@@ -424,6 +457,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
               }}
               maxW="320px"
               size="sm"
+              isDisabled={disableRequestSelection}
             >
               {movieRequests.length > 0 && (
                 <optgroup label="Movies">
@@ -448,10 +482,55 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         </Stack>
       )}
 
-      {error && (
+      {requestsLoading && (
+        <Alert
+          status="info"
+          variant="subtle"
+          borderRadius="md"
+          alignItems="center"
+          gap={3}
+        >
+          <Spinner size="sm" color="blue.400" />
+          <AlertDescription fontSize="sm">
+            Loading available requests...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {requestsError && (
+        <Alert
+          status="error"
+          borderRadius="md"
+          alignItems="flex-start"
+          flexDirection="column"
+          gap={2}
+        >
+          <Flex align="center" gap={2} w="full">
+            <AlertIcon />
+            <AlertDescription fontSize="sm">
+              {requestsError}
+            </AlertDescription>
+          </Flex>
+          <Button size="xs" onClick={() => refetchRequests()}>
+            Retry loading requests
+          </Button>
+        </Alert>
+      )}
+
+      {!requestsLoading && !requestsError && availableRequests.length === 0 && (
+        <Alert status="warning" variant="subtle" borderRadius="md">
+          <AlertIcon />
+          <AlertDescription fontSize="sm">
+            No requests are available yet. Mapping options will appear once
+            requests finish loading.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {mappingError && (
         <Alert status="error" borderRadius="md" alignItems="flex-start">
           <AlertIcon />
-          <AlertDescription fontSize="sm">{error}</AlertDescription>
+          <AlertDescription fontSize="sm">{mappingError}</AlertDescription>
         </Alert>
       )}
 
@@ -556,9 +635,10 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             Request
                           </Text>
                           <Select
-                            placeholder="Select request..."
+                            placeholder={requestPlaceholder}
                             value={mapping.requestId}
                             size="sm"
+                            isDisabled={disableRequestSelection}
                             onChange={(e) =>
                               handleMappingChange(
                                 file.id,
@@ -702,9 +782,14 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                           changed && mapping?.requestId ? "solid" : "outline"
                         }
                         onClick={() => handleSaveMapping(file.id)}
-                        isDisabled={loading || !changed || !mapping?.requestId}
+                        isDisabled={
+                          isSaving ||
+                          !changed ||
+                          !mapping?.requestId ||
+                          requestsLoading
+                        }
                       >
-                        {loading ? "Saving..." : "Save"}
+                        {isSaving ? "Saving..." : "Save"}
                       </Button>
                       {mapping?.requestId && (
                         <Button
@@ -746,9 +831,13 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             variant={
               mappings.some((m) => hasChanges(m.fileId)) ? "solid" : "outline"
             }
-            isDisabled={loading || !mappings.some((m) => hasChanges(m.fileId))}
+            isDisabled={
+              isSaving ||
+              !mappings.some((m) => hasChanges(m.fileId)) ||
+              requestsLoading
+            }
           >
-            {loading ? "Saving All..." : "Save All Changes"}
+            {isSaving ? "Saving All..." : "Save All Changes"}
           </Button>
         </Flex>
       )}

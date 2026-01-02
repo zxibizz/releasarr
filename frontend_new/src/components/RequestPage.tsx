@@ -44,6 +44,8 @@ const shakeKeyframes = keyframes`
   40%, 80% { transform: translateX(6px); }
 `;
 
+const MIN_SHAKE_INTERVAL_MS = 1200;
+
 type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
 
 const REQUEST_LOG_LEVELS: RequestLogEntry["level"][] = [
@@ -189,11 +191,15 @@ export const RequestPage: React.FC = () => {
   const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(
     null
   );
+  const [manualSearchFocusToken, setManualSearchFocusToken] = useState(0);
   const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshToastIdRef = useRef<string | number | undefined>(undefined);
+  const manualSearchSectionRef = useRef<HTMLDivElement | null>(null);
+  const lastShakeAtRef = useRef(0);
+  const previousShouldShowSearch = useRef(false);
 
   const filesModal = useDisclosure();
   const {
@@ -215,15 +221,28 @@ export const RequestPage: React.FC = () => {
     [toast]
   );
 
+  const focusManualSearch = useCallback(() => {
+    setManualSearchFocusToken((token) => token + 1);
+    requestAnimationFrame(() => {
+      manualSearchSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
+
   useEffect(() => {
     setReleasesRefreshToken(0);
     setHasExistingReleases(false);
     setManualSearchTriggered(false);
     setManualSearchPrefill(null);
+    setManualSearchFocusToken(0);
     setRequestLogs([]);
     setLogsError(null);
     setLogsLoading(false);
+    lastShakeAtRef.current = 0;
   }, [request?.id]);
+
 
   const handleViewFiles = (release: Release) => {
     setSelectedRelease(release);
@@ -270,8 +289,16 @@ export const RequestPage: React.FC = () => {
 
     const searchAlreadyVisible = !hasExistingReleases || manualSearchTriggered;
     setManualSearchTriggered(true);
+    focusManualSearch();
+
     if (searchAlreadyVisible) {
-      setShakeSignal((signal) => signal + 1);
+      const now = Date.now();
+      if (now - lastShakeAtRef.current >= MIN_SHAKE_INTERVAL_MS) {
+        lastShakeAtRef.current = now;
+        setShakeSignal((signal) => signal + 1);
+      }
+    } else {
+      lastShakeAtRef.current = Date.now();
     }
 
     const normalizedQuery = request.title.trim();
@@ -287,7 +314,13 @@ export const RequestPage: React.FC = () => {
     }
 
     setManualSearchPrefill(normalizedQuery);
-  }, [hasExistingReleases, manualSearchTriggered, request, toast]);
+  }, [
+    focusManualSearch,
+    hasExistingReleases,
+    manualSearchTriggered,
+    request,
+    toast,
+  ]);
 
   const handleRefreshStatus = useCallback(async () => {
     if (!id || isRefreshing) {
@@ -399,6 +432,13 @@ export const RequestPage: React.FC = () => {
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
 
+  useEffect(() => {
+    if (shouldShowSearch && !previousShouldShowSearch.current) {
+      focusManualSearch();
+    }
+    previousShouldShowSearch.current = shouldShowSearch;
+  }, [focusManualSearch, shouldShowSearch]);
+
   if (loading) {
     return (
       <Center py={16} flexDirection="column" gap={4} color="text.subtle">
@@ -472,6 +512,7 @@ export const RequestPage: React.FC = () => {
         style={{ width: "100%" }}
       >
         <Box
+          ref={manualSearchSectionRef}
           w="100%"
           sx={{
             willChange: "transform",
@@ -485,6 +526,7 @@ export const RequestPage: React.FC = () => {
               setReleasesRefreshToken((prevToken) => prevToken + 1)
             }
             prefillQuery={manualSearchPrefill}
+            focusTrigger={manualSearchFocusToken}
           />
         </Box>
       </Collapse>
