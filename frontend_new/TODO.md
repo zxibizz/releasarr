@@ -22,9 +22,9 @@
 
 ## Architecture & Refactoring
 
-- [ ] `frontend_new/src/utils/formatters.ts:1` Deduplicate the two formatFileSize implementations (and related helpers) into a single utility module.
-- [ ] `frontend_new/src/hooks/useReleases.ts:119` Lift request/release fetching into a shared data layer (React Query/SWR or context) so Request cards, mapping, and modals work off one cache.
-- [ ] `frontend_new/src/App.tsx:39` Add a Route path="*" 404 view and consider splitting navigation/layout shells from routing for future sections.
+- [x] `frontend_new/src/utils/formatters.ts:1` Deduplicate the two formatFileSize implementations (and related helpers) into a single utility module.
+- [x] `frontend_new/src/hooks/useReleases.ts:119` Lift request/release fetching into a shared data layer (React Query/SWR or context) so Request cards, mapping, and modals work off one cache.
+- [x] `frontend_new/src/App.tsx:39` Add a Route path="*" 404 view and consider splitting navigation/layout shells from routing for future sections.
 
 ## Cleanup, Docs & Tests
 

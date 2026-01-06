@@ -5,9 +5,11 @@ import {
   Routes,
   useLocation,
   Link as RouterLink,
+  Outlet,
 } from "react-router-dom";
 import { RequestPage } from "./components/RequestPage";
 import { RequestsList } from "./components/RequestsList";
+import { NotFound } from "./components/NotFound";
 
 function Navigation() {
   const location = useLocation();
@@ -42,7 +44,10 @@ function Navigation() {
 
         <HStack as="ul" spacing={{ base: 4, md: 8 }} listStyleType="none" m={0}>
           {navItems.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive =
+              item.href === "/"
+                ? location.pathname === "/" || location.pathname.startsWith("/request")
+                : location.pathname.startsWith(item.href);
             return (
               <Box as="li" key={item.href} position="relative">
                 <ChakraLink
@@ -76,17 +81,28 @@ function Navigation() {
   );
 }
 
+function Layout() {
+  return (
+    <>
+      <Navigation />
+      <Container as="main" maxW="6xl" py={{ base: 6, md: 10 }}>
+        <Outlet />
+      </Container>
+    </>
+  );
+}
+
 function App() {
   return (
     <Box minH="100vh">
       <Router>
-        <Navigation />
-        <Container as="main" maxW="6xl" py={{ base: 6, md: 10 }}>
-          <Routes>
-            <Route path="/" element={<RequestsList />} />
-            <Route path="/request/:id" element={<RequestPage />} />
-          </Routes>
-        </Container>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<RequestsList />} />
+            <Route path="request/:id" element={<RequestPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
       </Router>
     </Box>
   );
