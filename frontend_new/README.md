@@ -1,149 +1,67 @@
-# Media Request Tracker - Frontend Prototype
+# Releasarr Frontend
 
-A React TypeScript frontend prototype for tracking and managing media server requests, built as part of the Releasarr project.
+A React + TypeScript client for managing media requests and releases in Releasarr. The UI is built with Chakra UI and centralises request/release state in shared context providers so every screen stays in sync.
 
-## Features
+## Highlights
+- Requests dashboard with filtering by media type and lifecycle state
+- Request detail view with release status, manual search, logs, and file mapping modals
+- Toast-driven feedback for long-running actions (refresh, manual search, mapping updates)
+- Defensive API layer with typed error objects, abort support, and mock server parity
 
-- **Request Management**: View and filter media requests (movies and TV series)
-- **Detailed Request Pages**: Individual pages for each request with comprehensive media information
-- **Release Search**: Integrated release source search functionality with mock data
-- **Responsive Design**: Clean, dark-themed interface optimized for media management
-- **Type Safety**: Full TypeScript implementation with comprehensive type definitions
-
-## Architecture
-
-### Components
-- `RequestsList`: Main page displaying all requests with filtering capabilities
-- `RequestPage`: Detailed view for individual requests
-- `RequestCard`: Reusable card component for request list items
-- `MediaInfo`: Component for displaying detailed media information
-- `ReleaseSearch`: Integrated release source search with results display
-
-### Data Management
-- **Custom Hooks**: `useRequests` and `useReleaseSearch` for state management
-- **Mock Data Service**: Comprehensive mock data for development and testing
-- **API Service Layer**: Prepared for easy backend integration
-
-### Types
-- Comprehensive TypeScript interfaces for all data structures
-- Support for both movie and series requests
-- Release search result types
+## Stack
+- React 18 with functional components and hooks
+- Chakra UI design system and motion primitives
+- React Router 6 layout routing (navigation shell + nested pages)
 
 ## Getting Started
-
 1. Install dependencies:
    ```bash
    npm install
    ```
-
-2. Start the development server:
+2. Start the dev server against a running API (defaults to `http://localhost:8001/api`):
    ```bash
    npm start
    ```
+3. Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
-3. Open [http://localhost:3000](http://localhost:3000) to view the application. If the real backend is not available yet, use the mock workflow below.
-
-### Running with the OpenAPI mock server
-
-The frontend can run entirely against the OpenAPI contract using the local mock server:
-
+### Working with the mock API
+When the backend is unavailable, launch the mock workflow:
 ```bash
 npm run dev:mock
 ```
+This spins up the Express/MSW mock service on `http://localhost:8001/api` and the React dev server concurrently. The mock honours the OpenAPI contract, including mutation endpoints, so refresh, manual search, and file mapping features behave as they would against the real API.
 
-This command launches an Express-based mock API (powered by the project’s MSW handlers and mock data) on `http://localhost:8001/api` while simultaneously starting the React dev server. The mock API serves deterministic data from `mock-server` and honours all mutating endpoints, so flows like creating requests or updating release mappings work as expected. The live OpenAPI contract is available at [http://localhost:8001/openapi.yaml](http://localhost:8001/openapi.yaml) while the mock server is running.
+## Scripts
+- `npm start` – CRA dev server
+- `npm run dev:mock` – dev server + OpenAPI-driven mock API
+- `npm run build` – production build
 
 ## Project Structure
-
 ```
 src/
-├── components/          # React components
+├── App.tsx
+├── components/
 │   ├── RequestsList.tsx
 │   ├── RequestPage.tsx
-│   ├── RequestCard.tsx
-│   ├── MediaInfo.tsx
-│   └── ReleaseSearch.tsx
-├── hooks/              # Custom React hooks
-│   ├── useRequests.ts
-│   └── useReleaseSearch.ts
-├── services/           # Data services
-│   ├── mockData.ts
-│   └── api.ts
-├── types/              # TypeScript type definitions
-│   └── index.ts
-├── utils/              # Utility functions
-│   └── formatters.ts
-└── App.tsx            # Main application component
+│   ├── ReleaseSearch.tsx
+│   ├── ReleaseFilesModal.tsx
+│   └── NotFound.tsx
+├── hooks/
+│   ├── useRequests.tsx
+│   └── useReleases.tsx
+├── services/
+│   ├── api.ts
+│   └── requestLogs.ts
+├── theme.ts
+└── utils/
+    ├── formatters.ts
+    └── releaseHelpers.ts
 ```
 
-## Mock Data
+## Architecture Notes
+- `RequestsProvider` and `ReleasesProvider` expose cached collections, fetch helpers, and imperative actions to every component via context.
+- `services/api.ts` wraps the REST API with structured errors, timeout/abort support, and convenience helpers used by hooks.
+- Release search, manual actions, and logs share the same data caches so updates propagate instantly across cards, modals, and detail views.
 
-The application includes comprehensive mock data featuring:
-- 4 movie requests with various statuses
-- 4 TV series requests (season-based)
-- Sample release search results
-- Realistic media metadata (posters, descriptions, genres)
-
-## Features Implemented
-
-### Request Filtering
-- Filter by status (pending, searching, downloading, completed, failed)
-- Filter by type (movies, series)
-- View all requests
-
-### Request Details
-- Comprehensive media information display
-- Status tracking with visual indicators
-- Genre tags and metadata
-- IMDb integration links
-- Series-specific information (season, episodes)
-
-### Release Source Search
-- Search form with query input
-- Results display with quality indicators
-- Seeder/leecher information
-- File size and source information
-- Mock release selection functionality
-
-### User Experience
-- Loading states for all async operations
-- Error handling with user-friendly messages
-- Responsive design for various screen sizes
-- Dark theme optimized for media management
-
-## Backend Integration Ready
-
-The application is structured for easy backend integration:
-- API service layer with proper error handling
-- Consistent data fetching patterns
-- Environment-based configuration
-- Prepared endpoints for CRUD operations
-
-## Development Notes
-
-- Built with Create React App and TypeScript
-- Uses modern React patterns (functional components, hooks)
-- Comprehensive error handling and loading states
-- Prepared for TailwindCSS integration (currently using basic CSS)
-- ESLint configured for code quality
-
-## Next Steps
-
-1. **Backend Integration**: Connect to actual Releasarr API endpoints
-2. **Enhanced Styling**: Complete TailwindCSS integration for better UI
-3. **Real-time Updates**: WebSocket integration for live status updates
-4. **User Authentication**: Add user management and permissions
-5. **Advanced Filtering**: More sophisticated search and filter options
-6. **Notifications**: Toast notifications for user actions
-7. **Testing**: Comprehensive unit and integration tests
-
-## Technologies Used
-
-- React 18
-- TypeScript
-- React Router DOM
-- Date-fns for date formatting
-- Clsx for conditional styling
-- Modern ES6+ features
-
-This prototype demonstrates a complete media request management system with a clean, intuitive interface and robust architecture ready for production deployment.
+## Environment Variables
+- `REACT_APP_API_URL` – base URL for the Releasarr API or mock server (defaults to `http://localhost:8001/api`).
