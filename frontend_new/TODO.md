@@ -26,9 +26,8 @@
 - [x] `frontend_new/src/hooks/useReleases.ts:119` Lift request/release fetching into a shared data layer (React Query/SWR or context) so Request cards, mapping, and modals work off one cache.
 - [x] `frontend_new/src/App.tsx:39` Add a Route path="*" 404 view and consider splitting navigation/layout shells from routing for future sections.
 
-## Cleanup, Docs & Tests
+## Cleanup & Docs
 
-- [ ] `frontend_new/src/components/RequestPage.tsx:269` Remove remaining alert placeholders after toasts are in place.
-- [ ] `frontend_new/src/index.tsx:32` Prune CRA scaffolding comments (and similar boilerplate in setupTests.ts, services/api.ts) as part of a formatting pass.
-- [ ] `frontend_new/src/App.test.tsx:5` Replace the default “learn react” test with focused render tests for RequestsList/RequestPage; extend coverage to hooks (error paths, filters).
-- [ ] `frontend_new/README.md:1` Update the README to match the Chakra-based implementation, document the mock server workflow, and call out required env vars.
+- [x] `frontend_new/src/components/RequestPage.tsx:269` Remove remaining alert placeholders after toasts are in place.
+- [x] `frontend_new/src/index.tsx:32` Prune CRA scaffolding comments (and similar boilerplate in setupTests.ts, services/api.ts) as part of a formatting pass.
+- [x] `frontend_new/README.md:1` Update the README to match the Chakra-based implementation, document the mock server workflow, and call out required env vars.
