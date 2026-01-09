@@ -1,33 +1,29 @@
 # New frontend todos
 
-## Critical Functionality
+## API and contract improvements
+- Introduce a shared `ErrorResponse` schema and reference it from all `4xx`/`5xx` outcomes so the UI can rely on a predictable `{ code, message, details }` shape (see `openapi.yaml`).
+- Document response payloads for async endpoints (`202` on `/requests/{requestId}/releases/download`, `/releases/{id}/pause`, `/releases/{id}/resume`) to clarify whether a body or `Location` header is returned.
+- Align write semantics with partial updates: switch `/requests/{requestId}` to `PATCH` (or document full-resource replacement) and add field-level `nullable` hints for optional properties.
+- Paginate high-volume collections (`GET /releases`, `/logs`, `/requests/{id}/releases`) and surface `page`, `per_page`, `total` metadata consistently; reflect that in the frontend data model.
+- Consolidate request filters so `/requests/{id}/releases` mirrors `/releases?request_id=`; consider deprecating one path to reduce duplication in the client.
+- Add reusable component parameters in the spec for paging and filtering (e.g. `#/components/parameters/Page`, `PerPage`, `Status`) to keep documentation DRY and enforce validation.
 
-- [x] `frontend_new/src/components/RequestPage.tsx:133` Wire the “Refresh Status” card into useRequest().refetch and trigger a paired releases refetch, with optimistic UI and toast feedback.
-- [x] `frontend_new/src/components/RequestPage.tsx:139` Replace the manual search placeholder with the real backend trigger (per OpenAPI) and surface success/error states to the user.
-- [x] `frontend_new/src/components/ReleasesList.tsx:23` Implement pause/resume handlers that call the existing API methods (expose them from services/api.ts) and pass them through to ReleaseCard.
-- [x] `frontend_new/src/components/ReleaseFilesModal.tsx:147` Preserve updated file mappings locally (or refetch the release) instead of the current no-op onMappingUpdate.
+## Frontend architectural improvements
+- Replace ad-hoc data sanitisation helpers inside `useRequests` / `RequestPage` with a shared schema-driven mapper (e.g. Zod) so all fetchers normalise data the same way and runtime validation lives next to the API client.
+- Introduce a data-fetching layer (React Query or SWR) to handle caching, refetching, and stale state instead of custom context caches in `useRequests` and `useReleases`.
+- Extract log-normalisation logic from `RequestPage` into a dedicated utility and add unit coverage; components should consume already-shaped view models.
+- Standardise loading and error UI states via reusable components (skeletons, alerts) to remove duplicated chakra layouts across `RequestsList`, `ReleasesList`, `ReleaseSearch`, etc.
+- Move feature-specific code into domain modules (e.g. `features/requests`, `features/releases`) with co-located hooks, components, and tests to improve SOLID separation and testability.
+- Align design tokens: replace Tailwind-style class strings in `utils/releaseHelpers.ts` with Chakra theme tokens and extend the theme for status colors.
+- Centralise side effects (toast notifications, downloads, refresh triggers) in the feature hooks to keep presentational components pure.
+- Add integration tests (React Testing Library + MSW) for request and release flows to guard against regressions during the refactor.
 
-## Error Handling & Resilience
-
-- [x] `frontend_new/src/services/api.ts:15` Harden the fetch wrapper: detect non‑JSON success bodies, map HTTP status codes to actionable errors, and add optional abort support.
-- [x] `frontend_new/src/hooks/useRequests.ts:14` Guard against malformed payloads (missing requests, unexpected types) before mutating state so the UI can fall back gracefully.
-- [x] `frontend_new/src/components/ReleaseCard.tsx:353` Protect against undefined release files/numeric fields from the backend by adding safe defaults and defensive formatting.
-- [x] `frontend_new/src/components/RequestPage.tsx:210` Allow RequestLogsModal to cope with snake_case keys or missing timestamps by normalising data on load.
-
-## UX & Interaction
-
-- [x] `frontend_new/src/components/FileRequestMapping.tsx:101` Surface loading/error states from useRequests() so the mapping UI doesn’t render empty dropdowns without context.
-- [x] `frontend_new/src/components/RequestPage.tsx:224` Auto-scroll or focus the manual search area when prompted and debounce repeated shake animations for accessibility.
-- [x] `frontend_new/src/components/ReleasesList.tsx:155` Replace destructive browser alerts with Chakra toasts/confirmations for mapping validation and delete flows.
-
-## Architecture & Refactoring
-
-- [x] `frontend_new/src/utils/formatters.ts:1` Deduplicate the two formatFileSize implementations (and related helpers) into a single utility module.
-- [x] `frontend_new/src/hooks/useReleases.ts:119` Lift request/release fetching into a shared data layer (React Query/SWR or context) so Request cards, mapping, and modals work off one cache.
-- [x] `frontend_new/src/App.tsx:39` Add a Route path="*" 404 view and consider splitting navigation/layout shells from routing for future sections.
-
-## Cleanup & Docs
-
-- [x] `frontend_new/src/components/RequestPage.tsx:269` Remove remaining alert placeholders after toasts are in place.
-- [x] `frontend_new/src/index.tsx:32` Prune CRA scaffolding comments (and similar boilerplate in setupTests.ts, services/api.ts) as part of a formatting pass.
-- [x] `frontend_new/README.md:1` Update the README to match the Chakra-based implementation, document the mock server workflow, and call out required env vars.
+## Step-by-step implementation plan
+1. [x] Update `openapi.yaml` with the contract fixes (error schema, response bodies, pagination components, method semantics) and regenerate API typings if applicable.
+2. [ ] Introduce shared runtime schemas for API entities (`requests.schema.ts`, `releases.schema.ts`) and adapt `apiClient` to decode with them before returning data.
+3. [ ] Adopt React Query (or similar) and replace `RequestsProvider` / `ReleasesProvider` with query hooks (`useRequestsQuery`, `useRequestQuery`, `useReleasesByRequestQuery`). Preserve existing behaviour with feature flags where needed.
+4. [ ] Refactor consuming components (`RequestsList`, `RequestPage`, `ReleasesList`, `ReleaseSearch`) to rely on the new hooks, eliminating manual cache mutation and duplicated sanitisation.
+5. [ ] Move log parsing, release helper utilities, and toast side-effects into domain-specific helpers/hooks; convert components into slimmer presentational layers.
+6. [ ] Update theming to expose status color tokens, remove hard-coded class strings, and ensure all status badges/buttons consume theme values.
+7. [ ] Backfill unit/integration tests for the new hooks and critical user journeys (list requests, view request detail, queue download) using MSW to assert on the new error contract.
+8. [ ] Document the updated architecture in `frontend_new/docs` (data flow, query cache strategy, API contract expectations) so the team can onboard quickly.
