@@ -1,3 +1,5 @@
+import type { ZodType } from 'zod';
+
 import {
   DownloadReleaseResponse,
   MediaRequest,
@@ -6,8 +8,22 @@ import {
   ReleaseFileMappingInput,
   ReleaseSearchResponse,
   RequestsResponse,
+  AsyncOperationResponse,
+  ReleasesResponse,
+  LogsResponse,
 } from '../types';
-import { RequestLogEntry } from '../types/logs';
+import {
+  mediaRequestSchema,
+  requestsResponseSchema,
+  releaseSchema,
+  releasesResponseSchema,
+  releaseSearchResponseSchema,
+  releaseDownloadRequestSchema,
+  releaseFileMappingInputSchema,
+  asyncOperationResponseSchema,
+  successResponseSchema,
+} from '../types';
+import { logsResponseSchema, type RequestLogEntry } from '../types/logs';
 
 type ApiResponseType = 'json' | 'text' | 'auto';
 
@@ -106,7 +122,11 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
+  private async request<T>(
+    endpoint: string,
+    options: ApiRequestOptions = {},
+    schema?: ZodType<T>,
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const {
       responseType = 'auto',
@@ -181,14 +201,22 @@ class ApiClient {
       }
 
       if (response.status === 204 || response.status === 205 || !rawBody) {
+        if (schema) {
+          throw new ApiError({
+            message: 'Expected response body but received none.',
+            status: response.status,
+            url,
+          });
+        }
         return undefined as T;
       }
 
       const resolvedType = resolveResponseType(responseType, contentType);
 
       if (resolvedType === 'json') {
+        let parsed: unknown;
         try {
-          return JSON.parse(rawBody) as T;
+          parsed = JSON.parse(rawBody);
         } catch (parseError) {
           throw new ApiError({
             message: 'Failed to parse JSON response from the server.',
@@ -198,6 +226,32 @@ class ApiClient {
             url,
           });
         }
+
+        if (!schema) {
+          return parsed as T;
+        }
+
+        const validation = schema.safeParse(parsed);
+        if (!validation.success) {
+          throw new ApiError({
+            message: 'Response validation failed.',
+            status: response.status,
+            body: rawBody,
+            details: validation.error.format(),
+            url,
+          });
+        }
+
+        return validation.data;
+      }
+
+      if (schema) {
+        throw new ApiError({
+          message: 'Expected JSON response from the server.',
+          status: response.status,
+          body: rawBody,
+          url,
+        });
       }
 
       return rawBody as unknown as T;
@@ -241,11 +295,15 @@ class ApiClient {
     if (options.type) searchParams.set('type', options.type);
 
     const query = searchParams.toString();
-    return this.request<RequestsResponse>(`/requests${query ? `?${query}` : ''}`);
+    return this.request<RequestsResponse>(
+      `/requests${query ? `?${query}` : ''}`,
+      undefined,
+      requestsResponseSchema,
+    );
   }
 
   async getRequest(id: string): Promise<MediaRequest> {
-    return this.request<MediaRequest>(`/requests/${id}`);
+    return this.request<MediaRequest>(`/requests/${id}`, undefined, mediaRequestSchema);
   }
 
   async searchReleaseCandidates(
@@ -258,21 +316,29 @@ class ApiClient {
       searchParams.set('request_id', requestId);
     }
     const endpoint = `/releases/search?${searchParams.toString()}`;
-    return this.request<ReleaseSearchResponse>(endpoint);
+    return this.request<ReleaseSearchResponse>(endpoint, undefined, releaseSearchResponseSchema);
   }
 
   async createRequest(requestData: Partial<MediaRequest>): Promise<MediaRequest> {
-    return this.request<MediaRequest>('/requests', {
-      method: 'POST',
-      body: JSON.stringify(requestData),
-    });
+    return this.request<MediaRequest>(
+      '/requests',
+      {
+        method: 'POST',
+        body: JSON.stringify(requestData),
+      },
+      mediaRequestSchema,
+    );
   }
 
   async updateRequest(id: string, requestData: Partial<MediaRequest>): Promise<MediaRequest> {
-    return this.request<MediaRequest>(`/requests/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(requestData),
-    });
+    return this.request<MediaRequest>(
+      `/requests/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(requestData),
+      },
+      mediaRequestSchema,
+    );
   }
 
   async deleteRequest(id: string): Promise<void> {
@@ -285,12 +351,14 @@ class ApiClient {
     requestId: string,
     payload: ReleaseDownloadRequest,
   ): Promise<DownloadReleaseResponse> {
+    const validatedPayload = releaseDownloadRequestSchema.parse(payload);
     return this.request<DownloadReleaseResponse>(
       `/requests/${requestId}/releases/download`,
       {
         method: 'POST',
-        body: JSON.stringify(payload),
-      }
+        body: JSON.stringify(validatedPayload),
+      },
+      asyncOperationResponseSchema,
     );
   }
 
@@ -299,15 +367,25 @@ class ApiClient {
     if (filters.status) searchParams.set('status', filters.status);
     if (filters.requestId) searchParams.set('request_id', filters.requestId);
     const query = searchParams.toString();
-    return this.request<Release[]>(`/releases${query ? `?${query}` : ''}`);
+    const response = await this.request<ReleasesResponse>(
+      `/releases${query ? `?${query}` : ''}`,
+      undefined,
+      releasesResponseSchema,
+    );
+    return response.releases;
   }
 
   async getRelease(id: string): Promise<Release> {
-    return this.request<Release>(`/releases/${id}`);
+    return this.request<Release>(`/releases/${id}`, undefined, releaseSchema);
   }
 
   async getReleasesByRequest(requestId: string): Promise<Release[]> {
-    return this.request<Release[]>(`/requests/${requestId}/releases`);
+    const response = await this.request<ReleasesResponse>(
+      `/requests/${requestId}/releases`,
+      undefined,
+      releasesResponseSchema,
+    );
+    return response.releases;
   }
 
   async getReleasesByStatus(status: string): Promise<Release[]> {
@@ -320,33 +398,48 @@ class ApiClient {
       searchParams.set('request_id', params.requestId);
     }
     const query = searchParams.toString();
-    return this.request<RequestLogEntry[]>(`/logs${query ? `?${query}` : ''}`);
+    const response = await this.request<LogsResponse>(
+      `/logs${query ? `?${query}` : ''}`,
+      undefined,
+      logsResponseSchema,
+    );
+    return response.logs;
   }
 
   async updateReleaseFileMappings(
     releaseId: string,
     mappings: ReleaseFileMappingInput[],
   ): Promise<boolean> {
-    const response = await this.request<{ success: boolean }>(
+    const files = releaseFileMappingInputSchema.array().parse(mappings);
+    const response = await this.request(
       `/releases/${releaseId}/files/mapping`,
       {
         method: 'PUT',
-        body: JSON.stringify({ files: mappings }),
-      }
+        body: JSON.stringify({ files }),
+      },
+      successResponseSchema,
     );
-    return response?.success ?? false;
+    return response.success;
   }
 
-  async pauseRelease(id: string): Promise<void> {
-    return this.request<void>(`/releases/${id}/pause`, {
-      method: 'POST',
-    });
+  async pauseRelease(id: string): Promise<AsyncOperationResponse> {
+    return this.request<AsyncOperationResponse>(
+      `/releases/${id}/pause`,
+      {
+        method: 'POST',
+      },
+      asyncOperationResponseSchema,
+    );
   }
 
-  async resumeRelease(id: string): Promise<void> {
-    return this.request<void>(`/releases/${id}/resume`, {
-      method: 'POST',
-    });
+  async resumeRelease(id: string): Promise<AsyncOperationResponse> {
+    return this.request<AsyncOperationResponse>(
+      `/releases/${id}/resume`,
+      {
+        method: 'POST',
+      },
+      asyncOperationResponseSchema,
+    );
   }
 
   async deleteRelease(id: string): Promise<void> {
@@ -356,10 +449,14 @@ class ApiClient {
   }
 
   async addRelease(releaseData: { magnet_link: string; request_ids: string[] }): Promise<Release> {
-    return this.request<Release>('/releases', {
-      method: 'POST',
-      body: JSON.stringify(releaseData),
-    });
+    return this.request<Release>(
+      '/releases',
+      {
+        method: 'POST',
+        body: JSON.stringify(releaseData),
+      },
+      releaseSchema,
+    );
   }
 }
 
