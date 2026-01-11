@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
@@ -21,6 +22,32 @@ const parseReleaseStatus = (value: string | undefined | null): Release['status']
   if (!value) return undefined;
   const allowed: Release['status'][] = ['pending', 'downloading', 'seeding', 'completed', 'failed'];
   return allowed.includes(value as Release['status']) ? (value as Release['status']) : undefined;
+};
+
+const fallbackId = () => Math.random().toString(36).slice(2, 12);
+
+const generateOperationId = (operation: string) => {
+  const id = typeof randomUUID === 'function' ? randomUUID() : fallbackId();
+  return `${operation}-${id}`;
+};
+
+const buildAsyncResponse = (
+  operation: string,
+  resourceId: string,
+  message: string,
+  details: Record<string, unknown> | undefined = undefined,
+) => {
+  const operationId = generateOperationId(operation);
+  const location = `${apiBaseUrl}/operations/${operationId}`;
+  return {
+    operation,
+    status: 'queued' as const,
+    operation_id: operationId,
+    location,
+    message,
+    resource_id: resourceId,
+    details,
+  };
 };
 
 const app = express();
@@ -90,7 +117,7 @@ api.get('/requests/:requestId', async (req, res) => {
   res.json(existing);
 });
 
-api.put('/requests/:requestId', async (req, res) => {
+api.patch('/requests/:requestId', async (req, res) => {
   const updated = await mockStore.updateRequest(req.params.requestId, req.body ?? {});
   if (!updated) {
     return res.status(404).json({ message: 'Request not found' });
@@ -107,15 +134,39 @@ api.delete('/requests/:requestId', async (req, res) => {
 });
 
 api.get('/requests/:requestId/releases', async (req, res) => {
-  const releases = await mockStore.listReleases({ requestId: req.params.requestId });
-  res.json(releases);
+  const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
+  const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));
+  const status = parseReleaseStatus(req.query.status as string | undefined);
+  const releases = await mockStore.listReleases({
+    requestId: req.params.requestId,
+    status,
+  });
+  const total = releases.length;
+  const start = (page - 1) * perPage;
+  const paginated = releases.slice(start, start + perPage);
+  res.json({
+    releases: paginated,
+    total,
+    page,
+    per_page: perPage,
+  });
 });
 
 api.get('/releases', async (req, res) => {
+  const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
+  const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));
   const status = parseReleaseStatus(req.query.status as string | undefined);
   const requestId = (req.query.request_id as string | undefined) ?? undefined;
   const releases = await mockStore.listReleases({ status, requestId });
-  res.json(releases);
+  const total = releases.length;
+  const start = (page - 1) * perPage;
+  const paginated = releases.slice(start, start + perPage);
+  res.json({
+    releases: paginated,
+    total,
+    page,
+    per_page: perPage,
+  });
 });
 
 api.post('/releases', async (req, res) => {
@@ -140,9 +191,19 @@ api.get('/releases/search', async (req, res) => {
 });
 
 api.get('/logs', async (req, res) => {
+  const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
+  const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '100', 10));
   const requestId = (req.query.request_id as string | undefined)?.trim();
   const logs = await mockStore.listRequestLogs({ requestId: requestId || undefined });
-  res.json(logs);
+  const total = logs.length;
+  const start = (page - 1) * perPage;
+  const paginated = logs.slice(start, start + perPage);
+  res.json({
+    logs: paginated,
+    total,
+    page,
+    per_page: perPage,
+  });
 });
 
 api.get('/releases/:releaseId', async (req, res) => {
@@ -166,7 +227,12 @@ api.post('/releases/:releaseId/pause', async (req, res) => {
   if (!ok) {
     return res.status(404).json({ message: 'Release not found' });
   }
-  res.status(202).send();
+  const body = buildAsyncResponse(
+    'release.pause',
+    req.params.releaseId,
+    'Release pause queued (mock)',
+  );
+  res.status(202).location(body.location).json(body);
 });
 
 api.post('/releases/:releaseId/resume', async (req, res) => {
@@ -174,7 +240,12 @@ api.post('/releases/:releaseId/resume', async (req, res) => {
   if (!ok) {
     return res.status(404).json({ message: 'Release not found' });
   }
-  res.status(202).send();
+  const body = buildAsyncResponse(
+    'release.resume',
+    req.params.releaseId,
+    'Release resume queued (mock)',
+  );
+  res.status(202).location(body.location).json(body);
 });
 
 api.put('/releases/:releaseId/files/mapping', async (req, res) => {
@@ -205,9 +276,17 @@ api.post('/requests/:requestId/releases/download', async (req, res) => {
       releaseId,
     });
 
-    return res
-      .status(202)
-      .json({ message: 'Download queued (mock)', release: queued });
+    const details = {
+      release_id: queued.id,
+      request_id: requestId,
+    };
+    const body = buildAsyncResponse(
+      'release.download',
+      queued.id,
+      'Download queued (mock)',
+      details,
+    );
+    return res.status(202).location(body.location).json(body);
   } catch (error) {
     if (error instanceof Error && error.message === 'release_candidate_not_found') {
       return res.status(404).json({

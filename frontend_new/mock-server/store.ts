@@ -436,20 +436,29 @@ export class MockStore {
 
       if (mapping.request_mapping) {
         const requestMapping = clone(mapping.request_mapping);
-        requestMapping.mapping_type =
-          requestMapping.mapping_type === 'movie' ? 'movie' : 'series';
         if (requestMapping.mapping_type === 'movie') {
-          delete requestMapping.season;
-          delete requestMapping.episode;
+          file.request_mapping = {
+            request_id: requestMapping.request_id,
+            request_title: requestMapping.request_title,
+            mapping_type: 'movie',
+          };
         } else {
-          if (typeof requestMapping.season !== 'number' || requestMapping.season <= 0) {
-            requestMapping.season = 1;
-          }
-          if (typeof requestMapping.episode !== 'number' || requestMapping.episode <= 0) {
-            requestMapping.episode = 1;
-          }
+          const season =
+            typeof requestMapping.season === 'number' && requestMapping.season > 0
+              ? requestMapping.season
+              : 1;
+          const episode =
+            typeof requestMapping.episode === 'number' && requestMapping.episode > 0
+              ? requestMapping.episode
+              : 1;
+          file.request_mapping = {
+            request_id: requestMapping.request_id,
+            request_title: requestMapping.request_title,
+            mapping_type: 'series',
+            season,
+            episode,
+          };
         }
-        file.request_mapping = requestMapping;
       }
       if (mapping.request_mapping === null) {
         file.request_mapping = undefined;

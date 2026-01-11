@@ -1,99 +1,73 @@
-// Core request types
-export interface BaseRequest {
-  id: string;
-  title: string;
-  year: number;
-  poster_url: string;
-  overview: string;
-  genres: string[];
-  status: 'pending' | 'searching' | 'downloading' | 'completed' | 'failed';
-  created_at: string;
-  updated_at: string;
-}
+import type { AsyncOperationResponse, ReleaseSearchResult } from './releases.schema';
 
-export interface MovieRequest extends BaseRequest {
-  type: 'movie';
-  runtime: number;
-  imdb_id: string;
-}
+export {
+  mediaTypeSchema,
+  mediaRequestStatusSchema,
+  mediaRequestSchema,
+  requestsResponseSchema,
+  mediaRequestUpdateSchema,
+  mediaRequestCreateSchema,
+  requestsQuerySchema,
+  baseRequestSchema,
+  movieRequestSchema,
+  seriesRequestSchema,
+} from './requests.schema';
+export type {
+  MediaType,
+  MediaRequestStatus,
+  MediaRequest,
+  RequestsResponse,
+  MediaRequestUpdate,
+  MediaRequestCreate,
+  RequestsQuery,
+  BaseRequest,
+  MovieRequest,
+  SeriesRequest,
+} from './requests.schema';
 
-export interface SeriesRequest extends BaseRequest {
-  type: 'series';
-  season_number: number;
-  total_episodes: number;
-  series_title: string;
-  series_year: number;
-  imdb_id: string;
-}
+export {
+  releaseStatusSchema,
+  movieFileRequestMappingSchema,
+  seriesFileRequestMappingSchema,
+  fileRequestMappingSchema,
+  releaseFileSchema,
+  releaseSchema,
+  releasesResponseSchema,
+  releaseSearchResultSchema,
+  releaseSearchResponseSchema,
+  releaseDownloadRequestSchema,
+  asyncOperationResponseSchema,
+  successResponseSchema,
+  releaseFileMappingInputSchema,
+} from './releases.schema';
+export type {
+  ReleaseStatus,
+  FileRequestMapping,
+  ReleaseFile,
+  Release,
+  ReleasesResponse,
+  ReleaseSearchResult,
+  ReleaseSearchResponse,
+  ReleaseDownloadRequest,
+  AsyncOperationResponse,
+  SuccessResponse,
+  ReleaseFileMappingInput,
+  MovieFileRequestMapping,
+  SeriesFileRequestMapping,
+} from './releases.schema';
 
-export type MediaRequest = MovieRequest | SeriesRequest;
-
-// Release types
-export interface ReleaseFile {
-  id: string;
-  name: string;
-  size: number;
-  path: string;
-  request_mapping?: FileRequestMapping;
-}
-
-export interface ReleaseFileMappingInput {
-  file_id: string;
-  request_mapping?: FileRequestMapping;
-}
-
-export interface MovieFileRequestMapping {
-  request_id: string;
-  request_title?: string;
-  mapping_type: 'movie';
-}
-
-export interface SeriesFileRequestMapping {
-  request_id: string;
-  request_title?: string;
-  mapping_type: 'series';
-  season: number;
-  episode: number;
-}
-
-export type FileRequestMapping =
-  | MovieFileRequestMapping
-  | SeriesFileRequestMapping;
-
-export interface Release {
-  id: string;
-  name: string;
-  hash: string;
-  size: number;
-  files: ReleaseFile[];
-  status: 'pending' | 'downloading' | 'seeding' | 'completed' | 'failed';
-  progress: number;
-  download_speed: number;
-  upload_speed: number;
-  seeders: number;
-  leechers: number;
-  ratio: number;
-  added_date: string;
-  completed_date?: string;
-  request_ids: string[];
-  torrent_source?: string;
-  quality?: string;
-}
-
-// Release search types exposed to the UI when adding a release
-export interface ReleaseSearchResult {
-  release_id: string;
-  release_name: string;
-  size: string;
-  magnet_link?: string;
-  torrent_file_url?: string;
-  info_url?: string;
-  seeders?: number;
-  leechers?: number;
-  quality?: string;
-  source?: string;
-  request_id?: string;
-}
+export {
+  requestLogLevelSchema,
+  requestLogEntrySchema,
+  logsResponseSchema,
+  requestLogMetadataSchema,
+} from './logs';
+export type {
+  RequestLogLevel,
+  RequestLogEntry,
+  LogsResponse,
+  RequestLogMetadata,
+} from './logs';
 
 export interface ReleaseSearchState {
   query: string;
@@ -102,25 +76,4 @@ export interface ReleaseSearchState {
   error: string | null;
 }
 
-// API response types
-export interface RequestsResponse {
-  requests: MediaRequest[];
-  total: number;
-  page: number;
-  per_page: number;
-}
-
-export interface ReleaseSearchResponse {
-  results: ReleaseSearchResult[];
-  query: string;
-  total_results: number;
-}
-
-export interface DownloadReleaseResponse {
-  message: string;
-  release: Release;
-}
-
-export interface ReleaseDownloadRequest {
-  release_id: string;
-}
+export type DownloadReleaseResponse = AsyncOperationResponse;
