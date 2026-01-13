@@ -15,8 +15,8 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
-import { useRequests } from "../hooks/useRequests";
+import React, { useMemo, useState } from "react";
+import { useRequestsList } from "../hooks/useRequests";
 import { RequestCard } from "./RequestCard";
 import { MediaRequest } from "../types";
 
@@ -34,29 +34,39 @@ const filterButtons: ReadonlyArray<{ key: FilterKey; label: string }> = [
 ];
 
 export const RequestsList: React.FC = () => {
-  const { requests, loading, error, fetchByStatus, fetchByType, refetch } =
-    useRequests();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
-  const handleFilterChange = async (filter: FilterKey) => {
-    setActiveFilter(filter);
-
-    switch (filter) {
-      case "all":
-        await refetch();
-        break;
+  const requestFilters = useMemo(() => {
+    switch (activeFilter) {
       case "movies":
-        await fetchByType("movie");
-        break;
+        return { type: "movie" as const };
       case "series":
-        await fetchByType("series");
-        break;
+        return { type: "series" as const };
+      case "all":
+        return undefined;
       default:
-        await fetchByStatus(filter);
+        return { status: activeFilter };
     }
+  }, [activeFilter]);
+
+  const {
+    requests,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useRequestsList(requestFilters);
+
+  const errorMessage =
+    error instanceof Error ? error.message : error ? "Failed to load requests" : null;
+
+  const showLoadingState = (isLoading || isFetching) && requests.length === 0;
+
+  const handleFilterChange = (filter: FilterKey) => {
+    setActiveFilter(filter);
   };
 
-  if (loading) {
+  if (showLoadingState) {
     return (
       <Center py={16} flexDirection="column" gap={4} color="text.subtle">
         <Spinner size="lg" color="brand.400" />
@@ -65,7 +75,7 @@ export const RequestsList: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <Alert
         status="error"
@@ -79,9 +89,9 @@ export const RequestsList: React.FC = () => {
         <AlertIcon />
         <Box>
           <AlertTitle fontSize="lg">Error loading requests</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{errorMessage}</AlertDescription>
         </Box>
-        <Button variant="outline" colorScheme="blue" size="sm" onClick={refetch}>
+        <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
           Try Again
         </Button>
       </Alert>
@@ -162,3 +172,4 @@ export const RequestsList: React.FC = () => {
     </Stack>
   );
 };
+
