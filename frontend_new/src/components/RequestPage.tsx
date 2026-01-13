@@ -29,7 +29,7 @@ import type { UseToastOptions } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { useRequest } from "../hooks/useRequests";
+import { useRequestQuery } from "../hooks/useRequests";
 import { Release } from "../types";
 import { fetchRequestLogs } from "../services/requestLogs";
 import { RequestLogEntry } from "../types/logs";
@@ -181,7 +181,15 @@ const normalizeRequestLogs = (logs: unknown[]): RequestLogEntry[] => {
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { request, loading, error, refetch: refetchRequest } = useRequest(id || "");
+  const {
+    data: request,
+    isLoading,
+    isFetching,
+    error: requestError,
+    refetch: refetchRequest,
+  } = useRequestQuery(id, {
+    enabled: Boolean(id),
+  });
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [hasExistingReleases, setHasExistingReleases] = useState(false);
   const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
@@ -208,6 +216,14 @@ export const RequestPage: React.FC = () => {
     onClose: closeLogs,
   } = useDisclosure();
   const toast = useToast();
+
+  const showLoadingState = (isLoading || isFetching) && !request;
+  const requestErrorMessage =
+    requestError instanceof Error
+      ? requestError.message
+      : requestError
+        ? "Failed to load request"
+        : null;
 
   const updateRefreshToast = useCallback(
     (options: UseToastOptions) => {
@@ -439,7 +455,7 @@ export const RequestPage: React.FC = () => {
     previousShouldShowSearch.current = shouldShowSearch;
   }, [focusManualSearch, shouldShowSearch]);
 
-  if (loading) {
+  if (showLoadingState) {
     return (
       <Center py={16} flexDirection="column" gap={4} color="text.subtle">
         <Spinner size="lg" color="brand.400" />
@@ -448,14 +464,14 @@ export const RequestPage: React.FC = () => {
     );
   }
 
-  if (error || !request) {
+  if (requestErrorMessage || !request) {
     return (
       <Card p={8} maxW="lg" mx="auto">
         <Stack spacing={4} align="center">
           <Text fontSize="3xl">❌</Text>
           <Heading size="md">Request not found</Heading>
           <Text color="text.subtle" textAlign="center">
-            {error || "The requested media could not be found."}
+            {requestErrorMessage || "The requested media could not be found."}
           </Text>
           <Button as={RouterLink} to="/" colorScheme="blue">
             ← Back to Requests
