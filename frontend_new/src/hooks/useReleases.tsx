@@ -123,6 +123,8 @@ export const useReleaseFileMapping = (options?: UpdateFileMappingsOptions) => {
     async onSuccess(_, { releaseId }) {
       await queryClient.invalidateQueries({ queryKey: releasesKeys.detail(releaseId), exact: true });
       await queryClient.invalidateQueries({ queryKey: releasesKeys.all });
+      await queryClient.invalidateQueries({ queryKey: releasesKeys.list(undefined), exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["releases", "by-request"], exact: false });
     },
     ...options,
   });
@@ -170,4 +172,3 @@ export const useReleaseActions = () => {
       mutation.error instanceof Error ? mutation.error.message : mutation.error ? String(mutation.error) : null,
   };
 };
-
