@@ -13,6 +13,7 @@ import {
   VStack,
   useToast,
 } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useReleasesByRequestQuery } from "../hooks/useReleases";
 import { Release, MediaRequest } from "../types";
@@ -24,6 +25,7 @@ import {
 } from "../services/api";
 import { sortReleasesByStatus } from "../utils/releaseHelpers";
 import ReleaseCard from "./ReleaseCard";
+import { releasesKeys } from "../lib/queryKeys";
 
 interface ReleasesListProps {
   requestId: string;
@@ -33,7 +35,6 @@ interface ReleasesListProps {
   onViewFiles?: (release: Release) => void;
   compact?: boolean;
   onReleasesLoaded?: (releases: Release[]) => void;
-  refreshToken?: number;
   hideEmptyState?: boolean;
 }
 
@@ -47,9 +48,9 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   onViewFiles,
   compact = false,
   onReleasesLoaded,
-  refreshToken,
   hideEmptyState = false,
 }) => {
+  const queryClient = useQueryClient();
   const {
     data,
     isLoading,
@@ -65,15 +66,13 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   >({});
   const toast = useToast();
 
-  useEffect(() => {
-    if (!requestId) {
-      return;
-    }
-    if (refreshToken === undefined) {
-      return;
-    }
-    refetch();
-  }, [refetch, refreshToken, requestId]);
+  const invalidateReleases = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: releasesKeys.byRequest(requestId), exact: true }),
+      queryClient.invalidateQueries({ queryKey: releasesKeys.list({ requestId }), exact: true }),
+      queryClient.invalidateQueries({ queryKey: releasesKeys.all }),
+    ]);
+  }, [queryClient, requestId]);
 
   const releasesToRender = useMemo(() => sortReleasesByStatus(releases), [releases]);
 
@@ -160,7 +159,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onDeleteRelease?.(id);
-        await refetch();
+        await invalidateReleases();
       } catch (deleteError) {
         console.error("Failed to delete release", deleteError);
         toast({
@@ -172,7 +171,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         throw deleteError;
       }
     },
-    [onDeleteRelease, refetch, toast]
+    [invalidateReleases, onDeleteRelease, toast]
   );
 
   const handlePauseRelease = useCallback(
@@ -186,7 +185,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onPauseRelease?.(id);
-        await refetch();
+        await invalidateReleases();
       } catch (pauseError) {
         console.error("Failed to pause release", pauseError);
         toast({
@@ -198,7 +197,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         throw pauseError;
       }
     },
-    [onPauseRelease, refetch, toast]
+    [invalidateReleases, onPauseRelease, toast]
   );
 
   const handleResumeRelease = useCallback(
@@ -212,7 +211,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           isClosable: true,
         });
         onResumeRelease?.(id);
-        await refetch();
+        await invalidateReleases();
       } catch (resumeError) {
         console.error("Failed to resume release", resumeError);
         toast({
@@ -224,7 +223,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         throw resumeError;
       }
     },
-    [onResumeRelease, refetch, toast]
+    [invalidateReleases, onResumeRelease, toast]
   );
 
   const errorMessage =
@@ -313,4 +312,3 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 };
 
 export default ReleasesList;
-

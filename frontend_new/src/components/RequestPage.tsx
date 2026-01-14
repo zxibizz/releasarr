@@ -28,6 +28,7 @@ import {
 import type { UseToastOptions } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequestQuery } from "../hooks/useRequests";
 import { Release } from "../types";
@@ -37,6 +38,7 @@ import { MediaInfo } from "./MediaInfo";
 import ReleaseFilesModal from "./ReleaseFilesModal";
 import { ReleaseSearch } from "./ReleaseSearch";
 import ReleasesList from "./ReleasesList";
+import { releasesKeys } from "../lib/queryKeys";
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -181,6 +183,7 @@ const normalizeRequestLogs = (logs: unknown[]): RequestLogEntry[] => {
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const {
     data: request,
     isLoading,
@@ -195,7 +198,6 @@ export const RequestPage: React.FC = () => {
   const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
   const [shakeSignal, setShakeSignal] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
-  const [releasesRefreshToken, setReleasesRefreshToken] = useState(0);
   const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(
     null
   );
@@ -237,6 +239,18 @@ export const RequestPage: React.FC = () => {
     [toast]
   );
 
+  const invalidateReleases = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: releasesKeys.byRequest(id), exact: true }),
+      queryClient.invalidateQueries({ queryKey: releasesKeys.list({ requestId: id }) }),
+      queryClient.invalidateQueries({ queryKey: releasesKeys.all }),
+    ]);
+  }, [id, queryClient]);
+
   const focusManualSearch = useCallback(() => {
     setManualSearchFocusToken((token) => token + 1);
     requestAnimationFrame(() => {
@@ -248,7 +262,6 @@ export const RequestPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setReleasesRefreshToken(0);
     setHasExistingReleases(false);
     setManualSearchTriggered(false);
     setManualSearchPrefill(null);
@@ -357,7 +370,7 @@ export const RequestPage: React.FC = () => {
 
     try {
       await refetchRequest();
-      setReleasesRefreshToken((token) => token + 1);
+      await invalidateReleases();
 
       updateRefreshToast({
         title: "Status refreshed",
@@ -379,7 +392,7 @@ export const RequestPage: React.FC = () => {
       setIsRefreshing(false);
       refreshToastIdRef.current = undefined;
     }
-  }, [id, isRefreshing, refetchRequest, toast, updateRefreshToast]);
+  }, [id, invalidateReleases, isRefreshing, refetchRequest, toast, updateRefreshToast]);
 
   const loadLogs = useCallback(async () => {
     if (!request) {
@@ -515,7 +528,6 @@ export const RequestPage: React.FC = () => {
             requestId={request.id}
             onViewFiles={handleViewFiles}
             onReleasesLoaded={handleReleasesLoaded}
-            refreshToken={releasesRefreshToken}
             hideEmptyState
           />
         </Stack>
@@ -538,9 +550,9 @@ export const RequestPage: React.FC = () => {
           <ReleaseSearch
             requestId={request.id}
             requestTitle={request.title}
-            onDownloadQueued={() =>
-              setReleasesRefreshToken((prevToken) => prevToken + 1)
-            }
+            onDownloadQueued={() => {
+              void invalidateReleases();
+            }}
             prefillQuery={manualSearchPrefill}
             focusTrigger={manualSearchFocusToken}
           />
