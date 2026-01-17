@@ -32,13 +32,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useRequestQuery } from "../hooks/useRequests";
 import { Release } from "../types";
-import { fetchRequestLogs } from "../services/requestLogs";
 import { RequestLogEntry } from "../types/logs";
 import { MediaInfo } from "./MediaInfo";
 import ReleaseFilesModal from "./ReleaseFilesModal";
 import { ReleaseSearch } from "./ReleaseSearch";
 import ReleasesList from "./ReleasesList";
 import { releasesKeys } from "../lib/queryKeys";
+import { useRequestLogs } from "../features/requests/useRequestLogs";
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -47,139 +47,6 @@ const shakeKeyframes = keyframes`
 `;
 
 const MIN_SHAKE_INTERVAL_MS = 1200;
-
-type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
-
-const REQUEST_LOG_LEVELS: RequestLogEntry["level"][] = [
-  "info",
-  "warning",
-  "error",
-];
-
-const toMilliseconds = (value: number): number => {
-  return value < 1_000_000_000_000 ? value * 1000 : value;
-};
-
-const parseNumericTimestamp = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return toMilliseconds(value);
-  }
-
-  if (typeof value === "string" && value.trim().length > 0) {
-    const numeric = Number.parseFloat(value);
-    if (Number.isFinite(numeric)) {
-      return toMilliseconds(numeric);
-    }
-
-    const parsedDate = Date.parse(value);
-    if (!Number.isNaN(parsedDate)) {
-      return parsedDate;
-    }
-  }
-
-  return null;
-};
-
-const coerceMetadata = (
-  value: unknown
-): Record<string, string | number | boolean> | undefined => {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const entries = Object.entries(value).reduce(
-      (acc, [key, entryValue]) => {
-        if (
-          typeof entryValue === "string" ||
-          typeof entryValue === "number" ||
-          typeof entryValue === "boolean"
-        ) {
-          acc[key] = entryValue;
-        }
-        return acc;
-      },
-      {} as Record<string, string | number | boolean>
-    );
-
-    return Object.keys(entries).length > 0 ? entries : undefined;
-  }
-
-  return undefined;
-};
-
-const normalizeLogEntry = (
-  entry: unknown,
-  fallbackId: string
-): RequestLogEntry => {
-  const raw: RawRequestLogEntry =
-    entry && typeof entry === "object" && !Array.isArray(entry)
-      ? (entry as RawRequestLogEntry)
-      : {};
-
-  const occurredAtCandidate =
-    raw.occurredAt ??
-    raw.occurred_at ??
-    raw.timestamp ??
-    raw.time ??
-    raw.createdAt ??
-    raw.created_at;
-
-  const occurredAt =
-    parseNumericTimestamp(occurredAtCandidate) ?? Date.now();
-
-  const idCandidate = raw.id ?? raw.logId ?? raw.log_id ?? raw.uuid ?? fallbackId;
-  const id = String(idCandidate ?? fallbackId);
-
-  const levelCandidate =
-    (raw.level ?? raw.logLevel ?? raw.log_level ?? raw.severity) as
-      | string
-      | undefined;
-  const normalizedLevel = levelCandidate?.toLowerCase().trim();
-  const level: RequestLogEntry["level"] = REQUEST_LOG_LEVELS.includes(
-    normalizedLevel as RequestLogEntry["level"]
-  )
-    ? (normalizedLevel as RequestLogEntry["level"])
-    : "info";
-
-  const messageValue = raw.message ?? raw.detail ?? raw.description ?? "";
-  const message = typeof messageValue === "string" ? messageValue : String(messageValue ?? "");
-
-  const timestampValue =
-    typeof raw.timestamp === "string"
-      ? raw.timestamp
-      : typeof raw.occurred_at === "string"
-        ? raw.occurred_at
-        : undefined;
-
-  const timestamp =
-    (timestampValue && timestampValue.trim().length > 0
-      ? timestampValue
-      : new Date(occurredAt).toLocaleString()) ?? "";
-
-  const sourceValue = raw.source ?? raw.component ?? raw.origin;
-  const source = typeof sourceValue === "string" ? sourceValue : undefined;
-
-  const stackTraceValue = raw.stackTrace ?? raw.stack_trace ?? raw.stack;
-  const stackTrace =
-    typeof stackTraceValue === "string" && stackTraceValue.trim().length > 0
-      ? stackTraceValue
-      : undefined;
-
-  return {
-    id,
-    occurredAt,
-    timestamp,
-    level,
-    message,
-    source,
-    metadata: coerceMetadata(raw.metadata ?? raw.meta ?? raw.context),
-    stackTrace,
-  };
-};
-
-const normalizeRequestLogs = (logs: unknown[]): RequestLogEntry[] => {
-  const normalizationSeed = Date.now();
-  return logs.map((log, index) =>
-    normalizeLogEntry(log, `log-${normalizationSeed}-${index}`)
-  );
-};
 
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -193,6 +60,7 @@ export const RequestPage: React.FC = () => {
   } = useRequestQuery(id, {
     enabled: Boolean(id),
   });
+  const requestId = request?.id;
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [hasExistingReleases, setHasExistingReleases] = useState(false);
   const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
@@ -202,9 +70,13 @@ export const RequestPage: React.FC = () => {
     null
   );
   const [manualSearchFocusToken, setManualSearchFocusToken] = useState(0);
-  const [requestLogs, setRequestLogs] = useState<RequestLogEntry[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [logsError, setLogsError] = useState<string | null>(null);
+  const {
+    logs: requestLogs,
+    isLoading: logsLoading,
+    error: logsError,
+    loadLogs,
+    reset: resetLogs,
+  } = useRequestLogs();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshToastIdRef = useRef<string | number | undefined>(undefined);
   const manualSearchSectionRef = useRef<HTMLDivElement | null>(null);
@@ -266,11 +138,9 @@ export const RequestPage: React.FC = () => {
     setManualSearchTriggered(false);
     setManualSearchPrefill(null);
     setManualSearchFocusToken(0);
-    setRequestLogs([]);
-    setLogsError(null);
-    setLogsLoading(false);
+    resetLogs();
     lastShakeAtRef.current = 0;
-  }, [request?.id]);
+  }, [requestId, resetLogs]);
 
 
   const handleViewFiles = (release: Release) => {
@@ -394,28 +264,13 @@ export const RequestPage: React.FC = () => {
     }
   }, [id, invalidateReleases, isRefreshing, refetchRequest, toast, updateRefreshToast]);
 
-  const loadLogs = useCallback(async () => {
-    if (!request) {
+  const handleViewLogs = useCallback(() => {
+    if (!requestId) {
       return;
     }
-    setLogsLoading(true);
-    setLogsError(null);
-    try {
-      const logs = await fetchRequestLogs(request.id);
-      setRequestLogs(normalizeRequestLogs(logs));
-    } catch (err) {
-      setLogsError(
-        err instanceof Error ? err.message : "Failed to load logs"
-      );
-    } finally {
-      setLogsLoading(false);
-    }
-  }, [request]);
-
-  const handleViewLogs = useCallback(() => {
-    loadLogs();
+    void loadLogs(requestId);
     openLogs();
-  }, [loadLogs, openLogs]);
+  }, [loadLogs, openLogs, requestId]);
 
   useEffect(() => {
     if (shakeSignal === 0) {
