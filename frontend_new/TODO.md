@@ -24,6 +24,6 @@
 3. [x] Adopt React Query (or similar) and replace `RequestsProvider` / `ReleasesProvider` with query hooks (`useRequestsQuery`, `useRequestQuery`, `useReleasesByRequestQuery`). Preserve existing behaviour with feature flags where needed.
 4. [x] Refactor consuming components (`RequestsList`, `RequestPage`, `ReleasesList`, `ReleaseSearch`) to rely on the new hooks, eliminating manual cache mutation and duplicated sanitisation.
 5. [x] Move log parsing, release helper utilities, and toast side-effects into domain-specific helpers/hooks; convert components into slimmer presentational layers.
-6. [ ] Update theming to expose status color tokens, remove hard-coded class strings, and ensure all status badges/buttons consume theme values.
+6. [x] Update theming to expose status color tokens, remove hard-coded class strings, and ensure all status badges/buttons consume theme values.
 7. [ ] Backfill unit/integration tests for the new hooks and critical user journeys (list requests, view request detail, queue download) using MSW to assert on the new error contract.
 8. [ ] Document the updated architecture in `frontend_new/docs` (data flow, query cache strategy, API contract expectations) so the team can onboard quickly.
