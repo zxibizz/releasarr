@@ -35,6 +35,7 @@ import {
   isReleaseActive,
   isReleaseComplete,
 } from "../utils/releaseHelpers";
+import { releaseStatusStyles } from "../theme/statusStyles";
 
 interface ReleaseRequestSummary {
   id: string;
@@ -54,14 +55,6 @@ interface ReleaseCardProps {
   currentRequestId?: string;
   requestSummaries?: Record<string, ReleaseRequestSummary>;
 }
-
-const statusColorScheme: Record<Release["status"], string> = {
-  pending: "yellow",
-  downloading: "blue",
-  seeding: "purple",
-  completed: "green",
-  failed: "red",
-};
 
 const getHealthColor = (score: number) => {
   if (score > 70) return "green.300";
@@ -247,6 +240,8 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     </AlertDialog>
   ) : null;
 
+  const statusStyle = releaseStatusStyles[release.status];
+
   if (compact) {
     return (
       <>
@@ -269,8 +264,10 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
                   <Text>{formatFileSize(release.size)}</Text>
                   <Badge
-                    colorScheme={statusColorScheme[release.status]}
-                    variant="subtle"
+                    bg={statusStyle.bg}
+                    color={statusStyle.color}
+                    borderColor={statusStyle.borderColor}
+                    borderWidth="1px"
                     textTransform="capitalize"
                     px={2}
                     py={1}
@@ -394,8 +391,10 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               align={{ base: "flex-start", md: "flex-end" }}
             >
               <Badge
-                colorScheme={statusColorScheme[release.status]}
-                variant="subtle"
+                bg={statusStyle.bg}
+                color={statusStyle.color}
+                borderColor={statusStyle.borderColor}
+                borderWidth="1px"
                 textTransform="capitalize"
                 px={3}
                 py={1}
@@ -412,7 +411,15 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               >
                 <Text>{formatFileSize(release.size)}</Text>
                 {release.quality && (
-                  <Tag colorScheme="blue" borderRadius="full" px={3} py={1}>
+                  <Tag
+                    bg="status.downloading.bg"
+                    color="status.downloading.fg"
+                    borderColor="status.downloading.border"
+                    borderWidth="1px"
+                    borderRadius="full"
+                    px={3}
+                    py={1}
+                  >
                     {release.quality}
                   </Tag>
                 )}
@@ -428,31 +435,55 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               </Flex>
               <Progress
                 value={progress}
-                colorScheme="blue"
-                bg="rgba(71, 85, 105, 0.35)"
+                bg="bg.subtle"
                 borderRadius="full"
                 height="0.5rem"
+                sx={{
+                  "& > div": {
+                    backgroundColor: statusStyle.color,
+                  },
+                }}
               />
             </Stack>
           )}
 
           {!isComplete && (
             <Wrap spacing={2} shouldWrapChildren>
-              <Badge variant="solid" colorScheme="blue">
+              <Badge
+                bg="status.downloading.bg"
+                color="status.downloading.fg"
+                borderColor="status.downloading.border"
+                borderWidth="1px"
+              >
                 Downloaded {downloadedLabel}
               </Badge>
               {release.download_speed > 0 && (
-                <Badge variant="solid" colorScheme="purple">
+                <Badge
+                  bg="status.downloading.bg"
+                  color="status.downloading.fg"
+                  borderColor="status.downloading.border"
+                  borderWidth="1px"
+                >
                   ↓ {formatSpeed(release.download_speed)}
                 </Badge>
               )}
               {eta && (
-                <Badge variant="solid" colorScheme="teal">
+                <Badge
+                  bg="status.downloading.bg"
+                  color="status.downloading.fg"
+                  borderColor="status.downloading.border"
+                  borderWidth="1px"
+                >
                   ETA {eta}
                 </Badge>
               )}
               {release.upload_speed > 0 && (
-                <Badge variant="subtle" colorScheme="green">
+                <Badge
+                  bg="status.seeding.bg"
+                  color="status.seeding.fg"
+                  borderColor="status.seeding.border"
+                  borderWidth="1px"
+                >
                   ↑ {formatSpeed(release.upload_speed)}
                 </Badge>
               )}
