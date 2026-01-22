@@ -1,29 +1,49 @@
 # New frontend todos
 
-## API and contract improvements
-- Introduce a shared `ErrorResponse` schema and reference it from all `4xx`/`5xx` outcomes so the UI can rely on a predictable `{ code, message, details }` shape (see `openapi.yaml`).
-- Document response payloads for async endpoints (`202` on `/requests/{requestId}/releases/download`, `/releases/{id}/pause`, `/releases/{id}/resume`) to clarify whether a body or `Location` header is returned.
-- Align write semantics with partial updates: switch `/requests/{requestId}` to `PATCH` (or document full-resource replacement) and add field-level `nullable` hints for optional properties.
-- Paginate high-volume collections (`GET /releases`, `/logs`, `/requests/{id}/releases`) and surface `page`, `per_page`, `total` metadata consistently; reflect that in the frontend data model.
-- Consolidate request filters so `/requests/{id}/releases` mirrors `/releases?request_id=`; consider deprecating one path to reduce duplication in the client.
-- Add reusable component parameters in the spec for paging and filtering (e.g. `#/components/parameters/Page`, `PerPage`, `Status`) to keep documentation DRY and enforce validation.
+## Suggested Improvements
+- Platform & Tooling
+  - Replace CRA with Vite (or Next.js) + SWC to unblock React 19 upgrades, shrink bundles, and enable modern DX (hot-module perf, test runners).
+  - Upgrade TypeScript to 5.x, align React typings, and introduce shared ESLint/Prettier config with strict rules for hooks, exhaustive deps, and Chakra best-practices.
+  - Add Storybook and Chromatic (or Ladle) for component previews and visual regression safety while iterating on the design system.
+  - Generate TypeScript/zod clients from `openapi.yaml` (e.g. with `openapi-typescript` + `orval`/`zodios`) instead of hand-maintaining schemas in `src/types`.
 
-## Frontend architectural improvements
-- Replace ad-hoc data sanitisation helpers inside `useRequests` / `RequestPage` with a shared schema-driven mapper (e.g. Zod) so all fetchers normalise data the same way and runtime validation lives next to the API client.
-- Introduce a data-fetching layer (React Query or SWR) to handle caching, refetching, and stale state instead of custom context caches in `useRequests` and `useReleases`.
-- Extract log-normalisation logic from `RequestPage` into a dedicated utility and add unit coverage; components should consume already-shaped view models.
-- Standardise loading and error UI states via reusable components (skeletons, alerts) to remove duplicated chakra layouts across `RequestsList`, `ReleasesList`, `ReleaseSearch`, etc.
-- Move feature-specific code into domain modules (e.g. `features/requests`, `features/releases`) with co-located hooks, components, and tests to improve SOLID separation and testability.
-- Align design tokens: replace Tailwind-style class strings in `utils/releaseHelpers.ts` with Chakra theme tokens and extend the theme for status colors.
-- Centralise side effects (toast notifications, downloads, refresh triggers) in the feature hooks to keep presentational components pure.
-- Add integration tests (React Testing Library + MSW) for request and release flows to guard against regressions during the refactor.
+- Architecture & State Management
+  - Split `RequestPage` into feature-scoped subcomponents/hooks (detail header, actions, releases, logs, manual search) to reduce the 500+ line monolith and isolate concerns.
+  - Convert imperative `useState` clusters on the request detail into a reducer or state machine (XState/Zustand) so manual search and toast lifecycles stay predictable.
+  - Co-locate TanStack Query keys and selectors per feature folder, expose typed service layers, and add query/mutation helpers (retry, optimistic updates).
+  - Refactor release/request helpers to remove duplicated status/icon utilities and move view logic behind headless presenters.
 
-## Step-by-step implementation plan
-1. [x] Update `openapi.yaml` with the contract fixes (error schema, response bodies, pagination components, method semantics) and regenerate API typings if applicable.
-2. [x] Introduce shared runtime schemas for API entities (`requests.schema.ts`, `releases.schema.ts`) and adapt `apiClient` to decode with them before returning data.
-3. [x] Adopt React Query (or similar) and replace `RequestsProvider` / `ReleasesProvider` with query hooks (`useRequestsQuery`, `useRequestQuery`, `useReleasesByRequestQuery`). Preserve existing behaviour with feature flags where needed.
-4. [x] Refactor consuming components (`RequestsList`, `RequestPage`, `ReleasesList`, `ReleaseSearch`) to rely on the new hooks, eliminating manual cache mutation and duplicated sanitisation.
-5. [x] Move log parsing, release helper utilities, and toast side-effects into domain-specific helpers/hooks; convert components into slimmer presentational layers.
-6. [x] Update theming to expose status color tokens, remove hard-coded class strings, and ensure all status badges/buttons consume theme values.
-7. [ ] Backfill unit/integration tests for the new hooks and critical user journeys (list requests, view request detail, queue download) using MSW to assert on the new error contract.
-8. [ ] Document the updated architecture in `frontend_new/docs` (data flow, query cache strategy, API contract expectations) so the team can onboard quickly.
+- Data Fetching & API Layer
+  - Teach the backend list endpoints to return relationship summaries so `ReleasesList` stops fan-out fetching each related request (batch via `/requests/summary`).
+  - Add `react-query` prefetch/loaders to route definitions (React Router data APIs) for better suspense support and SSR readiness.
+  - Centralise error handling with an error boundary + toast utilities, surfacing structured `ApiError` details and guidance.
+
+- UI/UX Enhancements
+  - Persist filters/search params for `RequestsList` in the URL, add fuzzy search, sort toggles, and quick stats (counts per status/type).
+  - Replace bare spinners with Chakra skeletons/empty states, and introduce background refresh indicators on lists.
+  - Improve accessibility: revisit semantic tokens for contrast ratios, add focus outlines, aria labels, and keyboard flows in modals & mapping forms.
+  - Enrich release cards with activity timelines (added/completed) and health badges derived from speed/seeders.
+
+- File Mapping Experience
+  - Rebuild `FileRequestMapping` around `react-hook-form` + combobox inputs so large season mappings are fast, undoable, and keyboard friendly.
+  - Add smart defaults by parsing filenames once and letting users bulk-apply episodes or auto-map via heuristics before manual tweaks.
+  - Virtualise long file lists and surface diff indicators when edits are pending but unsaved.
+
+- Testing & Quality Gates
+  - Introduce Vitest (or Jest 29) + Testing Library with MSW for hooks/components, and Playwright smoke paths for critical flows.
+  - Enable React Query Devtools and write regression tests for manual search, release actions, and log viewer edge cases.
+  - Wire linting/formatting/test checks into CI along with bundle-analyse and Lighthouse badges.
+
+- Documentation
+  - Refresh `README.md` to describe the actual hook-based architecture (no more stale provider references) and document local mock server usage.
+  - Publish architecture notes per feature (requests/releases/logs) and add contribution guidelines for API schema regeneration.
+
+## Implementation Plan
+1. [ ] Modernise the toolchain: migrate to Vite (or Next.js) with SWC, upgrade TypeScript/ESLint/Prettier, and configure absolute imports.
+2. [ ] Automate contract typing: wire `openapi.yaml` into a codegen step that emits clients/zod schemas consumed by hooks and the mock server.
+3. [ ] Reorganise feature folders: split `RequestPage` into composable modules, move query keys/hooks beside components, and introduce state containers where needed.
+4. [ ] Enhance the API/services layer: batch related-request lookups, add route loaders/prefetch, and surface consistent `ApiError` messaging through shared utilities.
+5. [ ] Polish the UX: add request search/sort with URL sync, swap spinners for skeletons, tighten accessibility, and extend release visuals.
+6. [ ] Redesign file mapping: implement form-powered mapping with virtualization, intelligent defaults, and save/undo feedback.
+7. [ ] Expand tests and DX tooling: add Vitest/Playwright suites, React Query Devtools, Storybook stories, and CI gates (lint/test/story build).
+8. [ ] Update documentation & onboarding guides to reflect the new stack, architecture decisions, and developer workflows.
