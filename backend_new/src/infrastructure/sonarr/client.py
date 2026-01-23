@@ -5,9 +5,11 @@ from __future__ import annotations
 import httpx
 
 from src.application.interfaces.sonarr import (
+    ManualImportFile,
     MissingSeriesRecord,
     SeriesDetails,
     SeriesSeasonDetails,
+    SonarrEpisode,
     SonarrService,
 )
 
@@ -100,6 +102,51 @@ class SonarrHttpClient(SonarrService):
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             seasons=seasons,
         )
+
+    async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
+        data = await self._request("GET", "/episode", params={"seriesId": series_id})
+        if not isinstance(data, list):
+            return []
+            
+        episodes = []
+        for item in data:
+            episodes.append(
+                SonarrEpisode(
+                    id=int(item.get("id") or 0),
+                    season_number=int(item.get("seasonNumber") or 0),
+                    episode_number=int(item.get("episodeNumber") or 0),
+                )
+            )
+        return episodes
+
+    async def manual_import(self, files: list[ManualImportFile]) -> bool:
+        if not files:
+            return True
+
+        command_files = [
+            {
+                "path": file.path,
+                "seriesId": file.series_id,
+                "episodeIds": file.episode_ids,
+                "folderName": file.folder_name,
+            }
+            for file in files
+        ]
+
+        try:
+            await self._request(
+                "POST",
+                "/command",
+                json={
+                    "name": "ManualImport",
+                    "files": command_files,
+                    "importMode": "Auto",
+                },
+            )
+            return True
+        except httpx.HTTPError:
+            # TODO: Log error? The caller might want to know.
+            return False
 
     async def _request(self, method: str, path: str, **kwargs) -> dict[str, object]:
         headers = {"X-Api-Key": self._api_key}

@@ -275,6 +275,27 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
         )
 
+    @cached_property
+    def export_finished(self) -> ExportFinishedSeriesUseCase:
+        from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
+        from src.application.utility.file_matcher import ReleaseFileMatcher
+        
+        return ExportFinishedSeriesUseCase(
+            repository=self._container.repositories.releases,
+            sonarr=self._container.services.sonarr,
+            file_matcher=ReleaseFileMatcher(),
+        )
+
+    @cached_property
+    def regrab_outdated(self) -> RegrabOutdatedReleasesUseCase:
+        from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
+        
+        return RegrabOutdatedReleasesUseCase(
+            repository=self._container.repositories.releases,
+            search_service=self._container.services.release_search,
+            download_service=self._container.services.release_download,
+        )
+
 
 @dataclass
 class InfrastructureContainer:

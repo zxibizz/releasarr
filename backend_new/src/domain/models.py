@@ -167,6 +167,13 @@ class Release(Base):
         default=0.0,
         server_default="0",
     )
+    last_exported_info_hash: Mapped[str | None] = mapped_column(String(128))
+    export_failures_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
     seeders: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
