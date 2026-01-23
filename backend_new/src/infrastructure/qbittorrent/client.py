@@ -102,6 +102,91 @@ class QbittorrentClient:
             raise RuntimeError(f"qBittorrent authentication failed: {exc!s}") from exc
         self._logged_in = True
 
+    async def pause_torrent(self, info_hash: str) -> bool:
+        """Pause a torrent by info hash. Returns True on success."""
+        await self._ensure_login()
+        try:
+            response = await self._client.post(
+                "/torrents/pause",
+                data={"hashes": info_hash.lower()},
+            )
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.post(
+                    "/torrents/pause",
+                    data={"hashes": info_hash.lower()},
+                )
+            return response.status_code == httpx.codes.OK
+        except httpx.HTTPError:
+            return False
+
+    async def resume_torrent(self, info_hash: str) -> bool:
+        """Resume a torrent by info hash. Returns True on success."""
+        await self._ensure_login()
+        try:
+            response = await self._client.post(
+                "/torrents/resume",
+                data={"hashes": info_hash.lower()},
+            )
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.post(
+                    "/torrents/resume",
+                    data={"hashes": info_hash.lower()},
+                )
+            return response.status_code == httpx.codes.OK
+        except httpx.HTTPError:
+            return False
+
+    async def get_torrent(self, info_hash: str) -> dict[str, object] | None:
+        """Get torrent info by hash. Returns None if not found."""
+        await self._ensure_login()
+        try:
+            response = await self._client.get(
+                "/torrents/info",
+                params={"hashes": info_hash.lower()},
+            )
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.get(
+                    "/torrents/info",
+                    params={"hashes": info_hash.lower()},
+                )
+            response.raise_for_status()
+            torrents = response.json()
+            if torrents and isinstance(torrents, list) and len(torrents) > 0:
+                return torrents[0]
+            return None
+        except httpx.HTTPError:
+            return None
+
+    async def list_torrents(
+        self,
+        category: str | None = None,
+        tag: str | None = None,
+    ) -> list[dict[str, object]]:
+        """List all torrents, optionally filtered by category or tag."""
+        await self._ensure_login()
+        params: dict[str, str] = {}
+        if category:
+            params["category"] = category
+        if tag:
+            params["tag"] = tag
+        try:
+            response = await self._client.get("/torrents/info", params=params)
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.get("/torrents/info", params=params)
+            response.raise_for_status()
+            result = response.json()
+            return result if isinstance(result, list) else []
+        except httpx.HTTPError:
+            return []
+
     def _build_payload(
         self,
         save_path: str | None,

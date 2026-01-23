@@ -43,6 +43,7 @@ from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 from src.infrastructure.qbittorrent import (
     QbittorrentClient,
     QbittorrentReleaseDownloadService,
+    QbittorrentReleaseLifecycleService,
 )
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
@@ -73,7 +74,20 @@ class ServiceContainer:
     _container: AppContainer
 
     @cached_property
-    def release_lifecycle(self) -> InMemoryReleaseLifecycleService:
+    def release_lifecycle(self) -> InMemoryReleaseLifecycleService | QbittorrentReleaseLifecycleService:
+        settings = self._container.settings
+        if (
+            settings.qbittorrent_url
+            and settings.qbittorrent_username
+            and settings.qbittorrent_password
+        ):
+            client = QbittorrentClient(
+                base_url=settings.qbittorrent_url,
+                username=settings.qbittorrent_username,
+                password=settings.qbittorrent_password,
+                timeout=settings.qbittorrent_timeout,
+            )
+            return QbittorrentReleaseLifecycleService(client=client)
         return InMemoryReleaseLifecycleService()
 
     @cached_property
