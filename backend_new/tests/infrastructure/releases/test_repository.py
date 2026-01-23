@@ -85,6 +85,10 @@ async def test_create_release_persists_record(
     command = CreateReleaseData(
         magnet_link="magnet:?xt=urn:btih:ABCDEF1234567890&dn=Test+Release",
         request_ids=["req-1", "req-2"],
+        name="Test Release",
+        id="release-test-1",
+        source="TestIndexer",
+        quality="1080p",
     )
 
     record = await repository.create_release(command)

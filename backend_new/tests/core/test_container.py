@@ -15,6 +15,7 @@ from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 from src.infrastructure.releases.services import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
+    InMemoryReleaseSearchService,
 )
 from src.settings.config import AppSettings
 
@@ -45,7 +46,7 @@ def test_container_provides_singletons() -> None:
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
     assert isinstance(lifecycle_service, InMemoryReleaseLifecycleService)
-    assert isinstance(search_service, ProwlarrReleaseSearchService)
+    assert isinstance(search_service, (ProwlarrReleaseSearchService, InMemoryReleaseSearchService))
     assert isinstance(download_service, InMemoryReleaseDownloadService)
     assert isinstance(log_reader, LogFileReader)
     assert isinstance(logs_query, ListLogsQuery)

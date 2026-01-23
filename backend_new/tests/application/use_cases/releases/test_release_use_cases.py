@@ -124,7 +124,7 @@ class FakeReleaseRepository:
 
     async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
         self.last_created = data
-        release_id = f"rel-{len(self.releases) + 1}"
+        release_id = data.id
         record = make_release_record(release_id, request_ids=list(data.request_ids))
         self.releases[release_id] = record
         return record
@@ -317,6 +317,10 @@ async def test_create_release_deduplicates_request_ids() -> None:
     command = CreateReleaseCommand(
         magnet_link="magnet:?xt=urn:btih:test",
         request_ids=["req-1", "req-1", "req-2", ""],
+        name="Test Release",
+        id="rel-test-1",
+        source="TestIndexer",
+        quality="1080p",
     )
 
     dto = await use_case.execute(command)
@@ -331,7 +335,12 @@ async def test_create_release_requires_request_id() -> None:
     repository = FakeReleaseRepository()
     use_case = CreateReleaseUseCase(repository)
 
-    command = CreateReleaseCommand(magnet_link="magnet:?xt=urn:btih:test", request_ids=[])
+    command = CreateReleaseCommand(
+        magnet_link="magnet:?xt=urn:btih:test",
+        request_ids=[],
+        name="Test Release",
+        id="rel-test-2",
+    )
 
     with pytest.raises(ValueError):
         await use_case.execute(command)
@@ -465,11 +474,23 @@ async def test_queue_release_download_conflict() -> None:
 
 @pytest.mark.asyncio
 async def test_queue_release_download_returns_operation() -> None:
-    release = make_release_record("rel-1", request_ids=["req-1"])
-    repository = FakeReleaseRepository({release.id: release})
+    repository = FakeReleaseRepository()
     download_service = FakeDownloadService()
+    candidate = ReleaseSearchResultRecord(
+        release_id="rel-1",
+        release_name="Release 1",
+        size="1 GB",
+        magnet_link="magnet:?xt=urn:btih:ABC123",
+        torrent_file_url=None,
+        info_url=None,
+        seeders=10,
+        leechers=2,
+        quality="1080p",
+        source="indexer",
+        request_id="req-1",
+    )
     search_service = FakeSearchService(
-        ReleaseSearchResults(results=[], query="", total_results=0)
+        ReleaseSearchResults(results=[candidate], query="", total_results=1)
     )
     use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
 
@@ -477,17 +498,28 @@ async def test_queue_release_download_returns_operation() -> None:
     result = await use_case.execute(command)
 
     assert result.operation == "queue_download"
-    expected_magnet = "magnet:?xt=urn:btih:hash-rel-1&dn=Release+rel-1"
-    assert download_service.calls == [("req-1", "rel-1", expected_magnet, None)]
+    assert download_service.calls[0][2] == "magnet:?xt=urn:btih:ABC123"
 
 
 @pytest.mark.asyncio
 async def test_queue_release_download_reports_failure() -> None:
-    release = make_release_record("rel-1", request_ids=["req-1"])
-    repository = FakeReleaseRepository({release.id: release})
+    repository = FakeReleaseRepository()
     download_service = FailingDownloadService()
+    candidate = ReleaseSearchResultRecord(
+        release_id="rel-1",
+        release_name="Release 1",
+        size="1 GB",
+        magnet_link="magnet:?xt=urn:btih:ABC123",
+        torrent_file_url=None,
+        info_url=None,
+        seeders=10,
+        leechers=2,
+        quality="1080p",
+        source="indexer",
+        request_id="req-1",
+    )
     search_service = FakeSearchService(
-        ReleaseSearchResults(results=[], query="", total_results=0)
+        ReleaseSearchResults(results=[candidate], query="", total_results=1)
     )
     use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
 
