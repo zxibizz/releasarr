@@ -37,7 +37,7 @@ def sync_sonarr_requests_command() -> None:
         use_case = container.use_cases.media_requests.sync_sonarr
         result = asyncio.run(use_case.execute())
     finally:
-        container.shutdown()
+        asyncio.run(container.shutdown())
 
     typer.echo(
         "Sonarr sync complete "
@@ -73,7 +73,7 @@ def sync_releases_command() -> None:
         )
         result = asyncio.run(task.execute())
     finally:
-        container.shutdown()
+        asyncio.run(container.shutdown())
 
     typer.echo(
         f"Release sync complete (synced={result.synced}, failed={result.failed}, not_found={result.not_found})"
