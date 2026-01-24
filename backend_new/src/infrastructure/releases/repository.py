@@ -98,6 +98,17 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
                     msg = f"Media requests not found: {sorted(missing)}"
                     raise ValueError(msg)
                 release_model.requests.extend(requests)
+            
+            if data.files:
+                for file_record in data.files:
+                    file_model = models.ReleaseFile(
+                        id=file_record.id,
+                        release_id=release_id,
+                        name=file_record.name,
+                        size_bytes=file_record.size_bytes,
+                        path=file_record.path,
+                    )
+                    session.add(file_model)
 
             await session.flush()
             await session.refresh(
