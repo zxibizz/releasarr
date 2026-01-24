@@ -119,7 +119,9 @@ const SeriesPage: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this release?"))
       return;
     try {
-      await fetch(`${apiUrl}/api/releases/${releaseId}`, {
+      // Base64 encode the ID to ensure it is safe for path parameters (handling slashes/special chars)
+      const encodedId = encodeURIComponent(btoa(releaseId));
+      await fetch(`${apiUrl}/api/releases/${encodedId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });

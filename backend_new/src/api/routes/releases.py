@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from typing import Annotated
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
@@ -219,6 +222,19 @@ def _parse_status(status_filter: str | None) -> ReleaseStatus | None:
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
 
 
+def _decode_id(encoded_id: str) -> str:
+    """Decode a potentially URL-encoded Base64 release ID."""
+    try:
+        # First ensure we have the raw Base64 string by unquoting (handles %2F etc if passed)
+        decoded_str = unquote(encoded_id)
+        # Decode Base64 to get the original ID (which might be a URL)
+        return base64.b64decode(decoded_str).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError):
+        # If decoding fails, assume it's a plain ID (though unlikely for our use case)
+        # or just return it as is to let the repository handle the "not found"
+        return decoded_str
+
+
 def _dto_to_release(dto: ReleaseDTO) -> Release:
     return Release(
         id=dto.id,
@@ -428,7 +444,7 @@ async def get_release(
     get_use_case: GetReleaseUseCase = Depends(_get_use_case),
 ) -> Release:
     try:
-        dto = await get_use_case.execute(release_id)
+        dto = await get_use_case.execute(_decode_id(release_id))
     except ReleaseNotFoundError as exc:
         raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     return _dto_to_release(dto)
@@ -444,7 +460,7 @@ async def delete_release(
     delete_use_case: DeleteReleaseUseCase = Depends(_delete_use_case),
 ) -> Response:
     try:
-        await delete_use_case.execute(release_id)
+        await delete_use_case.execute(_decode_id(release_id))
     except ReleaseNotFoundError as exc:
         raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -462,7 +478,7 @@ async def pause_release(
     pause_use_case: PauseReleaseUseCase = Depends(_pause_use_case),
 ) -> AsyncOperationResponse:
     try:
-        dto = await pause_use_case.execute(release_id)
+        dto = await pause_use_case.execute(_decode_id(release_id))
     except ReleaseNotFoundError as exc:
         raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseActionNotAllowedError as exc:
@@ -484,7 +500,7 @@ async def resume_release(
     resume_use_case: ResumeReleaseUseCase = Depends(_resume_use_case),
 ) -> AsyncOperationResponse:
     try:
-        dto = await resume_use_case.execute(release_id)
+        dto = await resume_use_case.execute(_decode_id(release_id))
     except ReleaseNotFoundError as exc:
         raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseActionNotAllowedError as exc:
@@ -504,7 +520,7 @@ async def update_file_mappings(
     payload: ReleaseFileMappingsUpdate,
     update_use_case: UpdateReleaseFileMappingsUseCase = Depends(_update_mappings_use_case),
 ) -> SuccessResponse:
-    command = _build_update_command(release_id, payload)
+    command = _build_update_command(_decode_id(release_id), payload)
     try:
         await update_use_case.execute(command)
     except ReleaseFileNotFoundError as exc:
