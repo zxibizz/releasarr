@@ -113,7 +113,7 @@ const isAbortError = (error: unknown): boolean => {
   return error instanceof Error && error.name === 'AbortError';
 };
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8001/api';
 
 class ApiClient {
   private baseUrl: string;
