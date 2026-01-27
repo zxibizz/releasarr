@@ -1,9 +1,10 @@
-import {
+import type {
   FileRequestMapping,
   Release,
   ReleaseFile,
   SeriesFileRequestMapping,
-} from '../types';
+} from '@/types';
+
 import { formatFileSize } from './formatters';
 
 export const formatSpeed = (bytesPerSecond: number): string => {

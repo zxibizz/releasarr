@@ -16,8 +16,9 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useRef, useState } from "react";
-import { useReleaseSearch } from "../hooks/useReleaseSearch";
-import { ReleaseSearchResult } from "../types";
+
+import { useReleaseSearch } from "@/hooks/useReleaseSearch";
+import type { ReleaseSearchResult } from "@/types";
 
 interface ReleaseSearchProps {
   requestId: string;

@@ -16,9 +16,11 @@ import {
   WrapItem,
 } from "@chakra-ui/react";
 import React, { useMemo, useState } from "react";
-import { useRequestsList } from "../hooks/useRequests";
+
+import { useRequestsList } from "@/hooks/useRequests";
+import type { MediaRequest } from "@/types";
+
 import { RequestCard } from "./RequestCard";
-import { MediaRequest } from "../types";
 
 type FilterKey = "all" | "movies" | "series" | MediaRequest["status"];
 
@@ -172,4 +174,3 @@ export const RequestsList: React.FC = () => {
     </Stack>
   );
 };
-

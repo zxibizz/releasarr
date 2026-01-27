@@ -1,5 +1,5 @@
-import { MediaRequest, Release } from "../types";
-import { RequestLogEntry } from "../types/logs";
+import type { MediaRequest, Release } from "@/types";
+import type { RequestLogEntry } from "@/types/logs";
 
 type StatusStyle = {
   bg: string;

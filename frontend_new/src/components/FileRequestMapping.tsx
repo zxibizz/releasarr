@@ -18,25 +18,26 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useMemo, useState } from "react";
-import { useReleaseFileMapping } from "../hooks/useReleases";
-import { useRequestsList } from "../hooks/useRequests";
-import {
+
+import { useReleaseFileMapping } from "@/hooks/useReleases";
+import { useRequestsList } from "@/hooks/useRequests";
+import type {
   FileRequestMapping as FileRequestMappingType,
   ReleaseFile,
   SeriesRequest,
-} from "../types";
+} from "@/types";
 import {
   formatFileSize,
   groupFilesByType,
   isVideoFile,
   parseSeriesEpisodeFromFilename,
   validateRequestMapping,
-} from "../utils/releaseHelpers";
+} from "@/utils/releaseHelpers";
 
 interface FileRequestMappingProps {
   releaseId: string;
   files: ReleaseFile[];
-  onMappingUpdate?: (fileId: string, mapping: FileRequestMappingType) => void;
+  onMappingUpdate?: (_fileId: string, _mapping: FileRequestMappingType) => void;
   onClose?: () => void;
   readonly?: boolean;
   defaultRequest?: {

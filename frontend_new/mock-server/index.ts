@@ -1,10 +1,12 @@
 import { randomUUID } from 'crypto';
+import path from 'path';
+
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
-import path from 'path';
-import type { MediaRequest, Release } from '../src/types';
+
 import { mockStore } from './store';
+import type { MediaRequest, Release } from '../src/types';
 
 const DEFAULT_PORT = 8001;
 const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 10);

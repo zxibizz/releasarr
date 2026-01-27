@@ -27,19 +27,21 @@ import {
 } from "@chakra-ui/react";
 import type { UseToastOptions } from "@chakra-ui/react";
 import { keyframes } from "@emotion/react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { useRequestQuery } from "../hooks/useRequests";
-import { Release } from "../types";
-import { RequestLogEntry } from "../types/logs";
+
+import { useRequestLogs } from "@/features/requests/useRequestLogs";
+import { useRequestQuery } from "@/hooks/useRequests";
+import { releasesKeys } from "@/lib/queryKeys";
+import { logLevelStyles } from "@/theme/statusStyles";
+import type { Release } from "@/types";
+import type { RequestLogEntry } from "@/types/logs";
+
 import { MediaInfo } from "./MediaInfo";
 import ReleaseFilesModal from "./ReleaseFilesModal";
 import { ReleaseSearch } from "./ReleaseSearch";
 import ReleasesList from "./ReleasesList";
-import { releasesKeys } from "../lib/queryKeys";
-import { useRequestLogs } from "../features/requests/useRequestLogs";
-import { logLevelStyles } from "../theme/statusStyles";
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }

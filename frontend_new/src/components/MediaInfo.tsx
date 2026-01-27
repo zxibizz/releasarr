@@ -14,9 +14,10 @@ import {
   WrapItem,
 } from "@chakra-ui/react";
 import React from "react";
-import { MediaRequest } from "../types";
-import { formatDate, formatRuntime, getStatusIcon } from "../utils/formatters";
-import { requestStatusStyles } from "../theme/statusStyles";
+
+import { requestStatusStyles } from "@/theme/statusStyles";
+import type { MediaRequest } from "@/types";
+import { formatDate, formatRuntime, getStatusIcon } from "@/utils/formatters";
 
 interface MediaInfoProps {
   request: MediaRequest;
