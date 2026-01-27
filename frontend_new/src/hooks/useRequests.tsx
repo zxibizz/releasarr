@@ -1,13 +1,14 @@
-import { useMemo } from "react";
 import {
   useQuery,
   useQueryClient,
   type QueryClient,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-import { fetchRequest, fetchRequests } from "../services/api";
-import type { MediaRequest, RequestsResponse } from "../types";
-import { requestsKeys, type RequestListFilters } from "../lib/queryKeys";
+import { useMemo } from "react";
+
+import { requestsKeys, type RequestListFilters } from "@/lib/queryKeys";
+import { fetchRequest, fetchRequests } from "@/services/api";
+import type { MediaRequest, RequestsResponse } from "@/types";
 
 const missingIdError = new Error("Request identifier is required");
 
@@ -100,4 +101,3 @@ export const setRequestQueryData = (client: QueryClient, request: MediaRequest) 
   client.setQueryData(requestsKeys.detail(request.id), request);
   client.invalidateQueries({ queryKey: requestsKeys.all, exact: false });
 };
-

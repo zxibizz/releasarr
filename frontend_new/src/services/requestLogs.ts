@@ -1,5 +1,5 @@
-import { apiClient } from "./api";
-import { RequestLogEntry } from "../types/logs";
+import { apiClient } from "@/services/api";
+import type { RequestLogEntry } from "@/types/logs";
 
 export const fetchRequestLogs = async (
   requestId: string

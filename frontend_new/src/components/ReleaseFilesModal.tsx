@@ -16,11 +16,13 @@ import {
   Text,
 } from "@chakra-ui/react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+
 import type {
+  FileRequestMapping as FileRequestMappingType,
   MediaRequest,
   Release,
-  FileRequestMapping as FileRequestMappingType,
-} from "../types";
+} from "@/types";
+
 import FileRequestMapping from "./FileRequestMapping";
 
 interface ReleaseFilesModalProps {

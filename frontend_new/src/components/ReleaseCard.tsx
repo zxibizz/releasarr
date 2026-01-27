@@ -21,7 +21,9 @@ import {
   WrapItem,
 } from "@chakra-ui/react";
 import React, { useMemo, useRef, useState } from "react";
-import { MediaRequest, Release } from "../types";
+
+import { releaseStatusStyles } from "@/theme/statusStyles";
+import type { MediaRequest, Release } from "@/types";
 import {
   calculateETA,
   calculateReleaseProgress,
@@ -34,8 +36,7 @@ import {
   groupFilesByType,
   isReleaseActive,
   isReleaseComplete,
-} from "../utils/releaseHelpers";
-import { releaseStatusStyles } from "../theme/statusStyles";
+} from "@/utils/releaseHelpers";
 
 interface ReleaseRequestSummary {
   id: string;
@@ -46,9 +47,9 @@ interface ReleaseRequestSummary {
 
 interface ReleaseCardProps {
   release: Release;
-  onPause?: (id: string) => Promise<void> | void;
-  onResume?: (id: string) => Promise<void> | void;
-  onDelete?: (id: string) => Promise<void> | void;
+  onPause?: (_id: string) => Promise<void> | void;
+  onResume?: (_id: string) => Promise<void> | void;
+  onDelete?: (_id: string) => Promise<void> | void;
   onViewFiles?: (release: Release) => void;
   showActions?: boolean;
   compact?: boolean;

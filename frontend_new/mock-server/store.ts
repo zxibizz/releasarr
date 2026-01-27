@@ -323,7 +323,7 @@ export class MockStore {
       throw new Error('release_candidate_not_found');
     }
 
-    const sanitizeName = (name: string) => name.replace(/[^a-z0-9.\-]+/gi, '.');
+    const sanitizeName = (name: string) => name.replace(/[^a-z0-9.-]+/gi, '.');
     const normalizedName = sanitizeName(candidate.release_name);
     const fallbackFileName = `${normalizedName || 'downloaded.release'}.mkv`;
     const parseSizeLabel = (label?: string): number => {

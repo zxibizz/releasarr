@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { fetchRequestLogs } from "../../services/requestLogs";
-import { RequestLogEntry } from "../../types/logs";
+
+import { fetchRequestLogs } from "@/services/requestLogs";
+import type { RequestLogEntry } from "@/types/logs";
 
 type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
 
@@ -166,4 +167,3 @@ export const useRequestLogs = () => {
     reset,
   } as const;
 };
-

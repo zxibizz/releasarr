@@ -1,4 +1,4 @@
-import type { MediaRequest, Release } from "../types";
+import type { MediaRequest, Release } from "@/types";
 
 export type RequestListFilters = {
   page?: number;
@@ -36,4 +36,3 @@ export const releasesKeys = {
   detail: (id: string) => ["releases", "detail", id] as const,
   byRequest: (requestId: string) => ["releases", "by-request", requestId] as const,
 };
-
