@@ -1,9 +1,7 @@
-import { apiClient } from "@/services/api";
-import type { RequestLogEntry } from "@/types/logs";
+import { apiClient } from '@/services/api';
+import type { RequestLogEntry } from '@/types/logs';
 
-export const fetchRequestLogs = async (
-  requestId: string
-): Promise<RequestLogEntry[]> => {
+export const fetchRequestLogs = async (requestId: string): Promise<RequestLogEntry[]> => {
   if (!requestId) {
     return [];
   }

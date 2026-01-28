@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronUpIcon, DeleteIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon, ChevronUpIcon, DeleteIcon } from '@chakra-ui/icons';
 import {
   AlertDialog,
   AlertDialogBody,
@@ -19,11 +19,11 @@ import {
   Text,
   Wrap,
   WrapItem,
-} from "@chakra-ui/react";
-import React, { useMemo, useRef, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useMemo, useRef, useState } from 'react';
 
-import { releaseStatusStyles } from "@/theme/statusStyles";
-import type { MediaRequest, Release } from "@/types";
+import { releaseStatusStyles } from '@/theme/statusStyles';
+import type { MediaRequest, Release } from '@/types';
 import {
   calculateETA,
   calculateReleaseProgress,
@@ -36,13 +36,13 @@ import {
   groupFilesByType,
   isReleaseActive,
   isReleaseComplete,
-} from "@/utils/releaseHelpers";
+} from '@/utils/releaseHelpers';
 
 interface ReleaseRequestSummary {
   id: string;
   title: string;
   year?: number;
-  type?: MediaRequest["type"];
+  type?: MediaRequest['type'];
 }
 
 interface ReleaseCardProps {
@@ -58,26 +58,26 @@ interface ReleaseCardProps {
 }
 
 const getHealthColor = (score: number) => {
-  if (score > 70) return "green.300";
-  if (score > 40) return "yellow.300";
-  return "red.300";
+  if (score > 70) return 'green.300';
+  if (score > 40) return 'yellow.300';
+  return 'red.300';
 };
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 };
 
 const ensureFiniteNumber = (value: unknown, fallback = 0) => {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const parsed = Number.parseFloat(value);
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -117,10 +117,10 @@ const sanitizeRelease = (release: Release): Release => {
     files: Array.isArray(release.files) ? release.files : [],
     request_ids: Array.isArray(release.request_ids)
       ? release.request_ids.filter(
-          (id): id is string => typeof id === "string" && id.trim().length > 0
+          (id): id is string => typeof id === 'string' && id.trim().length > 0,
         )
       : [],
-    status: (release.status ?? "pending") as Release["status"],
+    status: (release.status ?? 'pending') as Release['status'],
     size,
     progress,
     download_speed: downloadSpeed,
@@ -154,13 +154,11 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   const healthScore = getReleaseHealthScore(release);
   const downloadedBytes = Math.min(
     release.size,
-    Math.max(0, Math.round((progress / 100) * release.size))
+    Math.max(0, Math.round((progress / 100) * release.size)),
   );
-  const downloadedLabel = `${formatFileSize(
-    downloadedBytes
-  )} / ${formatFileSize(release.size)}`;
+  const downloadedLabel = `${formatFileSize(downloadedBytes)} / ${formatFileSize(release.size)}`;
   const eta =
-    release.status === "downloading" && release.download_speed > 0
+    release.status === 'downloading' && release.download_speed > 0
       ? calculateETA(release.size, downloadedBytes, release.download_speed)
       : null;
   const { video, subtitle, other } = groupFilesByType(release.files);
@@ -168,9 +166,9 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     const ids = Array.from(
       new Set(
         (release.request_ids || []).filter((id) =>
-          currentRequestId ? id !== currentRequestId : Boolean(id)
-        )
-      )
+          currentRequestId ? id !== currentRequestId : Boolean(id),
+        ),
+      ),
     );
 
     return ids.map((id) => {
@@ -191,7 +189,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     try {
       await action();
     } catch (error) {
-      console.error("Action failed:", error);
+      console.error('Action failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -220,19 +218,14 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             Delete release
           </AlertDialogHeader>
           <AlertDialogBody>
-            This will remove the release and its file mappings from the request.
-            Are you sure you want to continue?
+            This will remove the release and its file mappings from the request. Are you sure you
+            want to continue?
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={() => setDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              colorScheme="red"
-              onClick={confirmDelete}
-              ml={3}
-              isLoading={isLoading}
-            >
+            <Button colorScheme="red" onClick={confirmDelete} ml={3} isLoading={isLoading}>
               Delete
             </Button>
           </AlertDialogFooter>
@@ -246,13 +239,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   if (compact) {
     return (
       <>
-        <Card
-          p={4}
-          bg="bg.subtle"
-          borderWidth="1px"
-          borderColor="border.muted"
-          borderRadius="lg"
-        >
+        <Card p={4} bg="bg.subtle" borderWidth="1px" borderColor="border.muted" borderRadius="lg">
           <Stack spacing={4}>
             <Flex align="flex-start" justify="space-between" gap={4}>
               <Stack spacing={2} flex={1} minW={0}>
@@ -325,12 +312,8 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                   </GridItem>
                   <GridItem>
                     <Text>
-                      Health:{" "}
-                      <Text
-                        as="span"
-                        fontWeight="600"
-                        color={getHealthColor(healthScore)}
-                      >
+                      Health:{' '}
+                      <Text as="span" fontWeight="600" color={getHealthColor(healthScore)}>
                         {healthScore}%
                       </Text>
                     </Text>
@@ -362,20 +345,15 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
       >
         <Stack spacing={6}>
           <Flex
-            direction={{ base: "column", md: "row" }}
-            align={{ base: "flex-start", md: "flex-start" }}
+            direction={{ base: 'column', md: 'row' }}
+            align={{ base: 'flex-start', md: 'flex-start' }}
             justify="space-between"
             gap={6}
           >
             <Stack spacing={2} flex={1} minW={0}>
               <Flex align="center" gap={3} wrap="wrap">
                 <Text fontSize="2xl">{getStatusIcon(release.status)}</Text>
-                <Text
-                  fontWeight="700"
-                  fontSize="lg"
-                  color="slate.100"
-                  noOfLines={2}
-                >
+                <Text fontWeight="700" fontSize="lg" color="slate.100" noOfLines={2}>
                   {release.name}
                 </Text>
               </Flex>
@@ -388,8 +366,8 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
             <Stack
               spacing={2}
-              minW={{ base: "auto", md: "200px" }}
-              align={{ base: "flex-start", md: "flex-end" }}
+              minW={{ base: 'auto', md: '200px' }}
+              align={{ base: 'flex-start', md: 'flex-end' }}
             >
               <Badge
                 bg={statusStyle.bg}
@@ -406,7 +384,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 gap={2}
                 wrap="wrap"
                 align="center"
-                justify={{ base: "flex-start", md: "flex-end" }}
+                justify={{ base: 'flex-start', md: 'flex-end' }}
                 fontSize="sm"
                 color="text.subtle"
               >
@@ -440,7 +418,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 borderRadius="full"
                 height="0.5rem"
                 sx={{
-                  "& > div": {
+                  '& > div': {
                     backgroundColor: statusStyle.color,
                   },
                 }}
@@ -507,7 +485,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               </Text>
               <Wrap spacing={2}>
                 {relatedRequests.map(({ id, title, year, type }) => {
-                  const icon = type === "series" ? "📺" : "🎬";
+                  const icon = type === 'series' ? '📺' : '🎬';
                   return (
                     <WrapItem key={id}>
                       <Tag
@@ -539,9 +517,9 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
           )}
 
           <Flex
-            direction={{ base: "column", md: "row" }}
+            direction={{ base: 'column', md: 'row' }}
             justify="space-between"
-            align={{ base: "flex-start", md: "center" }}
+            align={{ base: 'flex-start', md: 'center' }}
             gap={4}
             wrap="wrap"
           >
@@ -549,9 +527,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               <Flex gap={4} flexWrap="wrap" fontSize="sm" color="text.subtle">
                 <Text>📁 {release.files.length} files</Text>
                 {video.length > 0 && <Text>🎬 {video.length} video</Text>}
-                {subtitle.length > 0 && (
-                  <Text>📝 {subtitle.length} subtitle</Text>
-                )}
+                {subtitle.length > 0 && <Text>📝 {subtitle.length} subtitle</Text>}
                 {other.length > 0 && <Text>📄 {other.length} other</Text>}
               </Flex>
 
@@ -565,7 +541,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
             {showActions && (
               <Flex
-                justify={{ base: "flex-start", md: "flex-end" }}
+                justify={{ base: 'flex-start', md: 'flex-end' }}
                 align="center"
                 gap={2}
                 wrap="wrap"
@@ -592,7 +568,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                   </Button>
                 )}
 
-                {release.status === "pending" && onResume && (
+                {release.status === 'pending' && onResume && (
                   <Button
                     onClick={() => handleAction(() => onResume(release.id))}
                     size="sm"

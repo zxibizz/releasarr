@@ -24,24 +24,24 @@ import {
   ModalOverlay,
   useDisclosure,
   useToast,
-} from "@chakra-ui/react";
-import type { UseToastOptions } from "@chakra-ui/react";
-import { keyframes } from "@emotion/react";
-import { useQueryClient } from "@tanstack/react-query";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+} from '@chakra-ui/react';
+import type { UseToastOptions } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 
-import { useRequestLogs } from "@/features/requests/useRequestLogs";
-import { useRequestQuery } from "@/hooks/useRequests";
-import { releasesKeys } from "@/lib/queryKeys";
-import { logLevelStyles } from "@/theme/statusStyles";
-import type { Release } from "@/types";
-import type { RequestLogEntry } from "@/types/logs";
+import { useRequestLogs } from '@/features/requests/useRequestLogs';
+import { useRequestQuery } from '@/hooks/useRequests';
+import { releasesKeys } from '@/lib/queryKeys';
+import { logLevelStyles } from '@/theme/statusStyles';
+import type { Release } from '@/types';
+import type { RequestLogEntry } from '@/types/logs';
 
-import { MediaInfo } from "./MediaInfo";
-import ReleaseFilesModal from "./ReleaseFilesModal";
-import { ReleaseSearch } from "./ReleaseSearch";
-import ReleasesList from "./ReleasesList";
+import { MediaInfo } from './MediaInfo';
+import ReleaseFilesModal from './ReleaseFilesModal';
+import { ReleaseSearch } from './ReleaseSearch';
+import ReleasesList from './ReleasesList';
 
 const shakeKeyframes = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -69,9 +69,7 @@ export const RequestPage: React.FC = () => {
   const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
   const [shakeSignal, setShakeSignal] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
-  const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(
-    null
-  );
+  const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(null);
   const [manualSearchFocusToken, setManualSearchFocusToken] = useState(0);
   const {
     logs: requestLogs,
@@ -87,11 +85,7 @@ export const RequestPage: React.FC = () => {
   const previousShouldShowSearch = useRef(false);
 
   const filesModal = useDisclosure();
-  const {
-    isOpen: isLogsOpen,
-    onOpen: openLogs,
-    onClose: closeLogs,
-  } = useDisclosure();
+  const { isOpen: isLogsOpen, onOpen: openLogs, onClose: closeLogs } = useDisclosure();
   const toast = useToast();
 
   const showLoadingState = (isLoading || isFetching) && !request;
@@ -99,7 +93,7 @@ export const RequestPage: React.FC = () => {
     requestError instanceof Error
       ? requestError.message
       : requestError
-        ? "Failed to load request"
+        ? 'Failed to load request'
         : null;
 
   const updateRefreshToast = useCallback(
@@ -111,7 +105,7 @@ export const RequestPage: React.FC = () => {
         refreshToastIdRef.current = toast(options);
       }
     },
-    [toast]
+    [toast],
   );
 
   const invalidateReleases = useCallback(async () => {
@@ -130,8 +124,8 @@ export const RequestPage: React.FC = () => {
     setManualSearchFocusToken((token) => token + 1);
     requestAnimationFrame(() => {
       manualSearchSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+        behavior: 'smooth',
+        block: 'start',
       });
     });
   }, []);
@@ -144,7 +138,6 @@ export const RequestPage: React.FC = () => {
     resetLogs();
     lastShakeAtRef.current = 0;
   }, [requestId, resetLogs]);
-
 
   const handleViewFiles = (release: Release) => {
     setSelectedRelease(release);
@@ -163,7 +156,7 @@ export const RequestPage: React.FC = () => {
 
       if (!hasReleases) {
         setManualSearchTriggered(false);
-        const normalizedTitle = request?.title?.trim() ?? "";
+        const normalizedTitle = request?.title?.trim() ?? '';
         setManualSearchPrefill((prev) => {
           if (prev && prev.trim().length > 0) {
             return prev;
@@ -174,15 +167,15 @@ export const RequestPage: React.FC = () => {
         setManualSearchPrefill(null);
       }
     },
-    [request?.title]
+    [request?.title],
   );
 
   const handleManualSearch = useCallback(() => {
     if (!request || !request.title) {
       toast({
-        title: "Manual search unavailable",
-        description: "Missing request details; cannot build search query.",
-        status: "warning",
+        title: 'Manual search unavailable',
+        description: 'Missing request details; cannot build search query.',
+        status: 'warning',
         duration: 4000,
         isClosable: true,
       });
@@ -206,9 +199,9 @@ export const RequestPage: React.FC = () => {
     const normalizedQuery = request.title.trim();
     if (!normalizedQuery) {
       toast({
-        title: "Manual search unavailable",
-        description: "Request title is empty; please update the request first.",
-        status: "warning",
+        title: 'Manual search unavailable',
+        description: 'Request title is empty; please update the request first.',
+        status: 'warning',
         duration: 4000,
         isClosable: true,
       });
@@ -216,13 +209,7 @@ export const RequestPage: React.FC = () => {
     }
 
     setManualSearchPrefill(normalizedQuery);
-  }, [
-    focusManualSearch,
-    hasExistingReleases,
-    manualSearchTriggered,
-    request,
-    toast,
-  ]);
+  }, [focusManualSearch, hasExistingReleases, manualSearchTriggered, request, toast]);
 
   const handleRefreshStatus = useCallback(async () => {
     if (!id || isRefreshing) {
@@ -233,9 +220,9 @@ export const RequestPage: React.FC = () => {
 
     const loadingToastId = toast({
       id: `refresh-request-${id}`,
-      title: "Refreshing status",
-      description: "Checking for the latest updates...",
-      status: "info",
+      title: 'Refreshing status',
+      description: 'Checking for the latest updates...',
+      status: 'info',
       duration: null,
       isClosable: false,
     });
@@ -246,18 +233,18 @@ export const RequestPage: React.FC = () => {
       await invalidateReleases();
 
       updateRefreshToast({
-        title: "Status refreshed",
-        description: "Request details and releases are up to date.",
-        status: "success",
+        title: 'Status refreshed',
+        description: 'Request details and releases are up to date.',
+        status: 'success',
         duration: 2500,
         isClosable: true,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to refresh request";
+      const message = err instanceof Error ? err.message : 'Failed to refresh request';
       updateRefreshToast({
-        title: "Refresh failed",
+        title: 'Refresh failed',
         description: message,
-        status: "error",
+        status: 'error',
         duration: 4000,
         isClosable: true,
       });
@@ -284,37 +271,31 @@ export const RequestPage: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [shakeSignal]);
 
-
   const actionCards = useMemo(
     () => [
       {
-        title: "Refresh Status",
-        description: "Check for updates on this request",
-        icon: "🔄",
+        title: 'Refresh Status',
+        description: 'Check for updates on this request',
+        icon: '🔄',
         onClick: handleRefreshStatus,
         isLoading: isRefreshing,
         isDisabled: isRefreshing,
-        loadingText: "Refreshing...",
+        loadingText: 'Refreshing...',
       },
       {
-        title: "Manual Search",
-        description: "Trigger a manual search for releases",
-        icon: "🔍",
+        title: 'Manual Search',
+        description: 'Trigger a manual search for releases',
+        icon: '🔍',
         onClick: handleManualSearch,
       },
       {
-        title: "View Logs",
-        description: "Check processing logs for this request",
-        icon: "📋",
+        title: 'View Logs',
+        description: 'Check processing logs for this request',
+        icon: '📋',
         onClick: handleViewLogs,
       },
     ],
-    [
-      handleManualSearch,
-      handleRefreshStatus,
-      handleViewLogs,
-      isRefreshing,
-    ]
+    [handleManualSearch, handleRefreshStatus, handleViewLogs, isRefreshing],
   );
 
   const shouldShowSearch = !hasExistingReleases || manualSearchTriggered;
@@ -342,7 +323,7 @@ export const RequestPage: React.FC = () => {
           <Text fontSize="3xl">❌</Text>
           <Heading size="md">Request not found</Heading>
           <Text color="text.subtle" textAlign="center">
-            {requestErrorMessage || "The requested media could not be found."}
+            {requestErrorMessage || 'The requested media could not be found.'}
           </Text>
           <Button as={RouterLink} to="/" colorScheme="blue">
             ← Back to Requests
@@ -354,26 +335,20 @@ export const RequestPage: React.FC = () => {
 
   return (
     <Stack spacing={8} maxW="6xl" mx="auto">
-      <Button
-        as={RouterLink}
-        to="/"
-        variant="outline"
-        colorScheme="blue"
-        width="fit-content"
-      >
+      <Button as={RouterLink} to="/" variant="outline" colorScheme="blue" width="fit-content">
         ← Back to Requests
       </Button>
 
       <Stack spacing={2}>
         <Heading size="2xl">{request.title}</Heading>
         <Text color="text.subtle" fontSize="md">
-          {request.type === "movie" ? "Movie" : "TV Series"} Request Details
+          {request.type === 'movie' ? 'Movie' : 'TV Series'} Request Details
         </Text>
       </Stack>
 
       <MediaInfo request={request} />
 
-      <Card p={{ base: 5, md: 6 }} display={hasExistingReleases ? "block" : "none"}>
+      <Card p={{ base: 5, md: 6 }} display={hasExistingReleases ? 'block' : 'none'}>
         <Stack spacing={4}>
           <Stack spacing={1}>
             <Heading size="md">📦 Releases</Heading>
@@ -391,18 +366,15 @@ export const RequestPage: React.FC = () => {
         </Stack>
       </Card>
 
-      <Collapse
-        in={shouldShowSearch}
-        animateOpacity
-        unmountOnExit
-        style={{ width: "100%" }}
-      >
+      <Collapse in={shouldShowSearch} animateOpacity unmountOnExit style={{ width: '100%' }}>
         <Box
           ref={manualSearchSectionRef}
           w="100%"
           sx={{
-            willChange: "transform",
-            animation: isShaking ? `${shakeKeyframes} 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97)` : undefined,
+            willChange: 'transform',
+            animation: isShaking
+              ? `${shakeKeyframes} 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97)`
+              : undefined,
           }}
         >
           <ReleaseSearch
@@ -493,13 +465,8 @@ const RequestLogsModal: React.FC<RequestLogsModalProps> = ({
   isLoading,
   error,
 }) => {
-  const sortedLogs = useMemo(
-    () => [...logs].sort((a, b) => b.occurredAt - a.occurredAt),
-    [logs]
-  );
-  const [expandedStacks, setExpandedStacks] = useState<Record<string, boolean>>(
-    {}
-  );
+  const sortedLogs = useMemo(() => [...logs].sort((a, b) => b.occurredAt - a.occurredAt), [logs]);
+  const [expandedStacks, setExpandedStacks] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setExpandedStacks({});
@@ -594,7 +561,7 @@ const RequestLogsModal: React.FC<RequestLogsModalProps> = ({
                         width="fit-content"
                         onClick={() => toggleStackTrace(log.id)}
                       >
-                        {expandedStacks[log.id] ? "Hide stack trace" : "View stack trace"}
+                        {expandedStacks[log.id] ? 'Hide stack trace' : 'View stack trace'}
                       </Button>
                       {expandedStacks[log.id] && (
                         <Box

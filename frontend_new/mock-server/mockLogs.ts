@@ -55,7 +55,8 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
     buildLog(now, 160, {
       id: `${request.id}-log-3`,
       level: 'warning',
-      message: 'Primary metadata provider returned partial response (missing release date, falling back to secondary provider).',
+      message:
+        'Primary metadata provider returned partial response (missing release date, falling back to secondary provider).',
       source: 'Metadata Worker',
       metadata: {
         provider: 'TMDB',
@@ -85,7 +86,8 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
     buildLog(now, 72, {
       id: `${request.id}-log-6`,
       level: 'warning',
-      message: 'Indexer response delayed beyond SLA (timeout after 30s while querying 4 providers).',
+      message:
+        'Indexer response delayed beyond SLA (timeout after 30s while querying 4 providers).',
       source: 'Indexer: Prowlarr',
       metadata: {
         timeoutMs: 30000,
@@ -142,7 +144,8 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
     buildLog(now, 6, {
       id: `${request.id}-log-11`,
       level: 'warning',
-      message: 'Quality gate rejected candidate due to codec mismatch (expected HEVC but found AVC).',
+      message:
+        'Quality gate rejected candidate due to codec mismatch (expected HEVC but found AVC).',
       source: 'Quality Gate',
       metadata: {
         releaseId: 'rls-15873',

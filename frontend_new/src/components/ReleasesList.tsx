@@ -11,16 +11,16 @@ import {
   Stack,
   Text,
   VStack,
-} from "@chakra-ui/react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useReleaseOperations } from "@/features/releases/useReleaseOperations";
-import { useReleasesByRequestQuery } from "@/hooks/useReleases";
-import { fetchRequest } from "@/services/api";
-import type { MediaRequest, Release } from "@/types";
-import { sortReleasesByStatus } from "@/utils/releaseHelpers";
+import { useReleaseOperations } from '@/features/releases/useReleaseOperations';
+import { useReleasesByRequestQuery } from '@/hooks/useReleases';
+import { fetchRequest } from '@/services/api';
+import type { MediaRequest, Release } from '@/types';
+import { sortReleasesByStatus } from '@/utils/releaseHelpers';
 
-import ReleaseCard from "./ReleaseCard";
+import ReleaseCard from './ReleaseCard';
 
 interface ReleasesListProps {
   requestId: string;
@@ -33,7 +33,7 @@ interface ReleasesListProps {
   hideEmptyState?: boolean;
 }
 
-type RequestSummary = Pick<MediaRequest, "id" | "title" | "year" | "type">;
+type RequestSummary = Pick<MediaRequest, 'id' | 'title' | 'year' | 'type'>;
 
 const ReleasesList: React.FC<ReleasesListProps> = ({
   requestId,
@@ -45,19 +45,11 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   onReleasesLoaded,
   hideEmptyState = false,
 }) => {
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useReleasesByRequestQuery(requestId, {
+  const { data, isLoading, isFetching, error, refetch } = useReleasesByRequestQuery(requestId, {
     enabled: Boolean(requestId),
   });
   const releases = useMemo(() => data ?? [], [data]);
-  const [requestSummaries, setRequestSummaries] = useState<
-    Record<string, RequestSummary>
-  >({});
+  const [requestSummaries, setRequestSummaries] = useState<Record<string, RequestSummary>>({});
   const { deleteRelease, pauseRelease, resumeRelease } = useReleaseOperations(requestId);
 
   const releasesToRender = useMemo(() => sortReleasesByStatus(releases), [releases]);
@@ -84,9 +76,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
       });
     });
 
-    const missingIds = Array.from(uniqueIds).filter(
-      (id) => !requestSummaries[id]
-    );
+    const missingIds = Array.from(uniqueIds).filter((id) => !requestSummaries[id]);
 
     if (missingIds.length === 0) {
       return;
@@ -106,10 +96,10 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
               type: request.type,
             } as RequestSummary;
           } catch (fetchError) {
-            console.error("Failed to fetch related request", id, fetchError);
+            console.error('Failed to fetch related request', id, fetchError);
             return null;
           }
-        })
+        }),
       );
 
       if (cancelled) {
@@ -159,7 +149,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   );
 
   const errorMessage =
-    error instanceof Error ? error.message : error ? "Failed to load releases" : null;
+    error instanceof Error ? error.message : error ? 'Failed to load releases' : null;
 
   const showLoadingState = (isLoading || isFetching) && releases.length === 0;
 
@@ -188,12 +178,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           <AlertTitle fontSize="lg">Error loading releases</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Box>
-        <Button
-          variant="outline"
-          colorScheme="blue"
-          size="sm"
-          onClick={() => refetch()}
-        >
+        <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
           Try Again
         </Button>
       </Alert>

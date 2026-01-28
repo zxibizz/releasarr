@@ -14,16 +14,12 @@ import {
   TabPanels,
   Tabs,
   Text,
-} from "@chakra-ui/react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type {
-  FileRequestMapping as FileRequestMappingType,
-  MediaRequest,
-  Release,
-} from "@/types";
+import type { FileRequestMapping as FileRequestMappingType, MediaRequest, Release } from '@/types';
 
-import FileRequestMapping from "./FileRequestMapping";
+import FileRequestMapping from './FileRequestMapping';
 
 interface ReleaseFilesModalProps {
   isOpen: boolean;
@@ -59,49 +55,39 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
       id: currentRequest.id,
       title: currentRequest.title,
       type: currentRequest.type,
-      season_number:
-        currentRequest.type === "series"
-          ? currentRequest.season_number
-          : undefined,
+      season_number: currentRequest.type === 'series' ? currentRequest.season_number : undefined,
     }),
-    [currentRequest]
+    [currentRequest],
   );
 
   const activeRelease = localRelease;
 
-  const handleMappingUpdate = useCallback(
-    (fileId: string, mapping: FileRequestMappingType) => {
-      setLocalRelease((prev) => {
-        if (!prev) {
-          return prev;
-        }
+  const handleMappingUpdate = useCallback((fileId: string, mapping: FileRequestMappingType) => {
+    setLocalRelease((prev) => {
+      if (!prev) {
+        return prev;
+      }
 
-        return {
-          ...prev,
-          files: prev.files.map((file) =>
-            file.id === fileId
-              ? {
-                  ...file,
-                  request_mapping: mapping,
-                }
-              : file
-          ),
-        };
-      });
-    },
-    []
-  );
+      return {
+        ...prev,
+        files: prev.files.map((file) =>
+          file.id === fileId
+            ? {
+                ...file,
+                request_mapping: mapping,
+              }
+            : file,
+        ),
+      };
+    });
+  }, []);
 
   if (!activeRelease) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(6px)" />
-      <ModalContent
-        bg="bg.surface"
-        borderWidth="1px"
-        borderColor="border.muted"
-      >
+      <ModalContent bg="bg.surface" borderWidth="1px" borderColor="border.muted">
         <ModalHeader>📁 Files — {activeRelease.name}</ModalHeader>
         <ModalCloseButton />
         <ModalBody pb={6} maxH="75vh" overflowY="auto">
@@ -116,24 +102,19 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                   {activeRelease.files.map((file) => {
                     const requestMappingSummary = file.request_mapping
                       ? `${
-                          file.request_mapping.request_title ||
-                          file.request_mapping.request_id
-                        } (${
-                          file.request_mapping.mapping_type === "series"
-                            ? "Series"
-                            : "Movie"
-                        })`
-                      : "Not mapped";
+                          file.request_mapping.request_title || file.request_mapping.request_id
+                        } (${file.request_mapping.mapping_type === 'series' ? 'Series' : 'Movie'})`
+                      : 'Not mapped';
                     const seriesMappingSummary =
-                      file.request_mapping?.mapping_type === "series" &&
-                      typeof file.request_mapping.season === "number" &&
-                      typeof file.request_mapping.episode === "number"
+                      file.request_mapping?.mapping_type === 'series' &&
+                      typeof file.request_mapping.season === 'number' &&
+                      typeof file.request_mapping.episode === 'number'
                         ? `S${file.request_mapping.season
                             .toString()
-                            .padStart(2, "0")}E${file.request_mapping.episode
+                            .padStart(2, '0')}E${file.request_mapping.episode
                             .toString()
-                            .padStart(2, "0")}`
-                        : "Not mapped";
+                            .padStart(2, '0')}`
+                        : 'Not mapped';
 
                     return (
                       <Card
@@ -151,11 +132,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                               </Text>
                               <Flex gap={4} fontSize="sm" color="text.subtle">
                                 <Text>
-                                  Size:{" "}
-                                  {(file.size / (1024 * 1024 * 1024)).toFixed(
-                                    2
-                                  )}{" "}
-                                  GB
+                                  Size: {(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB
                                 </Text>
                                 <Text>Progress: 100%</Text>
                               </Flex>
@@ -171,11 +148,7 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
                             >
                               Mapping
                             </Text>
-                            <Stack
-                              spacing={1}
-                              fontSize="sm"
-                              color="text.subtle"
-                            >
+                            <Stack spacing={1} fontSize="sm" color="text.subtle">
                               <Text>Request: {requestMappingSummary}</Text>
                               <Text>Episode: {seriesMappingSummary}</Text>
                             </Stack>

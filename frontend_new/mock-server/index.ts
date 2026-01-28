@@ -13,14 +13,22 @@ const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 
 const origin = process.env.MOCK_SERVER_ORIGIN ?? `http://localhost:${port}`;
 const apiPath = process.env.MOCK_SERVER_API_PATH ?? '/api';
 const apiBaseUrl =
-  process.env.VITE_API_URL ??
-  process.env.REACT_APP_API_URL ??
-  `${origin}${apiPath}`;
+  process.env.VITE_API_URL ?? process.env.REACT_APP_API_URL ?? `${origin}${apiPath}`;
 
-const parseRequestStatus = (value: string | undefined | null): MediaRequest['status'] | undefined => {
+const parseRequestStatus = (
+  value: string | undefined | null,
+): MediaRequest['status'] | undefined => {
   if (!value) return undefined;
-  const allowed: MediaRequest['status'][] = ['pending', 'searching', 'downloading', 'completed', 'failed'];
-  return allowed.includes(value as MediaRequest['status']) ? (value as MediaRequest['status']) : undefined;
+  const allowed: MediaRequest['status'][] = [
+    'pending',
+    'searching',
+    'downloading',
+    'completed',
+    'failed',
+  ];
+  return allowed.includes(value as MediaRequest['status'])
+    ? (value as MediaRequest['status'])
+    : undefined;
 };
 
 const parseReleaseStatus = (value: string | undefined | null): Release['status'] | undefined => {

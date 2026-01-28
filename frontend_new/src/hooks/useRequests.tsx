@@ -3,29 +3,29 @@ import {
   useQueryClient,
   type QueryClient,
   type UseQueryOptions,
-} from "@tanstack/react-query";
-import { useMemo } from "react";
+} from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import { requestsKeys, type RequestListFilters } from "@/lib/queryKeys";
-import { fetchRequest, fetchRequests } from "@/services/api";
-import type { MediaRequest, RequestsResponse } from "@/types";
+import { requestsKeys, type RequestListFilters } from '@/lib/queryKeys';
+import { fetchRequest, fetchRequests } from '@/services/api';
+import type { MediaRequest, RequestsResponse } from '@/types';
 
-const missingIdError = new Error("Request identifier is required");
+const missingIdError = new Error('Request identifier is required');
 
 type RequestsListQueryKey = ReturnType<typeof requestsKeys.list>;
 type RequestDetailQueryKey = ReturnType<typeof requestsKeys.detail>;
 
 type RequestsQueryOptions<TData> = Omit<
   UseQueryOptions<RequestsResponse, unknown, TData, RequestsListQueryKey>,
-  "queryKey" | "queryFn"
+  'queryKey' | 'queryFn'
 >;
 
 type RequestQueryOptions<TData> = Omit<
   UseQueryOptions<MediaRequest, unknown, TData, RequestDetailQueryKey>,
-  "queryKey" | "queryFn"
+  'queryKey' | 'queryFn'
 >;
 
-export const useRequestsQuery = <TData = RequestsResponse>(
+export const useRequestsQuery = <TData = RequestsResponse,>(
   filters?: RequestListFilters,
   options?: RequestsQueryOptions<TData>,
 ) => {
@@ -52,14 +52,14 @@ export const useRequestsList = (
   };
 };
 
-export const useRequestQuery = <TData = MediaRequest>(
+export const useRequestQuery = <TData = MediaRequest,>(
   id: string | undefined,
   options?: RequestQueryOptions<TData>,
 ) => {
   const { enabled: optionEnabled, ...restOptions } = options ?? {};
 
   return useQuery({
-    queryKey: id ? requestsKeys.detail(id) : ["requests", "detail", "missing"] ,
+    queryKey: id ? requestsKeys.detail(id) : ['requests', 'detail', 'missing'],
     queryFn: () => {
       if (!id) {
         throw missingIdError;
