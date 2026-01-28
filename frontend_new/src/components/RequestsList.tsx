@@ -14,53 +14,47 @@ import {
   VStack,
   Wrap,
   WrapItem,
-} from "@chakra-ui/react";
-import React, { useMemo, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useMemo, useState } from 'react';
 
-import { useRequestsList } from "@/hooks/useRequests";
-import type { MediaRequest } from "@/types";
+import { useRequestsList } from '@/hooks/useRequests';
+import type { MediaRequest } from '@/types';
 
-import { RequestCard } from "./RequestCard";
+import { RequestCard } from './RequestCard';
 
-type FilterKey = "all" | "movies" | "series" | MediaRequest["status"];
+type FilterKey = 'all' | 'movies' | 'series' | MediaRequest['status'];
 
 const filterButtons: ReadonlyArray<{ key: FilterKey; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "movies", label: "Movies" },
-  { key: "series", label: "Series" },
-  { key: "pending", label: "Pending" },
-  { key: "searching", label: "Searching" },
-  { key: "downloading", label: "Downloading" },
-  { key: "completed", label: "Completed" },
-  { key: "failed", label: "Failed" },
+  { key: 'all', label: 'All' },
+  { key: 'movies', label: 'Movies' },
+  { key: 'series', label: 'Series' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'searching', label: 'Searching' },
+  { key: 'downloading', label: 'Downloading' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'failed', label: 'Failed' },
 ];
 
 export const RequestsList: React.FC = () => {
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
 
   const requestFilters = useMemo(() => {
     switch (activeFilter) {
-      case "movies":
-        return { type: "movie" as const };
-      case "series":
-        return { type: "series" as const };
-      case "all":
+      case 'movies':
+        return { type: 'movie' as const };
+      case 'series':
+        return { type: 'series' as const };
+      case 'all':
         return undefined;
       default:
         return { status: activeFilter };
     }
   }, [activeFilter]);
 
-  const {
-    requests,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useRequestsList(requestFilters);
+  const { requests, isLoading, isFetching, error, refetch } = useRequestsList(requestFilters);
 
   const errorMessage =
-    error instanceof Error ? error.message : error ? "Failed to load requests" : null;
+    error instanceof Error ? error.message : error ? 'Failed to load requests' : null;
 
   const showLoadingState = (isLoading || isFetching) && requests.length === 0;
 
@@ -100,8 +94,7 @@ export const RequestsList: React.FC = () => {
     );
   }
 
-  const activeLabel =
-    filterButtons.find((filter) => filter.key === activeFilter)?.label || "All";
+  const activeLabel = filterButtons.find((filter) => filter.key === activeFilter)?.label || 'All';
 
   return (
     <Stack spacing={{ base: 6, md: 10 }}>
@@ -112,13 +105,7 @@ export const RequestsList: React.FC = () => {
         </Text>
       </Stack>
 
-      <Box
-        bg="bg.subtle"
-        borderRadius="xl"
-        borderWidth="1px"
-        borderColor="border.muted"
-        p={3}
-      >
+      <Box bg="bg.subtle" borderRadius="xl" borderWidth="1px" borderColor="border.muted" p={3}>
         <Wrap spacing={2}>
           {filterButtons.map((filter) => {
             const isActive = activeFilter === filter.key;
@@ -127,7 +114,7 @@ export const RequestsList: React.FC = () => {
                 <Button
                   size="sm"
                   colorScheme="blue"
-                  variant={isActive ? "solid" : "outline"}
+                  variant={isActive ? 'solid' : 'outline'}
                   onClick={() => handleFilterChange(filter.key)}
                 >
                   {filter.label}
@@ -138,12 +125,17 @@ export const RequestsList: React.FC = () => {
         </Wrap>
       </Box>
 
-      <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "flex-start", md: "center" }} spacing={4}>
+      <Stack
+        direction={{ base: 'column', md: 'row' }}
+        justify="space-between"
+        align={{ base: 'flex-start', md: 'center' }}
+        spacing={4}
+      >
         <Heading size="md" color="slate.100">
-          {activeFilter === "all" ? "All Requests" : `${activeLabel} Requests`}
+          {activeFilter === 'all' ? 'All Requests' : `${activeLabel} Requests`}
         </Heading>
         <Text color="text.subtle" fontSize="sm">
-          {requests.length} {requests.length === 1 ? "request" : "requests"}
+          {requests.length} {requests.length === 1 ? 'request' : 'requests'}
         </Text>
       </Stack>
 
@@ -159,8 +151,8 @@ export const RequestsList: React.FC = () => {
           <Text fontSize="4xl">📺</Text>
           <Heading size="md">No requests found</Heading>
           <Text color="text.subtle" fontSize="sm" textAlign="center">
-            {activeFilter === "all"
-              ? "No media requests have been created yet."
+            {activeFilter === 'all'
+              ? 'No media requests have been created yet.'
               : `No requests match the "${activeFilter}" filter.`}
           </Text>
         </VStack>

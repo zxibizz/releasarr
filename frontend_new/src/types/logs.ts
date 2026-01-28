@@ -3,11 +3,7 @@ import { z } from 'zod';
 export const requestLogLevelSchema = z.enum(['info', 'warning', 'error']);
 export type RequestLogLevel = z.infer<typeof requestLogLevelSchema>;
 
-export const requestLogMetadataValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-]);
+export const requestLogMetadataValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
 export const requestLogMetadataSchema = z.record(requestLogMetadataValueSchema);
 export type RequestLogMetadata = z.infer<typeof requestLogMetadataSchema>;

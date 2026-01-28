@@ -1,5 +1,5 @@
-import { Button, Card, Heading, Stack, Text } from "@chakra-ui/react";
-import { Link as RouterLink } from "react-router-dom";
+import { Button, Card, Heading, Stack, Text } from '@chakra-ui/react';
+import { Link as RouterLink } from 'react-router-dom';
 
 export const NotFound = () => {
   return (
@@ -11,8 +11,8 @@ export const NotFound = () => {
         <Stack spacing={2} align="center">
           <Heading size="lg">Page not found</Heading>
           <Text color="text.subtle" maxW="sm">
-            The page you&apos;re looking for doesn&apos;t exist or may have moved. Let&apos;s
-            get you back to the requests dashboard.
+            The page you&apos;re looking for doesn&apos;t exist or may have moved. Let&apos;s get
+            you back to the requests dashboard.
           </Text>
         </Stack>
         <Button as={RouterLink} to="/" colorScheme="blue">

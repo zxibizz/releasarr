@@ -49,7 +49,15 @@ export class ApiError extends Error {
   url?: string;
   isAbortError: boolean;
 
-  constructor({ message, status, body, details, url, isAbortError = false, cause }: ApiErrorParams) {
+  constructor({
+    message,
+    status,
+    body,
+    details,
+    url,
+    isAbortError = false,
+    cause,
+  }: ApiErrorParams) {
     super(message, { cause });
     this.name = 'ApiError';
     this.status = status;
@@ -88,7 +96,10 @@ const getStatusMessage = (status: number): string => {
   return `Request failed with status ${status}`;
 };
 
-const resolveResponseType = (requested: ApiResponseType, contentType: string): Exclude<ApiResponseType, 'auto'> => {
+const resolveResponseType = (
+  requested: ApiResponseType,
+  contentType: string,
+): Exclude<ApiResponseType, 'auto'> => {
   if (requested === 'json' || requested === 'text') {
     return requested;
   }
@@ -113,7 +124,8 @@ const isAbortError = (error: unknown): boolean => {
   return error instanceof Error && error.name === 'AbortError';
 };
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8001/api';
+const API_BASE_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8001/api';
 
 class ApiClient {
   private baseUrl: string;
@@ -282,12 +294,14 @@ class ApiClient {
     }
   }
 
-  async getRequests(options: {
-    page?: number;
-    perPage?: number;
-    status?: MediaRequest['status'];
-    type?: MediaRequest['type'];
-  } = {}): Promise<RequestsResponse> {
+  async getRequests(
+    options: {
+      page?: number;
+      perPage?: number;
+      status?: MediaRequest['status'];
+      type?: MediaRequest['type'];
+    } = {},
+  ): Promise<RequestsResponse> {
     const searchParams = new URLSearchParams();
     if (options.page) searchParams.set('page', String(options.page));
     if (options.perPage) searchParams.set('per_page', String(options.perPage));
@@ -306,10 +320,7 @@ class ApiClient {
     return this.request<MediaRequest>(`/requests/${id}`, undefined, mediaRequestSchema);
   }
 
-  async searchReleaseCandidates(
-    query: string,
-    requestId?: string,
-  ): Promise<ReleaseSearchResponse> {
+  async searchReleaseCandidates(query: string, requestId?: string): Promise<ReleaseSearchResponse> {
     const searchParams = new URLSearchParams();
     searchParams.set('q', query);
     if (requestId) {
@@ -362,7 +373,9 @@ class ApiClient {
     );
   }
 
-  async getReleases(filters: { status?: Release['status']; requestId?: string } = {}): Promise<Release[]> {
+  async getReleases(
+    filters: { status?: Release['status']; requestId?: string } = {},
+  ): Promise<Release[]> {
     const searchParams = new URLSearchParams();
     if (filters.status) searchParams.set('status', filters.status);
     if (filters.requestId) searchParams.set('request_id', filters.requestId);
@@ -472,7 +485,8 @@ export const fetchRequest = (id: string) => apiClient.getRequest(id);
 export const fetchReleases = (filters?: { status?: Release['status']; requestId?: string }) =>
   apiClient.getReleases(filters);
 export const fetchRelease = (id: string) => apiClient.getRelease(id);
-export const fetchReleasesByRequest = (requestId: string) => apiClient.getReleasesByRequest(requestId);
+export const fetchReleasesByRequest = (requestId: string) =>
+  apiClient.getReleasesByRequest(requestId);
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
 export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
   apiClient.updateReleaseFileMappings(releaseId, mappings);
@@ -481,11 +495,8 @@ export const resumeRelease = (id: string) => apiClient.resumeRelease(id);
 export const deleteRelease = (id: string) => apiClient.deleteRelease(id);
 export const searchReleaseCandidates = (query: string, requestId?: string) =>
   apiClient.searchReleaseCandidates(query, requestId);
-export const downloadReleaseCandidate = (
-  requestId: string,
-  payload: ReleaseDownloadRequest,
-) => apiClient.downloadReleaseCandidate(requestId, payload);
-export const fetchRequestLogsApi = (requestId?: string) =>
-  apiClient.getRequestLogs({ requestId });
+export const downloadReleaseCandidate = (requestId: string, payload: ReleaseDownloadRequest) =>
+  apiClient.downloadReleaseCandidate(requestId, payload);
+export const fetchRequestLogsApi = (requestId?: string) => apiClient.getRequestLogs({ requestId });
 
 export { ApiClient };

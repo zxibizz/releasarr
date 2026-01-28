@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from 'react';
 
-import { fetchRequestLogs } from "@/services/requestLogs";
-import type { RequestLogEntry } from "@/types/logs";
+import { fetchRequestLogs } from '@/services/requestLogs';
+import type { RequestLogEntry } from '@/types/logs';
 
 type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
 
-const REQUEST_LOG_LEVELS: RequestLogEntry["level"][] = ["info", "warning", "error"];
+const REQUEST_LOG_LEVELS: RequestLogEntry['level'][] = ['info', 'warning', 'error'];
 const MIN_TIMESTAMP_THRESHOLD = 1_000_000_000_000;
 
 const toMilliseconds = (value: number): number => {
@@ -13,11 +13,11 @@ const toMilliseconds = (value: number): number => {
 };
 
 const parseNumericTimestamp = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return toMilliseconds(value);
   }
 
-  if (typeof value === "string" && value.trim().length > 0) {
+  if (typeof value === 'string' && value.trim().length > 0) {
     const numeric = Number.parseFloat(value);
     if (Number.isFinite(numeric)) {
       return toMilliseconds(numeric);
@@ -32,16 +32,14 @@ const parseNumericTimestamp = (value: unknown): number | null => {
   return null;
 };
 
-const coerceMetadata = (
-  value: unknown,
-): Record<string, string | number | boolean> | undefined => {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
+const coerceMetadata = (value: unknown): Record<string, string | number | boolean> | undefined => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
     const entries = Object.entries(value).reduce<Record<string, string | number | boolean>>(
       (acc, [key, entryValue]) => {
         if (
-          typeof entryValue === "string" ||
-          typeof entryValue === "number" ||
-          typeof entryValue === "boolean"
+          typeof entryValue === 'string' ||
+          typeof entryValue === 'number' ||
+          typeof entryValue === 'boolean'
         ) {
           acc[key] = entryValue;
         }
@@ -57,9 +55,10 @@ const coerceMetadata = (
 };
 
 const normalizeLogEntry = (entry: unknown, fallbackId: string): RequestLogEntry => {
-  const raw: RawRequestLogEntry = entry && typeof entry === "object" && !Array.isArray(entry)
-    ? (entry as RawRequestLogEntry)
-    : {};
+  const raw: RawRequestLogEntry =
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? (entry as RawRequestLogEntry)
+      : {};
 
   const occurredAtCandidate =
     raw.occurredAt ??
@@ -78,33 +77,33 @@ const normalizeLogEntry = (entry: unknown, fallbackId: string): RequestLogEntry 
     | string
     | undefined;
   const normalizedLevel = levelCandidate?.toLowerCase().trim();
-  const level: RequestLogEntry["level"] = REQUEST_LOG_LEVELS.includes(
-    normalizedLevel as RequestLogEntry["level"],
+  const level: RequestLogEntry['level'] = REQUEST_LOG_LEVELS.includes(
+    normalizedLevel as RequestLogEntry['level'],
   )
-    ? (normalizedLevel as RequestLogEntry["level"])
-    : "info";
+    ? (normalizedLevel as RequestLogEntry['level'])
+    : 'info';
 
-  const messageValue = raw.message ?? raw.detail ?? raw.description ?? "";
-  const message = typeof messageValue === "string" ? messageValue : String(messageValue ?? "");
+  const messageValue = raw.message ?? raw.detail ?? raw.description ?? '';
+  const message = typeof messageValue === 'string' ? messageValue : String(messageValue ?? '');
 
   const timestampValue =
-    typeof raw.timestamp === "string"
+    typeof raw.timestamp === 'string'
       ? raw.timestamp
-      : typeof raw.occurred_at === "string"
+      : typeof raw.occurred_at === 'string'
         ? raw.occurred_at
         : undefined;
 
   const timestamp =
     (timestampValue && timestampValue.trim().length > 0
       ? timestampValue
-      : new Date(occurredAt).toLocaleString()) ?? "";
+      : new Date(occurredAt).toLocaleString()) ?? '';
 
   const sourceValue = raw.source ?? raw.component ?? raw.origin;
-  const source = typeof sourceValue === "string" ? sourceValue : undefined;
+  const source = typeof sourceValue === 'string' ? sourceValue : undefined;
 
   const stackTraceValue = raw.stackTrace ?? raw.stack_trace ?? raw.stack;
   const stackTrace =
-    typeof stackTraceValue === "string" && stackTraceValue.trim().length > 0
+    typeof stackTraceValue === 'string' && stackTraceValue.trim().length > 0
       ? stackTraceValue
       : undefined;
 
@@ -132,11 +131,15 @@ interface UseRequestLogsState {
 }
 
 export const useRequestLogs = () => {
-  const [state, setState] = useState<UseRequestLogsState>({ logs: [], isLoading: false, error: null });
+  const [state, setState] = useState<UseRequestLogsState>({
+    logs: [],
+    isLoading: false,
+    error: null,
+  });
 
   const loadLogs = useCallback(async (requestId: string) => {
     if (!requestId) {
-      setState({ logs: [], isLoading: false, error: "Missing request identifier" });
+      setState({ logs: [], isLoading: false, error: 'Missing request identifier' });
       return;
     }
 
@@ -145,7 +148,7 @@ export const useRequestLogs = () => {
       const logs = await fetchRequestLogs(requestId);
       setState({ logs: normalizeRequestLogs(logs), isLoading: false, error: null });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load logs";
+      const message = err instanceof Error ? err.message : 'Failed to load logs';
       setState({ logs: [], isLoading: false, error: message });
     }
   }, []);

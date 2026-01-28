@@ -16,23 +16,23 @@ import {
   Text,
   VStack,
   useToast,
-} from "@chakra-ui/react";
-import React, { useEffect, useMemo, useState } from "react";
+} from '@chakra-ui/react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { useReleaseFileMapping } from "@/hooks/useReleases";
-import { useRequestsList } from "@/hooks/useRequests";
+import { useReleaseFileMapping } from '@/hooks/useReleases';
+import { useRequestsList } from '@/hooks/useRequests';
 import type {
   FileRequestMapping as FileRequestMappingType,
   ReleaseFile,
   SeriesRequest,
-} from "@/types";
+} from '@/types';
 import {
   formatFileSize,
   groupFilesByType,
   isVideoFile,
   parseSeriesEpisodeFromFilename,
   validateRequestMapping,
-} from "@/utils/releaseHelpers";
+} from '@/utils/releaseHelpers';
 
 interface FileRequestMappingProps {
   releaseId: string;
@@ -43,7 +43,7 @@ interface FileRequestMappingProps {
   defaultRequest?: {
     id: string;
     title: string;
-    type: "movie" | "series";
+    type: 'movie' | 'series';
     season_number?: number;
   };
 }
@@ -52,7 +52,7 @@ interface FileMapping {
   fileId: string;
   requestId: string;
   requestTitle: string;
-  mappingType: "movie" | "series";
+  mappingType: 'movie' | 'series';
   season?: number;
   episode?: number;
 }
@@ -64,11 +64,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   readonly = false,
   defaultRequest,
 }) => {
-  const {
-    updateFileMappings,
-    loading: isSaving,
-    error: mappingError,
-  } = useReleaseFileMapping();
+  const { updateFileMappings, loading: isSaving, error: mappingError } = useReleaseFileMapping();
   const {
     requests,
     isLoading: requestsLoading,
@@ -88,15 +84,13 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const toast = useToast();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [showOnlyVideo, setShowOnlyVideo] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<string>(
-    defaultRequest?.id ?? ""
-  );
+  const [selectedRequest, setSelectedRequest] = useState<string>(defaultRequest?.id ?? '');
 
   const groupedFiles = useMemo(() => groupFilesByType(files), [files]);
   const { video, subtitle, other } = groupedFiles;
   const displayFiles = useMemo(
     () => (showOnlyVideo ? video : files),
-    [showOnlyVideo, video, files]
+    [showOnlyVideo, video, files],
   );
 
   useEffect(() => {
@@ -104,12 +98,12 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     const initialMappings = sourceFiles.map((file) => {
       const existing = file.request_mapping;
       if (existing) {
-        if (existing.mapping_type === "series") {
+        if (existing.mapping_type === 'series') {
           return {
             fileId: file.id,
             requestId: existing.request_id,
             requestTitle: existing.request_title,
-            mappingType: "series",
+            mappingType: 'series',
             season: existing.season,
             episode: existing.episode,
           } as FileMapping;
@@ -119,37 +113,37 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           fileId: file.id,
           requestId: existing.request_id,
           requestTitle: existing.request_title,
-          mappingType: "movie",
+          mappingType: 'movie',
           season: undefined,
           episode: undefined,
         } as FileMapping;
       }
 
-      const fallbackType: FileMapping["mappingType"] =
-        defaultRequest && defaultRequest.type === "series" ? "series" : "movie";
+      const fallbackType: FileMapping['mappingType'] =
+        defaultRequest && defaultRequest.type === 'series' ? 'series' : 'movie';
       const inferredEpisode = parseSeriesEpisodeFromFilename(file.name);
       const fallbackSeason =
-        fallbackType === "series"
-          ? defaultRequest?.season_number ?? inferredEpisode?.season ?? 1
+        fallbackType === 'series'
+          ? (defaultRequest?.season_number ?? inferredEpisode?.season ?? 1)
           : undefined;
       const fallbackEpisode =
-        fallbackType === "series" ? inferredEpisode?.episode ?? 1 : undefined;
+        fallbackType === 'series' ? (inferredEpisode?.episode ?? 1) : undefined;
 
       const fallbackMapping: FileMapping =
-        fallbackType === "series"
+        fallbackType === 'series'
           ? {
               fileId: file.id,
-              requestId: defaultRequest?.id ?? "",
-              requestTitle: defaultRequest?.title ?? "",
-              mappingType: "series",
+              requestId: defaultRequest?.id ?? '',
+              requestTitle: defaultRequest?.title ?? '',
+              mappingType: 'series',
               season: fallbackSeason,
               episode: fallbackEpisode,
             }
           : {
               fileId: file.id,
-              requestId: defaultRequest?.id ?? "",
-              requestTitle: defaultRequest?.title ?? "",
-              mappingType: "movie",
+              requestId: defaultRequest?.id ?? '',
+              requestTitle: defaultRequest?.title ?? '',
+              mappingType: 'movie',
             };
 
       return fallbackMapping;
@@ -165,33 +159,33 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   }, [defaultRequest?.id, selectedRequest]);
 
   const availableRequests = useMemo(
-    () => requests.filter((request) => request.status !== "failed"),
-    [requests]
+    () => requests.filter((request) => request.status !== 'failed'),
+    [requests],
   );
 
   const movieRequests = useMemo(
-    () => availableRequests.filter((request) => request.type === "movie"),
-    [availableRequests]
+    () => availableRequests.filter((request) => request.type === 'movie'),
+    [availableRequests],
   );
 
   const seriesRequests = useMemo(
-    () => availableRequests.filter((request) => request.type === "series"),
-    [availableRequests]
+    () => availableRequests.filter((request) => request.type === 'series'),
+    [availableRequests],
   );
 
   const disableRequestSelection =
     showRequestsLoading || Boolean(requestsErrorMessage) || availableRequests.length === 0;
 
   const requestPlaceholder = showRequestsLoading
-    ? "Loading requests..."
+    ? 'Loading requests...'
     : requestsErrorMessage
-      ? "Unable to load requests"
-      : "Select a request...";
+      ? 'Unable to load requests'
+      : 'Select a request...';
 
   const handleMappingChange = (
     fileId: string,
-    field: keyof Omit<FileMapping, "fileId">,
-    value: string | number | undefined
+    field: keyof Omit<FileMapping, 'fileId'>,
+    value: string | number | undefined,
   ) => {
     setMappings((prev) =>
       prev.map((mapping) => {
@@ -202,13 +196,12 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           [field]: value,
         } as FileMapping;
 
-        if (field === "requestId" && typeof value === "string") {
+        if (field === 'requestId' && typeof value === 'string') {
           const request = requests.find((r) => r.id === value);
-          updated.requestTitle = request?.title || "";
+          updated.requestTitle = request?.title || '';
           if (request) {
-            updated.mappingType =
-              request.type === "series" ? "series" : "movie";
-            if (updated.mappingType === "movie") {
+            updated.mappingType = request.type === 'series' ? 'series' : 'movie';
+            if (updated.mappingType === 'movie') {
               updated.season = undefined;
               updated.episode = undefined;
             } else {
@@ -218,9 +211,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           }
         }
 
-        if (field === "mappingType") {
-          const type = value as FileMapping["mappingType"];
-          if (type === "movie") {
+        if (field === 'mappingType') {
+          const type = value as FileMapping['mappingType'];
+          if (type === 'movie') {
             updated.season = undefined;
             updated.episode = undefined;
           } else {
@@ -230,7 +223,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         }
 
         return updated;
-      })
+      }),
     );
   };
 
@@ -239,25 +232,25 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     if (!mapping || !mapping.requestId) return;
 
     let requestMappingPayload: FileRequestMappingType;
-    if (mapping.mappingType === "series") {
+    if (mapping.mappingType === 'series') {
       requestMappingPayload = {
         request_id: mapping.requestId,
-        mapping_type: "series",
+        mapping_type: 'series',
         season: mapping.season ?? 1,
         episode: mapping.episode ?? 1,
       };
     } else {
       requestMappingPayload = {
         request_id: mapping.requestId,
-        mapping_type: "movie",
+        mapping_type: 'movie',
       };
     }
 
     if (!validateRequestMapping(requestMappingPayload)) {
       toast({
-        title: "Invalid mapping",
-        description: "Please fill in all required fields before saving.",
-        status: "warning",
+        title: 'Invalid mapping',
+        description: 'Please fill in all required fields before saving.',
+        status: 'warning',
         duration: 4000,
         isClosable: true,
       });
@@ -278,7 +271,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       ]);
       onMappingUpdate?.(fileId, requestMappingForState);
     } catch (err) {
-      console.error("Failed to update mapping:", err);
+      console.error('Failed to update mapping:', err);
     }
   };
 
@@ -295,17 +288,17 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       }
 
       let requestMappingPayload: FileRequestMappingType;
-      if (mapping.mappingType === "series") {
+      if (mapping.mappingType === 'series') {
         requestMappingPayload = {
           request_id: mapping.requestId,
-          mapping_type: "series",
+          mapping_type: 'series',
           season: mapping.season ?? 1,
           episode: mapping.episode ?? 1,
         };
       } else {
         requestMappingPayload = {
           request_id: mapping.requestId,
-          mapping_type: "movie",
+          mapping_type: 'movie',
         };
       }
 
@@ -329,9 +322,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
     if (preparedMappings.length === 0) {
       toast({
-        title: "Nothing to save",
-        description: "Select at least one valid mapping before saving.",
-        status: "info",
+        title: 'Nothing to save',
+        description: 'Select at least one valid mapping before saving.',
+        status: 'info',
         duration: 3500,
         isClosable: true,
       });
@@ -346,31 +339,30 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     try {
       await updateFileMappings(releaseId, payload);
       preparedMappings.forEach(({ fileId, stateMapping }) =>
-        onMappingUpdate?.(fileId, stateMapping)
+        onMappingUpdate?.(fileId, stateMapping),
       );
     } catch (err) {
-      console.error("Failed to update mappings:", err);
+      console.error('Failed to update mappings:', err);
     }
   };
 
   const handleBulkRequestUpdate = (requestId: string) => {
     const request = requests.find((r) => r.id === requestId);
     if (!request) return;
-    const seriesRequest =
-      request.type === "series" ? (request as SeriesRequest) : null;
+    const seriesRequest = request.type === 'series' ? (request as SeriesRequest) : null;
 
     setMappings((prev) =>
       prev.map((mapping) => ({
         ...mapping,
         requestId,
         requestTitle: request.title,
-        mappingType: request.type === "series" ? "series" : "movie",
+        mappingType: request.type === 'series' ? 'series' : 'movie',
         season:
-          request.type === "series"
-            ? mapping.season ?? seriesRequest?.season_number ?? 1
+          request.type === 'series'
+            ? (mapping.season ?? seriesRequest?.season_number ?? 1)
             : undefined,
-        episode: request.type === "series" ? mapping.episode ?? 1 : undefined,
-      }))
+        episode: request.type === 'series' ? (mapping.episode ?? 1) : undefined,
+      })),
     );
   };
 
@@ -380,19 +372,18 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         mapping.fileId === fileId
           ? {
               ...mapping,
-              requestId: "",
-              requestTitle: "",
-              mappingType: "movie",
+              requestId: '',
+              requestTitle: '',
+              mappingType: 'movie',
               season: undefined,
               episode: undefined,
             }
-          : mapping
-      )
+          : mapping,
+      ),
     );
   };
 
-  const getFileMapping = (fileId: string) =>
-    mappings.find((m) => m.fileId === fileId);
+  const getFileMapping = (fileId: string) => mappings.find((m) => m.fileId === fileId);
 
   const getExistingMapping = (fileId: string) =>
     files.find((f) => f.id === fileId)?.request_mapping;
@@ -400,27 +391,23 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   const hasChanges = (fileId: string) => {
     const current = getFileMapping(fileId);
     const existing = getExistingMapping(fileId);
-    const existingType: FileMapping["mappingType"] = existing
-      ? existing.mapping_type === "series"
-        ? "series"
-        : "movie"
-      : "movie";
+    const existingType: FileMapping['mappingType'] = existing
+      ? existing.mapping_type === 'series'
+        ? 'series'
+        : 'movie'
+      : 'movie';
     const existingSeason =
-      existing && existing.mapping_type === "series"
-        ? existing.season
-        : undefined;
+      existing && existing.mapping_type === 'series' ? existing.season : undefined;
     const existingEpisode =
-      existing && existing.mapping_type === "series"
-        ? existing.episode
-        : undefined;
+      existing && existing.mapping_type === 'series' ? existing.episode : undefined;
 
     if (!current) return false;
     if (!existing && !current.requestId) return false;
     if (!existing && current.requestId) return true;
 
     return (
-      current.requestId !== (existing?.request_id || "") ||
-      current.requestTitle !== (existing?.request_title || "") ||
+      current.requestId !== (existing?.request_id || '') ||
+      current.requestTitle !== (existing?.request_title || '') ||
       current.mappingType !== existingType ||
       current.season !== existingSeason ||
       current.episode !== existingEpisode
@@ -449,8 +436,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           </Flex>
 
           <Flex
-            align={{ base: "flex-start", md: "center" }}
-            direction={{ base: "column", md: "row" }}
+            align={{ base: 'flex-start', md: 'center' }}
+            direction={{ base: 'column', md: 'row' }}
             gap={3}
             wrap="wrap"
           >
@@ -494,17 +481,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       )}
 
       {showRequestsLoading && (
-        <Alert
-          status="info"
-          variant="subtle"
-          borderRadius="md"
-          alignItems="center"
-          gap={3}
-        >
+        <Alert status="info" variant="subtle" borderRadius="md" alignItems="center" gap={3}>
           <Spinner size="sm" color="blue.400" />
-          <AlertDescription fontSize="sm">
-            Loading available requests...
-          </AlertDescription>
+          <AlertDescription fontSize="sm">Loading available requests...</AlertDescription>
         </Alert>
       )}
 
@@ -518,9 +497,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         >
           <Flex align="center" gap={2} w="full">
             <AlertIcon />
-            <AlertDescription fontSize="sm">
-              {requestsErrorMessage}
-            </AlertDescription>
+            <AlertDescription fontSize="sm">{requestsErrorMessage}</AlertDescription>
           </Flex>
           <Button size="xs" onClick={() => refetchRequests()}>
             Retry loading requests
@@ -532,8 +509,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         <Alert status="warning" variant="subtle" borderRadius="md">
           <AlertIcon />
           <AlertDescription fontSize="sm">
-            No requests are available yet. Mapping options will appear once
-            requests finish loading.
+            No requests are available yet. Mapping options will appear once requests finish loading.
           </AlertDescription>
         </Alert>
       )}
@@ -558,7 +534,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             <Text fontSize="3xl">📁</Text>
             <Heading size="sm">No files to map</Heading>
             <Text fontSize="sm" color="text.subtle" textAlign="center">
-              No {showOnlyVideo ? "video " : ""}files available for mapping.
+              No {showOnlyVideo ? 'video ' : ''}files available for mapping.
             </Text>
           </VStack>
         ) : (
@@ -566,36 +542,29 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             const mapping = getFileMapping(file.id);
             const existing = getExistingMapping(file.id);
             const changed = hasChanges(file.id);
-            const existingType: FileMapping["mappingType"] = existing
-              ? existing.mapping_type === "series"
-                ? "series"
-                : "movie"
-              : "movie";
-            const existingTypeLabel =
-              existingType === "series" ? "Series" : "Movie";
+            const existingType: FileMapping['mappingType'] = existing
+              ? existing.mapping_type === 'series'
+                ? 'series'
+                : 'movie'
+              : 'movie';
+            const existingTypeLabel = existingType === 'series' ? 'Series' : 'Movie';
             const existingSeason =
-              existing && existing.mapping_type === "series"
-                ? existing.season
-                : undefined;
+              existing && existing.mapping_type === 'series' ? existing.season : undefined;
             const existingEpisode =
-              existing && existing.mapping_type === "series"
-                ? existing.episode
-                : undefined;
+              existing && existing.mapping_type === 'series' ? existing.episode : undefined;
 
             return (
               <Box
                 key={file.id}
                 borderWidth="1px"
                 borderRadius="lg"
-                borderColor={existing ? "blue.400" : "border.muted"}
-                bg={existing ? "rgba(59, 130, 246, 0.14)" : "bg.subtle"}
+                borderColor={existing ? 'blue.400' : 'border.muted'}
+                bg={existing ? 'rgba(59, 130, 246, 0.14)' : 'bg.subtle'}
                 p={4}
               >
                 <Stack spacing={3}>
                   <Flex align="center" gap={3} wrap="wrap">
-                    <Text fontSize="lg">
-                      {isVideoFile(file.name) ? "🎬" : "📄"}
-                    </Text>
+                    <Text fontSize="lg">{isVideoFile(file.name) ? '🎬' : '📄'}</Text>
                     <Text fontWeight="600" noOfLines={1} flex={1} minW={0}>
                       {file.name}
                     </Text>
@@ -619,11 +588,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                       Current: {existing.request_title} ({existingTypeLabel})
                       {existingSeason !== undefined &&
                         existingEpisode !== undefined &&
-                        ` - S${existingSeason
+                        ` - S${existingSeason.toString().padStart(2, '0')}E${existingEpisode
                           .toString()
-                          .padStart(2, "0")}E${existingEpisode
-                          .toString()
-                          .padStart(2, "0")}`}
+                          .padStart(2, '0')}`}
                     </Text>
                   )}
 
@@ -631,8 +598,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                     <Stack spacing={3}>
                       <Grid
                         templateColumns={{
-                          base: "repeat(1, minmax(0, 1fr))",
-                          md: "repeat(2, minmax(0, 1fr))",
+                          base: 'repeat(1, minmax(0, 1fr))',
+                          md: 'repeat(2, minmax(0, 1fr))',
                         }}
                         gap={3}
                       >
@@ -651,11 +618,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             size="sm"
                             isDisabled={disableRequestSelection}
                             onChange={(e) =>
-                              handleMappingChange(
-                                file.id,
-                                "requestId",
-                                e.target.value
-                              )
+                              handleMappingChange(file.id, 'requestId', e.target.value)
                             }
                           >
                             {movieRequests.length > 0 && (
@@ -694,8 +657,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             onChange={(e) =>
                               handleMappingChange(
                                 file.id,
-                                "mappingType",
-                                e.target.value as FileMapping["mappingType"]
+                                'mappingType',
+                                e.target.value as FileMapping['mappingType'],
                               )
                             }
                           >
@@ -705,11 +668,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                         </Box>
                       </Grid>
 
-                      {mapping.mappingType === "series" && (
-                        <Grid
-                          templateColumns="repeat(2, minmax(0, 1fr))"
-                          gap={3}
-                        >
+                      {mapping.mappingType === 'series' && (
+                        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
                           <Box>
                             <Text
                               fontSize="xs"
@@ -723,17 +683,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                               type="number"
                               min={1}
                               max={99}
-                              value={mapping.season ?? ""}
+                              value={mapping.season ?? ''}
                               placeholder="e.g. 2"
                               size="sm"
                               isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
-                                  "season",
-                                  e.target.value
-                                    ? parseInt(e.target.value, 10)
-                                    : undefined
+                                  'season',
+                                  e.target.value ? parseInt(e.target.value, 10) : undefined,
                                 )
                               }
                             />
@@ -751,17 +709,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                               type="number"
                               min={1}
                               max={999}
-                              value={mapping.episode ?? ""}
+                              value={mapping.episode ?? ''}
                               placeholder="e.g. 5"
                               size="sm"
                               isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
-                                  "episode",
-                                  e.target.value
-                                    ? parseInt(e.target.value, 10)
-                                    : undefined
+                                  'episode',
+                                  e.target.value ? parseInt(e.target.value, 10) : undefined,
                                 )
                               }
                             />
@@ -776,11 +732,9 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                       {existing.request_title} ({existingTypeLabel})
                       {existingSeason !== undefined &&
                         existingEpisode !== undefined &&
-                        ` - S${existingSeason
+                        ` - S${existingSeason.toString().padStart(2, '0')}E${existingEpisode
                           .toString()
-                          .padStart(2, "0")}E${existingEpisode
-                          .toString()
-                          .padStart(2, "0")}`}
+                          .padStart(2, '0')}`}
                     </Text>
                   )}
 
@@ -789,18 +743,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                       <Button
                         size="sm"
                         colorScheme="blue"
-                        variant={
-                          changed && mapping?.requestId ? "solid" : "outline"
-                        }
+                        variant={changed && mapping?.requestId ? 'solid' : 'outline'}
                         onClick={() => handleSaveMapping(file.id)}
-                        isDisabled={
-                          isSaving ||
-                          !changed ||
-                          !mapping?.requestId ||
-                          requestsLoading
-                        }
+                        isDisabled={isSaving || !changed || !mapping?.requestId || requestsLoading}
                       >
-                        {isSaving ? "Saving..." : "Save"}
+                        {isSaving ? 'Saving...' : 'Save'}
                       </Button>
                       {mapping?.requestId && (
                         <Button
@@ -823,46 +770,37 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
       {!readonly && displayFiles.length > 0 && (
         <Flex
-          direction={{ base: "column", md: "row" }}
+          direction={{ base: 'column', md: 'row' }}
           justify="space-between"
-          align={{ base: "flex-start", md: "center" }}
+          align={{ base: 'flex-start', md: 'center' }}
           gap={3}
           pt={4}
           borderTopWidth="1px"
           borderTopColor="border.muted"
         >
           <Text fontSize="sm" color="text.subtle">
-            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved
-            changes
+            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved changes
           </Text>
           <Button
             onClick={handleSaveAllMappings}
             size="sm"
             colorScheme="blue"
-            variant={
-              mappings.some((m) => hasChanges(m.fileId)) ? "solid" : "outline"
-            }
-            isDisabled={
-              isSaving ||
-              !mappings.some((m) => hasChanges(m.fileId)) ||
-              requestsLoading
-            }
+            variant={mappings.some((m) => hasChanges(m.fileId)) ? 'solid' : 'outline'}
+            isDisabled={isSaving || !mappings.some((m) => hasChanges(m.fileId)) || requestsLoading}
           >
-            {isSaving ? "Saving All..." : "Save All Changes"}
+            {isSaving ? 'Saving All...' : 'Save All Changes'}
           </Button>
         </Flex>
       )}
 
       {!showOnlyVideo && (
         <Text fontSize="sm" color="text.subtle">
-          File types: {video.length} video, {subtitle.length} subtitle,{" "}
-          {other.length} other
+          File types: {video.length} video, {subtitle.length} subtitle, {other.length} other
         </Text>
       )}
 
       <Text fontSize="sm" color="text.subtle">
-        Available requests: {movieRequests.length} movies,{" "}
-        {seriesRequests.length} series
+        Available requests: {movieRequests.length} movies, {seriesRequests.length} series
       </Text>
     </Stack>
   );
