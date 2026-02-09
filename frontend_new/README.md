@@ -45,6 +45,7 @@ This spins up the Express/MSW mock service on `http://localhost:8001/api` and th
 - `npm run preview` – preview the production build locally
 - `npm run lint` – ESLint (type-aware) pass with React/Chakra rules
 - `npm run format` – Prettier formatting for the entire workspace
+- `npm run codegen` – regenerate Zod schemas and typed clients from `openapi.yaml`
 
 ## Project Structure
 
@@ -72,6 +73,7 @@ src/
 ## Architecture Notes
 
 - Absolute imports are available via the `@/` alias (configured in `tsconfig.json` and `vite.config.ts`), keeping feature modules decoupled from relative path chains.
+- `npm run codegen` regenerates the `src/generated/releasarr.ts` client and schemas from `openapi.yaml`; `src/types/index.ts` re-exports these schemas and inferred types for the rest of the app.
 - `RequestsProvider` and `ReleasesProvider` expose cached collections, fetch helpers, and imperative actions to every component via context.
 - `services/api.ts` wraps the REST API with structured errors, timeout/abort support, and convenience helpers used by hooks.
 - Release search, manual actions, and logs share the same data caches so updates propagate instantly across cards, modals, and detail views.

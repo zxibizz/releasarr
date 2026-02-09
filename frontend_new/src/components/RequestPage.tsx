@@ -35,8 +35,7 @@ import { useRequestLogs } from '@/features/requests/useRequestLogs';
 import { useRequestQuery } from '@/hooks/useRequests';
 import { releasesKeys } from '@/lib/queryKeys';
 import { logLevelStyles } from '@/theme/statusStyles';
-import type { Release } from '@/types';
-import type { RequestLogEntry } from '@/types/logs';
+import type { Release, RequestLogEntry } from '@/types';
 
 import { MediaInfo } from './MediaInfo';
 import ReleaseFilesModal from './ReleaseFilesModal';
