@@ -34,7 +34,7 @@ const tsBase = {
 
 export default [
   {
-    ignores: ['dist', 'build', 'coverage', 'node_modules'],
+    ignores: ['dist', 'build', 'coverage', 'node_modules', 'src/generated/**/*'],
   },
   tsBase,
   ...tsRecommendedConfigs,

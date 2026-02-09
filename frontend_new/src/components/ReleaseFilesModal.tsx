@@ -50,15 +50,15 @@ const ReleaseFilesModal: React.FC<ReleaseFilesModalProps> = ({
     });
   }, [release]);
 
-  const defaultMappingRequest = useMemo(
-    () => ({
+  const defaultMappingRequest = useMemo(() => {
+    const isSeries = currentRequest.type === 'series';
+    return {
       id: currentRequest.id,
       title: currentRequest.title,
-      type: currentRequest.type,
-      season_number: currentRequest.type === 'series' ? currentRequest.season_number : undefined,
-    }),
-    [currentRequest],
-  );
+      type: isSeries ? 'series' : 'movie',
+      season_number: isSeries ? currentRequest.season_number : undefined,
+    } as const;
+  }, [currentRequest]);
 
   const activeRelease = localRelease;
 

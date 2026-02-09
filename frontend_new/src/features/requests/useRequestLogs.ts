@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { fetchRequestLogs } from '@/services/requestLogs';
-import type { RequestLogEntry } from '@/types/logs';
+import type { RequestLogEntry } from '@/types';
 
 type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
 

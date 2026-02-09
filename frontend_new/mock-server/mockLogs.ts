@@ -1,5 +1,4 @@
-import type { MediaRequest } from '../src/types';
-import type { RequestLogEntry } from '../src/types/logs';
+import type { MediaRequest, RequestLogEntry } from '../src/types';
 
 const formatTimestamp = (date: Date) =>
   date.toLocaleString(undefined, {
@@ -21,9 +20,9 @@ const buildLog = (
 ): RequestLogEntry => {
   const occurredAtDate = minutesAgo(baseDate, minutes);
   return {
+    ...entry,
     occurredAt: occurredAtDate.getTime(),
     timestamp: formatTimestamp(occurredAtDate),
-    ...entry,
   };
 };
 
