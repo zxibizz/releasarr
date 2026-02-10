@@ -19,7 +19,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { FileRequestMapping as FileRequestMappingType, MediaRequest, Release } from '@/types';
 
-import FileRequestMapping from './FileRequestMapping';
+import FileRequestMapping from './components/FileRequestMapping';
 
 interface ReleaseFilesModalProps {
   isOpen: boolean;

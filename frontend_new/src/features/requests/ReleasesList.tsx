@@ -20,7 +20,7 @@ import { fetchRequest } from '@/services/api';
 import type { MediaRequest, Release } from '@/types';
 import { sortReleasesByStatus } from '@/utils/releaseHelpers';
 
-import ReleaseCard from './ReleaseCard';
+import ReleaseCard from './components/ReleaseCard';
 
 interface ReleasesListProps {
   requestId: string;
