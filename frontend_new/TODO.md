@@ -9,7 +9,7 @@
   - [x] Generate TypeScript/zod clients from `openapi.yaml` (e.g. with `openapi-typescript` + `orval`/`zodios`) instead of hand-maintaining schemas in `src/types`.
 
 - Architecture & State Management
-  - Split `RequestPage` into feature-scoped subcomponents/hooks (detail header, actions, releases, logs, manual search) to reduce the 500+ line monolith and isolate concerns.
+  - [x] Split `RequestPage` into feature-scoped subcomponents/hooks (detail header, actions, releases, logs, manual search) to reduce the 500+ line monolith and isolate concerns.
   - Convert imperative `useState` clusters on the request detail into a reducer or state machine (XState/Zustand) so manual search and toast lifecycles stay predictable.
   - Co-locate TanStack Query keys and selectors per feature folder, expose typed service layers, and add query/mutation helpers (retry, optimistic updates).
   - Refactor release/request helpers to remove duplicated status/icon utilities and move view logic behind headless presenters.
