@@ -19,6 +19,7 @@ import React, { useMemo, useState } from 'react';
 
 import { useRequestsList } from '@/hooks/useRequests';
 import type { MediaRequest } from '@/types';
+import { getApiErrorInfo } from '@/utils/errors';
 
 import { RequestCard } from './RequestCard';
 
@@ -53,8 +54,12 @@ export const RequestsList: React.FC = () => {
 
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList(requestFilters);
 
-  const errorMessage =
-    error instanceof Error ? error.message : error ? 'Failed to load requests' : null;
+  const errorInfo = error
+    ? getApiErrorInfo(error, {
+        title: 'Unable to load requests',
+        description: 'We could not retrieve the latest requests from the server.',
+      })
+    : null;
 
   const showLoadingState = (isLoading || isFetching) && requests.length === 0;
 
@@ -71,7 +76,7 @@ export const RequestsList: React.FC = () => {
     );
   }
 
-  if (errorMessage) {
+  if (errorInfo) {
     return (
       <Alert
         status="error"
@@ -84,8 +89,15 @@ export const RequestsList: React.FC = () => {
       >
         <AlertIcon />
         <Box>
-          <AlertTitle fontSize="lg">Error loading requests</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
+          <AlertTitle fontSize="lg">{errorInfo.title ?? 'Error loading requests'}</AlertTitle>
+          <AlertDescription>
+            {errorInfo.description}
+            {errorInfo.details && (
+              <Text mt={2} fontSize="xs" color="text.subtle" whiteSpace="pre-wrap">
+                {errorInfo.details}
+              </Text>
+            )}
+          </AlertDescription>
         </Box>
         <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
           Try Again

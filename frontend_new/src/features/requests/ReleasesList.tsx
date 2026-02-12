@@ -16,8 +16,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useReleaseOperations } from '@/features/releases/useReleaseOperations';
 import { useReleasesByRequestQuery } from '@/hooks/useReleases';
-import { fetchRequest } from '@/services/api';
+import { fetchRequestsSummary } from '@/services/api';
 import type { MediaRequest, Release } from '@/types';
+import { getApiErrorInfo } from '@/utils/errors';
 import { sortReleasesByStatus } from '@/utils/releaseHelpers';
 
 import ReleaseCard from './components/ReleaseCard';
@@ -85,36 +86,15 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     let cancelled = false;
 
     const loadSummaries = async () => {
-      const results = await Promise.all(
-        missingIds.map(async (id) => {
-          try {
-            const request = await fetchRequest(id);
-            return {
-              id: request.id,
-              title: request.title,
-              year: request.year,
-              type: request.type,
-            } as RequestSummary;
-          } catch (fetchError) {
-            console.error('Failed to fetch related request', id, fetchError);
-            return null;
-          }
-        }),
-      );
-
-      if (cancelled) {
-        return;
+      try {
+        const summaries = await fetchRequestsSummary(missingIds);
+        if (cancelled) {
+          return;
+        }
+        setRequestSummaries((prev) => ({ ...prev, ...summaries }));
+      } catch (fetchError) {
+        console.error('Failed to fetch request summaries', fetchError);
       }
-
-      setRequestSummaries((prev) => {
-        const next = { ...prev };
-        results.forEach((summary) => {
-          if (summary) {
-            next[summary.id] = summary;
-          }
-        });
-        return next;
-      });
     };
 
     loadSummaries();
@@ -148,8 +128,12 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     [onResumeRelease, resumeRelease],
   );
 
-  const errorMessage =
-    error instanceof Error ? error.message : error ? 'Failed to load releases' : null;
+  const errorInfo = error
+    ? getApiErrorInfo(error, {
+        title: 'Unable to load releases',
+        description: 'We could not retrieve releases for this request.',
+      })
+    : null;
 
   const showLoadingState = (isLoading || isFetching) && releases.length === 0;
 
@@ -162,7 +146,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
     );
   }
 
-  if (errorMessage) {
+  if (errorInfo) {
     return (
       <Alert
         status="error"
@@ -175,8 +159,15 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
       >
         <AlertIcon />
         <Box>
-          <AlertTitle fontSize="lg">Error loading releases</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
+          <AlertTitle fontSize="lg">{errorInfo.title ?? 'Error loading releases'}</AlertTitle>
+          <AlertDescription>
+            {errorInfo.description}
+            {errorInfo.details && (
+              <Text mt={2} fontSize="xs" color="text.subtle" whiteSpace="pre-wrap">
+                {errorInfo.details}
+              </Text>
+            )}
+          </AlertDescription>
         </Box>
         <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
           Try Again
