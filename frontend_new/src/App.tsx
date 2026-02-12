@@ -1,16 +1,5 @@
 import { Box, Container, HStack, Link as ChakraLink } from '@chakra-ui/react';
-import {
-  Route,
-  BrowserRouter as Router,
-  Routes,
-  useLocation,
-  Link as RouterLink,
-  Outlet,
-} from 'react-router-dom';
-
-import { NotFound } from '@/components/NotFound';
-import { RequestsList } from '@/components/RequestsList';
-import { RequestPage } from '@/features/requests/RequestPage';
+import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 
 function Navigation() {
   const location = useLocation();
@@ -82,31 +71,15 @@ function Navigation() {
   );
 }
 
-function Layout() {
+export function AppLayout() {
   return (
-    <>
+    <Box minH="100vh">
       <Navigation />
       <Container as="main" maxW="6xl" py={{ base: 6, md: 10 }}>
         <Outlet />
       </Container>
-    </>
-  );
-}
-
-function App() {
-  return (
-    <Box minH="100vh">
-      <Router>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<RequestsList />} />
-            <Route path="request/:id" element={<RequestPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </Router>
     </Box>
   );
 }
 
-export default App;
+export default AppLayout;

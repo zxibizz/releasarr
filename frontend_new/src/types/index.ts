@@ -34,6 +34,10 @@ export type MediaRequest = MediaRequests;
 
 export const requestsResponseSchema = schemas.RequestsResponse;
 export type RequestsResponse = Schemas['RequestsResponse'];
+export type RequestsSummaryResponse = Record<
+  string,
+  Pick<MediaRequest, 'id' | 'title' | 'year' | 'type'>
+>;
 
 export const mediaRequestUpdateSchema = schemas.MediaRequestUpdate;
 export type MediaRequestUpdate = Schemas['MediaRequestUpdate'];

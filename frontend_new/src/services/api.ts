@@ -5,13 +5,14 @@ import type {
   DownloadReleaseResponse,
   LogsResponse,
   MediaRequest,
+  RequestsSummaryResponse,
   Release,
   ReleaseDownloadRequest,
   ReleaseFileMappingInput,
   ReleaseSearchResponse,
   ReleasesResponse,
-  RequestsResponse,
   RequestLogEntry,
+  RequestsResponse,
 } from '@/types';
 import {
   asyncOperationResponseSchema,
@@ -127,6 +128,7 @@ const isAbortError = (error: unknown): boolean => {
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8001/api';
+const REQUEST_SUMMARY_BATCH_LIMIT = 50;
 
 class ApiClient {
   private baseUrl: string;
@@ -420,6 +422,36 @@ class ApiClient {
     return response.logs;
   }
 
+  async getRequestsSummary(ids: string[]): Promise<RequestsSummaryResponse> {
+    if (ids.length === 0) {
+      return {};
+    }
+
+    const uniqueIds = [...new Set(ids)].slice(0, REQUEST_SUMMARY_BATCH_LIMIT);
+    const response = (await this.request<Record<string, MediaRequest | undefined>>(
+      `/requests/summary`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ ids: uniqueIds }),
+      },
+    )) ?? {};
+
+    const summary: RequestsSummaryResponse = {};
+    uniqueIds.forEach((id) => {
+      const value = response[id];
+      if (value) {
+        summary[id] = {
+          id: value.id,
+          title: value.title,
+          year: value.year,
+          type: value.type,
+        };
+      }
+    });
+
+    return summary;
+  }
+
   async updateReleaseFileMappings(
     releaseId: string,
     mappings: ReleaseFileMappingInput[],
@@ -489,6 +521,7 @@ export const fetchRelease = (id: string) => apiClient.getRelease(id);
 export const fetchReleasesByRequest = (requestId: string) =>
   apiClient.getReleasesByRequest(requestId);
 export const fetchReleasesByStatus = (status: string) => apiClient.getReleasesByStatus(status);
+export const fetchRequestsSummary = (ids: string[]) => apiClient.getRequestsSummary(ids);
 export const updateReleaseFileMappings = (releaseId: string, mappings: ReleaseFileMappingInput[]) =>
   apiClient.updateReleaseFileMappings(releaseId, mappings);
 export const pauseRelease = (id: string) => apiClient.pauseRelease(id);
