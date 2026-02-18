@@ -21,7 +21,7 @@
 
 - UI/UX Enhancements
   - [x] Persist filters/search params for `RequestsList` in the URL, add search, sort toggles, and quick stats (counts per status/type).
-  - [ ] Replace bare spinners with Chakra skeletons/empty states across remaining views, and introduce background refresh indicators on lists beyond `RequestsList`.
+  - [x] Replace bare spinners with Chakra skeletons/empty states across remaining views, and introduce background refresh indicators on lists beyond `RequestsList`.
   - Improve accessibility: revisit semantic tokens for contrast ratios, add focus outlines, aria labels, and keyboard flows in modals & mapping forms.
   - Enrich release cards with activity timelines (added/completed) and health badges derived from speed/seeders.
 

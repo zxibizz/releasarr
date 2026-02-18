@@ -4,8 +4,8 @@ import {
   AlertIcon,
   Badge,
   Button,
-  Center,
   Flex,
+  HStack,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -14,6 +14,8 @@ import {
   ModalHeader,
   ModalOverlay,
   SimpleGrid,
+  Skeleton,
+  SkeletonText,
   Spinner,
   Stack,
   StackDivider,
@@ -52,15 +54,24 @@ export function RequestLogsModal({
       <ModalHeader>Logs for {requestTitle}</ModalHeader>
       <ModalCloseButton />
       <ModalBody maxH="60vh" overflowY="auto">
-        {isLoading ? (
-          <Center py={8}>
-            <Stack spacing={3} align="center">
-              <Spinner color="brand.400" />
-              <Text color="text.subtle" fontSize="sm">
-                Loading logs...
-              </Text>
-            </Stack>
-          </Center>
+        {isLoading && logs.length === 0 ? (
+          <Stack spacing={4}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Stack
+                key={`log-skeleton-${index}`}
+                borderWidth="1px"
+                borderRadius="lg"
+                borderColor="border.muted"
+                bg="bg.subtle"
+                p={4}
+                spacing={3}
+              >
+                <Skeleton height="16px" width="40%" borderRadius="md" />
+                <SkeletonText noOfLines={2} spacing="2" skeletonHeight="12px" />
+                <Skeleton height="18px" width="30%" borderRadius="md" />
+              </Stack>
+            ))}
+          </Stack>
         ) : error ? (
           <Alert status="error" variant="left-accent" borderRadius="md">
             <AlertIcon />
@@ -70,6 +81,12 @@ export function RequestLogsModal({
           <Text color="text.subtle">No logs available for this request.</Text>
         ) : (
           <Stack spacing={4} divider={<StackDivider borderColor="border.muted" />}>
+            {isLoading && logs.length > 0 && (
+              <HStack spacing={2} color="text.subtle" fontSize="sm">
+                <Spinner size="sm" />
+                <Text>Refreshing logs…</Text>
+              </HStack>
+            )}
             {logs.map((log) => {
               const isExpanded = expandedStacks[log.id];
               return (
