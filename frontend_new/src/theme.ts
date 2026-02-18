@@ -5,6 +5,8 @@ const config: ThemeConfig = {
   useSystemColorMode: false,
 };
 
+const focusRingShadow = '0 0 0 3px rgba(56, 189, 248, 0.65)';
+
 const theme = extendTheme({
   config,
   fonts: {
@@ -15,11 +17,14 @@ const theme = extendTheme({
   semanticTokens: {
     colors: {
       'bg.canvas': '#0b1220',
-      'bg.surface': 'rgba(30, 41, 59, 0.82)',
-      'bg.subtle': 'rgba(71, 85, 105, 0.35)',
-      'border.muted': 'rgba(148, 163, 184, 0.12)',
-      'text.subtle': '#94a3b8',
-      'text.muted': '#64748b',
+      'bg.surface': 'rgba(30, 41, 59, 0.9)',
+      'bg.subtle': 'rgba(51, 65, 85, 0.6)',
+      'border.muted': 'rgba(148, 163, 184, 0.22)',
+      'text.default': '#e2e8f0',
+      'text.subtle': '#c7d2fe',
+      'text.muted': '#94a3b8',
+      'focus.ring': '#38bdf8',
+      'focus.border': 'rgba(56, 189, 248, 0.75)',
       'status.pending.bg': 'rgba(250, 204, 21, 0.18)',
       'status.pending.fg': '#FACC15',
       'status.pending.border': 'rgba(250, 204, 21, 0.4)',
@@ -49,6 +54,65 @@ const theme = extendTheme({
       'status.error.border': 'rgba(248, 113, 113, 0.4)',
     },
   },
+  shadows: {
+    outline: focusRingShadow,
+    focusRing: focusRingShadow,
+  },
+  components: {
+    Button: {
+      baseStyle: {
+        _focusVisible: {
+          boxShadow: 'focusRing',
+          outline: 'none',
+        },
+      },
+    },
+    IconButton: {
+      baseStyle: {
+        _focusVisible: {
+          boxShadow: 'focusRing',
+          outline: 'none',
+        },
+      },
+    },
+    Input: {
+      baseStyle: {
+        field: {
+          _focusVisible: {
+            borderColor: 'focus.ring',
+            boxShadow: '0 0 0 1px var(--chakra-colors-focus-ring)',
+          },
+        },
+      },
+    },
+    Select: {
+      baseStyle: {
+        field: {
+          _focusVisible: {
+            borderColor: 'focus.ring',
+            boxShadow: '0 0 0 1px var(--chakra-colors-focus-ring)',
+          },
+        },
+      },
+    },
+    Link: {
+      baseStyle: {
+        _focusVisible: {
+          boxShadow: 'focusRing',
+          outline: 'none',
+        },
+      },
+    },
+    Checkbox: {
+      baseStyle: {
+        control: {
+          _focusVisible: {
+            boxShadow: 'focusRing',
+          },
+        },
+      },
+    },
+  },
   styles: {
     global: {
       'html, body, #root': {
@@ -56,12 +120,19 @@ const theme = extendTheme({
       },
       body: {
         bgGradient: 'linear(135deg, #0f172a 0%, #1e293b 100%)',
-        color: 'gray.100',
+        color: 'text.default',
         minHeight: '100vh',
         lineHeight: '1.6',
         fontFamily: 'body',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
+      },
+      '*:focus:not(:focus-visible)': {
+        boxShadow: 'none !important',
+      },
+      '*:focus-visible': {
+        outline: 'none',
+        boxShadow: 'focusRing !important',
       },
       code: {
         fontFamily: 'mono',

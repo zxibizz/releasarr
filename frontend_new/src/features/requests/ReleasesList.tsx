@@ -217,7 +217,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   return (
     <Stack spacing={6}>
       {isBackgroundRefreshing && (
-        <HStack spacing={2} color="text.subtle" fontSize="sm">
+        <HStack spacing={2} color="text.subtle" fontSize="sm" role="status">
           <Spinner size="sm" />
           <Text>Refreshing releases…</Text>
         </HStack>

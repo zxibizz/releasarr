@@ -1,4 +1,5 @@
 import { Box, Container, HStack, Link as ChakraLink } from '@chakra-ui/react';
+import React, { useEffect } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 
 function Navigation() {
@@ -72,6 +73,12 @@ function Navigation() {
 }
 
 export function AppLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
+
   return (
     <Box minH="100vh">
       <Navigation />

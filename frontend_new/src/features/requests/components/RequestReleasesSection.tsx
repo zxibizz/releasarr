@@ -1,4 +1,4 @@
-import { Card, Stack, Text } from '@chakra-ui/react';
+import { Stack, Text } from '@chakra-ui/react';
 
 import ReleasesList from '@/features/requests/ReleasesList';
 import type { MediaRequest, Release } from '@/types';
@@ -17,8 +17,8 @@ export function RequestReleasesSection({
   onViewFiles,
 }: RequestReleasesSectionProps) {
   return (
-    <Card p={{ base: 5, md: 6 }} display={hasExistingReleases ? 'block' : 'none'}>
-      <Stack spacing={4}>
+    <Stack spacing={4} w="100%">
+      {hasExistingReleases && (
         <Stack spacing={1}>
           <Text as="h2" fontSize="lg" fontWeight="700">
             📦 Releases
@@ -27,14 +27,14 @@ export function RequestReleasesSection({
             Releases linked to this request
           </Text>
         </Stack>
+      )}
 
-        <ReleasesList
-          requestId={request.id}
-          onViewFiles={onViewFiles}
-          onReleasesLoaded={onReleasesLoaded}
-          hideEmptyState
-        />
-      </Stack>
-    </Card>
+      <ReleasesList
+        requestId={request.id}
+        onViewFiles={onViewFiles}
+        onReleasesLoaded={onReleasesLoaded}
+        hideEmptyState={!hasExistingReleases}
+      />
+    </Stack>
   );
 }
