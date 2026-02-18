@@ -15,6 +15,7 @@ import {
   Stack,
   Tag,
   Text,
+  VisuallyHidden,
   useToast,
 } from '@chakra-ui/react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -130,15 +131,24 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
 
         <Box as="form" onSubmit={handleSubmit}>
           <Flex direction={{ base: 'column', md: 'row' }} gap={3}>
+            <VisuallyHidden id="release-search-instructions">
+              Enter a title or identifier and press the search button to fetch release candidates.
+            </VisuallyHidden>
             <Input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search release sources for "${requestTitle}"...`}
               size="md"
+              aria-label={`Search releases for ${requestTitle}`}
+              aria-describedby="release-search-instructions"
             />
             <Flex gap={2}>
-              <Button type="submit" isDisabled={!query.trim() || searchState.loading}>
+              <Button
+                type="submit"
+                isDisabled={!query.trim() || searchState.loading}
+                aria-label="Run release search"
+              >
                 {searchState.loading ? 'Searching...' : 'Search'}
               </Button>
               {(query || searchState.results.length > 0) && (
@@ -151,7 +161,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         </Box>
 
         {searchState.loading && searchState.results.length === 0 && (
-          <Stack spacing={3}>
+          <Stack spacing={3} role="status" aria-live="polite">
             {Array.from({ length: 3 }).map((_, index) => (
               <Stack
                 key={`search-skeleton-${index}`}
@@ -178,7 +188,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
         )}
 
         {searchState.results.length > 0 && (
-          <Stack spacing={4}>
+          <Stack spacing={4} aria-live="polite" aria-busy={searchState.loading}>
             <Flex
               justify="space-between"
               align={{ base: 'flex-start', md: 'center' }}
@@ -186,7 +196,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               gap={2}
             >
               <Heading size="sm">Search Results</Heading>
-              <HStack spacing={2} color="text.subtle" fontSize="sm" align="center">
+              <HStack spacing={2} color="text.subtle" fontSize="sm" align="center" role="status">
                 <Text>
                   {searchState.results.length} results for "{searchState.query}"
                 </Text>
@@ -289,6 +299,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                       isDisabled={
                         !!downloadingCandidateId && downloadingCandidateId !== candidate.release_id
                       }
+                      aria-label={`Queue download for ${candidate.release_name}`}
                     >
                       Download
                     </Button>

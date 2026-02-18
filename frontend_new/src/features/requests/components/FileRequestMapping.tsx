@@ -16,6 +16,8 @@ import {
   Text,
   VStack,
   useToast,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -441,22 +443,21 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
             gap={3}
             wrap="wrap"
           >
-            <Text fontWeight="600" fontSize="sm">
-              Bulk assign to request:
-            </Text>
-            <Select
-              placeholder={requestPlaceholder}
-              value={selectedRequest}
-              onChange={(e) => {
-                setSelectedRequest(e.target.value);
-                if (e.target.value) {
-                  handleBulkRequestUpdate(e.target.value);
-                }
-              }}
-              maxW="320px"
-              size="sm"
-              isDisabled={disableRequestSelection}
-            >
+            <FormControl maxW="320px" isDisabled={disableRequestSelection}>
+              <FormLabel fontSize="sm" fontWeight="600">
+                Bulk assign to request
+              </FormLabel>
+              <Select
+                placeholder={requestPlaceholder}
+                value={selectedRequest}
+                onChange={(e) => {
+                  setSelectedRequest(e.target.value);
+                  if (e.target.value) {
+                    handleBulkRequestUpdate(e.target.value);
+                  }
+                }}
+                size="sm"
+              >
               {movieRequests.length > 0 && (
                 <optgroup label="Movies">
                   {movieRequests.map((request) => (
@@ -475,7 +476,8 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                   ))}
                 </optgroup>
               )}
-            </Select>
+              </Select>
+            </FormControl>
           </Flex>
         </Stack>
       )}
@@ -603,15 +605,10 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                         }}
                         gap={3}
                       >
-                        <Box>
-                          <Text
-                            fontSize="xs"
-                            fontWeight="600"
-                            textTransform="uppercase"
-                            color="text.subtle"
-                          >
+                        <FormControl>
+                          <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                             Request
-                          </Text>
+                          </FormLabel>
                           <Select
                             placeholder={requestPlaceholder}
                             value={mapping.requestId}
@@ -640,17 +637,12 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                               </optgroup>
                             )}
                           </Select>
-                        </Box>
+                        </FormControl>
 
-                        <Box>
-                          <Text
-                            fontSize="xs"
-                            fontWeight="600"
-                            textTransform="uppercase"
-                            color="text.subtle"
-                          >
+                        <FormControl>
+                          <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                             Mapping Type
-                          </Text>
+                          </FormLabel>
                           <Select
                             value={mapping.mappingType}
                             size="sm"
@@ -665,20 +657,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                             <option value="movie">Movie</option>
                             <option value="series">Series</option>
                           </Select>
-                        </Box>
+                        </FormControl>
                       </Grid>
 
                       {mapping.mappingType === 'series' && (
                         <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
-                          <Box>
-                            <Text
-                              fontSize="xs"
-                              fontWeight="600"
-                              textTransform="uppercase"
-                              color="text.subtle"
-                            >
+                          <FormControl isRequired>
+                            <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                               Season
-                            </Text>
+                            </FormLabel>
                             <Input
                               type="number"
                               min={1}
@@ -686,7 +673,6 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                               value={mapping.season ?? ''}
                               placeholder="e.g. 2"
                               size="sm"
-                              isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
@@ -695,16 +681,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                                 )
                               }
                             />
-                          </Box>
-                          <Box>
-                            <Text
-                              fontSize="xs"
-                              fontWeight="600"
-                              textTransform="uppercase"
-                              color="text.subtle"
-                            >
+                          </FormControl>
+                          <FormControl isRequired>
+                            <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                               Episode
-                            </Text>
+                            </FormLabel>
                             <Input
                               type="number"
                               min={1}
@@ -712,7 +693,6 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                               value={mapping.episode ?? ''}
                               placeholder="e.g. 5"
                               size="sm"
-                              isRequired
                               onChange={(e) =>
                                 handleMappingChange(
                                   file.id,
@@ -721,7 +701,7 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                                 )
                               }
                             />
-                          </Box>
+                          </FormControl>
                         </Grid>
                       )}
                     </Stack>

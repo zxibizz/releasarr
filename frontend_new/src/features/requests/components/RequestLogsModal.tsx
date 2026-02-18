@@ -53,9 +53,9 @@ export function RequestLogsModal({
     <ModalContent maxW="4xl" w="full">
       <ModalHeader>Logs for {requestTitle}</ModalHeader>
       <ModalCloseButton />
-      <ModalBody maxH="60vh" overflowY="auto">
+      <ModalBody maxH="60vh" overflowY="auto" aria-live="polite" aria-busy={isLoading}>
         {isLoading && logs.length === 0 ? (
-          <Stack spacing={4}>
+          <Stack spacing={4} role="status">
             {Array.from({ length: 3 }).map((_, index) => (
               <Stack
                 key={`log-skeleton-${index}`}
@@ -82,13 +82,14 @@ export function RequestLogsModal({
         ) : (
           <Stack spacing={4} divider={<StackDivider borderColor="border.muted" />}>
             {isLoading && logs.length > 0 && (
-              <HStack spacing={2} color="text.subtle" fontSize="sm">
+              <HStack spacing={2} color="text.subtle" fontSize="sm" role="status">
                 <Spinner size="sm" />
                 <Text>Refreshing logs…</Text>
               </HStack>
             )}
             {logs.map((log) => {
               const isExpanded = expandedStacks[log.id];
+              const stackTraceId = `log-stack-${log.id}`;
               return (
                 <Stack key={log.id} spacing={3} fontSize="sm">
                   <Flex justify="space-between" align="center" gap={4} wrap="wrap">
@@ -144,6 +145,8 @@ export function RequestLogsModal({
                         size="xs"
                         colorScheme="red"
                         width="fit-content"
+                        aria-expanded={isExpanded}
+                        aria-controls={stackTraceId}
                         onClick={() =>
                           setExpandedStacks((prev) => ({
                             ...prev,
@@ -156,6 +159,7 @@ export function RequestLogsModal({
                       {isExpanded && (
                         <Stack
                           as="pre"
+                          id={stackTraceId}
                           fontSize="xs"
                           fontFamily="mono"
                           whiteSpace="pre-wrap"

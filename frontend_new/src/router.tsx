@@ -43,6 +43,9 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppLayout />,
+    handle: {
+      scrollMode: 'top',
+    },
     errorElement: <RouteErrorBoundary />,
     children: [
       {
