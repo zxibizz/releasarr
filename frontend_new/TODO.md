@@ -5,7 +5,7 @@
 - Platform & Tooling
   - [x] Replace CRA with Vite (or Next.js) + SWC to unblock React 19 upgrades, shrink bundles, and enable modern DX (hot-module perf, test runners).
   - [x] Upgrade TypeScript to 5.x, align React typings, and introduce shared ESLint/Prettier config with strict rules for hooks, exhaustive deps, and Chakra best-practices.
-  - Add Storybook and Chromatic (or Ladle) for component previews and visual regression safety while iterating on the design system.
+  - [x] Add Storybook and Chromatic (or Ladle) for component previews and visual regression safety while iterating on the design system.
   - [x] Generate TypeScript/zod clients from `openapi.yaml` (e.g. with `openapi-typescript` + `orval`/`zodios`) instead of hand-maintaining schemas in `src/types`.
 
 - Architecture & State Management
