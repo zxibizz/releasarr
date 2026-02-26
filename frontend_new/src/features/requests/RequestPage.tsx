@@ -12,7 +12,14 @@ import {
 import type { UseToastOptions } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  type SetStateAction,
+} from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 
 import { RequestActions, type RequestActionItem } from '@/features/requests/components/RequestActions';
@@ -36,6 +43,91 @@ const shakeKeyframes = keyframes`
 const MANUAL_SEARCH_ANIMATION = `${shakeKeyframes} 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97)`;
 const MIN_SHAKE_INTERVAL_MS = 1200;
 
+interface RequestPageState {
+  selectedRelease: Release | null;
+  hasExistingReleases: boolean;
+  manualSearchTriggered: boolean;
+  manualSearchPrefill: string | null;
+  manualSearchFocusToken: number;
+  hasLoadedReleases: boolean;
+  shakeTick: number;
+  isShaking: boolean;
+  expandedStacks: Record<string, boolean>;
+  isRefreshing: boolean;
+}
+
+type RequestPageAction =
+  | { type: 'RESET' }
+  | { type: 'SET_SELECTED_RELEASE'; payload: Release | null }
+  | { type: 'RELEASES_LOADED'; payload: { releases: Release[]; normalizedTitle: string } }
+  | { type: 'TRIGGER_MANUAL_SEARCH'; payload: string }
+  | { type: 'SET_MANUAL_SEARCH_TRIGGERED'; payload: boolean }
+  | { type: 'INCREMENT_FOCUS_TOKEN' }
+  | { type: 'TRIGGER_SHAKE' }
+  | { type: 'STOP_SHAKE' }
+  | { type: 'SET_EXPANDED_STACKS'; payload: Record<string, boolean> }
+  | { type: 'SET_IS_REFRESHING'; payload: boolean };
+
+const initialRequestPageState: RequestPageState = {
+  selectedRelease: null,
+  hasExistingReleases: false,
+  manualSearchTriggered: false,
+  manualSearchPrefill: null,
+  manualSearchFocusToken: 0,
+  hasLoadedReleases: false,
+  shakeTick: 0,
+  isShaking: false,
+  expandedStacks: {},
+  isRefreshing: false,
+};
+
+function requestPageReducer(state: RequestPageState, action: RequestPageAction): RequestPageState {
+  switch (action.type) {
+    case 'RESET':
+      return { ...initialRequestPageState };
+    case 'SET_SELECTED_RELEASE':
+      return { ...state, selectedRelease: action.payload };
+    case 'RELEASES_LOADED': {
+      const { releases, normalizedTitle } = action.payload;
+      const hasReleases = releases.length > 0;
+      const trimmedPrefill = state.manualSearchPrefill?.trim();
+      const manualSearchPrefill = hasReleases
+        ? null
+        : trimmedPrefill && trimmedPrefill.length > 0
+          ? state.manualSearchPrefill
+          : normalizedTitle || null;
+
+      return {
+        ...state,
+        hasExistingReleases: hasReleases,
+        hasLoadedReleases: true,
+        manualSearchTriggered: hasReleases ? state.manualSearchTriggered : false,
+        manualSearchPrefill,
+      };
+    }
+    case 'TRIGGER_MANUAL_SEARCH':
+      return {
+        ...state,
+        manualSearchTriggered: true,
+        manualSearchPrefill: action.payload,
+      };
+    case 'SET_MANUAL_SEARCH_TRIGGERED':
+      return { ...state, manualSearchTriggered: action.payload };
+    case 'INCREMENT_FOCUS_TOKEN':
+      return { ...state, manualSearchFocusToken: state.manualSearchFocusToken + 1 };
+    case 'TRIGGER_SHAKE':
+      return { ...state, shakeTick: state.shakeTick + 1, isShaking: true };
+    case 'STOP_SHAKE':
+      return { ...state, isShaking: false };
+    case 'SET_EXPANDED_STACKS':
+      return { ...state, expandedStacks: action.payload };
+    case 'SET_IS_REFRESHING':
+      return { ...state, isRefreshing: action.payload };
+    default:
+      return state;
+  }
+}
+
 export const RequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -49,14 +141,7 @@ export const RequestPage: React.FC = () => {
     enabled: Boolean(id),
   });
   const requestId = request?.id;
-  const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
-  const [hasExistingReleases, setHasExistingReleases] = useState(false);
-  const [manualSearchTriggered, setManualSearchTriggered] = useState(false);
-  const [shakeSignal, setShakeSignal] = useState(0);
-  const [isShaking, setIsShaking] = useState(false);
-  const [manualSearchPrefill, setManualSearchPrefill] = useState<string | null>(null);
-  const [manualSearchFocusToken, setManualSearchFocusToken] = useState(0);
-  const [hasLoadedReleases, setHasLoadedReleases] = useState(false);
+  const [state, dispatch] = useReducer(requestPageReducer, initialRequestPageState);
   const {
     logs: requestLogs,
     isLoading: logsLoading,
@@ -64,8 +149,18 @@ export const RequestPage: React.FC = () => {
     loadLogs,
     reset: resetLogs,
   } = useRequestLogs();
-  const [expandedStacks, setExpandedStacks] = useState<Record<string, boolean>>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    selectedRelease,
+    hasExistingReleases,
+    manualSearchTriggered,
+    manualSearchPrefill,
+    manualSearchFocusToken,
+    hasLoadedReleases,
+    isShaking,
+    expandedStacks,
+    isRefreshing,
+    shakeTick,
+  } = state;
   const refreshToastIdRef = useRef<string | number | undefined>(undefined);
   const manualSearchSectionRef = useRef<HTMLDivElement | null>(null);
   const lastShakeAtRef = useRef(0);
@@ -115,56 +210,41 @@ export const RequestPage: React.FC = () => {
   }, [id, queryClient]);
 
   const focusManualSearch = useCallback(() => {
-    setManualSearchFocusToken((token) => token + 1);
+    dispatch({ type: 'INCREMENT_FOCUS_TOKEN' });
     requestAnimationFrame(() => {
       manualSearchSectionRef.current?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       });
     });
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
-    setHasExistingReleases(false);
-    setManualSearchTriggered(false);
-    setManualSearchPrefill(null);
-    setManualSearchFocusToken(0);
+    dispatch({ type: 'RESET' });
     resetLogs();
     lastShakeAtRef.current = 0;
-    setExpandedStacks({});
-    setHasLoadedReleases(false);
-  }, [requestId, resetLogs]);
+    previousShouldShowSearch.current = false;
+  }, [dispatch, requestId, resetLogs]);
 
   const handleViewFiles = (release: Release) => {
-    setSelectedRelease(release);
+    dispatch({ type: 'SET_SELECTED_RELEASE', payload: release });
     filesModal.onOpen();
   };
 
   const closeModal = () => {
     filesModal.onClose();
-    setSelectedRelease(null);
+    dispatch({ type: 'SET_SELECTED_RELEASE', payload: null });
   };
 
   const handleReleasesLoaded = useCallback(
     (loadedReleases: Release[]) => {
-      const hasReleases = loadedReleases.length > 0;
-      setHasExistingReleases(hasReleases);
-      setHasLoadedReleases(true);
-
-      if (!hasReleases) {
-        setManualSearchTriggered(false);
-        const normalizedTitle = request?.title?.trim() ?? '';
-        setManualSearchPrefill((prev) => {
-          if (prev && prev.trim().length > 0) {
-            return prev;
-          }
-          return normalizedTitle || null;
-        });
-      } else {
-        setManualSearchPrefill(null);
-      }
+      const normalizedTitle = request?.title?.trim() ?? '';
+      dispatch({
+        type: 'RELEASES_LOADED',
+        payload: { releases: loadedReleases, normalizedTitle },
+      });
     },
-    [request?.title],
+    [dispatch, request?.title],
   );
 
   const handleManualSearch = useCallback(() => {
@@ -180,14 +260,14 @@ export const RequestPage: React.FC = () => {
     }
 
     const searchAlreadyVisible = !hasExistingReleases || manualSearchTriggered;
-    setManualSearchTriggered(true);
+    dispatch({ type: 'SET_MANUAL_SEARCH_TRIGGERED', payload: true });
     focusManualSearch();
 
     if (searchAlreadyVisible) {
       const now = Date.now();
       if (now - lastShakeAtRef.current >= MIN_SHAKE_INTERVAL_MS) {
         lastShakeAtRef.current = now;
-        setShakeSignal((signal) => signal + 1);
+        dispatch({ type: 'TRIGGER_SHAKE' });
       }
     } else {
       lastShakeAtRef.current = Date.now();
@@ -205,15 +285,22 @@ export const RequestPage: React.FC = () => {
       return;
     }
 
-    setManualSearchPrefill(normalizedQuery);
-  }, [focusManualSearch, hasExistingReleases, manualSearchTriggered, request, toast]);
+    dispatch({ type: 'TRIGGER_MANUAL_SEARCH', payload: normalizedQuery });
+  }, [
+    dispatch,
+    focusManualSearch,
+    hasExistingReleases,
+    manualSearchTriggered,
+    request,
+    toast,
+  ]);
 
   const handleRefreshStatus = useCallback(async () => {
     if (!id || isRefreshing) {
       return;
     }
 
-    setIsRefreshing(true);
+    dispatch({ type: 'SET_IS_REFRESHING', payload: true });
 
     const loadingToastId = toast({
       id: `refresh-request-${id}`,
@@ -246,10 +333,18 @@ export const RequestPage: React.FC = () => {
         isClosable: true,
       });
     } finally {
-      setIsRefreshing(false);
+      dispatch({ type: 'SET_IS_REFRESHING', payload: false });
       refreshToastIdRef.current = undefined;
     }
-  }, [id, invalidateReleases, isRefreshing, refetchRequest, toast, updateRefreshToast]);
+  }, [
+    dispatch,
+    id,
+    invalidateReleases,
+    isRefreshing,
+    refetchRequest,
+    toast,
+    updateRefreshToast,
+  ]);
 
   const handleViewLogs = useCallback(() => {
     if (!requestId) {
@@ -259,14 +354,22 @@ export const RequestPage: React.FC = () => {
     openLogs();
   }, [loadLogs, openLogs, requestId]);
 
+  const handleSetExpandedStacks = useCallback(
+    (updater: SetStateAction<Record<string, boolean>>) => {
+      const nextValue =
+        typeof updater === 'function' ? (updater as (prev: Record<string, boolean>) => Record<string, boolean>)(expandedStacks) : updater;
+      dispatch({ type: 'SET_EXPANDED_STACKS', payload: nextValue });
+    },
+    [dispatch, expandedStacks],
+  );
+
   useEffect(() => {
-    if (shakeSignal === 0) {
+    if (shakeTick === 0) {
       return;
     }
-    setIsShaking(true);
-    const timeout = window.setTimeout(() => setIsShaking(false), 500);
+    const timeout = window.setTimeout(() => dispatch({ type: 'STOP_SHAKE' }), 500);
     return () => window.clearTimeout(timeout);
-  }, [shakeSignal]);
+  }, [dispatch, shakeTick]);
 
   const actionCards: RequestActionItem[] = useMemo(
     () => [
@@ -415,7 +518,7 @@ export const RequestPage: React.FC = () => {
         isLoading={logsLoading}
         error={logsErrorInfo?.description ?? null}
         expandedStacks={expandedStacks}
-        setExpandedStacks={setExpandedStacks}
+        setExpandedStacks={handleSetExpandedStacks}
       />
     </Stack>
   );
