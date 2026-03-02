@@ -18,7 +18,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useReleaseOperations } from '@/features/releases/useReleaseOperations';
 import { useReleasesByRequestQuery } from '@/hooks/useReleases';
-import { fetchRequestsSummary } from '@/services/api';
+import { requestsApi } from '@/features/requests/api';
 import type { MediaRequest, Release } from '@/types';
 import { getApiErrorInfo } from '@/utils/errors';
 import { sortReleasesByStatus } from '@/utils/releaseHelpers';
@@ -87,7 +87,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 
     const loadSummaries = async () => {
       try {
-        const summaries = await fetchRequestsSummary(missingIds);
+        const summaries = await requestsApi.summary(missingIds);
         if (cancelled) {
           return;
         }
