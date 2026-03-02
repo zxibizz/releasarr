@@ -1,9 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import {
-  downloadReleaseCandidate as downloadReleaseCandidateAPI,
-  searchReleaseCandidates as searchReleaseCandidatesAPI,
-} from '@/services/api';
+import { releasesApi } from '@/features/releases/api';
 import type {
   DownloadReleaseResponse,
   ReleaseDownloadRequest,
@@ -41,7 +38,7 @@ export const useReleaseSearch = () => {
       }));
 
       try {
-        const response = await searchReleaseCandidatesAPI(trimmedQuery, requestId);
+        const response = await releasesApi.searchCandidates(trimmedQuery, requestId);
         setSearchState((prev) => ({
           ...prev,
           query: response?.query ?? trimmedQuery,
@@ -100,7 +97,7 @@ export const useReleaseSearch = () => {
       };
 
       try {
-        const response = await downloadReleaseCandidateAPI(resolvedRequestId, payload);
+        const response = await releasesApi.downloadCandidate(resolvedRequestId, payload);
         return response;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to queue download';

@@ -5,14 +5,16 @@ import { NotFound } from '@/components/NotFound';
 import { RequestsList } from '@/components/RequestsList';
 import RouteErrorBoundary from '@/components/RouteErrorBoundary';
 import { RequestPage } from '@/features/requests/RequestPage';
+import { requestsApi } from '@/features/requests/api';
+import { requestsKeys } from '@/features/requests/queryKeys';
+import { releasesApi } from '@/features/releases/api';
+import { releasesKeys } from '@/features/releases/queryKeys';
 import { queryClient } from '@/lib/queryClient';
-import { releasesKeys, requestsKeys } from '@/lib/queryKeys';
-import { fetchRequest, fetchRequests, fetchReleasesByRequest } from '@/services/api';
 
 export const requestsLoader = async () => {
   await queryClient.ensureQueryData({
     queryKey: requestsKeys.list(undefined),
-    queryFn: () => fetchRequests(),
+    queryFn: () => requestsApi.list(),
   });
 
   return null;
@@ -28,11 +30,11 @@ export const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
   await Promise.all([
     queryClient.ensureQueryData({
       queryKey: requestsKeys.detail(id),
-      queryFn: () => fetchRequest(id),
+      queryFn: () => requestsApi.detail(id),
     }),
     queryClient.ensureQueryData({
       queryKey: releasesKeys.byRequest(id),
-      queryFn: () => fetchReleasesByRequest(id),
+      queryFn: () => releasesApi.byRequest(id),
     }),
   ]);
 

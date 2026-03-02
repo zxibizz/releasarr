@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { fetchRequestLogs } from '@/services/requestLogs';
+import { requestsApi } from '@/features/requests/api';
 import type { RequestLogEntry } from '@/types';
 
 type RawRequestLogEntry = Partial<RequestLogEntry> & Record<string, unknown>;
@@ -145,7 +145,7 @@ export const useRequestLogs = () => {
 
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      const logs = await fetchRequestLogs(requestId);
+      const logs = await requestsApi.logs(requestId);
       setState({ logs: normalizeRequestLogs(logs), isLoading: false, error: null });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load logs';
