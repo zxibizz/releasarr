@@ -82,12 +82,19 @@ interface RequestOption {
   request: MediaRequest;
 }
 
+type ParsedEpisodeMetadata = {
+  season?: number;
+  episode?: number;
+};
+
 const buildMappingDefaults = (
   files: ReleaseFile[],
   defaultRequest: FileRequestMappingProps['defaultRequest'],
+  parsedMetadata: Map<string, ParsedEpisodeMetadata>,
 ): MappingFormValue[] => {
   return files.map((file) => {
     const existing = file.request_mapping;
+    const inferred = parsedMetadata.get(file.id) ?? {};
 
     if (existing?.mapping_type === 'series') {
       return {
@@ -95,8 +102,8 @@ const buildMappingDefaults = (
         requestId: existing.request_id,
         requestTitle: existing.request_title ?? '',
         mappingType: 'series',
-        season: existing.season ?? 1,
-        episode: existing.episode ?? 1,
+        season: existing.season ?? inferred.season ?? 1,
+        episode: existing.episode ?? inferred.episode ?? 1,
       } satisfies MappingFormValue;
     }
 
@@ -109,14 +116,13 @@ const buildMappingDefaults = (
       } satisfies MappingFormValue;
     }
 
-    const inferred = parseSeriesEpisodeFromFilename(file.name);
     const fallbackType: MappingType = defaultRequest?.type === 'series' ? 'series' : 'movie';
     const fallbackSeason =
       fallbackType === 'series'
-        ? defaultRequest?.season_number ?? inferred?.season ?? 1
+        ? defaultRequest?.season_number ?? inferred.season ?? 1
         : undefined;
     const fallbackEpisode =
-      fallbackType === 'series' ? inferred?.episode ?? 1 : undefined;
+      fallbackType === 'series' ? inferred.episode ?? 1 : undefined;
 
     return fallbackType === 'series'
       ? {
@@ -139,8 +145,9 @@ const buildMappingDefaults = (
 const createDefaultValues = (
   files: ReleaseFile[],
   defaultRequest: FileRequestMappingProps['defaultRequest'],
+  parsedMetadata: Map<string, ParsedEpisodeMetadata>,
 ): FileMappingFormValues => ({
-  mappings: buildMappingDefaults(files, defaultRequest),
+  mappings: buildMappingDefaults(files, defaultRequest, parsedMetadata),
   showOnlyVideo: true,
 });
 
@@ -275,8 +282,17 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   } = useRequestsList(undefined, { staleTime: 5 * 60_000 });
   const toast = useToast();
 
+  const parsedFileMetadata = useMemo(() => {
+    const metadata = new Map<string, ParsedEpisodeMetadata>();
+    files.forEach((file) => {
+      const parsed = parseSeriesEpisodeFromFilename(file.name);
+      metadata.set(file.id, parsed ?? {});
+    });
+    return metadata;
+  }, [files]);
+
   const form = useForm<FileMappingFormValues>({
-    defaultValues: createDefaultValues(files, defaultRequest),
+    defaultValues: createDefaultValues(files, defaultRequest, parsedFileMetadata),
     mode: 'onChange',
   });
 
@@ -300,11 +316,11 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     const currentById = new Map<string, MappingFormValue>(
       (existingMappings ?? []).map((entry) => [entry.fileId, entry] as const),
     );
-    const defaults = buildMappingDefaults(files, defaultRequest);
+    const defaults = buildMappingDefaults(files, defaultRequest, parsedFileMetadata);
     const merged = defaults.map((item) => currentById.get(item.fileId) ?? item);
 
     reset({ mappings: merged, showOnlyVideo: currentShowOnlyVideo ?? true });
-  }, [files, defaultRequest, getValues, reset]);
+  }, [files, defaultRequest, parsedFileMetadata, getValues, reset]);
 
   const availableRequests = useMemo(
     () => requests.filter((request) => request.status !== 'failed'),
@@ -329,6 +345,19 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         request,
       })),
     [availableRequests],
+  );
+
+  const requestsById = useMemo(() => {
+    const map = new Map<string, MediaRequest>();
+    availableRequests.forEach((request) => {
+      map.set(request.id, request);
+    });
+    return map;
+  }, [availableRequests]);
+
+  const defaultSeriesSeason = useMemo(
+    () => (defaultRequest?.type === 'series' ? defaultRequest?.season_number ?? 1 : 1),
+    [defaultRequest],
   );
 
   const requestsErrorMessage =
@@ -368,19 +397,19 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     [fileIndexMap, mappingValues],
   );
 
-const setMappingValue = useCallback(
-  (fileId: string, key: keyof MappingFormValue, value: unknown) => {
-    const index = fileIndexMap.get(fileId);
-    if (index === undefined) {
-      return;
-    }
-    setValue(`mappings.${index}.${key}`, value as MappingFormValue[keyof MappingFormValue], {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-  },
-  [fileIndexMap, setValue],
-);
+  const setMappingValue = useCallback(
+    (fileId: string, key: keyof MappingFormValue, value: unknown) => {
+      const index = fileIndexMap.get(fileId);
+      if (index === undefined) {
+        return;
+      }
+      setValue(`mappings.${index}.${key}`, value as MappingFormValue[keyof MappingFormValue], {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    },
+    [fileIndexMap, setValue],
+  );
 
   const handleRequestSelect = useCallback(
     (fileId: string, option: RequestOption | null) => {
@@ -395,6 +424,7 @@ const setMappingValue = useCallback(
 
       const request = option.request;
       const mappingType: MappingType = request.type === 'series' ? 'series' : 'movie';
+      const parsed = parsedFileMetadata.get(fileId) ?? {};
 
       setMappingValue(fileId, 'requestId', request.id);
       setMappingValue(fileId, 'requestTitle', request.title);
@@ -402,8 +432,9 @@ const setMappingValue = useCallback(
 
       if (mappingType === 'series') {
         const current = getMappingValue(fileId);
-        const currentSeason = current?.season ?? (request as SeriesRequest).season_number ?? 1;
-        const currentEpisode = current?.episode ?? 1;
+        const requestSeason = (request as SeriesRequest).season_number ?? 1;
+        const currentSeason = current?.season ?? parsed.season ?? requestSeason;
+        const currentEpisode = current?.episode ?? parsed.episode ?? 1;
         setMappingValue(fileId, 'season', currentSeason);
         setMappingValue(fileId, 'episode', currentEpisode);
       } else {
@@ -411,7 +442,7 @@ const setMappingValue = useCallback(
         setMappingValue(fileId, 'episode', undefined);
       }
     },
-    [getMappingValue, setMappingValue],
+    [getMappingValue, parsedFileMetadata, setMappingValue],
   );
 
   const handleBulkRequestUpdate = useCallback(
@@ -428,8 +459,10 @@ const setMappingValue = useCallback(
         setMappingValue(mapping.fileId, 'requestTitle', request.title);
         setMappingValue(mapping.fileId, 'mappingType', mappingType);
         if (mappingType === 'series') {
-          const currentSeason = mapping.season ?? seasonNumber ?? 1;
-          const currentEpisode = mapping.episode ?? 1;
+          const parsed = parsedFileMetadata.get(mapping.fileId) ?? {};
+          const currentSeason =
+            parsed.season ?? mapping.season ?? seasonNumber ?? 1;
+          const currentEpisode = parsed.episode ?? mapping.episode ?? 1;
           setMappingValue(mapping.fileId, 'season', currentSeason);
           setMappingValue(mapping.fileId, 'episode', currentEpisode);
         } else {
@@ -438,7 +471,7 @@ const setMappingValue = useCallback(
         }
       });
     },
-    [availableRequests, mappingValues, setMappingValue],
+    [availableRequests, mappingValues, parsedFileMetadata, setMappingValue],
   );
 
   const handleClearMapping = useCallback(
@@ -582,6 +615,82 @@ const setMappingValue = useCallback(
     [onMappingUpdate, prepareMappingPayload, releaseId, toast, updateFileMappings],
   );
 
+  const handleAutoFillEpisodes = useCallback(() => {
+    const applicableEntries = files
+      .map((file) => ({ file, mapping: getMappingValue(file.id) }))
+      .filter(
+        (entry): entry is { file: ReleaseFile; mapping: MappingFormValue } =>
+          Boolean(entry.mapping?.requestId) && entry.mapping?.mappingType === 'series',
+      );
+
+    if (applicableEntries.length === 0) {
+      toast({
+        title: 'No series mappings to update',
+        description: 'Assign a series request before auto-filling episodes.',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const sortedEntries = applicableEntries.sort((a, b) =>
+      a.file.name.localeCompare(b.file.name),
+    );
+
+    let sequentialEpisode = 1;
+
+    sortedEntries.forEach(({ file, mapping }) => {
+      const parsed = parsedFileMetadata.get(file.id) ?? {};
+      const matchedRequest = mapping.requestId ? requestsById.get(mapping.requestId) : undefined;
+      const requestSeasonDefault =
+        matchedRequest && matchedRequest.type === 'series'
+          ? (matchedRequest as SeriesRequest).season_number ?? defaultSeriesSeason
+          : defaultSeriesSeason;
+
+      const season = parsed.season ?? mapping.season ?? requestSeasonDefault ?? defaultSeriesSeason;
+
+      let episode: number;
+      if (parsed.episode) {
+        episode = parsed.episode;
+        sequentialEpisode = Math.max(sequentialEpisode, parsed.episode + 1);
+      } else if (mapping.episode) {
+        episode = mapping.episode;
+        sequentialEpisode = Math.max(sequentialEpisode, mapping.episode + 1);
+      } else {
+        episode = sequentialEpisode;
+        sequentialEpisode += 1;
+      }
+
+      setMappingValue(file.id, 'season', season);
+      setMappingValue(file.id, 'episode', episode);
+    });
+
+    toast({
+      title: 'Episodes auto-filled',
+      description: 'Season and episode numbers were inferred from the filenames.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  }, [
+    defaultSeriesSeason,
+    files,
+    getMappingValue,
+    parsedFileMetadata,
+    requestsById,
+    setMappingValue,
+    toast,
+  ]);
+
+  const canAutoFillEpisodes = useMemo(
+    () =>
+      mappingValues.some(
+        (mapping) => mapping.mappingType === 'series' && Boolean(mapping.requestId),
+      ),
+    [mappingValues],
+  );
+
   const handleSaveSingle = useCallback(
     async (fileId: string) => {
       const mapping = getMappingValue(fileId);
@@ -596,10 +705,10 @@ const setMappingValue = useCallback(
   const resetToDefaults = useCallback(() => {
     const keepVideoOnly = getValues('showOnlyVideo');
     reset({
-      mappings: buildMappingDefaults(files, defaultRequest),
+      mappings: buildMappingDefaults(files, defaultRequest, parsedFileMetadata),
       showOnlyVideo: keepVideoOnly ?? true,
     });
-  }, [defaultRequest, files, getValues, reset]);
+  }, [defaultRequest, files, getValues, parsedFileMetadata, reset]);
 
   const onSubmitAll: SubmitHandler<FileMappingFormValues> = async (values) => {
     await persistMappings(
@@ -635,14 +744,14 @@ const setMappingValue = useCallback(
                 </Checkbox>
               )}
             />
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={<RepeatIcon />}
-            onClick={() => resetToDefaults()}
-          >
-            Reset changes
-          </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={<RepeatIcon />}
+              onClick={() => resetToDefaults()}
+            >
+              Reset changes
+            </Button>
           </Flex>
 
           <Flex
@@ -684,6 +793,14 @@ const setMappingValue = useCallback(
                 )}
               </Select>
             </FormControl>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAutoFillEpisodes}
+              isDisabled={!canAutoFillEpisodes}
+            >
+              Auto-fill from filenames
+            </Button>
             <Button
               size="sm"
               onClick={() => refetchRequests()}
