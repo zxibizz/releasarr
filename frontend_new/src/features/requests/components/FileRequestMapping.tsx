@@ -6,26 +6,36 @@ import {
   Button,
   Checkbox,
   Flex,
+  FormControl,
+  FormLabel,
   Grid,
   Heading,
+  IconButton,
   Input,
+  InputGroup,
+  InputRightElement,
+  NumberInput,
+  NumberInputField,
   Select,
   Spinner,
   Stack,
   Tag,
   Text,
   VStack,
+  useOutsideClick,
   useToast,
-  FormControl,
-  FormLabel,
 } from '@chakra-ui/react';
-import React, { useEffect, useMemo, useState } from 'react';
+import { CloseIcon, RepeatIcon } from '@chakra-ui/icons';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Controller, useFieldArray, useForm, type SubmitHandler } from 'react-hook-form';
 
 import { useReleaseFileMapping } from '@/hooks/useReleases';
 import { useRequestsList } from '@/hooks/useRequests';
 import type {
   FileRequestMapping as FileRequestMappingType,
+  MediaRequest,
   ReleaseFile,
+  ReleaseFileMappingInput,
   SeriesRequest,
 } from '@/types';
 import {
@@ -50,14 +60,203 @@ interface FileRequestMappingProps {
   };
 }
 
-interface FileMapping {
+type MappingType = 'movie' | 'series';
+
+interface MappingFormValue {
   fileId: string;
   requestId: string;
   requestTitle: string;
-  mappingType: 'movie' | 'series';
+  mappingType: MappingType;
   season?: number;
   episode?: number;
 }
+
+interface FileMappingFormValues {
+  mappings: MappingFormValue[];
+  showOnlyVideo: boolean;
+}
+
+interface RequestOption {
+  value: string;
+  label: string;
+  request: MediaRequest;
+}
+
+const buildMappingDefaults = (
+  files: ReleaseFile[],
+  defaultRequest: FileRequestMappingProps['defaultRequest'],
+): MappingFormValue[] => {
+  return files.map((file) => {
+    const existing = file.request_mapping;
+
+    if (existing?.mapping_type === 'series') {
+      return {
+        fileId: file.id,
+        requestId: existing.request_id,
+        requestTitle: existing.request_title ?? '',
+        mappingType: 'series',
+        season: existing.season ?? 1,
+        episode: existing.episode ?? 1,
+      } satisfies MappingFormValue;
+    }
+
+    if (existing?.mapping_type === 'movie') {
+      return {
+        fileId: file.id,
+        requestId: existing.request_id,
+        requestTitle: existing.request_title ?? '',
+        mappingType: 'movie',
+      } satisfies MappingFormValue;
+    }
+
+    const inferred = parseSeriesEpisodeFromFilename(file.name);
+    const fallbackType: MappingType = defaultRequest?.type === 'series' ? 'series' : 'movie';
+    const fallbackSeason =
+      fallbackType === 'series'
+        ? defaultRequest?.season_number ?? inferred?.season ?? 1
+        : undefined;
+    const fallbackEpisode =
+      fallbackType === 'series' ? inferred?.episode ?? 1 : undefined;
+
+    return fallbackType === 'series'
+      ? {
+          fileId: file.id,
+          requestId: defaultRequest?.id ?? '',
+          requestTitle: defaultRequest?.title ?? '',
+          mappingType: 'series',
+          season: fallbackSeason,
+          episode: fallbackEpisode,
+        }
+      : {
+          fileId: file.id,
+          requestId: defaultRequest?.id ?? '',
+          requestTitle: defaultRequest?.title ?? '',
+          mappingType: 'movie',
+        };
+  });
+};
+
+const createDefaultValues = (
+  files: ReleaseFile[],
+  defaultRequest: FileRequestMappingProps['defaultRequest'],
+): FileMappingFormValues => ({
+  mappings: buildMappingDefaults(files, defaultRequest),
+  showOnlyVideo: true,
+});
+
+const RequestCombobox: React.FC<{
+  value: string;
+  options: RequestOption[];
+  placeholder: string;
+  onSelect: (option: RequestOption | null) => void;
+  isDisabled?: boolean;
+}> = ({ value, options, placeholder, onSelect, isDisabled = false }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === value) ?? null,
+    [options, value],
+  );
+
+  useEffect(() => {
+    setQuery(selectedOption?.label ?? '');
+  }, [selectedOption?.label]);
+
+  useOutsideClick({
+    ref: containerRef,
+    handler: () => setIsOpen(false),
+  });
+
+  const filteredOptions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return options;
+    }
+    return options.filter((option) => option.label.toLowerCase().includes(normalized));
+  }, [options, query]);
+
+  const handleSelect = (option: RequestOption | null) => {
+    onSelect(option);
+    setIsOpen(false);
+    setQuery(option?.label ?? '');
+  };
+
+  return (
+    <Box ref={containerRef} position="relative">
+      <InputGroup size="sm">
+        <Input
+          value={query}
+          placeholder={placeholder}
+          onFocus={() => !isDisabled && setIsOpen(true)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            if (!isOpen) {
+              setIsOpen(true);
+            }
+          }}
+          isDisabled={isDisabled}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={isOpen}
+        />
+        {selectedOption && !isDisabled && (
+          <InputRightElement h="100%" pe={1}>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Clear selection"
+              icon={<CloseIcon boxSize={2.5} />}
+              onClick={() => handleSelect(null)}
+            />
+          </InputRightElement>
+        )}
+      </InputGroup>
+      {isOpen && !isDisabled && (
+        <Box
+          position="absolute"
+          zIndex="popover"
+          left={0}
+          right={0}
+          mt={1}
+          maxH="240px"
+          overflowY="auto"
+          borderWidth="1px"
+          borderRadius="md"
+          bg="bg.surface"
+          borderColor="border.muted"
+          shadow="lg"
+        >
+          <Stack spacing={0}>
+            {filteredOptions.length === 0 && (
+              <Text px={3} py={2} fontSize="sm" color="text.subtle">
+                No matching requests
+              </Text>
+            )}
+            {filteredOptions.map((option) => (
+              <Button
+                key={option.value}
+                variant="ghost"
+                justifyContent="flex-start"
+                fontWeight="normal"
+                fontSize="sm"
+                borderRadius={0}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  handleSelect(option);
+                }}
+                bg={option.value === value ? 'rgba(59, 130, 246, 0.16)' : 'transparent'}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </Stack>
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
   releaseId,
@@ -74,91 +273,38 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     error: requestsError,
     refetch: refetchRequests,
   } = useRequestsList(undefined, { staleTime: 5 * 60_000 });
-  const requestsErrorMessage =
-    requestsError instanceof Error
-      ? requestsError.message
-      : requestsError
-        ? 'Failed to load requests'
-        : null;
-
-  const showRequestsLoading = (requestsLoading || isRequestsFetching) && requests.length === 0;
-
   const toast = useToast();
-  const [mappings, setMappings] = useState<FileMapping[]>([]);
-  const [showOnlyVideo, setShowOnlyVideo] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<string>(defaultRequest?.id ?? '');
+
+  const form = useForm<FileMappingFormValues>({
+    defaultValues: createDefaultValues(files, defaultRequest),
+    mode: 'onChange',
+  });
+
+  const { control, handleSubmit, reset, watch, setValue, getValues } = form;
+
+  const { fields } = useFieldArray({ control, name: 'mappings' });
+
+  const showOnlyVideo = watch('showOnlyVideo');
+  const mappingValues = (watch('mappings') as MappingFormValue[]) ?? [];
 
   const groupedFiles = useMemo(() => groupFilesByType(files), [files]);
-  const { video, subtitle, other } = groupedFiles;
+  const { video } = groupedFiles;
   const displayFiles = useMemo(
     () => (showOnlyVideo ? video : files),
     [showOnlyVideo, video, files],
   );
 
   useEffect(() => {
-    const sourceFiles = showOnlyVideo ? video : files;
-    const initialMappings = sourceFiles.map((file) => {
-      const existing = file.request_mapping;
-      if (existing) {
-        if (existing.mapping_type === 'series') {
-          return {
-            fileId: file.id,
-            requestId: existing.request_id,
-            requestTitle: existing.request_title,
-            mappingType: 'series',
-            season: existing.season,
-            episode: existing.episode,
-          } as FileMapping;
-        }
+    const currentShowOnlyVideo = getValues('showOnlyVideo');
+    const existingMappings = getValues('mappings');
+    const currentById = new Map<string, MappingFormValue>(
+      (existingMappings ?? []).map((entry) => [entry.fileId, entry] as const),
+    );
+    const defaults = buildMappingDefaults(files, defaultRequest);
+    const merged = defaults.map((item) => currentById.get(item.fileId) ?? item);
 
-        return {
-          fileId: file.id,
-          requestId: existing.request_id,
-          requestTitle: existing.request_title,
-          mappingType: 'movie',
-          season: undefined,
-          episode: undefined,
-        } as FileMapping;
-      }
-
-      const fallbackType: FileMapping['mappingType'] =
-        defaultRequest && defaultRequest.type === 'series' ? 'series' : 'movie';
-      const inferredEpisode = parseSeriesEpisodeFromFilename(file.name);
-      const fallbackSeason =
-        fallbackType === 'series'
-          ? (defaultRequest?.season_number ?? inferredEpisode?.season ?? 1)
-          : undefined;
-      const fallbackEpisode =
-        fallbackType === 'series' ? (inferredEpisode?.episode ?? 1) : undefined;
-
-      const fallbackMapping: FileMapping =
-        fallbackType === 'series'
-          ? {
-              fileId: file.id,
-              requestId: defaultRequest?.id ?? '',
-              requestTitle: defaultRequest?.title ?? '',
-              mappingType: 'series',
-              season: fallbackSeason,
-              episode: fallbackEpisode,
-            }
-          : {
-              fileId: file.id,
-              requestId: defaultRequest?.id ?? '',
-              requestTitle: defaultRequest?.title ?? '',
-              mappingType: 'movie',
-            };
-
-      return fallbackMapping;
-    });
-
-    setMappings(initialMappings);
-  }, [files, video, showOnlyVideo, defaultRequest]);
-
-  useEffect(() => {
-    if (defaultRequest?.id && !selectedRequest) {
-      setSelectedRequest(defaultRequest.id);
-    }
-  }, [defaultRequest?.id, selectedRequest]);
+    reset({ mappings: merged, showOnlyVideo: currentShowOnlyVideo ?? true });
+  }, [files, defaultRequest, getValues, reset]);
 
   const availableRequests = useMemo(
     () => requests.filter((request) => request.status !== 'failed'),
@@ -175,8 +321,27 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
     [availableRequests],
   );
 
+  const requestOptions = useMemo<RequestOption[]>(
+    () =>
+      availableRequests.map((request) => ({
+        value: request.id,
+        label: `${request.title} (${request.year})`,
+        request,
+      })),
+    [availableRequests],
+  );
+
+  const requestsErrorMessage =
+    requestsError instanceof Error
+      ? requestsError.message
+      : requestsError
+        ? 'Failed to load requests'
+        : null;
+
+  const showRequestsLoading = (requestsLoading || isRequestsFetching) && requests.length === 0;
+
   const disableRequestSelection =
-    showRequestsLoading || Boolean(requestsErrorMessage) || availableRequests.length === 0;
+    readonly || showRequestsLoading || Boolean(requestsErrorMessage) || availableRequests.length === 0;
 
   const requestPlaceholder = showRequestsLoading
     ? 'Loading requests...'
@@ -184,240 +349,269 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
       ? 'Unable to load requests'
       : 'Select a request...';
 
-  const handleMappingChange = (
-    fileId: string,
-    field: keyof Omit<FileMapping, 'fileId'>,
-    value: string | number | undefined,
-  ) => {
-    setMappings((prev) =>
-      prev.map((mapping) => {
-        if (mapping.fileId !== fileId) return mapping;
+  const fileIndexMap = useMemo(() => {
+    const indexMap = new Map<string, number>();
+    fields.forEach((field, index) => {
+      indexMap.set(field.fileId, index);
+    });
+    return indexMap;
+  }, [fields]);
 
-        const updated: FileMapping = {
-          ...mapping,
-          [field]: value,
-        } as FileMapping;
+  const getMappingValue = useCallback(
+    (fileId: string) => {
+      const index = fileIndexMap.get(fileId);
+      if (index === undefined) {
+        return undefined;
+      }
+      return mappingValues[index];
+    },
+    [fileIndexMap, mappingValues],
+  );
 
-        if (field === 'requestId' && typeof value === 'string') {
-          const request = requests.find((r) => r.id === value);
-          updated.requestTitle = request?.title || '';
-          if (request) {
-            updated.mappingType = request.type === 'series' ? 'series' : 'movie';
-            if (updated.mappingType === 'movie') {
-              updated.season = undefined;
-              updated.episode = undefined;
-            } else {
-              updated.season = updated.season ?? 1;
-              updated.episode = updated.episode ?? 1;
-            }
-          }
-        }
-
-        if (field === 'mappingType') {
-          const type = value as FileMapping['mappingType'];
-          if (type === 'movie') {
-            updated.season = undefined;
-            updated.episode = undefined;
-          } else {
-            updated.season = updated.season ?? 1;
-            updated.episode = updated.episode ?? 1;
-          }
-        }
-
-        return updated;
-      }),
-    );
-  };
-
-  const handleSaveMapping = async (fileId: string) => {
-    const mapping = mappings.find((m) => m.fileId === fileId);
-    if (!mapping || !mapping.requestId) return;
-
-    let requestMappingPayload: FileRequestMappingType;
-    if (mapping.mappingType === 'series') {
-      requestMappingPayload = {
-        request_id: mapping.requestId,
-        mapping_type: 'series',
-        season: mapping.season ?? 1,
-        episode: mapping.episode ?? 1,
-      };
-    } else {
-      requestMappingPayload = {
-        request_id: mapping.requestId,
-        mapping_type: 'movie',
-      };
-    }
-
-    if (!validateRequestMapping(requestMappingPayload)) {
-      toast({
-        title: 'Invalid mapping',
-        description: 'Please fill in all required fields before saving.',
-        status: 'warning',
-        duration: 4000,
-        isClosable: true,
-      });
+const setMappingValue = useCallback(
+  (fileId: string, key: keyof MappingFormValue, value: unknown) => {
+    const index = fileIndexMap.get(fileId);
+    if (index === undefined) {
       return;
     }
+    setValue(`mappings.${index}.${key}`, value as MappingFormValue[keyof MappingFormValue], {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  },
+  [fileIndexMap, setValue],
+);
 
-    const requestMappingForState: FileRequestMappingType = {
-      ...requestMappingPayload,
-      request_title: mapping.requestTitle,
-    };
-
-    try {
-      await updateFileMappings(releaseId, [
-        {
-          file_id: fileId,
-          request_mapping: requestMappingPayload,
-        },
-      ]);
-      onMappingUpdate?.(fileId, requestMappingForState);
-    } catch (err) {
-      console.error('Failed to update mapping:', err);
-    }
-  };
-
-  const handleSaveAllMappings = async () => {
-    const preparedMappings = mappings.reduce<
-      {
-        fileId: string;
-        payload: FileRequestMappingType;
-        stateMapping: FileRequestMappingType;
-      }[]
-    >((acc, mapping) => {
-      if (!mapping.requestId) {
-        return acc;
+  const handleRequestSelect = useCallback(
+    (fileId: string, option: RequestOption | null) => {
+      if (!option) {
+        setMappingValue(fileId, 'requestId', '');
+        setMappingValue(fileId, 'requestTitle', '');
+        setMappingValue(fileId, 'mappingType', 'movie');
+        setMappingValue(fileId, 'season', undefined);
+        setMappingValue(fileId, 'episode', undefined);
+        return;
       }
 
-      let requestMappingPayload: FileRequestMappingType;
-      if (mapping.mappingType === 'series') {
-        requestMappingPayload = {
+      const request = option.request;
+      const mappingType: MappingType = request.type === 'series' ? 'series' : 'movie';
+
+      setMappingValue(fileId, 'requestId', request.id);
+      setMappingValue(fileId, 'requestTitle', request.title);
+      setMappingValue(fileId, 'mappingType', mappingType);
+
+      if (mappingType === 'series') {
+        const current = getMappingValue(fileId);
+        const currentSeason = current?.season ?? (request as SeriesRequest).season_number ?? 1;
+        const currentEpisode = current?.episode ?? 1;
+        setMappingValue(fileId, 'season', currentSeason);
+        setMappingValue(fileId, 'episode', currentEpisode);
+      } else {
+        setMappingValue(fileId, 'season', undefined);
+        setMappingValue(fileId, 'episode', undefined);
+      }
+    },
+    [getMappingValue, setMappingValue],
+  );
+
+  const handleBulkRequestUpdate = useCallback(
+    (requestId: string) => {
+      const request = availableRequests.find((candidate) => candidate.id === requestId);
+      if (!request) {
+        return;
+      }
+      const mappingType: MappingType = request.type === 'series' ? 'series' : 'movie';
+      const seasonNumber = request.type === 'series' ? (request as SeriesRequest).season_number ?? 1 : undefined;
+
+      mappingValues.forEach((mapping) => {
+        setMappingValue(mapping.fileId, 'requestId', request.id);
+        setMappingValue(mapping.fileId, 'requestTitle', request.title);
+        setMappingValue(mapping.fileId, 'mappingType', mappingType);
+        if (mappingType === 'series') {
+          const currentSeason = mapping.season ?? seasonNumber ?? 1;
+          const currentEpisode = mapping.episode ?? 1;
+          setMappingValue(mapping.fileId, 'season', currentSeason);
+          setMappingValue(mapping.fileId, 'episode', currentEpisode);
+        } else {
+          setMappingValue(mapping.fileId, 'season', undefined);
+          setMappingValue(mapping.fileId, 'episode', undefined);
+        }
+      });
+    },
+    [availableRequests, mappingValues, setMappingValue],
+  );
+
+  const handleClearMapping = useCallback(
+    (fileId: string) => {
+      setMappingValue(fileId, 'requestId', '');
+      setMappingValue(fileId, 'requestTitle', '');
+      setMappingValue(fileId, 'mappingType', 'movie');
+      setMappingValue(fileId, 'season', undefined);
+      setMappingValue(fileId, 'episode', undefined);
+    },
+    [setMappingValue],
+  );
+
+  const hasChanges = useCallback(
+    (fileId: string) => {
+      const current = getMappingValue(fileId);
+      const existing = files.find((file) => file.id === fileId)?.request_mapping;
+      if (!current) return false;
+      if (!existing) {
+        return Boolean(current.requestId);
+      }
+
+      const existingType: MappingType = existing.mapping_type === 'series' ? 'series' : 'movie';
+      const existingSeason =
+        existingType === 'series' && existing.mapping_type === 'series'
+          ? existing.season
+          : undefined;
+      const existingEpisode =
+        existingType === 'series' && existing.mapping_type === 'series'
+          ? existing.episode
+          : undefined;
+
+      return (
+        current.requestId !== existing.request_id ||
+        current.requestTitle !== (existing.request_title ?? '') ||
+        current.mappingType !== existingType ||
+        current.season !== existingSeason ||
+        current.episode !== existingEpisode
+      );
+    },
+    [files, getMappingValue],
+  );
+
+  const prepareMappingPayload = useCallback((mapping: MappingFormValue) => {
+    if (!mapping.requestId) {
+      return null;
+    }
+
+    if (mapping.mappingType === 'series') {
+      return {
+        payload: {
           request_id: mapping.requestId,
-          mapping_type: 'series',
+          mapping_type: 'series' as const,
           season: mapping.season ?? 1,
           episode: mapping.episode ?? 1,
-        };
-      } else {
-        requestMappingPayload = {
+        },
+        stateMapping: {
           request_id: mapping.requestId,
-          mapping_type: 'movie',
-        };
-      }
-
-      if (!validateRequestMapping(requestMappingPayload)) {
-        return acc;
-      }
-
-      const stateMapping: FileRequestMappingType = {
-        ...requestMappingPayload,
-        request_title: mapping.requestTitle,
+          mapping_type: 'series' as const,
+          season: mapping.season ?? 1,
+          episode: mapping.episode ?? 1,
+          request_title: mapping.requestTitle,
+        },
       };
-
-      acc.push({
-        fileId: mapping.fileId,
-        payload: requestMappingPayload,
-        stateMapping,
-      });
-
-      return acc;
-    }, []);
-
-    if (preparedMappings.length === 0) {
-      toast({
-        title: 'Nothing to save',
-        description: 'Select at least one valid mapping before saving.',
-        status: 'info',
-        duration: 3500,
-        isClosable: true,
-      });
-      return;
     }
 
-    const payload = preparedMappings.map(({ fileId, payload }) => ({
-      file_id: fileId,
-      request_mapping: payload,
-    }));
+    return {
+      payload: {
+        request_id: mapping.requestId,
+        mapping_type: 'movie' as const,
+      },
+      stateMapping: {
+        request_id: mapping.requestId,
+        mapping_type: 'movie' as const,
+        request_title: mapping.requestTitle,
+      },
+    };
+  }, []);
 
-    try {
-      await updateFileMappings(releaseId, payload);
-      preparedMappings.forEach(({ fileId, stateMapping }) =>
-        onMappingUpdate?.(fileId, stateMapping),
-      );
-    } catch (err) {
-      console.error('Failed to update mappings:', err);
-    }
+  type PreparedMapping = {
+    fileId: string;
+    payload: ReleaseFileMappingInput;
+    stateMapping: FileRequestMappingType;
   };
 
-  const handleBulkRequestUpdate = (requestId: string) => {
-    const request = requests.find((r) => r.id === requestId);
-    if (!request) return;
-    const seriesRequest = request.type === 'series' ? (request as SeriesRequest) : null;
+  const persistMappings = useCallback(
+    async (
+      entries: Array<{ fileId: string; mapping: MappingFormValue }>,
+      onSuccess?: () => void,
+    ) => {
+      const prepared = entries
+        .map(({ fileId, mapping }): PreparedMapping | null => {
+          const outcome = prepareMappingPayload(mapping);
+          if (!outcome) {
+            return null;
+          }
+          if (!validateRequestMapping(outcome.payload)) {
+            return null;
+          }
+          const apiPayload: ReleaseFileMappingInput = {
+            file_id: fileId,
+            request_mapping: outcome.payload,
+          };
+          return {
+            fileId,
+            payload: apiPayload,
+            stateMapping: outcome.stateMapping,
+          };
+        })
+        .filter((entry): entry is PreparedMapping => Boolean(entry));
 
-    setMappings((prev) =>
-      prev.map((mapping) => ({
-        ...mapping,
-        requestId,
-        requestTitle: request.title,
-        mappingType: request.type === 'series' ? 'series' : 'movie',
-        season:
-          request.type === 'series'
-            ? (mapping.season ?? seriesRequest?.season_number ?? 1)
-            : undefined,
-        episode: request.type === 'series' ? (mapping.episode ?? 1) : undefined,
-      })),
-    );
-  };
+      if (prepared.length === 0) {
+        toast({
+          title: 'Nothing to save',
+          description: 'Select at least one valid mapping before saving.',
+          status: 'info',
+          duration: 3500,
+          isClosable: true,
+        });
+        return;
+      }
 
-  const handleClearMapping = (fileId: string) => {
-    setMappings((prev) =>
-      prev.map((mapping) =>
-        mapping.fileId === fileId
-          ? {
-              ...mapping,
-              requestId: '',
-              requestTitle: '',
-              mappingType: 'movie',
-              season: undefined,
-              episode: undefined,
-            }
-          : mapping,
-      ),
-    );
-  };
+      try {
+        await updateFileMappings(
+          releaseId,
+          prepared.map((item) => item.payload),
+        );
+        prepared.forEach((item) => onMappingUpdate?.(item.fileId, item.stateMapping));
+        onSuccess?.();
+      } catch (error) {
+        console.error('Failed to update mappings:', error);
+        toast({
+          title: 'Failed to update mappings',
+          description: error instanceof Error ? error.message : undefined,
+          status: 'error',
+          duration: 4000,
+          isClosable: true,
+        });
+      }
+    },
+    [onMappingUpdate, prepareMappingPayload, releaseId, toast, updateFileMappings],
+  );
 
-  const getFileMapping = (fileId: string) => mappings.find((m) => m.fileId === fileId);
+  const handleSaveSingle = useCallback(
+    async (fileId: string) => {
+      const mapping = getMappingValue(fileId);
+      if (!mapping) {
+        return;
+      }
+      await persistMappings([{ fileId, mapping }]);
+    },
+    [getMappingValue, persistMappings],
+  );
 
-  const getExistingMapping = (fileId: string) =>
-    files.find((f) => f.id === fileId)?.request_mapping;
+  const resetToDefaults = useCallback(() => {
+    const keepVideoOnly = getValues('showOnlyVideo');
+    reset({
+      mappings: buildMappingDefaults(files, defaultRequest),
+      showOnlyVideo: keepVideoOnly ?? true,
+    });
+  }, [defaultRequest, files, getValues, reset]);
 
-  const hasChanges = (fileId: string) => {
-    const current = getFileMapping(fileId);
-    const existing = getExistingMapping(fileId);
-    const existingType: FileMapping['mappingType'] = existing
-      ? existing.mapping_type === 'series'
-        ? 'series'
-        : 'movie'
-      : 'movie';
-    const existingSeason =
-      existing && existing.mapping_type === 'series' ? existing.season : undefined;
-    const existingEpisode =
-      existing && existing.mapping_type === 'series' ? existing.episode : undefined;
-
-    if (!current) return false;
-    if (!existing && !current.requestId) return false;
-    if (!existing && current.requestId) return true;
-
-    return (
-      current.requestId !== (existing?.request_id || '') ||
-      current.requestTitle !== (existing?.request_title || '') ||
-      current.mappingType !== existingType ||
-      current.season !== existingSeason ||
-      current.episode !== existingEpisode
+  const onSubmitAll: SubmitHandler<FileMappingFormValues> = async (values) => {
+    await persistMappings(
+      values.mappings.map((mapping) => ({ fileId: mapping.fileId, mapping })),
+      () => {
+        reset({ ...values });
+      },
     );
   };
 
   return (
-    <Stack spacing={6}>
+    <Stack spacing={6} as="form" onSubmit={handleSubmit(onSubmitAll)}>
       <Stack spacing={1}>
         <Heading size="md">🔗 File Request Mapping</Heading>
         <Text fontSize="sm" color="text.subtle">
@@ -427,14 +621,28 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
 
       {!readonly && (
         <Stack spacing={4}>
-          <Flex gap={4} wrap="wrap">
-            <Checkbox
-              isChecked={showOnlyVideo}
-              onChange={(e) => setShowOnlyVideo(e.target.checked)}
-              colorScheme="blue"
-            >
-              Show only video files ({video.length})
-            </Checkbox>
+          <Flex gap={4} wrap="wrap" align="center">
+            <Controller
+              name="showOnlyVideo"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  colorScheme="blue"
+                  isChecked={field.value}
+                  onChange={(event) => field.onChange(event.target.checked)}
+                >
+                  Show only video files ({video.length})
+                </Checkbox>
+              )}
+            />
+          <Button
+            size="sm"
+            variant="outline"
+            leftIcon={<RepeatIcon />}
+            onClick={() => resetToDefaults()}
+          >
+            Reset changes
+          </Button>
           </Flex>
 
           <Flex
@@ -445,70 +653,57 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           >
             <FormControl maxW="320px" isDisabled={disableRequestSelection}>
               <FormLabel fontSize="sm" fontWeight="600">
-                Bulk assign to request
+                Apply request to all files
               </FormLabel>
               <Select
                 placeholder={requestPlaceholder}
-                value={selectedRequest}
-                onChange={(e) => {
-                  setSelectedRequest(e.target.value);
-                  if (e.target.value) {
-                    handleBulkRequestUpdate(e.target.value);
-                  }
-                }}
                 size="sm"
+                onChange={(event) => handleBulkRequestUpdate(event.target.value)}
+                value=""
               >
-              {movieRequests.length > 0 && (
-                <optgroup label="Movies">
-                  {movieRequests.map((request) => (
-                    <option key={request.id} value={request.id}>
-                      {request.title} ({request.year})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {seriesRequests.length > 0 && (
-                <optgroup label="Series">
-                  {seriesRequests.map((request) => (
-                    <option key={request.id} value={request.id}>
-                      {request.title} ({request.year})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+                <option value="" disabled hidden>
+                  {requestPlaceholder}
+                </option>
+                {movieRequests.length > 0 && (
+                  <optgroup label="Movies">
+                    {movieRequests.map((request) => (
+                      <option key={request.id} value={request.id}>
+                        {request.title} ({request.year})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {seriesRequests.length > 0 && (
+                  <optgroup label="Series">
+                    {seriesRequests.map((request) => (
+                      <option key={request.id} value={request.id}>
+                        {request.title} ({request.year})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </Select>
             </FormControl>
+            <Button
+              size="sm"
+              onClick={() => refetchRequests()}
+              leftIcon={isRequestsFetching ? <Spinner size="sm" /> : undefined}
+            >
+              Refresh requests
+            </Button>
           </Flex>
         </Stack>
       )}
 
-      {showRequestsLoading && (
-        <Alert status="info" variant="subtle" borderRadius="md" alignItems="center" gap={3}>
-          <Spinner size="sm" color="blue.400" />
-          <AlertDescription fontSize="sm">Loading available requests...</AlertDescription>
-        </Alert>
-      )}
-
       {requestsErrorMessage && (
-        <Alert
-          status="error"
-          borderRadius="md"
-          alignItems="flex-start"
-          flexDirection="column"
-          gap={2}
-        >
-          <Flex align="center" gap={2} w="full">
-            <AlertIcon />
-            <AlertDescription fontSize="sm">{requestsErrorMessage}</AlertDescription>
-          </Flex>
-          <Button size="xs" onClick={() => refetchRequests()}>
-            Retry loading requests
-          </Button>
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <AlertDescription fontSize="sm">{requestsErrorMessage}</AlertDescription>
         </Alert>
       )}
 
-      {!showRequestsLoading && !requestsErrorMessage && availableRequests.length === 0 && (
-        <Alert status="warning" variant="subtle" borderRadius="md">
+      {availableRequests.length === 0 && !showRequestsLoading && !requestsErrorMessage && (
+        <Alert status="info" borderRadius="md">
           <AlertIcon />
           <AlertDescription fontSize="sm">
             No requests are available yet. Mapping options will appear once requests finish loading.
@@ -541,10 +736,15 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
           </VStack>
         ) : (
           displayFiles.map((file) => {
-            const mapping = getFileMapping(file.id);
-            const existing = getExistingMapping(file.id);
+            const mappingIndex = fileIndexMap.get(file.id);
+            if (mappingIndex === undefined) {
+              return null;
+            }
+
+            const mapping = mappingValues?.[mappingIndex];
+            const existing = files.find((candidate) => candidate.id === file.id)?.request_mapping;
             const changed = hasChanges(file.id);
-            const existingType: FileMapping['mappingType'] = existing
+            const existingType: MappingType = existing
               ? existing.mapping_type === 'series'
                 ? 'series'
                 : 'movie'
@@ -609,137 +809,133 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
                           <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                             Request
                           </FormLabel>
-                          <Select
-                            placeholder={requestPlaceholder}
-                            value={mapping.requestId}
-                            size="sm"
-                            isDisabled={disableRequestSelection}
-                            onChange={(e) =>
-                              handleMappingChange(file.id, 'requestId', e.target.value)
-                            }
-                          >
-                            {movieRequests.length > 0 && (
-                              <optgroup label="Movies">
-                                {movieRequests.map((request) => (
-                                  <option key={request.id} value={request.id}>
-                                    {request.title} ({request.year})
-                                  </option>
-                                ))}
-                              </optgroup>
+                          <Controller
+                            control={control}
+                            name={`mappings.${mappingIndex}.requestId`}
+                            render={({ field }) => (
+                              <RequestCombobox
+                                value={field.value}
+                                options={requestOptions}
+                                placeholder={requestPlaceholder}
+                                onSelect={(option) => {
+                                  field.onChange(option?.value ?? '');
+                                  handleRequestSelect(file.id, option);
+                                }}
+                                isDisabled={disableRequestSelection}
+                              />
                             )}
-                            {seriesRequests.length > 0 && (
-                              <optgroup label="Series">
-                                {seriesRequests.map((request) => (
-                                  <option key={request.id} value={request.id}>
-                                    {request.title} ({request.year})
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </Select>
+                          />
                         </FormControl>
 
                         <FormControl>
                           <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                             Mapping Type
                           </FormLabel>
-                          <Select
-                            value={mapping.mappingType}
-                            size="sm"
-                            onChange={(e) =>
-                              handleMappingChange(
-                                file.id,
-                                'mappingType',
-                                e.target.value as FileMapping['mappingType'],
-                              )
-                            }
-                          >
-                            <option value="movie">Movie</option>
-                            <option value="series">Series</option>
-                          </Select>
+                          <Controller
+                            control={control}
+                            name={`mappings.${mappingIndex}.mappingType`}
+                            render={({ field }) => (
+                              <Select
+                                size="sm"
+                                value={field.value}
+                                onChange={(event) => {
+                                  const nextType = event.target.value as MappingType;
+                                  field.onChange(nextType);
+                                  if (nextType === 'movie') {
+                                    setMappingValue(file.id, 'season', undefined);
+                                    setMappingValue(file.id, 'episode', undefined);
+                                  } else {
+                                    const current = getMappingValue(file.id);
+                                    setMappingValue(file.id, 'season', current?.season ?? 1);
+                                    setMappingValue(file.id, 'episode', current?.episode ?? 1);
+                                  }
+                                }}
+                                isDisabled={!mapping.requestId}
+                              >
+                                <option value="movie">Movie</option>
+                                <option value="series">Series</option>
+                              </Select>
+                            )}
+                          />
                         </FormControl>
-                      </Grid>
 
-                      {mapping.mappingType === 'series' && (
-                        <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={3}>
-                          <FormControl isRequired>
+                        {mapping.mappingType === 'series' && (
+                          <FormControl>
                             <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                               Season
                             </FormLabel>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={99}
-                              value={mapping.season ?? ''}
-                              placeholder="e.g. 2"
-                              size="sm"
-                              onChange={(e) =>
-                                handleMappingChange(
-                                  file.id,
-                                  'season',
-                                  e.target.value ? parseInt(e.target.value, 10) : undefined,
-                                )
-                              }
+                            <Controller
+                              control={control}
+                              name={`mappings.${mappingIndex}.season`}
+                              render={({ field }) => (
+                                <NumberInput
+                                  size="sm"
+                                  min={1}
+                                  value={field.value ?? ''}
+                                  onChange={(_, valueNumber) =>
+                                    field.onChange(Number.isNaN(valueNumber) ? undefined : valueNumber)
+                                  }
+                                  isDisabled={mapping.mappingType !== 'series'}
+                                >
+                                  <NumberInputField />
+                                </NumberInput>
+                              )}
                             />
                           </FormControl>
-                          <FormControl isRequired>
+                        )}
+
+                        {mapping.mappingType === 'series' && (
+                          <FormControl>
                             <FormLabel fontSize="xs" fontWeight="600" textTransform="uppercase" color="text.subtle">
                               Episode
                             </FormLabel>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={999}
-                              value={mapping.episode ?? ''}
-                              placeholder="e.g. 5"
-                              size="sm"
-                              onChange={(e) =>
-                                handleMappingChange(
-                                  file.id,
-                                  'episode',
-                                  e.target.value ? parseInt(e.target.value, 10) : undefined,
-                                )
-                              }
+                            <Controller
+                              control={control}
+                              name={`mappings.${mappingIndex}.episode`}
+                              render={({ field }) => (
+                                <NumberInput
+                                  size="sm"
+                                  min={1}
+                                  value={field.value ?? ''}
+                                  onChange={(_, valueNumber) =>
+                                    field.onChange(Number.isNaN(valueNumber) ? undefined : valueNumber)
+                                  }
+                                  isDisabled={mapping.mappingType !== 'series'}
+                                >
+                                  <NumberInputField />
+                                </NumberInput>
+                              )}
                             />
                           </FormControl>
-                        </Grid>
-                      )}
+                        )}
+                      </Grid>
+
+                      <Flex gap={2} wrap="wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleClearMapping(file.id)}
+                          isDisabled={!mapping.requestId}
+                        >
+                          Clear
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => handleSaveSingle(file.id)}
+                          isLoading={isSaving}
+                          isDisabled={!mapping.requestId || isSaving}
+                        >
+                          Save mapping
+                        </Button>
+                      </Flex>
                     </Stack>
                   )}
 
                   {readonly && existing && (
-                    <Text fontSize="sm" color="slate.100">
-                      {existing.request_title} ({existingTypeLabel})
-                      {existingSeason !== undefined &&
-                        existingEpisode !== undefined &&
-                        ` - S${existingSeason.toString().padStart(2, '0')}E${existingEpisode
-                          .toString()
-                          .padStart(2, '0')}`}
+                    <Text fontSize="sm" color="text.subtle">
+                      This release is already mapped. Editing is disabled in read-only mode.
                     </Text>
-                  )}
-
-                  {!readonly && (
-                    <Flex gap={2} justify="flex-end" flexWrap="wrap">
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        variant={changed && mapping?.requestId ? 'solid' : 'outline'}
-                        onClick={() => handleSaveMapping(file.id)}
-                        isDisabled={isSaving || !changed || !mapping?.requestId || requestsLoading}
-                      >
-                        {isSaving ? 'Saving...' : 'Save'}
-                      </Button>
-                      {mapping?.requestId && (
-                        <Button
-                          size="sm"
-                          colorScheme="red"
-                          variant="outline"
-                          onClick={() => handleClearMapping(file.id)}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </Flex>
                   )}
                 </Stack>
               </Box>
@@ -748,40 +944,16 @@ const FileRequestMapping: React.FC<FileRequestMappingProps> = ({
         )}
       </Stack>
 
-      {!readonly && displayFiles.length > 0 && (
-        <Flex
-          direction={{ base: 'column', md: 'row' }}
-          justify="space-between"
-          align={{ base: 'flex-start', md: 'center' }}
-          gap={3}
-          pt={4}
-          borderTopWidth="1px"
-          borderTopColor="border.muted"
-        >
-          <Text fontSize="sm" color="text.subtle">
-            {mappings.filter((m) => hasChanges(m.fileId)).length} unsaved changes
-          </Text>
-          <Button
-            onClick={handleSaveAllMappings}
-            size="sm"
-            colorScheme="blue"
-            variant={mappings.some((m) => hasChanges(m.fileId)) ? 'solid' : 'outline'}
-            isDisabled={isSaving || !mappings.some((m) => hasChanges(m.fileId)) || requestsLoading}
-          >
-            {isSaving ? 'Saving All...' : 'Save All Changes'}
+      {!readonly && (
+        <Flex justify="flex-end" gap={3} wrap="wrap">
+          <Button variant="outline" onClick={() => resetToDefaults()}>
+            Undo all changes
+          </Button>
+          <Button type="submit" colorScheme="blue" isLoading={isSaving}>
+            Save all mappings
           </Button>
         </Flex>
       )}
-
-      {!showOnlyVideo && (
-        <Text fontSize="sm" color="text.subtle">
-          File types: {video.length} video, {subtitle.length} subtitle, {other.length} other
-        </Text>
-      )}
-
-      <Text fontSize="sm" color="text.subtle">
-        Available requests: {movieRequests.length} movies, {seriesRequests.length} series
-      </Text>
     </Stack>
   );
 };
