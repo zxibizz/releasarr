@@ -22,7 +22,7 @@ import {
 } from '@chakra-ui/react';
 import React, { useMemo, useRef, useState } from 'react';
 
-import { releaseStatusStyles } from '@/theme/statusStyles';
+import { getReleaseStatusPresentation } from '@/features/status/statusPresenters';
 import type { MediaRequest, Release } from '@/types';
 import {
   calculateETA,
@@ -32,7 +32,6 @@ import {
   formatRatio,
   formatSpeed,
   getReleaseHealthScore,
-  getStatusIcon,
   groupFilesByType,
   isReleaseActive,
   isReleaseComplete,
@@ -234,7 +233,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     </AlertDialog>
   ) : null;
 
-  const statusStyle = releaseStatusStyles[release.status];
+  const statusPresentation = getReleaseStatusPresentation(release.status);
   const detailsSectionId = useMemo(() => `release-${release.id}-details`, [release.id]);
 
   if (compact) {
@@ -245,7 +244,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             <Flex align="flex-start" justify="space-between" gap={4}>
               <Stack spacing={2} flex={1} minW={0}>
                 <Flex align="center" gap={3}>
-                  <Text fontSize="xl">{getStatusIcon(release.status)}</Text>
+                  <Text fontSize="xl">{statusPresentation.icon}</Text>
                   <Text fontWeight="700" noOfLines={1}>
                     {release.name}
                   </Text>
@@ -253,15 +252,14 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 <Flex gap={3} wrap="wrap" fontSize="xs" color="text.subtle">
                   <Text>{formatFileSize(release.size)}</Text>
                   <Badge
-                    bg={statusStyle.bg}
-                    color={statusStyle.color}
-                    borderColor={statusStyle.borderColor}
+                    bg={statusPresentation.badge.bg}
+                    color={statusPresentation.badge.color}
+                    borderColor={statusPresentation.badge.borderColor}
                     borderWidth="1px"
-                    textTransform="capitalize"
                     px={2}
                     py={1}
                   >
-                    {release.status}
+                    {statusPresentation.label}
                   </Badge>
                   {isActive && <Text>{formatProgress(progress)}</Text>}
                 </Flex>
@@ -355,7 +353,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
           >
             <Stack spacing={2} flex={1} minW={0}>
               <Flex align="center" gap={3} wrap="wrap">
-                <Text fontSize="2xl">{getStatusIcon(release.status)}</Text>
+                <Text fontSize="2xl">{statusPresentation.icon}</Text>
                 <Text fontWeight="700" fontSize="lg" color="slate.100" noOfLines={2}>
                   {release.name}
                 </Text>
@@ -373,15 +371,14 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               align={{ base: 'flex-start', md: 'flex-end' }}
             >
               <Badge
-                bg={statusStyle.bg}
-                color={statusStyle.color}
-                borderColor={statusStyle.borderColor}
+                bg={statusPresentation.badge.bg}
+                color={statusPresentation.badge.color}
+                borderColor={statusPresentation.badge.borderColor}
                 borderWidth="1px"
-                textTransform="capitalize"
                 px={3}
                 py={1}
               >
-                {release.status}
+                {statusPresentation.label}
               </Badge>
               <Flex
                 gap={2}
@@ -422,7 +419,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                 height="0.5rem"
                 sx={{
                   '& > div': {
-                    backgroundColor: statusStyle.color,
+                    backgroundColor: statusPresentation.badge.color,
                   },
                 }}
               />

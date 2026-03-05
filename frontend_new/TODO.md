@@ -12,7 +12,7 @@
   - [x] Split `RequestPage` into feature-scoped subcomponents/hooks (detail header, actions, releases, logs, manual search) to reduce the 500+ line monolith and isolate concerns.
   - [x] Convert imperative `useState` clusters on the request detail into a reducer or state machine (XState/Zustand) so manual search and toast lifecycles stay predictable.
   - [x] Co-locate TanStack Query keys and selectors per feature folder, expose typed service layers, and add query/mutation helpers (retry, optimistic updates).
-  - Refactor release/request helpers to remove duplicated status/icon utilities and move view logic behind headless presenters.
+  - [x] Refactor release/request helpers to remove duplicated status/icon utilities and move view logic behind headless presenters.
 
 - Data Fetching & API Layer
 - [x] Teach the backend list endpoints to return relationship summaries so `ReleasesList` stops fan-out fetching each related request (batch via `/requests/summary`).
