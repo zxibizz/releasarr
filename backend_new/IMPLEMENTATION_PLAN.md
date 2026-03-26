@@ -28,10 +28,10 @@
 4. Configure Alembic environment to target SQLAlchemy metadata housed in `src/models/__init__.py` (or `src/domain/models.py`).
 
 ### Phase 2 – Domain Modeling & Persistence
-1. Derive SQLAlchemy models directly from OpenAPI schemas (e.g., `MediaRequest`, `Release`, `ReleaseFileMapping`, `RequestLog`, `AsyncJob`).
-2. Capture spec-defined enumerations (request status, media type, release status) as SQLAlchemy-compatible enums and share them with Pydantic schemas.
-3. Add timestamp/audit columns demanded by the contract (created/updated timestamps, async job status timestamps).
-4. Author initial Alembic migration establishing these tables and relationships; keep downgrade scripts healthy.
+- [x] Derive SQLAlchemy models directly from OpenAPI schemas (e.g., `MediaRequest`, `Release`, `ReleaseFileMapping`, `RequestLog`, `AsyncJob`).
+- [x] Capture spec-defined enumerations (request status, media type, release status) as SQLAlchemy-compatible enums and share them with Pydantic schemas.
+- [x] Add timestamp/audit columns demanded by the contract (created/updated timestamps, async job status timestamps).
+- [x] Author initial Alembic migration establishing these tables and relationships; keep downgrade scripts healthy.
 
 ### Phase 3 – External Integrations & Services
 1. Identify integration points required by the new flows (search providers, download clients, metadata services). Reuse transferable logic from the legacy backend but adapt DTOs to the new schema.
@@ -39,14 +39,13 @@
 3. Create standalone task entrypoints (CLI or module-level async functions) for sync/export jobs so they can run outside the FastAPI process.
 
 ### Phase 4 – Application Layer & Use Cases
-1. Define Pydantic schemas in `src/schemas` mirroring OpenAPI payloads; include pagination envelopes, error responses, async operation descriptors.
-2. Implement use cases covering:
+- [x] Define Pydantic schemas in `src/schemas` mirroring OpenAPI payloads; include pagination envelopes, error responses, async operation descriptors.
+- [ ] Implement use cases covering:
    - Request lifecycle (list with filters/pagination, create, retrieve, partial update, delete).
    - Release management (list, create, retrieve, delete, pause/resume, file mapping update, search, download queueing).
-   - Async job orchestration (persist job state, expose polling handles for 202 responses).
-   - Logs listing (paged/filterable).
-3. Plug repositories + services into use cases with transactional context management.
-4. Implement query/read-model helpers for optimized read patterns (e.g., join-heavy list queries feeding the UI’s DTOs).
+   - Logs listing sourced from structured log files (via Loguru) rather than the database.
+- [ ] Plug repositories + services into use cases with transactional context management.
+- [ ] Implement query/read-model helpers for optimized read patterns (e.g., join-heavy list queries feeding the UI’s DTOs).
 
 ### Phase 5 – API Layer
 1. Create routers grouped by domain under `src/api/routes` (`requests.py`, `releases.py`, `logs.py`, `jobs.py`).
@@ -78,19 +77,19 @@
 - `/requests/{requestId}/releases` (deprecated) → optional compatibility route leveraging release query service.
 - `/releases` GET/POST → release list/create flows; align `409` conflict checks with spec semantics.
 - `/releases/{releaseId}` GET/DELETE → detail + removal use cases with guard rails for async job dependencies.
-- `/releases/{releaseId}/pause|resume` POST → async command use cases returning job handles stored via `AsyncJob` repository.
+- `/releases/{releaseId}/pause|resume` POST → async command use cases returning immediate success once the action completes; no async job persistence.
 - `/releases/{releaseId}/files/mapping` PUT → mapping updater ensuring atomic replacement and validation of season/episode bindings.
 - `/releases/search` GET → external search wrapper; support optional `request_id` correlation.
 - `/requests/{requestId}/releases/download` POST → download queueing use case producing async job tracking response.
-- `/logs` GET → log query service producing paginated DTOs per spec.
+- `/logs` GET → log query service reading Loguru file output filtered by request id to produce paginated DTOs.
 
 ## Cross-Cutting Considerations
 - **Authentication**: API key dependency reading `X-API-Key`; configurable secret in settings; responds with `401`/`403` spec-compliant errors.
 - **Validation**: Centralize enum/state validation in domain services; partial updates guard immutable fields.
 - **Pagination**: Shared helper to normalize `page`/`per_page` with defaults and enforce limits defined in spec.
-- **Async Jobs**: Model jobs explicitly (status, metadata, `Location` URLs). Job processing happens via separate task runners, not inside FastAPI lifespan.
+- **Async Jobs**: Prefer synchronous operations; when async semantics are required return immediate success without persisting job state.
 - **Error Handling**: Map domain/integration exceptions to `ErrorResponse`; log with correlation IDs.
-- **Observability**: Structured logging with request IDs, metrics hooks for later Prometheus integration; align log schema with `/logs` response shape.
+- **Observability**: Structured logging with request IDs, metrics hooks for later Prometheus integration; persist Loguru output to file and align log schema with `/logs` response shape.
 
 ## Development Rules & Guidelines
 ### Workflow & Tooling
