@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Callable
 
+from src.application.queries.logs import ListLogsQuery
+from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.core.logging import configure_logging
 from src.db.session import get_db_manager
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
@@ -20,6 +22,7 @@ from src.infrastructure.releases import (
     InMemoryReleaseSearchService,
     SqlAlchemyReleaseRepository,
 )
+from src.infrastructure.logs import LogFileReader
 from src.settings.config import AppSettings, get_settings
 
 
@@ -94,6 +97,21 @@ class AppContainer:
         self.register_singleton(
             "release_download_service",
             InMemoryReleaseDownloadService,
+        )
+        self.register_singleton(
+            "log_reader",
+            lambda: LogFileReader(self.settings.log_file),
+        )
+        self.register_singleton(
+            "list_logs_query",
+            lambda: ListLogsQuery(
+                reader=self.resolve("log_reader"),
+                settings=self.settings,
+            ),
+        )
+        self.register_singleton(
+            "list_logs_use_case",
+            lambda: ListLogsUseCase(query=self.resolve("list_logs_query")),
         )
 
 
