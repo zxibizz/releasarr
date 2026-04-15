@@ -43,7 +43,7 @@
 - [ ] Implement use cases covering:
    - [x] Request lifecycle (list with filters/pagination, create, retrieve, partial update, delete).
    - [x] Release management (list, create, retrieve, delete, pause/resume, file mapping update, search, download queueing).
-   - Logs listing sourced from structured log files (via Loguru) rather than the database.
+   - [x] Logs listing sourced from structured log files (via Loguru) rather than the database.
 - [x] Wire repositories and service adapters into the container so use cases resolve concrete implementations (stub services in place until external integrations land).
 - [ ] Implement query/read-model helpers for optimized read patterns (e.g., join-heavy list queries feeding the UI’s DTOs).
 
