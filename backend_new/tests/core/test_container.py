@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.core.container import AppContainer, get_container
+from src.application.queries.releases import ReleaseSummaryQuery
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
 from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
@@ -32,6 +33,7 @@ def test_container_resolves_dependencies() -> None:
     log_reader = container.resolve("log_reader")
     logs_query = container.resolve("list_logs_query")
     logs_use_case = container.resolve("list_logs_use_case")
+    release_summary_query = container.resolve("release_summary_query")
 
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
@@ -45,6 +47,7 @@ def test_container_resolves_dependencies() -> None:
 
     assert isinstance(logs_query, ListLogsQuery)
     assert isinstance(logs_use_case, ListLogsUseCase)
+    assert isinstance(release_summary_query, ReleaseSummaryQuery)
 
     # Ensure the same singleton is returned on subsequent resolves.
     assert media_repo is container.resolve("media_request_repository")
@@ -55,6 +58,7 @@ def test_container_resolves_dependencies() -> None:
     assert log_reader is container.resolve("log_reader")
     assert logs_query is container.resolve("list_logs_query")
     assert logs_use_case is container.resolve("list_logs_use_case")
+    assert release_summary_query is container.resolve("release_summary_query")
 
 
 def test_resolve_unknown_component_raises() -> None:

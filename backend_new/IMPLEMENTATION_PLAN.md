@@ -45,7 +45,7 @@
    - [x] Release management (list, create, retrieve, delete, pause/resume, file mapping update, search, download queueing).
    - [x] Logs listing sourced from structured log files (via Loguru) rather than the database.
 - [x] Wire repositories and service adapters into the container so use cases resolve concrete implementations (stub services in place until external integrations land).
-- [ ] Implement query/read-model helpers for optimized read patterns (e.g., join-heavy list queries feeding the UI’s DTOs).
+- [x] Implement query/read-model helpers for optimized read patterns (release summary aggregation in place; extend as needed).
 
 ### Phase 5 – API Layer
 1. Create routers grouped by domain under `src/api/routes` (`requests.py`, `releases.py`, `logs.py`, `jobs.py`).
