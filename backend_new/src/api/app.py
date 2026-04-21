@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from src.api.routes import register_routes
 from src.core.container import get_container
 
 
@@ -32,6 +33,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 """FastAPI ASGI application."""
+
+register_routes(app)
 
 
 @app.get("/healthz")
