@@ -48,7 +48,7 @@
 - [x] Implement query/read-model helpers for optimized read patterns (release summary aggregation in place; extend as needed).
 
 ### Phase 5 – API Layer
-1. Create routers grouped by domain under `src/api/routes` (`requests.py`, `releases.py`, `logs.py`, `jobs.py`) *(requests/release routers implemented; logs/jobs pending)*.
+1. [x] Create routers grouped by domain under `src/api/routes` (`requests.py`, `releases.py`, `logs.py`).
 2. [x] Apply API-key dependency at router or app level; ensure consistent error responses for auth failures.
 3. Wire endpoints exactly to OpenAPI specifications (status codes, response models, headers like `Location` for async operations).
 4. Implement global exception handlers translating domain/integration errors into the standardized `ErrorResponse`.

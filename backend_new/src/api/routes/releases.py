@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from src.api.dependencies import require_api_key
+from src.api.errors import api_error
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
     FileMappingCommand,
@@ -223,7 +224,7 @@ async def list_releases(
         try:
             status_value = ReleaseStatus(status_filter)
         except ValueError as exc:  # pragma: no cover
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
 
     options = ListReleasesOptions(
         page=page,
@@ -255,9 +256,9 @@ async def create_release(
     try:
         dto = await create_use_case.execute(command)
     except ReleaseConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise api_error(status.HTTP_409_CONFLICT, "release_conflict", str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_release", str(exc)) from exc
     return _dto_to_release(dto)
 
 
@@ -269,7 +270,7 @@ async def get_release(
     try:
         dto = await get_use_case.execute(release_id)
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     return _dto_to_release(dto)
 
 
@@ -281,7 +282,7 @@ async def delete_release(
     try:
         await delete_use_case.execute(release_id)
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -294,9 +295,9 @@ async def pause_release(
     try:
         dto = await pause_use_case.execute(release_id)
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseActionNotAllowedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise api_error(status.HTTP_409_CONFLICT, "release_action_conflict", str(exc)) from exc
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)
@@ -311,9 +312,9 @@ async def resume_release(
     try:
         dto = await resume_use_case.execute(release_id)
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseActionNotAllowedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise api_error(status.HTTP_409_CONFLICT, "release_action_conflict", str(exc)) from exc
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)
@@ -329,11 +330,11 @@ async def update_file_mappings(
     try:
         await update_use_case.execute(command)
     except ReleaseFileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_file_not_found", str(exc)) from exc
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_mapping", str(exc)) from exc
     return SuccessResponse()
 
 
@@ -370,9 +371,9 @@ async def queue_release_download(
     try:
         dto = await queue_use_case.execute(command)
     except ReleaseNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseDownloadConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise api_error(status.HTTP_409_CONFLICT, "release_download_conflict", str(exc)) from exc
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)
