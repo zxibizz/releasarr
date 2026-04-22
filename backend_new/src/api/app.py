@@ -9,8 +9,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
 from src.api.routes import register_routes
+from src.api.errors import validation_exception_handler
 from src.core.container import get_container
 
 
@@ -35,6 +37,7 @@ app = FastAPI(
 """FastAPI ASGI application."""
 
 register_routes(app)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 @app.get("/healthz")
