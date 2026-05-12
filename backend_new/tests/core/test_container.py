@@ -27,15 +27,15 @@ def test_get_container_returns_singleton() -> None:
 def test_container_provides_singletons() -> None:
     container = get_container()
 
-    media_repo = container.media_request_repository
-    release_repo = container.release_repository
-    lifecycle_service = container.release_lifecycle_service
-    search_service = container.release_search_service
-    download_service = container.release_download_service
-    log_reader = container.log_reader
-    logs_query = container.list_logs_query
-    logs_use_case = container.list_logs_use_case
-    release_summary_query = container.release_summary_query
+    media_repo = container.repositories.media_requests
+    release_repo = container.repositories.releases
+    lifecycle_service = container.services.release_lifecycle
+    search_service = container.services.release_search
+    download_service = container.services.release_download
+    log_reader = container.infrastructure.log_reader
+    logs_query = container.queries.logs
+    logs_use_case = container.use_cases.list_logs
+    release_summary_query = container.queries.release_summary
 
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
@@ -48,12 +48,12 @@ def test_container_provides_singletons() -> None:
     assert isinstance(release_summary_query, ReleaseSummaryQuery)
 
     # Ensure the same singleton is returned on subsequent resolves.
-    assert media_repo is container.media_request_repository
-    assert release_repo is container.release_repository
-    assert lifecycle_service is container.release_lifecycle_service
-    assert search_service is container.release_search_service
-    assert download_service is container.release_download_service
-    assert log_reader is container.log_reader
-    assert logs_query is container.list_logs_query
-    assert logs_use_case is container.list_logs_use_case
-    assert release_summary_query is container.release_summary_query
+    assert media_repo is container.repositories.media_requests
+    assert release_repo is container.repositories.releases
+    assert lifecycle_service is container.services.release_lifecycle
+    assert search_service is container.services.release_search
+    assert download_service is container.services.release_download
+    assert log_reader is container.infrastructure.log_reader
+    assert logs_query is container.queries.logs
+    assert logs_use_case is container.use_cases.list_logs
+    assert release_summary_query is container.queries.release_summary
