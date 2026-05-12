@@ -16,7 +16,7 @@ def _get_use_case() -> ListLogsUseCase:
     from src.core.container import get_container
 
     container = get_container()
-    return container.list_logs_use_case
+    return container.use_cases.list_logs
 
 
 @router.get("", response_model=LogsResponse)

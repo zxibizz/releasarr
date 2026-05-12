@@ -43,27 +43,27 @@ def _get_container() -> AppContainer:
 
 
 def _get_list_use_case(container: AppContainer = Depends(_get_container)) -> ListMediaRequestsUseCase:
-    repository = container.media_request_repository
+    repository = container.repositories.media_requests
     return ListMediaRequestsUseCase(repository=repository, settings=container.settings)
 
 
 def _get_create_use_case(container: AppContainer = Depends(_get_container)) -> CreateMediaRequestUseCase:
-    repository = container.media_request_repository
+    repository = container.repositories.media_requests
     return CreateMediaRequestUseCase(repository=repository)
 
 
 def _get_get_use_case(container: AppContainer = Depends(_get_container)) -> GetMediaRequestUseCase:
-    repository = container.media_request_repository
+    repository = container.repositories.media_requests
     return GetMediaRequestUseCase(repository=repository)
 
 
 def _get_update_use_case(container: AppContainer = Depends(_get_container)) -> UpdateMediaRequestUseCase:
-    repository = container.media_request_repository
+    repository = container.repositories.media_requests
     return UpdateMediaRequestUseCase(repository=repository)
 
 
 def _get_delete_use_case(container: AppContainer = Depends(_get_container)) -> DeleteMediaRequestUseCase:
-    repository = container.media_request_repository
+    repository = container.repositories.media_requests
     return DeleteMediaRequestUseCase(repository=repository)
 
 
