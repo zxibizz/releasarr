@@ -27,6 +27,12 @@ from src.application.use_cases.releases.commands import (
 )
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
 from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
+from src.application.use_cases.releases.exceptions import (
+    ReleaseActionNotAllowedError,
+    ReleaseDownloadConflictError,
+    ReleaseFileNotFoundError,
+    ReleaseNotFoundError,
+)
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
@@ -34,12 +40,6 @@ from src.application.use_cases.releases.queue_release_download import QueueRelea
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
-from src.application.use_cases.releases.exceptions import (
-    ReleaseActionNotAllowedError,
-    ReleaseDownloadConflictError,
-    ReleaseFileNotFoundError,
-    ReleaseNotFoundError,
-)
 from src.domain.enums import MediaType, ReleaseStatus
 from src.settings.config import AppSettings
 
@@ -201,7 +201,11 @@ async def test_list_releases_uses_settings_defaults() -> None:
     releases = {
         release.id: release
         for release in [
-            make_release_record(f"rel-{index}", request_ids=[f"req-{index}"], files=[make_release_file(f"file-{index}")])
+            make_release_record(
+                f"rel-{index}",
+                request_ids=[f"req-{index}"],
+                files=[make_release_file(f"file-{index}")],
+            )
             for index in range(1, 7)
         ]
     }
@@ -226,7 +230,9 @@ async def test_list_releases_uses_settings_defaults() -> None:
 
 @pytest.mark.asyncio
 async def test_list_releases_applies_filters() -> None:
-    release_a = make_release_record("rel-1", status=ReleaseStatus.DOWNLOADING, request_ids=["req-1"])
+    release_a = make_release_record(
+        "rel-1", status=ReleaseStatus.DOWNLOADING, request_ids=["req-1"]
+    )
     release_b = make_release_record("rel-2", status=ReleaseStatus.COMPLETED, request_ids=["req-2"])
     repository = FakeReleaseRepository({release_a.id: release_a, release_b.id: release_b})
     use_case = ListReleasesUseCase(repository, settings=AppSettings())

@@ -16,11 +16,10 @@ from src.application.use_cases.requests import (
     ListMediaRequestsUseCase,
     ListRequestsOptions,
     MediaRequestDTO,
-    MediaRequestsPageDTO,
     MediaRequestNotFoundError,
+    MediaRequestsPageDTO,
     MovieRequestDTO,
     SeriesRequestDTO,
-    UNSET,
     UpdateMediaRequestCommand,
     UpdateMediaRequestUseCase,
 )
@@ -42,12 +41,16 @@ def _get_container() -> AppContainer:
     return get_container()
 
 
-def _get_list_use_case(container: AppContainer = Depends(_get_container)) -> ListMediaRequestsUseCase:
+def _get_list_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListMediaRequestsUseCase:
     repository = container.repositories.media_requests
     return ListMediaRequestsUseCase(repository=repository, settings=container.settings)
 
 
-def _get_create_use_case(container: AppContainer = Depends(_get_container)) -> CreateMediaRequestUseCase:
+def _get_create_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> CreateMediaRequestUseCase:
     repository = container.repositories.media_requests
     return CreateMediaRequestUseCase(repository=repository)
 
@@ -57,12 +60,16 @@ def _get_get_use_case(container: AppContainer = Depends(_get_container)) -> GetM
     return GetMediaRequestUseCase(repository=repository)
 
 
-def _get_update_use_case(container: AppContainer = Depends(_get_container)) -> UpdateMediaRequestUseCase:
+def _get_update_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> UpdateMediaRequestUseCase:
     repository = container.repositories.media_requests
     return UpdateMediaRequestUseCase(repository=repository)
 
 
-def _get_delete_use_case(container: AppContainer = Depends(_get_container)) -> DeleteMediaRequestUseCase:
+def _get_delete_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> DeleteMediaRequestUseCase:
     repository = container.repositories.media_requests
     return DeleteMediaRequestUseCase(repository=repository)
 
@@ -106,7 +113,9 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
 
 def _page_to_response(page: MediaRequestsPageDTO) -> RequestsResponse:
     requests = [_dto_to_schema(dto) for dto in page.requests]
-    return RequestsResponse(requests=requests, total=page.total, page=page.page, per_page=page.per_page)
+    return RequestsResponse(
+        requests=requests, total=page.total, page=page.page, per_page=page.per_page
+    )
 
 
 @router.get("", response_model=RequestsResponse)
@@ -190,7 +199,9 @@ async def delete_request(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _build_create_command(payload: MediaRequestCreate) -> CreateMovieRequestCommand | CreateSeriesRequestCommand:
+def _build_create_command(
+    payload: MediaRequestCreate,
+) -> CreateMovieRequestCommand | CreateSeriesRequestCommand:
     if payload.type == MediaType.MOVIE.value:
         return CreateMovieRequestCommand(
             title=payload.title,

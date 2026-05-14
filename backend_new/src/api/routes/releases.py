@@ -19,8 +19,8 @@ from src.application.use_cases.releases.delete_release import DeleteReleaseUseCa
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
     ReleaseDTO,
-    ReleasesPageDTO,
     ReleaseSearchResponseDTO,
+    ReleasesPageDTO,
 )
 from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
@@ -34,7 +34,6 @@ from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
-from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaType, ReleaseStatus
@@ -54,7 +53,9 @@ from src.schemas.releases import (
 )
 
 router = APIRouter(prefix="/releases", tags=["Releases"], dependencies=[Depends(require_api_key)])
-request_releases_router = APIRouter(prefix="/requests", tags=["Releases"], dependencies=[Depends(require_api_key)])
+request_releases_router = APIRouter(
+    prefix="/requests", tags=["Releases"], dependencies=[Depends(require_api_key)]
+)
 
 
 def _get_container() -> AppContainer:
@@ -85,7 +86,9 @@ def _delete_use_case(container: AppContainer = Depends(_get_container)) -> Delet
     return DeleteReleaseUseCase(repository=repository)
 
 
-def _update_mappings_use_case(container: AppContainer = Depends(_get_container)) -> UpdateReleaseFileMappingsUseCase:
+def _update_mappings_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> UpdateReleaseFileMappingsUseCase:
     repository = _release_repository(container)
     return UpdateReleaseFileMappingsUseCase(repository=repository)
 
@@ -102,12 +105,16 @@ def _resume_use_case(container: AppContainer = Depends(_get_container)) -> Resum
     return ResumeReleaseUseCase(repository=repository, lifecycle_service=lifecycle)
 
 
-def _search_use_case(container: AppContainer = Depends(_get_container)) -> ReleaseSearchSourcesUseCase:
+def _search_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ReleaseSearchSourcesUseCase:
     search_service = container.services.release_search
     return ReleaseSearchSourcesUseCase(search_service=search_service)
 
 
-def _queue_download_use_case(container: AppContainer = Depends(_get_container)) -> QueueReleaseDownloadUseCase:
+def _queue_download_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> QueueReleaseDownloadUseCase:
     repository = _release_repository(container)
     download_service = container.services.release_download
     return QueueReleaseDownloadUseCase(repository=repository, download_service=download_service)
@@ -172,7 +179,9 @@ def _dto_to_file_mapping(mapping) -> FileRequestMapping | None:
 
 def _page_to_response(page: ReleasesPageDTO) -> ReleasesResponse:
     releases = [_dto_to_release(dto) for dto in page.releases]
-    return ReleasesResponse(releases=releases, total=page.total, page=page.page, per_page=page.per_page)
+    return ReleasesResponse(
+        releases=releases, total=page.total, page=page.page, per_page=page.per_page
+    )
 
 
 def _async_to_response(dto: AsyncOperationDTO) -> AsyncOperationResponse:
@@ -252,7 +261,9 @@ async def create_release(
     payload: AddReleaseRequest,
     create_use_case: CreateReleaseUseCase = Depends(_create_use_case),
 ) -> Release:
-    command = CreateReleaseCommand(magnet_link=payload.magnet_link, request_ids=list(payload.request_ids))
+    command = CreateReleaseCommand(
+        magnet_link=payload.magnet_link, request_ids=list(payload.request_ids)
+    )
     try:
         dto = await create_use_case.execute(command)
     except ReleaseConflictError as exc:
@@ -286,7 +297,11 @@ async def delete_release(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{release_id}/pause", response_model=AsyncOperationResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{release_id}/pause",
+    response_model=AsyncOperationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def pause_release(
     release_id: str,
     response: Response,
@@ -303,7 +318,11 @@ async def pause_release(
     return _async_to_response(dto)
 
 
-@router.post("/{release_id}/resume", response_model=AsyncOperationResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{release_id}/resume",
+    response_model=AsyncOperationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def resume_release(
     release_id: str,
     response: Response,
@@ -338,7 +357,9 @@ async def update_file_mappings(
     return SuccessResponse()
 
 
-def _build_update_command(release_id: str, payload: ReleaseFileMappingsUpdate) -> UpdateFileMappingsCommand:
+def _build_update_command(
+    release_id: str, payload: ReleaseFileMappingsUpdate
+) -> UpdateFileMappingsCommand:
     commands: list[FileMappingCommand] = []
     for file_input in payload.files:
         mapping = file_input.request_mapping
@@ -379,4 +400,4 @@ async def queue_release_download(
     return _async_to_response(dto)
 
 
-__all__ = ["router", "request_releases_router"]
+__all__ = ["request_releases_router", "router"]

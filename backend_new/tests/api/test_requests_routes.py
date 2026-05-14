@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any, AsyncIterator, Callable
+from typing import Any
 
 import pytest
 from fastapi import status
@@ -28,7 +29,10 @@ from src.application.use_cases.requests import (
     MovieRequestDTO,
     UpdateMediaRequestUseCase,
 )
-from src.application.use_cases.requests.commands import ListRequestsOptions, UpdateMediaRequestCommand
+from src.application.use_cases.requests.commands import (
+    ListRequestsOptions,
+    UpdateMediaRequestCommand,
+)
 from src.application.use_cases.requests.dto import MediaRequestsPageDTO
 from src.core.container import get_container
 from src.domain.enums import MediaRequestStatus
