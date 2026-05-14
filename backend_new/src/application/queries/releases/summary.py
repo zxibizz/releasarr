@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,10 +43,9 @@ class ReleaseSummaryQuery:
         return ReleaseSummary(total=total, by_status=normalized)
 
     async def _load_counts(self, session: AsyncSession) -> dict[ReleaseStatus, int]:
-        stmt: Select[tuple[ReleaseStatus, int]] = (
-            select(models.Release.status, func.count(models.Release.id))
-            .group_by(models.Release.status)
-        )
+        stmt: Select[tuple[ReleaseStatus, int]] = select(
+            models.Release.status, func.count(models.Release.id)
+        ).group_by(models.Release.status)
         result = await session.execute(stmt)
         rows = result.all()
         return {status: int(count) for status, count in rows}

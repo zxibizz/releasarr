@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any, AsyncIterator, Callable
+from typing import Any
 
 import pytest
 from fastapi import status
@@ -13,12 +14,10 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import app
 from src.api.routes.releases import (
     _create_use_case,
-    _delete_use_case,
     _get_use_case,
     _list_use_case,
     _pause_use_case,
     _queue_download_use_case,
-    _resume_use_case,
     _search_use_case,
     _update_mappings_use_case,
 )
@@ -36,8 +35,8 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
-from src.domain.enums import ReleaseStatus
 from src.core.container import get_container
+from src.domain.enums import ReleaseStatus
 
 API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key}
 
@@ -219,7 +218,9 @@ async def test_search_releases_returns_payload(client: AsyncClient) -> None:
             return response_dto
 
     with override_dependency(_search_use_case, FakeSearch()):
-        response = await client.get("/releases/search", params={"q": "query"}, headers=API_KEY_HEADER)
+        response = await client.get(
+            "/releases/search", params={"q": "query"}, headers=API_KEY_HEADER
+        )
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["results"][0]["release_id"] == result.release_id

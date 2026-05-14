@@ -28,7 +28,7 @@ from src.settings.config import AppSettings, get_settings
 
 @dataclass
 class RepositoryContainer:
-    _container: "AppContainer"
+    _container: AppContainer
 
     @cached_property
     def media_requests(self) -> SqlAlchemyMediaRequestRepository:
@@ -41,7 +41,7 @@ class RepositoryContainer:
 
 @dataclass
 class ServiceContainer:
-    _container: "AppContainer"
+    _container: AppContainer
 
     @cached_property
     def release_lifecycle(self) -> InMemoryReleaseLifecycleService:
@@ -58,11 +58,13 @@ class ServiceContainer:
 
 @dataclass
 class QueryContainer:
-    _container: "AppContainer"
+    _container: AppContainer
 
     @cached_property
     def logs(self) -> ListLogsQuery:
-        return ListLogsQuery(reader=self._container.infrastructure.log_reader, settings=self._container.settings)
+        return ListLogsQuery(
+            reader=self._container.infrastructure.log_reader, settings=self._container.settings
+        )
 
     @cached_property
     def release_summary(self) -> ReleaseSummaryQuery:
@@ -71,7 +73,7 @@ class QueryContainer:
 
 @dataclass
 class UseCaseContainer:
-    _container: "AppContainer"
+    _container: AppContainer
 
     @cached_property
     def list_logs(self) -> ListLogsUseCase:
@@ -80,7 +82,7 @@ class UseCaseContainer:
 
 @dataclass
 class InfrastructureContainer:
-    _container: "AppContainer"
+    _container: AppContainer
 
     @cached_property
     def log_reader(self) -> LogFileReader:

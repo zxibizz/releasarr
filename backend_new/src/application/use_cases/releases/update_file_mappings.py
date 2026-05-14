@@ -7,7 +7,10 @@ from src.application.interfaces.releases import (
     ReleaseFileMapping,
     ReleaseRepository,
 )
-from src.application.use_cases.releases.commands import FileMappingCommand, UpdateFileMappingsCommand
+from src.application.use_cases.releases.commands import (
+    FileMappingCommand,
+    UpdateFileMappingsCommand,
+)
 from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,

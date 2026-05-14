@@ -9,7 +9,6 @@ class Base(DeclarativeBase):
     """Declarative base class for ORM models."""
 
 
-
 metadata = Base.metadata
 """Convenient handle for Alembic auto-generation."""
 

@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Awaitable, Callable
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-from src.application.interfaces.releases import CreateReleaseData, FileMappingUpdateData, ReleaseFileMapping
+from src.application.interfaces.releases import (
+    CreateReleaseData,
+    FileMappingUpdateData,
+    ReleaseFileMapping,
+)
 from src.db.session import DBManager
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
@@ -62,6 +71,7 @@ async def seed_requests(db_manager: DBManager) -> Callable[[list[str]], Awaitabl
                         series_year=None,
                     )
                 )
+
     return _seed
 
 

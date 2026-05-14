@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Sequence
+from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid4
-from urllib.parse import parse_qs, urlparse, unquote
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -162,7 +161,9 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
                     file.season = mapping.season
                     file.episode = mapping.episode
 
-                    if mapping.request_id and mapping.request_id not in {req.id for req in release.requests}:
+                    if mapping.request_id and mapping.request_id not in {
+                        req.id for req in release.requests
+                    }:
                         request = await session.get(models.MediaRequest, mapping.request_id)
                         if request is not None:
                             release.requests.append(request)

@@ -12,14 +12,18 @@ from fastapi.responses import JSONResponse
 ErrorDetail = Mapping[str, Any] | None
 
 
-def api_error(status_code: int, code: str, message: str, details: ErrorDetail = None) -> HTTPException:
+def api_error(
+    status_code: int, code: str, message: str, details: ErrorDetail = None
+) -> HTTPException:
     """Raiseable HTTP exception producing a spec-compliant error body."""
 
     payload = {"code": code, "message": message, "details": details}
     return HTTPException(status_code=status_code, detail=payload)
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Translate FastAPI validation errors into the standardized response body."""
 
     detail = {

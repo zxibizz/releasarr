@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Callable
 from contextlib import contextmanager
-from typing import Any, AsyncIterator, Callable
+from typing import Any
 
 import pytest
 from fastapi import status
@@ -12,8 +13,8 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import app
 from src.api.routes.logs import _get_use_case
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
-from src.schemas.logs import LogsResponse
 from src.core.container import get_container
+from src.schemas.logs import LogsResponse
 
 API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key}
 
@@ -22,7 +23,9 @@ class FakeLogsUseCase(ListLogsUseCase):  # type: ignore[misc]
     def __init__(self, response: LogsResponse) -> None:
         self._response = response
 
-    async def execute(self, page: int, per_page: int, request_id: str | None = None) -> LogsResponse:  # type: ignore[override]
+    async def execute(
+        self, page: int, per_page: int, request_id: str | None = None
+    ) -> LogsResponse:  # type: ignore[override]
         return self._response
 
 
