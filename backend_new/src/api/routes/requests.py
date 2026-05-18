@@ -44,34 +44,29 @@ def _get_container() -> AppContainer:
 def _get_list_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> ListMediaRequestsUseCase:
-    repository = container.repositories.media_requests
-    return ListMediaRequestsUseCase(repository=repository, settings=container.settings)
+    return container.use_cases.media_requests.list
 
 
 def _get_create_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> CreateMediaRequestUseCase:
-    repository = container.repositories.media_requests
-    return CreateMediaRequestUseCase(repository=repository)
+    return container.use_cases.media_requests.create
 
 
 def _get_get_use_case(container: AppContainer = Depends(_get_container)) -> GetMediaRequestUseCase:
-    repository = container.repositories.media_requests
-    return GetMediaRequestUseCase(repository=repository)
+    return container.use_cases.media_requests.get
 
 
 def _get_update_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> UpdateMediaRequestUseCase:
-    repository = container.repositories.media_requests
-    return UpdateMediaRequestUseCase(repository=repository)
+    return container.use_cases.media_requests.update
 
 
 def _get_delete_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> DeleteMediaRequestUseCase:
-    repository = container.repositories.media_requests
-    return DeleteMediaRequestUseCase(repository=repository)
+    return container.use_cases.media_requests.delete
 
 
 def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:

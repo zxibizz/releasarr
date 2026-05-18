@@ -5,6 +5,8 @@ from __future__ import annotations
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
+from src.application.use_cases.releases.list_releases import ListReleasesUseCase
+from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
 from src.core.container import AppContainer, get_container
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
@@ -34,7 +36,9 @@ def test_container_provides_singletons() -> None:
     download_service = container.services.release_download
     log_reader = container.infrastructure.log_reader
     logs_query = container.queries.logs
-    logs_use_case = container.use_cases.list_logs
+    logs_use_case = container.use_cases.logs.list
+    media_request_list = container.use_cases.media_requests.list
+    release_list = container.use_cases.releases.list
     release_summary_query = container.queries.release_summary
 
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
@@ -45,6 +49,8 @@ def test_container_provides_singletons() -> None:
     assert isinstance(log_reader, LogFileReader)
     assert isinstance(logs_query, ListLogsQuery)
     assert isinstance(logs_use_case, ListLogsUseCase)
+    assert isinstance(media_request_list, ListMediaRequestsUseCase)
+    assert isinstance(release_list, ListReleasesUseCase)
     assert isinstance(release_summary_query, ReleaseSummaryQuery)
 
     # Ensure the same singleton is returned on subsequent resolves.
@@ -55,5 +61,7 @@ def test_container_provides_singletons() -> None:
     assert download_service is container.services.release_download
     assert log_reader is container.infrastructure.log_reader
     assert logs_query is container.queries.logs
-    assert logs_use_case is container.use_cases.list_logs
+    assert logs_use_case is container.use_cases.logs.list
+    assert media_request_list is container.use_cases.media_requests.list
+    assert release_list is container.use_cases.releases.list
     assert release_summary_query is container.queries.release_summary

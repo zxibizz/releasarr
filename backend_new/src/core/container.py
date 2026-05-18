@@ -13,6 +13,26 @@ from functools import cached_property, lru_cache
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
+from src.application.use_cases.releases.create_release import CreateReleaseUseCase
+from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
+from src.application.use_cases.releases.get_release import GetReleaseUseCase
+from src.application.use_cases.releases.list_releases import ListReleasesUseCase
+from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
+from src.application.use_cases.releases.queue_release_download import (
+    QueueReleaseDownloadUseCase,
+)
+from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
+from src.application.use_cases.releases.search_release_sources import (
+    SearchReleaseSourcesUseCase,
+)
+from src.application.use_cases.releases.update_file_mappings import (
+    UpdateReleaseFileMappingsUseCase,
+)
+from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
+from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
+from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
+from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
+from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
 from src.core.logging import configure_logging
 from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
@@ -76,8 +96,106 @@ class UseCaseContainer:
     _container: AppContainer
 
     @cached_property
-    def list_logs(self) -> ListLogsUseCase:
+    def logs(self) -> "LogUseCases":
+        return LogUseCases(self._container)
+
+    @cached_property
+    def media_requests(self) -> "MediaRequestUseCases":
+        return MediaRequestUseCases(self._container)
+
+    @cached_property
+    def releases(self) -> "ReleaseUseCases":
+        return ReleaseUseCases(self._container)
+
+
+@dataclass
+class LogUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def list(self) -> ListLogsUseCase:
         return ListLogsUseCase(query=self._container.queries.logs)
+
+
+@dataclass
+class MediaRequestUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def list(self) -> ListMediaRequestsUseCase:
+        return ListMediaRequestsUseCase(
+            repository=self._container.repositories.media_requests,
+            settings=self._container.settings,
+        )
+
+    @cached_property
+    def create(self) -> CreateMediaRequestUseCase:
+        return CreateMediaRequestUseCase(repository=self._container.repositories.media_requests)
+
+    @cached_property
+    def get(self) -> GetMediaRequestUseCase:
+        return GetMediaRequestUseCase(repository=self._container.repositories.media_requests)
+
+    @cached_property
+    def update(self) -> UpdateMediaRequestUseCase:
+        return UpdateMediaRequestUseCase(repository=self._container.repositories.media_requests)
+
+    @cached_property
+    def delete(self) -> DeleteMediaRequestUseCase:
+        return DeleteMediaRequestUseCase(repository=self._container.repositories.media_requests)
+
+
+@dataclass
+class ReleaseUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def list(self) -> ListReleasesUseCase:
+        return ListReleasesUseCase(
+            repository=self._container.repositories.releases,
+            settings=self._container.settings,
+        )
+
+    @cached_property
+    def create(self) -> CreateReleaseUseCase:
+        return CreateReleaseUseCase(repository=self._container.repositories.releases)
+
+    @cached_property
+    def get(self) -> GetReleaseUseCase:
+        return GetReleaseUseCase(repository=self._container.repositories.releases)
+
+    @cached_property
+    def delete(self) -> DeleteReleaseUseCase:
+        return DeleteReleaseUseCase(repository=self._container.repositories.releases)
+
+    @cached_property
+    def update_mappings(self) -> UpdateReleaseFileMappingsUseCase:
+        return UpdateReleaseFileMappingsUseCase(repository=self._container.repositories.releases)
+
+    @cached_property
+    def pause(self) -> PauseReleaseUseCase:
+        return PauseReleaseUseCase(
+            repository=self._container.repositories.releases,
+            lifecycle_service=self._container.services.release_lifecycle,
+        )
+
+    @cached_property
+    def resume(self) -> ResumeReleaseUseCase:
+        return ResumeReleaseUseCase(
+            repository=self._container.repositories.releases,
+            lifecycle_service=self._container.services.release_lifecycle,
+        )
+
+    @cached_property
+    def search_sources(self) -> SearchReleaseSourcesUseCase:
+        return SearchReleaseSourcesUseCase(search_service=self._container.services.release_search)
+
+    @cached_property
+    def queue_download(self) -> QueueReleaseDownloadUseCase:
+        return QueueReleaseDownloadUseCase(
+            repository=self._container.repositories.releases,
+            download_service=self._container.services.release_download,
+        )
 
 
 @dataclass
