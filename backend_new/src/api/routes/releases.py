@@ -34,6 +34,9 @@ from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
+from src.application.use_cases.releases.search_release_sources import (
+    SearchReleaseSourcesUseCase,
+)
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaType, ReleaseStatus
@@ -62,62 +65,46 @@ def _get_container() -> AppContainer:
     return get_container()
 
 
-def _release_repository(container: AppContainer) -> object:
-    return container.repositories.releases
-
-
 def _list_use_case(container: AppContainer = Depends(_get_container)) -> ListReleasesUseCase:
-    repository = _release_repository(container)
-    return ListReleasesUseCase(repository=repository, settings=container.settings)
+    return container.use_cases.releases.list
 
 
 def _create_use_case(container: AppContainer = Depends(_get_container)) -> CreateReleaseUseCase:
-    repository = _release_repository(container)
-    return CreateReleaseUseCase(repository=repository)
+    return container.use_cases.releases.create
 
 
 def _get_use_case(container: AppContainer = Depends(_get_container)) -> GetReleaseUseCase:
-    repository = _release_repository(container)
-    return GetReleaseUseCase(repository=repository)
+    return container.use_cases.releases.get
 
 
 def _delete_use_case(container: AppContainer = Depends(_get_container)) -> DeleteReleaseUseCase:
-    repository = _release_repository(container)
-    return DeleteReleaseUseCase(repository=repository)
+    return container.use_cases.releases.delete
 
 
 def _update_mappings_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> UpdateReleaseFileMappingsUseCase:
-    repository = _release_repository(container)
-    return UpdateReleaseFileMappingsUseCase(repository=repository)
+    return container.use_cases.releases.update_mappings
 
 
 def _pause_use_case(container: AppContainer = Depends(_get_container)) -> PauseReleaseUseCase:
-    repository = _release_repository(container)
-    lifecycle = container.services.release_lifecycle
-    return PauseReleaseUseCase(repository=repository, lifecycle_service=lifecycle)
+    return container.use_cases.releases.pause
 
 
 def _resume_use_case(container: AppContainer = Depends(_get_container)) -> ResumeReleaseUseCase:
-    repository = _release_repository(container)
-    lifecycle = container.services.release_lifecycle
-    return ResumeReleaseUseCase(repository=repository, lifecycle_service=lifecycle)
+    return container.use_cases.releases.resume
 
 
 def _search_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> ReleaseSearchSourcesUseCase:
-    search_service = container.services.release_search
-    return ReleaseSearchSourcesUseCase(search_service=search_service)
+    return container.use_cases.releases.search_sources
 
 
 def _queue_download_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> QueueReleaseDownloadUseCase:
-    repository = _release_repository(container)
-    download_service = container.services.release_download
-    return QueueReleaseDownloadUseCase(repository=repository, download_service=download_service)
+    return container.use_cases.releases.queue_download
 
 
 def _dto_to_release(dto: ReleaseDTO) -> Release:
