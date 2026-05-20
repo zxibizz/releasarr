@@ -138,6 +138,7 @@ async def test_get_release_not_found_returns_404(client: AsyncClient) -> None:
         response = await client.get("/releases/missing", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "release_not_found"
 
 
 @pytest.mark.asyncio
@@ -194,6 +195,7 @@ async def test_update_file_mappings_missing_file_returns_404(client: AsyncClient
         )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "release_file_not_found"
 
 
 @pytest.mark.asyncio
@@ -240,9 +242,15 @@ async def test_queue_release_download_conflict_returns_409(client: AsyncClient) 
         )
 
     assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == "release_download_conflict"
 
 
 @pytest.mark.asyncio
 async def test_missing_api_key_returns_401(client: AsyncClient) -> None:
     response = await client.get("/releases")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {
+        "code": "unauthorized",
+        "message": "Invalid API key",
+        "details": None,
+    }
