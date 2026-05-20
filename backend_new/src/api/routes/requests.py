@@ -221,7 +221,7 @@ def _build_create_command(
             genres=payload.genres,
         )
     msg = f"Unsupported media type '{payload.type}'"
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+    raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_media_type", msg)
 
 
 def _build_update_command(payload: MediaRequestUpdate) -> UpdateMediaRequestCommand:

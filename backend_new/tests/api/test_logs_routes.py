@@ -67,3 +67,8 @@ async def test_list_logs_returns_response(client: AsyncClient) -> None:
 async def test_missing_api_key_returns_401(client: AsyncClient) -> None:
     response = await client.get("/logs")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {
+        "code": "unauthorized",
+        "message": "Invalid API key",
+        "details": None,
+    }
