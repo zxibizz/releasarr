@@ -107,6 +107,15 @@ def _queue_download_use_case(
     return container.use_cases.releases.queue_download
 
 
+def _parse_status(status_filter: str | None) -> ReleaseStatus | None:
+    if not status_filter:
+        return None
+    try:
+        return ReleaseStatus(status_filter)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
+
+
 def _dto_to_release(dto: ReleaseDTO) -> Release:
     return Release(
         id=dto.id,
@@ -215,12 +224,7 @@ async def list_releases(
     status_filter: str | None = Query(default=None, alias="status"),
     request_id: str | None = Query(default=None, alias="request_id"),
 ) -> ReleasesResponse:
-    status_value: ReleaseStatus | None = None
-    if status_filter:
-        try:
-            status_value = ReleaseStatus(status_filter)
-        except ValueError as exc:  # pragma: no cover
-            raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
+    status_value = _parse_status(status_filter)
 
     options = ListReleasesOptions(
         page=page,
@@ -241,6 +245,28 @@ async def search_releases(
     command = SearchReleaseSourcesCommand(query=q, request_id=request_id)
     dto = await search_use_case.execute(command)
     return _search_to_response(dto)
+
+
+@request_releases_router.get(
+    "/{request_id}/releases",
+    response_model=ReleasesResponse,
+)
+async def list_releases_for_request(
+    request_id: str,
+    list_use_case: ListReleasesUseCase = Depends(_list_use_case),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1),
+    status_filter: str | None = Query(default=None, alias="status"),
+) -> ReleasesResponse:
+    status_value = _parse_status(status_filter)
+    options = ListReleasesOptions(
+        page=page,
+        per_page=per_page,
+        status=status_value,
+        request_id=request_id,
+    )
+    page_dto = await list_use_case.execute(options)
+    return _page_to_response(page_dto)
 
 
 @router.post("", response_model=Release, status_code=status.HTTP_201_CREATED)
