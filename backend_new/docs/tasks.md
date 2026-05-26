@@ -10,8 +10,10 @@ Outputs a JSON payload describing how many releases exist in the system grouped
 by status. Useful for dashboards or smoke checks during operations.
 
 ```bash
-uv run python -m src.tasks.release_summary
+uv run python -m src.tasks.cli release-summary --json
 ```
+
+Without `--json`, the command prints a human-readable summary instead.
 
 The task relies on the same database configuration specified in the
 `AppSettings`, so ensure environment variables are set before running it.
