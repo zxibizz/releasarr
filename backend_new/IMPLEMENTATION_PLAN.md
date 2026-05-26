@@ -56,7 +56,7 @@
 
 ### Phase 6 – Tasks & Operations
 1. Implement standalone async task runners under `src/tasks` (e.g., `sync_missing`, `import_torrent_stats`) reusable by CLI or process manager *(release summary task available via `uv run python -m src.tasks.release_summary`)*.
-2. Provide CLI entrypoints (Typer or plain `uv run` scripts) so operations can run in parallel with the API server when orchestrated externally.
+2. [x] Provide CLI entrypoints (Typer or plain `uv run` scripts) so operations can run in parallel with the API server when orchestrated externally *(see `python -m src.tasks.cli`).
 3. Ensure task runs reuse the same dependency container and logging configuration as the API for consistency.
 
 ### Phase 7 – Testing & Validation
