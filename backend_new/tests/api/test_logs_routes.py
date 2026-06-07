@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Any
 
 import pytest
 from fastapi import status
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
 from src.api.app import app
 from src.api.routes.logs import _get_use_case
@@ -47,25 +47,19 @@ def override_dependency(dep: Callable[..., Any], value: Any):
         app.dependency_overrides.pop(dep, None)
 
 
-@pytest.fixture()
-async def client() -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client:
-        yield http_client
-
-
 @pytest.mark.asyncio
-async def test_list_logs_returns_response(client: AsyncClient) -> None:
+async def test_list_logs_returns_response(api_client: AsyncClient) -> None:
     response_model = make_logs_response()
     with override_dependency(_get_use_case, FakeLogsUseCase(response_model)):
-        response = await client.get("/logs", headers=API_KEY_HEADER)
+        response = await api_client.get("/logs", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["total"] == 0
 
 
 @pytest.mark.asyncio
-async def test_missing_api_key_returns_401(client: AsyncClient) -> None:
-    response = await client.get("/logs")
+async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
+    response = await api_client.get("/logs")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {
         "code": "unauthorized",
