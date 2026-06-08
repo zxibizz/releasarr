@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 
 from src.api.dependencies import require_api_key
 from src.api.errors import api_error
+from src.api.responses import error_response
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
     FileMappingCommand,
@@ -34,9 +37,6 @@ from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
-from src.application.use_cases.releases.search_release_sources import (
-    SearchReleaseSourcesUseCase,
-)
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaType, ReleaseStatus
@@ -105,6 +105,107 @@ def _queue_download_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> QueueReleaseDownloadUseCase:
     return container.use_cases.releases.queue_download
+
+
+RELEASE_LIST_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Invalid pagination or filter parameters."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+CREATE_RELEASE_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed request payload."),
+    status.HTTP_409_CONFLICT: error_response(
+        "A release with the same identifier already exists."
+    ),
+    status.HTTP_422_UNPROCESSABLE_CONTENT: error_response(
+        "Validation failed for the provided fields."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+GET_RELEASE_RESPONSES = {
+    status.HTTP_404_NOT_FOUND: error_response("Release not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+DELETE_RELEASE_RESPONSES = {
+    status.HTTP_404_NOT_FOUND: error_response("Release not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+PAUSE_RELEASE_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Release cannot be paused because the request was invalid."
+    ),
+    status.HTTP_404_NOT_FOUND: error_response("Release not found."),
+    status.HTTP_409_CONFLICT: error_response("Release is not in a pausable state."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+RESUME_RELEASE_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Release cannot be resumed because the request was invalid."
+    ),
+    status.HTTP_404_NOT_FOUND: error_response("Release not found."),
+    status.HTTP_409_CONFLICT: error_response("Release is not in a resumable state."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+UPDATE_MAPPINGS_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed request payload."),
+    status.HTTP_404_NOT_FOUND: error_response("Release or file not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+SEARCH_RELEASES_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed search query."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+REQUEST_RELEASES_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Invalid pagination or filter parameters."
+    ),
+    status.HTTP_404_NOT_FOUND: error_response("Request not found."),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+QUEUE_DOWNLOAD_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response("Malformed request body."),
+    status.HTTP_404_NOT_FOUND: error_response(
+        "Release candidate not found for the request."
+    ),
+    status.HTTP_409_CONFLICT: error_response(
+        "Request already has an active download."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+
+ReleaseIdParam = Annotated[str, Path(..., alias="releaseId")]
+RequestIdParam = Annotated[str, Path(..., alias="requestId")]
 
 
 def _parse_status(status_filter: str | None) -> ReleaseStatus | None:
@@ -216,7 +317,7 @@ def _search_to_response(dto: ReleaseSearchResponseDTO) -> ReleaseSearchResponse:
     return ReleaseSearchResponse(results=results, query=dto.query, total_results=dto.total_results)
 
 
-@router.get("", response_model=ReleasesResponse)
+@router.get("", response_model=ReleasesResponse, responses=RELEASE_LIST_RESPONSES)
 async def list_releases(
     list_use_case: ListReleasesUseCase = Depends(_list_use_case),
     page: int = Query(default=1, ge=1),
@@ -236,7 +337,7 @@ async def list_releases(
     return _page_to_response(page_dto)
 
 
-@router.get("/search", response_model=ReleaseSearchResponse)
+@router.get("/search", response_model=ReleaseSearchResponse, responses=SEARCH_RELEASES_RESPONSES)
 async def search_releases(
     q: str = Query(...),
     request_id: str | None = Query(default=None, alias="request_id"),
@@ -248,11 +349,13 @@ async def search_releases(
 
 
 @request_releases_router.get(
-    "/{request_id}/releases",
+    "/{requestId}/releases",
     response_model=ReleasesResponse,
+    responses=REQUEST_RELEASES_RESPONSES,
+    deprecated=True,
 )
 async def list_releases_for_request(
-    request_id: str,
+    request_id: RequestIdParam,
     list_use_case: ListReleasesUseCase = Depends(_list_use_case),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1),
@@ -269,7 +372,12 @@ async def list_releases_for_request(
     return _page_to_response(page_dto)
 
 
-@router.post("", response_model=Release, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=Release,
+    status_code=status.HTTP_201_CREATED,
+    responses=CREATE_RELEASE_RESPONSES,
+)
 async def create_release(
     payload: AddReleaseRequest,
     create_use_case: CreateReleaseUseCase = Depends(_create_use_case),
@@ -286,9 +394,13 @@ async def create_release(
     return _dto_to_release(dto)
 
 
-@router.get("/{release_id}", response_model=Release)
+@router.get(
+    "/{releaseId}",
+    response_model=Release,
+    responses=GET_RELEASE_RESPONSES,
+)
 async def get_release(
-    release_id: str,
+    release_id: ReleaseIdParam,
     get_use_case: GetReleaseUseCase = Depends(_get_use_case),
 ) -> Release:
     try:
@@ -298,9 +410,13 @@ async def get_release(
     return _dto_to_release(dto)
 
 
-@router.delete("/{release_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{releaseId}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=DELETE_RELEASE_RESPONSES,
+)
 async def delete_release(
-    release_id: str,
+    release_id: ReleaseIdParam,
     delete_use_case: DeleteReleaseUseCase = Depends(_delete_use_case),
 ) -> Response:
     try:
@@ -311,12 +427,13 @@ async def delete_release(
 
 
 @router.post(
-    "/{release_id}/pause",
+    "/{releaseId}/pause",
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    responses=PAUSE_RELEASE_RESPONSES,
 )
 async def pause_release(
-    release_id: str,
+    release_id: ReleaseIdParam,
     response: Response,
     pause_use_case: PauseReleaseUseCase = Depends(_pause_use_case),
 ) -> AsyncOperationResponse:
@@ -332,12 +449,13 @@ async def pause_release(
 
 
 @router.post(
-    "/{release_id}/resume",
+    "/{releaseId}/resume",
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    responses=RESUME_RELEASE_RESPONSES,
 )
 async def resume_release(
-    release_id: str,
+    release_id: ReleaseIdParam,
     response: Response,
     resume_use_case: ResumeReleaseUseCase = Depends(_resume_use_case),
 ) -> AsyncOperationResponse:
@@ -352,9 +470,13 @@ async def resume_release(
     return _async_to_response(dto)
 
 
-@router.put("/{release_id}/files/mapping", response_model=SuccessResponse)
+@router.put(
+    "/{releaseId}/files/mapping",
+    response_model=SuccessResponse,
+    responses=UPDATE_MAPPINGS_RESPONSES,
+)
 async def update_file_mappings(
-    release_id: str,
+    release_id: ReleaseIdParam,
     payload: ReleaseFileMappingsUpdate,
     update_use_case: UpdateReleaseFileMappingsUseCase = Depends(_update_mappings_use_case),
 ) -> SuccessResponse:
@@ -391,12 +513,13 @@ def _build_update_command(
 
 
 @request_releases_router.post(
-    "/{request_id}/releases/download",
+    "/{requestId}/releases/download",
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    responses=QUEUE_DOWNLOAD_RESPONSES,
 )
 async def queue_release_download(
-    request_id: str,
+    request_id: RequestIdParam,
     payload: ReleaseDownloadRequest,
     response: Response,
     queue_use_case: QueueReleaseDownloadUseCase = Depends(_queue_download_use_case),

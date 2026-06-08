@@ -96,15 +96,15 @@ class UseCaseContainer:
     _container: AppContainer
 
     @cached_property
-    def logs(self) -> "LogUseCases":
+    def logs(self) -> LogUseCases:
         return LogUseCases(self._container)
 
     @cached_property
-    def media_requests(self) -> "MediaRequestUseCases":
+    def media_requests(self) -> MediaRequestUseCases:
         return MediaRequestUseCases(self._container)
 
     @cached_property
-    def releases(self) -> "ReleaseUseCases":
+    def releases(self) -> ReleaseUseCases:
         return ReleaseUseCases(self._container)
 
 
