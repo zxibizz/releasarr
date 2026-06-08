@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from src.api.dependencies import require_api_key
 from src.api.errors import api_error
+from src.api.responses import error_response
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.schemas.logs import LogsResponse
 
@@ -19,7 +20,17 @@ def _get_use_case() -> ListLogsUseCase:
     return container.use_cases.logs.list
 
 
-@router.get("", response_model=LogsResponse)
+LOGS_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: error_response(
+        "Invalid pagination or filter parameters."
+    ),
+    status.HTTP_500_INTERNAL_SERVER_ERROR: error_response(
+        "Unexpected server error."
+    ),
+}
+
+
+@router.get("", response_model=LogsResponse, responses=LOGS_RESPONSES)
 async def list_logs(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1),

@@ -35,7 +35,7 @@ async def validation_exception_handler(
     """Translate FastAPI validation errors into the standardized response body."""
 
     detail = _error_payload("validation_error", "Request validation failed", exc.errors())
-    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=detail)
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=detail)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:

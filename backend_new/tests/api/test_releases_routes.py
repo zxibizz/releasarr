@@ -14,6 +14,7 @@ from httpx import AsyncClient
 from src.api.app import app
 from src.api.routes.releases import (
     _create_use_case,
+    _delete_use_case,
     _get_use_case,
     _list_use_case,
     _pause_use_case,
@@ -169,6 +170,38 @@ async def test_get_release_not_found_returns_404(api_client: AsyncClient) -> Non
 
     with override_dependency(_get_use_case, FakeGet()):
         response = await api_client.get("/releases/missing", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "release_not_found"
+
+
+@pytest.mark.asyncio
+async def test_delete_release_returns_no_content(api_client: AsyncClient) -> None:
+    class FakeDelete:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def execute(self, release_id):  # type: ignore[override]
+            self.calls.append(release_id)
+
+    fake_delete = FakeDelete()
+
+    with override_dependency(_delete_use_case, fake_delete):
+        response = await api_client.delete("/releases/rel-1", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert fake_delete.calls == ["rel-1"]
+    assert response.content == b""
+
+
+@pytest.mark.asyncio
+async def test_delete_release_not_found_returns_404(api_client: AsyncClient) -> None:
+    class FakeDelete:
+        async def execute(self, release_id):  # type: ignore[override]
+            raise ReleaseNotFoundError(release_id)
+
+    with override_dependency(_delete_use_case, FakeDelete()):
+        response = await api_client.delete("/releases/missing", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["code"] == "release_not_found"
