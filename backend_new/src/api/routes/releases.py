@@ -37,6 +37,7 @@ from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
+from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaType, ReleaseStatus
@@ -97,7 +98,7 @@ def _resume_use_case(container: AppContainer = Depends(_get_container)) -> Resum
 
 def _search_use_case(
     container: AppContainer = Depends(_get_container),
-) -> ReleaseSearchSourcesUseCase:
+) -> SearchReleaseSourcesUseCase:
     return container.use_cases.releases.search_sources
 
 
@@ -341,7 +342,7 @@ async def list_releases(
 async def search_releases(
     q: str = Query(...),
     request_id: str | None = Query(default=None, alias="request_id"),
-    search_use_case: ReleaseSearchSourcesUseCase = Depends(_search_use_case),
+    search_use_case: SearchReleaseSourcesUseCase = Depends(_search_use_case),
 ) -> ReleaseSearchResponse:
     command = SearchReleaseSourcesCommand(query=q, request_id=request_id)
     dto = await search_use_case.execute(command)
