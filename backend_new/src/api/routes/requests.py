@@ -153,6 +153,7 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
             series_title=dto.series_title,
             series_year=dto.series_year,
             imdb_id=dto.imdb_id,
+            sonarr_series_id=dto.sonarr_series_id,
         )
     raise TypeError("Unsupported DTO type")
 

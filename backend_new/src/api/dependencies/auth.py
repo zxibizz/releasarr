@@ -15,9 +15,9 @@ async def require_api_key(x_api_key: str | None = Header(default=None, alias="X-
     expected = container.settings.api_key
     if not expected:
         return
-    # TODO: enable when login added on frontend
-    # if x_api_key != expected:
-    #     raise api_error(status.HTTP_401_UNAUTHORIZED, "unauthorized", "Invalid API key")
+
+    if x_api_key != expected:
+        raise api_error(status.HTTP_401_UNAUTHORIZED, "unauthorized", "Invalid API key")
 
 
 __all__ = ["require_api_key"]
