@@ -37,6 +37,7 @@ class SeriesRequest(BaseMediaRequest):
     series_title: str
     series_year: int
     imdb_id: str
+    sonarr_series_id: int | None = None
 
 
 MediaRequest = Annotated[MovieRequest | SeriesRequest, Field(discriminator="type")]

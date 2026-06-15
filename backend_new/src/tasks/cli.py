@@ -7,6 +7,7 @@ import asyncio
 import typer
 
 from src.tasks import release_summary
+from src.core.container import get_container
 
 app = typer.Typer(help="Operational task runner")
 
@@ -24,6 +25,24 @@ def release_summary_command(json_output: bool = typer.Option(False, "--json")) -
     typer.echo(f"Total: {summary.total}")
     for status, count in summary.by_status.items():
         typer.echo(f" - {status.value}: {count}")
+
+
+@app.command("sync-sonarr-requests")
+def sync_sonarr_requests_command() -> None:
+    """Synchronise Sonarr missing seasons into media requests."""
+
+    container = get_container()
+    container.startup()
+    try:
+        use_case = container.use_cases.media_requests.sync_sonarr
+        result = asyncio.run(use_case.execute())
+    finally:
+        container.shutdown()
+
+    typer.echo(
+        "Sonarr sync complete "
+        f"(created={result.created}, updated={result.updated}, completed={result.completed})"
+    )
 
 
 def main() -> None:  # pragma: no cover - Typer handles exit

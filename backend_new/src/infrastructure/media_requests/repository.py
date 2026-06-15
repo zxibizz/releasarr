@@ -70,6 +70,7 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
                 total_episodes=data.total_episodes,
                 series_title=data.series_title,
                 series_year=data.series_year,
+                sonarr_series_id=data.sonarr_series_id,
             )
             session.add(request)
             await session.flush()
@@ -111,6 +112,31 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
             await session.delete(request)
             return True
 
+    async def find_by_sonarr(
+        self,
+        *,
+        sonarr_series_id: int,
+        season_number: int,
+    ) -> MediaRequestRecord | None:
+        async with self.db.session() as session:
+            stmt = select(models.MediaRequest).where(
+                models.MediaRequest.sonarr_series_id == sonarr_series_id,
+                models.MediaRequest.season_number == season_number,
+            )
+            result = await session.execute(stmt)
+            request = result.scalar_one_or_none()
+            if request is None:
+                return None
+            return self._to_record(request)
+
+    async def list_sonarr_requests(self) -> list[MediaRequestRecord]:
+        async with self.db.session() as session:
+            stmt: Select[tuple[models.MediaRequest]] = select(models.MediaRequest).where(
+                models.MediaRequest.sonarr_series_id.is_not(None)
+            )
+            result = await session.execute(stmt)
+            return [self._to_record(request) for request in result.scalars().all()]
+
     async def _count_requests(
         self,
         session: AsyncSession,
@@ -136,6 +162,7 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
             total_episodes=request.total_episodes,
             series_title=request.series_title,
             series_year=request.series_year,
+            sonarr_series_id=request.sonarr_series_id,
             created_at=request.created_at,
             updated_at=request.updated_at,
         )
