@@ -81,3 +81,4 @@ src/
 ## Environment Variables
 
 - `VITE_API_URL` – base URL for the Releasarr API or mock server (defaults to `http://localhost:8001/api`).
+- `VITE_API_KEY` – API key forwarded with every backend request (defaults to `dev-secret`).
