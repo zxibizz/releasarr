@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+from loguru._logger import Logger
+
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
     MediaRequestRecord,
