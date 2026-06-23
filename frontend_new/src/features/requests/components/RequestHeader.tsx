@@ -1,4 +1,5 @@
 import { Button, Stack, Text } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { MediaInfo } from '@/features/requests/MediaInfo';
@@ -9,10 +10,14 @@ interface RequestHeaderProps {
 }
 
 export function RequestHeader({ request }: RequestHeaderProps) {
+  const { t } = useTranslation();
+  const subtitleKey =
+    request.type === 'movie' ? 'requestHeader.subtitle.movie' : 'requestHeader.subtitle.series';
+
   return (
     <Stack spacing={8}>
       <Button as={RouterLink} to="/" variant="outline" colorScheme="blue" width="fit-content">
-        ← Back to Requests
+        {t('common.backToRequests')}
       </Button>
 
       <Stack spacing={2}>
@@ -20,7 +25,7 @@ export function RequestHeader({ request }: RequestHeaderProps) {
           {request.title}
         </Text>
         <Text color="text.subtle" fontSize="md">
-          {request.type === 'movie' ? 'Movie' : 'TV Series'} Request Details
+          {t(subtitleKey)}
         </Text>
       </Stack>
 

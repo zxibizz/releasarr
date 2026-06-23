@@ -15,10 +15,11 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useReleaseOperations } from '@/features/releases/useReleaseOperations';
-import { useReleasesByRequestQuery } from '@/hooks/useReleases';
 import { requestsApi } from '@/features/requests/api';
+import { useReleasesByRequestQuery } from '@/hooks/useReleases';
 import type { MediaRequest, Release } from '@/types';
 import { getApiErrorInfo } from '@/utils/errors';
 import { sortReleasesByStatus } from '@/utils/releaseHelpers';
@@ -52,6 +53,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
   const releases = useMemo(() => data ?? [], [data]);
   const [requestSummaries, setRequestSummaries] = useState<Record<string, RequestSummary>>({});
   const { deleteRelease, pauseRelease, resumeRelease } = useReleaseOperations(requestId);
+  const { t } = useTranslation();
 
   const releasesToRender = useMemo(() => sortReleasesByStatus(releases), [releases]);
 
@@ -130,8 +132,8 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
 
   const errorInfo = error
     ? getApiErrorInfo(error, {
-        title: 'Unable to load releases',
-        description: 'We could not retrieve releases for this request.',
+        title: t('releasesList.error.title'),
+        description: t('releasesList.error.description'),
       })
     : null;
 
@@ -173,7 +175,9 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
       >
         <AlertIcon />
         <Box>
-          <AlertTitle fontSize="lg">{errorInfo.title ?? 'Error loading releases'}</AlertTitle>
+          <AlertTitle fontSize="lg">
+            {errorInfo.title ?? t('releasesList.error.fallbackTitle')}
+          </AlertTitle>
           <AlertDescription>
             {errorInfo.description}
             {errorInfo.details && (
@@ -184,7 +188,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
           </AlertDescription>
         </Box>
         <Button variant="outline" colorScheme="blue" size="sm" onClick={() => refetch()}>
-          Try Again
+          {t('common.tryAgain')}
         </Button>
       </Alert>
     );
@@ -201,9 +205,9 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
         borderColor="border.muted"
       >
         <Text fontSize="4xl">📦</Text>
-        <Heading size="md">No releases found</Heading>
+        <Heading size="md">{t('releasesList.empty.title')}</Heading>
         <Text color="text.subtle" fontSize="sm">
-          No releases have been added for this request yet.
+          {t('releasesList.empty.description')}
         </Text>
       </VStack>
     );
@@ -214,7 +218,7 @@ const ReleasesList: React.FC<ReleasesListProps> = ({
       {isBackgroundRefreshing && (
         <HStack spacing={2} color="text.subtle" fontSize="sm" role="status">
           <Spinner size="sm" />
-          <Text>Refreshing releases…</Text>
+          <Text>{t('releasesList.refreshing')}</Text>
         </HStack>
       )}
       <Stack spacing={compact ? 3 : 4}>

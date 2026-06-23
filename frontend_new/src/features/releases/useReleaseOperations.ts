@@ -4,7 +4,6 @@ import { useCallback } from 'react';
 
 import { releasesApi } from '@/features/releases/api';
 import { releasesKeys } from '@/features/releases/queryKeys';
-
 import type { Release } from '@/types';
 
 interface OperationOptions {

@@ -1,4 +1,5 @@
 import { Stack, Text } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 
 import ReleasesList from '@/features/requests/ReleasesList';
 import type { MediaRequest, Release } from '@/types';
@@ -16,15 +17,17 @@ export function RequestReleasesSection({
   onReleasesLoaded,
   onViewFiles,
 }: RequestReleasesSectionProps) {
+  const { t } = useTranslation();
+
   return (
     <Stack spacing={4} w="100%">
       {hasExistingReleases && (
         <Stack spacing={1}>
           <Text as="h2" fontSize="lg" fontWeight="700">
-            📦 Releases
+            {t('requestReleases.title')}
           </Text>
           <Text color="text.subtle" fontSize="sm">
-            Releases linked to this request
+            {t('requestReleases.subtitle')}
           </Text>
         </Stack>
       )}

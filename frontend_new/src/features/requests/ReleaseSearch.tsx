@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useReleaseSearch } from '@/hooks/useReleaseSearch';
 import type { ReleaseSearchResult } from '@/types';
@@ -49,6 +50,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   const [downloadingCandidateId, setDownloadingCandidateId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +58,9 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
       try {
         await search(query.trim(), requestId);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Search failed';
+        const message = error instanceof Error ? error.message : t('releaseSearch.toasts.searchFailedFallback');
         toast({
-          title: 'Search failed',
+          title: t('releaseSearch.toasts.searchFailedTitle'),
           description: message,
           status: 'error',
           duration: 4000,
@@ -79,8 +81,12 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
     try {
       const response = await selectReleaseCandidate(candidate, requestId);
       toast({
-        title: 'Download queued',
-        description: response?.message ?? `${candidate.release_name} queued for download`,
+        title: t('releaseSearch.toasts.downloadQueuedTitle'),
+        description:
+          response?.message ??
+          t('releaseSearch.toasts.downloadQueuedFallback', {
+            name: candidate.release_name,
+          }),
         status: 'success',
         duration: 4000,
         isClosable: true,
@@ -88,9 +94,12 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
       onDownloadQueued?.();
       handleClear();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to queue download';
+      const message =
+        error instanceof Error
+          ? error.message
+          : t('releaseSearch.toasts.downloadFailedFallback');
       toast({
-        title: 'Download failed',
+        title: t('releaseSearch.toasts.downloadFailedTitle'),
         description: message,
         status: 'error',
         duration: 4000,
@@ -127,33 +136,35 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
   return (
     <Card p={{ base: 5, md: 6 }}>
       <Stack spacing={6}>
-        <Heading size="md">🔍 Search Release Sources</Heading>
+        <Heading size="md">{t('releaseSearch.title')}</Heading>
 
         <Box as="form" onSubmit={handleSubmit}>
           <Flex direction={{ base: 'column', md: 'row' }} gap={3}>
             <VisuallyHidden id="release-search-instructions">
-              Enter a title or identifier and press the search button to fetch release candidates.
+              {t('releaseSearch.instructions')}
             </VisuallyHidden>
             <Input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search release sources for "${requestTitle}"...`}
+              placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
               size="md"
-              aria-label={`Search releases for ${requestTitle}`}
+              aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
               aria-describedby="release-search-instructions"
             />
             <Flex gap={2}>
               <Button
                 type="submit"
                 isDisabled={!query.trim() || searchState.loading}
-                aria-label="Run release search"
+                aria-label={t('releaseSearch.actions.runSearch')}
               >
-                {searchState.loading ? 'Searching...' : 'Search'}
+                {searchState.loading
+                  ? t('releaseSearch.actions.searching')
+                  : t('releaseSearch.actions.search')}
               </Button>
               {(query || searchState.results.length > 0) && (
                 <Button type="button" variant="outline" colorScheme="gray" onClick={handleClear}>
-                  Clear
+                  {t('releaseSearch.actions.clear')}
                 </Button>
               )}
             </Flex>
@@ -195,15 +206,18 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               direction={{ base: 'column', md: 'row' }}
               gap={2}
             >
-              <Heading size="sm">Search Results</Heading>
+              <Heading size="sm">{t('releaseSearch.results.heading')}</Heading>
               <HStack spacing={2} color="text.subtle" fontSize="sm" align="center" role="status">
                 <Text>
-                  {searchState.results.length} results for "{searchState.query}"
+                  {t('releaseSearch.results.summary', {
+                    count: searchState.results.length,
+                    query: searchState.query,
+                  })}
                 </Text>
                 {searchState.loading && searchState.results.length > 0 && (
                   <HStack spacing={1} color="text.subtle">
                     <Spinner size="xs" />
-                    <Text fontSize="xs">Updating…</Text>
+                    <Text fontSize="xs">{t('releaseSearch.results.updating')}</Text>
                   </HStack>
                 )}
               </HStack>
@@ -211,7 +225,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
 
             <Stack spacing={3}>
               {searchState.results.map((candidate) => {
-                const qualityLabel = candidate.quality ?? 'Unknown';
+                const qualityLabel = candidate.quality ?? t('releaseSearch.quality.unknown');
                 const qualityColor = qualityColorScheme[qualityLabel] || 'gray';
                 const seedersLabel = candidate.seeders ?? 0;
                 const leechersLabel = candidate.leechers ?? 0;
@@ -257,7 +271,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                             colorScheme="orange"
                             px={0}
                           >
-                            Magnet link ↗
+                            {t('releaseSearch.links.magnet')}
                           </Button>
                         )}
                         {candidate.info_url && (
@@ -271,7 +285,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                             colorScheme="blue"
                             px={0}
                           >
-                            View info ↗
+                            {t('releaseSearch.links.info')}
                           </Button>
                         )}
                         {candidate.torrent_file_url && (
@@ -285,7 +299,7 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                             colorScheme="green"
                             px={0}
                           >
-                            Torrent file ↗
+                            {t('releaseSearch.links.torrent')}
                           </Button>
                         )}
                       </Flex>
@@ -295,13 +309,15 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
                       onClick={() => handleCandidateSelect(candidate)}
                       size="sm"
                       isLoading={downloadingCandidateId === candidate.release_id}
-                      loadingText="Queuing..."
+                      loadingText={t('releaseSearch.loading.queueing')}
                       isDisabled={
                         !!downloadingCandidateId && downloadingCandidateId !== candidate.release_id
                       }
-                      aria-label={`Queue download for ${candidate.release_name}`}
+                      aria-label={t('releaseSearch.actions.queueDownload', {
+                        name: candidate.release_name,
+                      })}
                     >
-                      Download
+                      {t('releaseSearch.download')}
                     </Button>
                   </Flex>
                 );
@@ -324,9 +340,9 @@ export const ReleaseSearch: React.FC<ReleaseSearchProps> = ({
               bg="bg.subtle"
             >
               <Text fontSize="4xl">🔍</Text>
-              <Heading size="sm">No release sources found</Heading>
+              <Heading size="sm">{t('releaseSearch.empty.title')}</Heading>
               <Text color="text.subtle" fontSize="sm" textAlign="center" px={6}>
-                Try adjusting your search terms or check back later.
+                {t('releaseSearch.empty.description')}
               </Text>
             </Stack>
           )}
