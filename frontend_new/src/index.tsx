@@ -4,6 +4,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 
+import '@/lib/i18n';
 import { queryClient } from '@/lib/queryClient';
 import reportWebVitals from '@/reportWebVitals';
 import { router } from '@/router';

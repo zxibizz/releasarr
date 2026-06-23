@@ -1,11 +1,15 @@
 import { Box, Container, HStack, Link as ChakraLink } from '@chakra-ui/react';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
+
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 function Navigation() {
   const location = useLocation();
+  const { t } = useTranslation();
 
-  const navItems = [{ label: 'Requests', href: '/' }];
+  const navItems = [{ label: t('nav.requests'), href: '/' }];
 
   return (
     <Box
@@ -33,39 +37,42 @@ function Navigation() {
           Releasarr
         </ChakraLink>
 
-        <HStack as="ul" spacing={{ base: 4, md: 8 }} listStyleType="none" m={0}>
-          {navItems.map((item) => {
-            const isActive =
-              item.href === '/'
-                ? location.pathname === '/' || location.pathname.startsWith('/request')
-                : location.pathname.startsWith(item.href);
-            return (
-              <Box as="li" key={item.href} position="relative">
-                <ChakraLink
-                  as={RouterLink}
-                  to={item.href}
-                  fontWeight="600"
-                  fontSize="sm"
-                  color={isActive ? 'brand.400' : 'text.subtle'}
-                  _hover={{ color: 'slate.100' }}
-                  pb={1}
-                >
-                  {item.label}
-                </ChakraLink>
-                {isActive && (
-                  <Box
-                    position="absolute"
-                    left={0}
-                    right={0}
-                    bottom={-2}
-                    height="2px"
-                    bgGradient="linear(90deg, #3b82f6, #8b5cf6)"
-                    borderRadius="full"
-                  />
-                )}
-              </Box>
-            );
-          })}
+        <HStack spacing={{ base: 4, md: 6 }} align="center">
+          <HStack as="ul" spacing={{ base: 4, md: 8 }} listStyleType="none" m={0}>
+            {navItems.map((item) => {
+              const isActive =
+                item.href === '/'
+                  ? location.pathname === '/' || location.pathname.startsWith('/request')
+                  : location.pathname.startsWith(item.href);
+              return (
+                <Box as="li" key={item.href} position="relative">
+                  <ChakraLink
+                    as={RouterLink}
+                    to={item.href}
+                    fontWeight="600"
+                    fontSize="sm"
+                    color={isActive ? 'brand.400' : 'text.subtle'}
+                    _hover={{ color: 'slate.100' }}
+                    pb={1}
+                  >
+                    {item.label}
+                  </ChakraLink>
+                  {isActive && (
+                    <Box
+                      position="absolute"
+                      left={0}
+                      right={0}
+                      bottom={-2}
+                      height="2px"
+                      bgGradient="linear(90deg, #3b82f6, #8b5cf6)"
+                      borderRadius="full"
+                    />
+                  )}
+                </Box>
+              );
+            })}
+          </HStack>
+          <LanguageSwitcher />
         </HStack>
       </Container>
     </Box>

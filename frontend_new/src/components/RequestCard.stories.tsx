@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { RequestCard } from './RequestCard';
 import type { MediaRequest } from '@/types';
+
+import { RequestCard } from './RequestCard';
 
 const movieRequest: MediaRequest = {
   id: 'req-movie-1',

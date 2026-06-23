@@ -22,6 +22,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import type { Dispatch, SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { logLevelStyles } from '@/theme/statusStyles';
 import type { RequestLogEntry } from '@/types';
@@ -47,11 +48,13 @@ export function RequestLogsModal({
   expandedStacks,
   setExpandedStacks,
 }: RequestLogsModalProps) {
+  const { t } = useTranslation();
+
   return (
   <Modal isOpen={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
     <ModalOverlay />
     <ModalContent maxW="4xl" w="full">
-      <ModalHeader>Logs for {requestTitle}</ModalHeader>
+      <ModalHeader>{t('requestLogsModal.title', { title: requestTitle })}</ModalHeader>
       <ModalCloseButton />
       <ModalBody maxH="60vh" overflowY="auto" aria-live="polite" aria-busy={isLoading}>
         {isLoading && logs.length === 0 ? (
@@ -78,13 +81,13 @@ export function RequestLogsModal({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : logs.length === 0 ? (
-          <Text color="text.subtle">No logs available for this request.</Text>
+          <Text color="text.subtle">{t('requestLogsModal.empty')}</Text>
         ) : (
           <Stack spacing={4} divider={<StackDivider borderColor="border.muted" />}>
             {isLoading && logs.length > 0 && (
               <HStack spacing={2} color="text.subtle" fontSize="sm" role="status">
                 <Spinner size="sm" />
-                <Text>Refreshing logs…</Text>
+                <Text>{t('requestLogsModal.refreshing')}</Text>
               </HStack>
             )}
             {logs.map((log) => {
@@ -116,7 +119,7 @@ export function RequestLogsModal({
                   {log.metadata && (
                     <Stack spacing={2}>
                       <Text fontWeight="600" fontSize="xs" color="text.subtle">
-                        Context
+                        {t('requestLogsModal.context')}
                       </Text>
                       <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2} fontSize="xs">
                         {Object.entries(log.metadata).map(([key, value]) => (
@@ -140,11 +143,11 @@ export function RequestLogsModal({
                   )}
                   {log.stackTrace && (
                     <Stack spacing={2}>
-                      <Button
-                        variant="link"
-                        size="xs"
-                        colorScheme="red"
-                        width="fit-content"
+                    <Button
+                      variant="link"
+                      size="xs"
+                      colorScheme="red"
+                      width="fit-content"
                         aria-expanded={isExpanded}
                         aria-controls={stackTraceId}
                         onClick={() =>
@@ -154,7 +157,9 @@ export function RequestLogsModal({
                           }))
                         }
                       >
-                        {isExpanded ? 'Hide stack trace' : 'View stack trace'}
+                        {isExpanded
+                          ? t('requestLogsModal.stackTrace.hide')
+                          : t('requestLogsModal.stackTrace.show')}
                       </Button>
                       {isExpanded && (
                         <Stack
@@ -182,7 +187,7 @@ export function RequestLogsModal({
         )}
       </ModalBody>
       <ModalFooter>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t('common.close')}</Button>
       </ModalFooter>
     </ModalContent>
   </Modal>
