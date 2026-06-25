@@ -74,31 +74,24 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
           </Box>
 
           <Stack spacing={4} flex={1} minW={0}>
-            <Flex
-              direction={{ base: 'column', sm: 'row' }}
-              align={{ base: 'flex-start', sm: 'center' }}
-              justify="space-between"
-              gap={3}
-              w="100%"
-            >
-              <Stack spacing={1} minW={0}>
-                <Heading size="md" noOfLines={2}>
-                  <LinkOverlay
-                    as={RouterLink}
-                    to={`/request/${request.id}`}
-                    _hover={{ textDecoration: 'none' }}
-                  >
-                    {request.title}
-                  </LinkOverlay>
-                </Heading>
-                <Text fontSize="sm" color="text.subtle">
-                  {request.year}
-                  {!isMovie &&
-                    ` • ${t('requestCard.season', { season: request.season_number })}`}
-                  {isMovie && ` • ${formatRuntime(request.runtime)}`}
-                </Text>
-              </Stack>
+            <Stack spacing={1} minW={0}>
+              <Heading size="md" noOfLines={2}>
+                <LinkOverlay
+                  as={RouterLink}
+                  to={`/request/${request.id}`}
+                  _hover={{ textDecoration: 'none' }}
+                >
+                  {request.title}
+                </LinkOverlay>
+              </Heading>
+              <Text fontSize="sm" color="text.subtle">
+                {request.year}
+                {!isMovie && ` • ${t('requestCard.season', { season: request.season_number })}`}
+                {isMovie && ` • ${formatRuntime(request.runtime)}`}
+              </Text>
+            </Stack>
 
+            <HStack spacing={2} flexWrap="wrap" align="center">
               <Badge
                 bg={statusPresentation.badge.bg}
                 color={statusPresentation.badge.color}
@@ -117,9 +110,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({ request }) => {
                 </Text>
                 {statusLabel}
               </Badge>
-            </Flex>
 
-            <HStack spacing={2} flexWrap="wrap">
               <Tag
                 colorScheme={isMovie ? 'red' : 'blue'}
                 variant="subtle"

@@ -116,6 +116,14 @@ export const resources = {
           series: 'Series request details',
         },
       },
+      localization: {
+        selectorLabel: 'Metadata language',
+        defaultOption: 'Original metadata',
+        languageNames: {
+          eng: 'English',
+          rus: 'Русский',
+        },
+      },
       requestActions: {
         title: '🔧 Request Actions',
       },

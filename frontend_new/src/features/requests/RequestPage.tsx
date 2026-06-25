@@ -18,6 +18,7 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type SetStateAction,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,7 @@ import { RequestReleasesSection } from '@/features/requests/components/RequestRe
 import ReleaseFilesModal from '@/features/requests/ReleaseFilesModal';
 import { useRequestLogs } from '@/features/requests/useRequestLogs';
 import { useRequestQuery } from '@/hooks/useRequests';
-import type { Release } from '@/types';
+import type { MediaRequest, Release } from '@/types';
 import { getApiErrorInfo } from '@/utils/errors';
 
 const shakeKeyframes = keyframes`
@@ -144,6 +145,7 @@ export const RequestPage: React.FC = () => {
   });
   const requestId = request?.id;
   const [state, dispatch] = useReducer(requestPageReducer, initialRequestPageState);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const {
     logs: requestLogs,
     isLoading: logsLoading,
@@ -173,6 +175,55 @@ export const RequestPage: React.FC = () => {
   const toast = useToast();
 
   const showLoadingState = (isLoading || isFetching) && !request;
+  const availableLanguages = useMemo(() => {
+    if (!request || !request.localizations) {
+      return [] as string[];
+    }
+    return Object.keys(request.localizations).sort();
+  }, [request]);
+
+  useEffect(() => {
+    if (!request || availableLanguages.length === 0) {
+      setSelectedLanguage(null);
+      return;
+    }
+
+    setSelectedLanguage((prev) => {
+      if (prev && availableLanguages.includes(prev)) {
+        return prev;
+      }
+
+      if (availableLanguages.includes('rus')) {
+        return 'rus';
+      }
+      if (availableLanguages.includes('eng')) {
+        return 'eng';
+      }
+      return availableLanguages[0];
+    });
+  }, [availableLanguages, request]);
+
+  const localizedRequest = useMemo<MediaRequest | null>(() => {
+    if (!request) {
+      return null;
+    }
+
+    if (!selectedLanguage) {
+      return { ...request };
+    }
+
+    const localization = request.localizations?.[selectedLanguage];
+    if (!localization) {
+      return { ...request };
+    }
+
+    return {
+      ...request,
+      title: localization.title ?? request.title,
+      overview: localization.overview ?? request.overview,
+    };
+  }, [request, selectedLanguage]);
+
   const requestErrorInfo = requestError
     ? getApiErrorInfo(requestError, {
         title: t('requestPage.errors.loadRequestTitle'),
@@ -240,17 +291,17 @@ export const RequestPage: React.FC = () => {
 
   const handleReleasesLoaded = useCallback(
     (loadedReleases: Release[]) => {
-      const normalizedTitle = request?.title?.trim() ?? '';
+      const normalizedTitle = localizedRequest?.title?.trim() ?? request?.title?.trim() ?? '';
       dispatch({
         type: 'RELEASES_LOADED',
         payload: { releases: loadedReleases, normalizedTitle },
       });
     },
-    [dispatch, request?.title],
+    [dispatch, localizedRequest?.title, request?.title],
   );
 
   const handleManualSearch = useCallback(() => {
-    if (!request || !request.title) {
+    if (!localizedRequest || !localizedRequest.title) {
       toast({
         title: t('requestPage.manualSearch.unavailableTitle'),
         description: t('requestPage.manualSearch.missingDetails'),
@@ -275,7 +326,7 @@ export const RequestPage: React.FC = () => {
       lastShakeAtRef.current = Date.now();
     }
 
-    const normalizedQuery = request.title.trim();
+    const normalizedQuery = localizedRequest.title.trim();
     if (!normalizedQuery) {
       toast({
         title: t('requestPage.manualSearch.unavailableTitle'),
@@ -292,8 +343,8 @@ export const RequestPage: React.FC = () => {
     dispatch,
     focusManualSearch,
     hasExistingReleases,
+    localizedRequest,
     manualSearchTriggered,
-    request,
     toast,
     t,
   ]);
@@ -484,19 +535,32 @@ export const RequestPage: React.FC = () => {
     );
   }
 
+  if (!localizedRequest) {
+    return null;
+  }
+
+  const handleLanguageChange = (language: string | null) => {
+    setSelectedLanguage(language);
+  };
+
   return (
     <Stack spacing={8} maxW="6xl" mx="auto">
-      <RequestHeader request={request} />
+      <RequestHeader
+        request={localizedRequest}
+        availableLanguages={availableLanguages}
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={handleLanguageChange}
+      />
 
       <RequestReleasesSection
-        request={request}
+        request={localizedRequest}
         hasExistingReleases={hasExistingReleases}
         onReleasesLoaded={handleReleasesLoaded}
         onViewFiles={handleViewFiles}
       />
 
       <RequestManualSearchSection
-        request={request}
+        request={localizedRequest}
         shouldShowSearch={shouldShowSearch}
         manualSearchSectionRef={manualSearchSectionRef}
         isShaking={isShaking}
@@ -512,14 +576,14 @@ export const RequestPage: React.FC = () => {
         isOpen={filesModal.isOpen}
         onClose={closeModal}
         release={selectedRelease}
-        currentRequest={request}
+        currentRequest={localizedRequest}
       />
 
       <RequestLogsModal
         isOpen={isLogsOpen}
         onClose={closeLogs}
         logs={requestLogs}
-        requestTitle={request.title}
+        requestTitle={localizedRequest.title}
         isLoading={logsLoading}
         error={logsErrorInfo?.description ?? null}
         expandedStacks={expandedStacks}
