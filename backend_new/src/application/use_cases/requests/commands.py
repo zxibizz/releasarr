@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.domain.enums import MediaRequestStatus, MediaType
+from src.application.interfaces.media_requests import MediaLocalization
 
 
 class _Unset:
@@ -34,6 +35,7 @@ class CreateMovieRequestCommand:
     overview: str | None = None
     poster_url: str | None = None
     genres: list[str] | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 @dataclass(slots=True)
@@ -48,6 +50,7 @@ class CreateSeriesRequestCommand:
     overview: str | None = None
     poster_url: str | None = None
     genres: list[str] | None = None
+    localizations: dict[str, MediaLocalization] | None = None
 
 
 CreateMediaRequestCommand = CreateMovieRequestCommand | CreateSeriesRequestCommand
@@ -67,6 +70,7 @@ class UpdateMediaRequestCommand:
     total_episodes: int | None | _Unset = field(default=UNSET)
     series_title: str | None | _Unset = field(default=UNSET)
     series_year: int | None | _Unset = field(default=UNSET)
+    localizations: dict[str, MediaLocalization] | None | _Unset = field(default=UNSET)
 
     def is_empty(self) -> bool:
         """Return True when no field was supplied in the update payload."""

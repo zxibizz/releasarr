@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from src.application.interfaces.media_requests import CreateMediaRequestData, MediaRequestRepository
+from src.application.interfaces.media_requests import (
+    CreateMediaRequestData,
+    MediaLocalization,
+    MediaRequestRepository,
+)
 from src.application.use_cases.requests.commands import (
     CreateMediaRequestCommand,
     CreateMovieRequestCommand,
@@ -38,6 +42,7 @@ class CreateMediaRequestUseCase:
         command: CreateMovieRequestCommand,
     ) -> CreateMediaRequestData:
         genres = self._normalise_genres(command.genres)
+        localizations = self._normalise_localizations(command.localizations)
         return CreateMediaRequestData(
             id=request_id,
             media_type=MediaType.MOVIE,
@@ -54,6 +59,7 @@ class CreateMediaRequestUseCase:
             series_year=None,
             status=MediaRequestStatus.PENDING,
             sonarr_series_id=None,
+            localizations=localizations,
         )
 
     def _build_series_data(
@@ -62,6 +68,7 @@ class CreateMediaRequestUseCase:
         command: CreateSeriesRequestCommand,
     ) -> CreateMediaRequestData:
         genres = self._normalise_genres(command.genres)
+        localizations = self._normalise_localizations(command.localizations)
         return CreateMediaRequestData(
             id=request_id,
             media_type=MediaType.SERIES,
@@ -78,12 +85,30 @@ class CreateMediaRequestUseCase:
             series_year=command.series_year,
             status=MediaRequestStatus.PENDING,
             sonarr_series_id=None,
+            localizations=localizations,
         )
 
     def _normalise_genres(self, genres: list[str] | None) -> list[str]:
         if not genres:
             return []
         return [genre for genre in genres if genre]
+
+    def _normalise_localizations(
+        self,
+        localizations: dict[str, MediaLocalization] | None,
+    ) -> dict[str, MediaLocalization]:
+        if not localizations:
+            return {}
+        result: dict[str, MediaLocalization] = {}
+        for language, localization in localizations.items():
+            if not language:
+                continue
+            language_key = language.lower()
+            result[language_key] = MediaLocalization(
+                title=localization.title or None,
+                overview=localization.overview or None,
+            )
+        return result
 
 
 __all__ = ["CreateMediaRequestUseCase"]

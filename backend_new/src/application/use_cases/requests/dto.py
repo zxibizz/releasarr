@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
+from src.application.interfaces.media_requests import MediaLocalization
 from src.domain.enums import MediaRequestStatus, MediaType
 
 
@@ -19,6 +20,7 @@ class BaseMediaRequestDTO:
     status: MediaRequestStatus
     created_at: datetime
     updated_at: datetime
+    localizations: dict[str, MediaLocalization] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

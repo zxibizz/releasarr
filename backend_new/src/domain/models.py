@@ -100,6 +100,11 @@ class MediaRequest(Base):
     overview: Mapped[str | None] = mapped_column(Text())
     poster_url: Mapped[str | None] = mapped_column(String(512))
     genres: Mapped[list[str]] = mapped_column(JSONList, nullable=False, default=list)
+    localizations: Mapped[dict[str, dict[str, str | None]]] = mapped_column(
+        JSONDict,
+        nullable=False,
+        default=dict,
+    )
     runtime_minutes: Mapped[int | None] = mapped_column(Integer)
     imdb_id: Mapped[str | None] = mapped_column(String(64))
     season_number: Mapped[int | None] = mapped_column(Integer)

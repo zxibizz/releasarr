@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.application.interfaces.media_requests import (
+    MediaLocalization,
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
@@ -51,6 +52,8 @@ class UpdateMediaRequestUseCase:
             data.series_title = command.series_title
         if command.series_year is not UNSET:
             data.series_year = command.series_year
+        if command.localizations is not UNSET:
+            data.localizations = self._normalise_localizations(command.localizations)
 
         record = await self._repository.update_request(request_id, data)
         if record is None:
@@ -62,6 +65,23 @@ class UpdateMediaRequestUseCase:
         if genres is None:
             return []
         return [genre for genre in genres if genre]
+
+    def _normalise_localizations(
+        self,
+        localizations: dict[str, MediaLocalization] | None,
+    ) -> dict[str, MediaLocalization]:
+        if not localizations:
+            return {}
+        result: dict[str, MediaLocalization] = {}
+        for language, localization in localizations.items():
+            if not language:
+                continue
+            key = language.lower()
+            result[key] = MediaLocalization(
+                title=localization.title or None,
+                overview=localization.overview or None,
+            )
+        return result
 
 
 __all__ = ["UpdateMediaRequestUseCase"]

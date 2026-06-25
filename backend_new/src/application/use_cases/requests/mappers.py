@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.application.interfaces.media_requests import MediaRequestRecord
+from src.application.interfaces.media_requests import MediaLocalization, MediaRequestRecord
 from src.application.use_cases.requests.dto import (
     MediaRequestDTO,
     MediaRequestsPageDTO,
@@ -29,6 +29,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
         status=record.status,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        localizations=_clone_localizations(record.localizations),
     )
 
     if record.media_type == MediaType.MOVIE:
@@ -65,6 +66,17 @@ def records_to_page(
 
     dtos = [record_to_dto(record) for record in records]
     return MediaRequestsPageDTO(requests=dtos, total=total, page=page, per_page=per_page)
+
+
+def _clone_localizations(
+    localizations: dict[str, MediaLocalization],
+) -> dict[str, MediaLocalization]:
+    if not localizations:
+        return {}
+    return {
+        language: MediaLocalization(title=value.title, overview=value.overview)
+        for language, value in localizations.items()
+    }
 
 
 __all__ = ["record_to_dto", "records_to_page"]

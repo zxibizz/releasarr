@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
+    MediaLocalization,
     MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
@@ -64,6 +65,7 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
                 overview=data.overview,
                 poster_url=data.poster_url,
                 genres=list(data.genres),
+                localizations=self._serialize_localizations(data.localizations),
                 runtime_minutes=data.runtime_minutes,
                 imdb_id=data.imdb_id,
                 season_number=data.season_number,
@@ -95,10 +97,15 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
                 return None
 
             for field in fields(UpdateMediaRequestData):
+                if field.name == "localizations":
+                    continue
                 value = getattr(data, field.name)
                 if value is None:
                     continue
                 setattr(request, field.name, value)
+
+            if data.localizations is not None:
+                request.localizations = self._serialize_localizations(data.localizations)
 
             await session.flush()
             await session.refresh(request)
@@ -147,6 +154,7 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
         return int(result.scalar() or 0)
 
     def _to_record(self, request: models.MediaRequest) -> MediaRequestRecord:
+        localizations = self._deserialize_localizations(request.localizations)
         return MediaRequestRecord(
             id=request.id,
             media_type=request.media_type,
@@ -156,6 +164,7 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
             overview=request.overview,
             poster_url=request.poster_url,
             genres=list(request.genres or []),
+            localizations=localizations,
             runtime_minutes=request.runtime_minutes,
             imdb_id=request.imdb_id,
             season_number=request.season_number,
@@ -166,6 +175,42 @@ class SqlAlchemyMediaRequestRepository(MediaRequestRepository):
             created_at=request.created_at,
             updated_at=request.updated_at,
         )
+
+    def _serialize_localizations(
+        self,
+        localizations: dict[str, MediaLocalization],
+    ) -> dict[str, dict[str, str | None]]:
+        if not localizations:
+            return {}
+        result: dict[str, dict[str, str | None]] = {}
+        for language, localization in localizations.items():
+            if not language:
+                continue
+            key = str(language).lower()
+            result[key] = {
+                "title": localization.title,
+                "overview": localization.overview,
+            }
+        return result
+
+    def _deserialize_localizations(
+        self,
+        raw: dict[str, dict[str, object]] | None,
+    ) -> dict[str, MediaLocalization]:
+        if not raw:
+            return {}
+        result: dict[str, MediaLocalization] = {}
+        for language, payload in raw.items():
+            if not isinstance(payload, dict):
+                continue
+            key = str(language).lower()
+            title = payload.get("title")
+            overview = payload.get("overview")
+            result[key] = MediaLocalization(
+                title=str(title) if title is not None else None,
+                overview=str(overview) if overview is not None else None,
+            )
+        return result
 
 
 __all__ = ["SqlAlchemyMediaRequestRepository"]
