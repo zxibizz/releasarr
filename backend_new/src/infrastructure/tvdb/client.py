@@ -122,6 +122,8 @@ class TvdbHttpClient(TvdbService):
         if not isinstance(translations_data, dict):
             return translations
 
+        season_number_lookup = self._build_season_number_lookup(data)
+
         for name_entry in translations_data.get("nameTranslations", []) or []:
             if not isinstance(name_entry, dict):
                 continue
@@ -152,7 +154,62 @@ class TvdbHttpClient(TvdbService):
                 self._safe_str(overview_entry.get("overview")) or translation.overview
             )
 
+        for season_entry in translations_data.get("seasonTranslations", []) or []:
+            if not isinstance(season_entry, dict):
+                continue
+            language = self._safe_language(season_entry.get("language"))
+            if not language:
+                continue
+            if allowed and language not in allowed:
+                continue
+            translation = translations.get(language)
+            if translation is None:
+                translation = TvdbTranslation(language=language)
+                translations[language] = translation
+            season_number = self._resolve_season_number(season_entry, season_number_lookup)
+            if season_number is None:
+                continue
+            overview_value = self._safe_str(season_entry.get("overview"))
+            if overview_value:
+                translation.season_overviews[season_number] = overview_value
+
         return translations
+
+    def _build_season_number_lookup(self, data: dict[str, object]) -> dict[int, int]:
+        lookup: dict[int, int] = {}
+        seasons = data.get("seasons")
+        if not isinstance(seasons, list):
+            return lookup
+        for season in seasons:
+            if not isinstance(season, dict):
+                continue
+            season_id = season.get("id")
+            number = season.get("number") or season.get("seasonNumber")
+            try:
+                season_id_int = int(season_id)
+                number_int = int(number)
+            except (TypeError, ValueError):
+                continue
+            lookup[season_id_int] = number_int
+        return lookup
+
+    def _resolve_season_number(
+        self,
+        season_entry: dict[str, object],
+        season_number_lookup: dict[int, int],
+    ) -> int | None:
+        raw_number = season_entry.get("seasonNumber")
+        if raw_number is not None:
+            try:
+                return int(raw_number)
+            except (TypeError, ValueError):
+                pass
+        raw_id = season_entry.get("seasonId") or season_entry.get("id")
+        try:
+            season_id = int(raw_id)
+        except (TypeError, ValueError):
+            return None
+        return season_number_lookup.get(season_id)
 
     def _safe_language(self, value: object) -> str | None:
         if value is None:
