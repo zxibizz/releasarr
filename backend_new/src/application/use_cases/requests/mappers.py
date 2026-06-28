@@ -74,7 +74,10 @@ def _clone_localizations(
     if not localizations:
         return {}
     return {
-        language: MediaLocalization(title=value.title, overview=value.overview)
+        language: MediaLocalization(
+            title=value.title,
+            overview=value.overview,
+        )
         for language, value in localizations.items()
     }
 

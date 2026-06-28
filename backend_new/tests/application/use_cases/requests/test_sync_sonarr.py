@@ -220,8 +220,18 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
         year=2020,
         genres=["Drama"],
         translations={
-            "eng": TvdbTranslation(language="eng", title="Example Show", overview="English overview"),
-            "rus": TvdbTranslation(language="rus", title="Пример шоу", overview="Русское описание"),
+            "eng": TvdbTranslation(
+                language="eng",
+                title="Example Show",
+                overview="English overview",
+                season_overviews={1: "English season one", 3: "English season three"},
+            ),
+            "rus": TvdbTranslation(
+                language="rus",
+                title="Пример шоу",
+                overview="Русское описание",
+                season_overviews={1: "Русский сезон один", 3: "Русский сезон три"},
+            ),
         },
     )
     tvdb = FakeTvdbService(metadata={555: tvdb_metadata})
@@ -249,6 +259,8 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     assert "rus" in season_one.localizations
     assert season_one.localizations["rus"].title == "Пример шоу"
     assert season_one.localizations["eng"].title == "Example Show"
+    assert season_one.localizations["rus"].overview == "Русский сезон один"
+    assert season_one.localizations["eng"].overview == "English season one"
 
     # Season 2 should now be marked as completed
     season_two = await repository.find_by_sonarr(sonarr_series_id=10, season_number=2)
@@ -263,8 +275,10 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     assert season_three.series_title == "Example Show"
     assert season_three.series_year == 2020
     assert season_three.poster_url == "http://poster"
-    assert season_three.localizations["eng"].overview == "English overview"
-    assert season_three.localizations["rus"].overview == "Русское описание"
+    assert season_three.localizations["eng"].overview == "English season three"
+    assert season_three.localizations["rus"].overview == "Русский сезон три"
+    assert season_three.localizations["eng"].overview == "English season three"
+    assert season_three.localizations["rus"].overview == "Русский сезон три"
 
     # TVDB client should be invoked once per series
     assert tvdb.calls == [(555, ("rus", "eng"))]
