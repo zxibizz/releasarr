@@ -34,6 +34,11 @@ class AppSettings(BaseSettings):
     tvdb_api_key: str = Field(default="")
     metadata_languages: tuple[str, ...] = Field(default=("eng", "rus"))
 
+    prowlarr_url: str = Field(default="")
+    prowlarr_api_key: str = Field(default="")
+    prowlarr_categories: tuple[int, ...] = Field(default=())
+    prowlarr_timeout: float = Field(default=20.0)
+
     model_config = {
         "env_prefix": "RELEASARR_",
         "env_file": ".env",
