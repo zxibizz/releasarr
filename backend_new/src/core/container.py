@@ -28,6 +28,7 @@ from src.application.use_cases.releases.search_release_sources import (
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
+from src.application.interfaces.releases import ReleaseSearchService
 from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
@@ -38,6 +39,7 @@ from src.core.logging import configure_logging
 from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
+from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
@@ -71,7 +73,15 @@ class ServiceContainer:
         return InMemoryReleaseLifecycleService()
 
     @cached_property
-    def release_search(self) -> InMemoryReleaseSearchService:
+    def release_search(self) -> ReleaseSearchService:
+        settings = self._container.settings
+        if settings.prowlarr_url and settings.prowlarr_api_key:
+            return ProwlarrReleaseSearchService(
+                base_url=settings.prowlarr_url,
+                api_key=settings.prowlarr_api_key,
+                timeout_seconds=settings.prowlarr_timeout,
+                categories=settings.prowlarr_categories,
+            )
         return InMemoryReleaseSearchService()
 
     @cached_property

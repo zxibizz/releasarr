@@ -11,11 +11,12 @@ from src.core.container import AppContainer, get_container
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
 from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
+from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 from src.infrastructure.releases.services import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
-    InMemoryReleaseSearchService,
 )
+from src.settings.config import AppSettings
 
 
 def test_get_container_returns_singleton() -> None:
@@ -44,7 +45,7 @@ def test_container_provides_singletons() -> None:
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
     assert isinstance(lifecycle_service, InMemoryReleaseLifecycleService)
-    assert isinstance(search_service, InMemoryReleaseSearchService)
+    assert isinstance(search_service, ProwlarrReleaseSearchService)
     assert isinstance(download_service, InMemoryReleaseDownloadService)
     assert isinstance(log_reader, LogFileReader)
     assert isinstance(logs_query, ListLogsQuery)
@@ -65,3 +66,15 @@ def test_container_provides_singletons() -> None:
     assert media_request_list is container.use_cases.media_requests.list
     assert release_list is container.use_cases.releases.list
     assert release_summary_query is container.queries.release_summary
+
+
+def test_container_uses_prowlarr_search_when_configured() -> None:
+    settings = AppSettings(
+        prowlarr_url="https://prowlarr.example/api/v1",
+        prowlarr_api_key="token",
+    )
+    container = AppContainer(settings=settings)
+
+    search_service = container.services.release_search
+
+    assert isinstance(search_service, ProwlarrReleaseSearchService)
