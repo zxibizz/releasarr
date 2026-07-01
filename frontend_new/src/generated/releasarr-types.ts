@@ -476,23 +476,23 @@ export interface components {
              * Format: uri
              * @description Magnet URI for the release when available.
              */
-            magnet_link?: string;
+            magnet_link?: string | null;
             /**
              * Format: uri
              * @description Direct URL to the .torrent file when available.
              */
-            torrent_file_url?: string;
+            torrent_file_url?: string | null;
             /**
              * Format: uri
              * @description Link to additional release information on the indexer.
              */
-            info_url?: string;
-            seeders?: number;
-            leechers?: number;
-            quality?: string;
-            source?: string;
+            info_url?: string | null;
+            seeders?: number | null;
+            leechers?: number | null;
+            quality?: string | null;
+            source?: string | null;
             /** @description Identifier of the media request that initiated the search. */
-            request_id?: string;
+            request_id?: string | null;
         };
         ReleaseSearchResponse: {
             results: components["schemas"]["ReleaseSearchResult"][];

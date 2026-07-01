@@ -1176,27 +1176,35 @@ components:
           type: string
           format: uri
           description: Magnet URI for the release when available.
+          nullable: true
         torrent_file_url:
           type: string
           format: uri
           description: Direct URL to the .torrent file when available.
+          nullable: true
         info_url:
           type: string
           format: uri
           description: Link to additional release information on the indexer.
+          nullable: true
         seeders:
           type: integer
           minimum: 0
+          nullable: true
         leechers:
           type: integer
           minimum: 0
+          nullable: true
         quality:
           type: string
+          nullable: true
         source:
           type: string
+          nullable: true
         request_id:
           type: string
           description: Identifier of the media request that initiated the search.
+          nullable: true
     ReleaseSearchResponse:
       type: object
       required: [results, query, total_results]
