@@ -188,14 +188,14 @@ const ReleaseSearchResult = z
     release_id: z.string(),
     release_name: z.string(),
     size: z.string(),
-    magnet_link: z.string().url().optional(),
-    torrent_file_url: z.string().url().optional(),
-    info_url: z.string().url().optional(),
-    seeders: z.number().int().gte(0).optional(),
-    leechers: z.number().int().gte(0).optional(),
-    quality: z.string().optional(),
-    source: z.string().optional(),
-    request_id: z.string().optional(),
+    magnet_link: z.string().url().nullish(),
+    torrent_file_url: z.string().url().nullish(),
+    info_url: z.string().url().nullish(),
+    seeders: z.number().int().gte(0).nullish(),
+    leechers: z.number().int().gte(0).nullish(),
+    quality: z.string().nullish(),
+    source: z.string().nullish(),
+    request_id: z.string().nullish(),
   })
   .passthrough();
 const ReleaseSearchResponse = z
