@@ -148,10 +148,10 @@ const Release = z
     leechers: z.number().int(),
     ratio: z.number(),
     added_date: z.string().datetime({ offset: true }),
-    completed_date: z.string().datetime({ offset: true }).optional(),
+    completed_date: z.string().datetime({ offset: true }).nullish(),
     request_ids: z.array(z.string()),
-    torrent_source: z.string().optional(),
-    quality: z.string().optional(),
+    torrent_source: z.string().nullish(),
+    quality: z.string().nullish(),
   })
   .passthrough();
 const ReleasesResponse = z

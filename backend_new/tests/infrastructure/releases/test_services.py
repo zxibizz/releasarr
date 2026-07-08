@@ -39,11 +39,14 @@ async def test_search_service_returns_registered_results() -> None:
         request_id="req-1",
     )
     service.register_results("query", request_id="req-1", results=[record])
+    service.register_torrent("rel-1", b"torrent-bytes")
 
     results = await service.search("query", request_id="req-1")
     assert isinstance(results, ReleaseSearchResults)
     assert results.total_results == 1
     assert results.results[0].release_id == "rel-1"
+    assert service.resolve("rel-1") is record
+    assert await service.fetch_torrent("memory://rel-1") == b"torrent-bytes"
 
 
 @pytest.mark.asyncio

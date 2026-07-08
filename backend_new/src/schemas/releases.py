@@ -35,7 +35,7 @@ FileRequestMapping = Annotated[
 class ReleaseFile(APIModel):
     id: str
     name: str
-    size: int = Field(alias="size_bytes")
+    size: int = Field(validation_alias="size_bytes")
     path: str
     request_mapping: FileRequestMapping | None = None
 
@@ -43,8 +43,8 @@ class ReleaseFile(APIModel):
 class Release(APIModel):
     id: str
     name: str
-    hash: str = Field(alias="info_hash")
-    size: int = Field(alias="size_bytes")
+    hash: str = Field(validation_alias="info_hash")
+    size: int = Field(validation_alias="size_bytes")
     files: list[ReleaseFile]
     status: ReleaseStatus
     progress: float
@@ -53,8 +53,8 @@ class Release(APIModel):
     seeders: int
     leechers: int
     ratio: float
-    added_date: datetime = Field(alias="added_at")
-    completed_date: datetime | None = Field(default=None, alias="completed_at")
+    added_date: datetime = Field(validation_alias="added_at")
+    completed_date: datetime | None = Field(default=None, validation_alias="completed_at")
     request_ids: list[str]
     torrent_source: str | None = None
     quality: str | None = None

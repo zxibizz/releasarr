@@ -40,6 +40,8 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
     _registry: dict[tuple[str, str | None], list[ReleaseSearchResultRecord]] = field(
         default_factory=dict,
     )
+    _cache: dict[str, ReleaseSearchResultRecord] = field(default_factory=dict)
+    _torrents: dict[str, bytes] = field(default_factory=dict)
 
     def register_results(
         self,
@@ -49,11 +51,26 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
         results: list[ReleaseSearchResultRecord],
     ) -> None:
         self._registry[(query, request_id)] = list(results)
+        for result in results:
+            self._cache[result.release_id] = result
 
     async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
         key = (query, request_id)
         matches = self._registry.get(key, [])
         return ReleaseSearchResults(results=list(matches), query=query, total_results=len(matches))
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        return self._cache.get(release_id)
+
+    def register_torrent(self, release_id: str, data: bytes) -> None:
+        self._torrents[release_id] = data
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        if url.startswith("memory://"):
+            release_id = url.removeprefix("memory://")
+            if release_id in self._torrents:
+                return self._torrents[release_id]
+        raise FileNotFoundError(f"Torrent data not registered for URL '{url}'")
 
 
 @dataclass(slots=True)

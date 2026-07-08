@@ -60,6 +60,10 @@ class CreateReleaseData:
 
     magnet_link: str
     request_ids: list[str]
+    name: str
+    id: str
+    source: str
+    quality: str
 
 
 @dataclass(slots=True)
@@ -154,6 +158,12 @@ class ReleaseSearchService(Protocol):
 
     async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
         """Search for releases matching the supplied query."""
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        """Return a previously cached search result by identifier, when available."""
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        """Download raw torrent data for a release candidate."""
 
 
 class ReleaseDownloadService(Protocol):
