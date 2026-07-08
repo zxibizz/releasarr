@@ -235,6 +235,7 @@ class ReleaseUseCases:
         return QueueReleaseDownloadUseCase(
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
+            search_service=self._container.services.release_search,
         )
 
 

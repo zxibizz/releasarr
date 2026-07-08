@@ -1035,14 +1035,17 @@ components:
         completed_date:
           type: string
           format: date-time
+          nullable: true
         request_ids:
           type: array
           items:
             type: string
         torrent_source:
           type: string
+          nullable: true
         quality:
           type: string
+          nullable: true
     ReleaseFile:
       type: object
       required: [id, name, size, path]
