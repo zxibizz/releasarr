@@ -50,12 +50,20 @@ async def test_search_service_returns_registered_results() -> None:
 
 
 @pytest.mark.asyncio
-async def test_download_service_records_queue_requests() -> None:
-    service = InMemoryReleaseDownloadService()
+async def test_download_service_writes_torrent(tmp_path) -> None:
+    service = InMemoryReleaseDownloadService(download_dir=tmp_path)
 
-    op = await service.queue_download("req-1", "rel-1")
+    op = await service.queue_download("req-1", "rel-1", "magnet:?xt=urn:btih:HASH")
 
-    assert service.queued == [("req-1", "rel-1")]
+    expected_path = tmp_path / "rel-1.torrent"
+    assert expected_path.exists()
+    assert expected_path.read_text(encoding="utf-8") == "magnet:?xt=urn:btih:HASH"
+    assert service.downloads == [("req-1", "rel-1", expected_path)]
     assert op.operation == "queue_download"
-    assert op.status == "accepted"
-    assert op.details == {"request_id": "req-1", "release_id": "rel-1"}
+    assert op.status == "completed"
+    assert op.details == {
+        "request_id": "req-1",
+        "release_id": "rel-1",
+        "file_path": str(expected_path),
+        "ingest_source": "magnet",
+    }

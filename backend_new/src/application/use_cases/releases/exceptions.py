@@ -51,10 +51,21 @@ class ReleaseDownloadConflictError(RuntimeError):
         self.release_id = release_id
 
 
+class ReleaseDownloadFailedError(RuntimeError):
+    """Raised when a release download fails unexpectedly."""
+
+    def __init__(self, release_id: str, reason: str):
+        message = f"Failed to download release '{release_id}': {reason}"
+        super().__init__(message)
+        self.release_id = release_id
+        self.reason = reason
+
+
 __all__ = [
     "ReleaseActionNotAllowedError",
     "ReleaseConflictError",
     "ReleaseDownloadConflictError",
+    "ReleaseDownloadFailedError",
     "ReleaseFileNotFoundError",
     "ReleaseNotFoundError",
 ]

@@ -33,6 +33,7 @@ from src.application.use_cases.releases.dto import (
 )
 from src.application.use_cases.releases.exceptions import (
     ReleaseDownloadConflictError,
+    ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
@@ -309,6 +310,25 @@ async def test_queue_release_download_conflict_returns_409(api_client: AsyncClie
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["code"] == "release_download_conflict"
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_failure_returns_500(api_client: AsyncClient) -> None:
+    class FakeQueue:
+        async def execute(self, command):  # type: ignore[override]
+            raise ReleaseDownloadFailedError(command.release_id, "client offline")
+
+    with override_dependency(_queue_download_use_case, FakeQueue()):
+        response = await api_client.post(
+            "/requests/req-1/releases/download",
+            headers=API_KEY_HEADER,
+            json={"release_id": "rel-1"},
+        )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    payload = response.json()
+    assert payload["code"] == "release_download_failed"
+    assert "client offline" in payload["message"]
 
 
 @pytest.mark.asyncio

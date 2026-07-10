@@ -29,6 +29,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
     ReleaseDownloadConflictError,
+    ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
@@ -532,6 +533,8 @@ async def queue_release_download(
         raise api_error(status.HTTP_404_NOT_FOUND, "release_not_found", str(exc)) from exc
     except ReleaseDownloadConflictError as exc:
         raise api_error(status.HTTP_409_CONFLICT, "release_download_conflict", str(exc)) from exc
+    except ReleaseDownloadFailedError as exc:
+        raise api_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed", str(exc)) from exc
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)

@@ -72,3 +72,19 @@ async def healthcheck() -> dict[str, str]:
 
 
 __all__ = ["app"]
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = container.settings
+    try:
+        uvicorn.run(
+            app,
+            host=settings.api_host,
+            port=settings.api_port,
+            log_config=None,
+            log_level=settings.log_level.lower(),
+        )
+    except (KeyboardInterrupt, SystemExit):
+        pass
