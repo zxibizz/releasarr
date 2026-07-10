@@ -28,7 +28,7 @@ from src.application.use_cases.releases.search_release_sources import (
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
-from src.application.interfaces.releases import ReleaseSearchService
+from src.application.interfaces.releases import ReleaseDownloadService, ReleaseSearchService
 from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
@@ -40,6 +40,10 @@ from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
 from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
+from src.infrastructure.qbittorrent import (
+    QbittorrentClient,
+    QbittorrentReleaseDownloadService,
+)
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
@@ -85,7 +89,26 @@ class ServiceContainer:
         return InMemoryReleaseSearchService()
 
     @cached_property
-    def release_download(self) -> InMemoryReleaseDownloadService:
+    def release_download(self) -> ReleaseDownloadService:
+        settings = self._container.settings
+        if (
+            settings.qbittorrent_url
+            and settings.qbittorrent_username
+            and settings.qbittorrent_password
+        ):
+            client = QbittorrentClient(
+                base_url=settings.qbittorrent_url,
+                username=settings.qbittorrent_username,
+                password=settings.qbittorrent_password,
+                timeout=settings.qbittorrent_timeout,
+            )
+            return QbittorrentReleaseDownloadService(
+                client=client,
+                save_path=settings.qbittorrent_save_path,
+                category=settings.qbittorrent_category,
+                tag_prefix=settings.qbittorrent_tag_prefix,
+                paused=settings.qbittorrent_paused,
+            )
         return InMemoryReleaseDownloadService()
 
     @cached_property
