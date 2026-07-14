@@ -397,7 +397,7 @@ async def create_release(
 
 
 @router.get(
-    "/{releaseId}",
+    "/{releaseId:path}",
     response_model=Release,
     responses=GET_RELEASE_RESPONSES,
 )
@@ -413,7 +413,7 @@ async def get_release(
 
 
 @router.delete(
-    "/{releaseId}",
+    "/{releaseId:path}",
     status_code=status.HTTP_204_NO_CONTENT,
     responses=DELETE_RELEASE_RESPONSES,
 )
@@ -429,7 +429,7 @@ async def delete_release(
 
 
 @router.post(
-    "/{releaseId}/pause",
+    "/{releaseId:path}/pause",
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses=PAUSE_RELEASE_RESPONSES,
@@ -451,7 +451,7 @@ async def pause_release(
 
 
 @router.post(
-    "/{releaseId}/resume",
+    "/{releaseId:path}/resume",
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses=RESUME_RELEASE_RESPONSES,
@@ -473,7 +473,7 @@ async def resume_release(
 
 
 @router.put(
-    "/{releaseId}/files/mapping",
+    "/{releaseId:path}/files/mapping",
     response_model=SuccessResponse,
     responses=UPDATE_MAPPINGS_RESPONSES,
 )
