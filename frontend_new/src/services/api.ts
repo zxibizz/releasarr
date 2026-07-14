@@ -396,7 +396,8 @@ class ApiClient {
   }
 
   async getRelease(id: string): Promise<Release> {
-    return this.request<Release>(`/releases/${id}`, undefined, releaseSchema);
+    const releaseId = encodeURIComponent(id);
+    return this.request<Release>(`/releases/${releaseId}`, undefined, releaseSchema);
   }
 
   async getReleasesByRequest(requestId: string): Promise<Release[]> {
@@ -461,8 +462,9 @@ class ApiClient {
     mappings: ReleaseFileMappingInput[],
   ): Promise<boolean> {
     const files = releaseFileMappingInputSchema.array().parse(mappings);
+    const encodedId = encodeURIComponent(releaseId);
     const response = await this.request(
-      `/releases/${releaseId}/files/mapping`,
+      `/releases/${encodedId}/files/mapping`,
       {
         method: 'PUT',
         body: JSON.stringify({ files }),
@@ -473,8 +475,9 @@ class ApiClient {
   }
 
   async pauseRelease(id: string): Promise<AsyncOperationResponse> {
+    const releaseId = encodeURIComponent(id);
     return this.request<AsyncOperationResponse>(
-      `/releases/${id}/pause`,
+      `/releases/${releaseId}/pause`,
       {
         method: 'POST',
       },
@@ -483,8 +486,9 @@ class ApiClient {
   }
 
   async resumeRelease(id: string): Promise<AsyncOperationResponse> {
+    const releaseId = encodeURIComponent(id);
     return this.request<AsyncOperationResponse>(
-      `/releases/${id}/resume`,
+      `/releases/${releaseId}/resume`,
       {
         method: 'POST',
       },
@@ -493,7 +497,8 @@ class ApiClient {
   }
 
   async deleteRelease(id: string): Promise<void> {
-    return this.request<void>(`/releases/${id}`, {
+    const releaseId = encodeURIComponent(id);
+    return this.request<void>(`/releases/${releaseId}`, {
       method: 'DELETE',
     });
   }
