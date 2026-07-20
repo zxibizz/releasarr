@@ -43,68 +43,62 @@ class QueueReleaseDownloadUseCase:
         magnet_link: str | None = None
         torrent_bytes: bytes | None = None
 
-        if release is None:
-            candidate = self._search_service.resolve(command.release_id)
-            if candidate is None:
-                raise ReleaseNotFoundError(command.release_id)
+        if release is not None:
+            raise ReleaseDownloadConflictError(command.request_id, command.release_id)  
 
-            effective_request_id = candidate.request_id or command.request_id
-            if not effective_request_id:
-                raise ReleaseDownloadConflictError(command.request_id, command.release_id)
+        candidate = self._search_service.resolve(command.release_id)
+        if candidate is None:
+            raise ReleaseNotFoundError(command.release_id)
 
-            magnet_link = candidate.magnet_link
+        effective_request_id = candidate.request_id or command.request_id
+        if not effective_request_id:
+            raise ReleaseDownloadConflictError(command.request_id, command.release_id)
 
-            if candidate.torrent_file_url:
-                try:
-                    torrent_bytes = await self._search_service.fetch_torrent(
-                        candidate.torrent_file_url
-                    )
-                    torrent = Torrent.from_string(torrent_bytes)
-                    magnet_link = torrent.magnet_link
-                except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
-                    logger.warning(
-                        "Failed to resolve torrent file for release candidate",
-                        release_id=command.release_id,
-                        error=str(exc),
-                    )
-                    torrent_bytes = None
+        magnet_link = candidate.magnet_link
 
-            if not magnet_link:
-                raise ReleaseNotFoundError(command.release_id)
-
+        if candidate.torrent_file_url:
             try:
-                release = await self._repository.create_release(
-                    data=CreateReleaseData(
-                        magnet_link=magnet_link,
-                        request_ids=[effective_request_id],
-                        id=candidate.release_id,
-                        name=candidate.release_name,
-                        source=candidate.source,
-                        quality=candidate.quality,
-                    )
+                torrent_bytes = await self._search_service.fetch_torrent(
+                    candidate.torrent_file_url
                 )
-            except ValueError as exc:
-                raise ReleaseDownloadConflictError(
-                    command.request_id, command.release_id
-                ) from exc
-            release_id = release.id
-        else:
-            release_id = release.id
-            if command.request_id not in release.request_ids:
-                raise ReleaseDownloadConflictError(command.request_id, command.release_id)
-            magnet_link = self._magnet_from_release(release)
+                torrent = Torrent.from_string(torrent_bytes)
+                magnet_link = torrent.magnet_link
+            except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
+                logger.warning(
+                    "Failed to resolve torrent file for release candidate",
+                    release_id=command.release_id,
+                    error=str(exc),
+                )
+                torrent_bytes = None
 
-        magnet_link = magnet_link or self._magnet_from_release(release)
-
+        if not magnet_link:
+            raise ReleaseNotFoundError(command.release_id)
+            
         try:
             queued = await self._download_service.queue_download(
                 effective_request_id,
-                release_id,
+                command.release_id,
                 magnet_link,
                 torrent_bytes,
             )
         except Exception as exc:  # pragma: no cover - defensive
-            raise ReleaseDownloadFailedError(release_id, str(exc)) from exc
+            raise ReleaseDownloadFailedError(command.release_id, str(exc)) from exc
+
+        try:
+            release = await self._repository.create_release(
+                data=CreateReleaseData(
+                    magnet_link=magnet_link,
+                    request_ids=[effective_request_id],
+                    id=candidate.release_id,
+                    name=candidate.release_name,
+                    source=candidate.source,
+                    quality=candidate.quality,
+                )
+            )
+        except ValueError as exc:
+            raise ReleaseDownloadConflictError(
+                command.request_id, command.release_id
+            ) from exc
 
         return queued_download_to_async_operation(queued)
 
