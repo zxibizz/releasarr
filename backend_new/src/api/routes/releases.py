@@ -384,8 +384,30 @@ async def create_release(
     payload: AddReleaseRequest,
     create_use_case: CreateReleaseUseCase = Depends(_create_use_case),
 ) -> Release:
+    # Parse magnet link to extract name and info hash
+    from urllib.parse import parse_qs, unquote, urlparse
+    from uuid import uuid4
+
+    parsed = urlparse(payload.magnet_link)
+    params = parse_qs(parsed.query)
+    
+    # Extract info hash for ID
+    info_hash = None
+    for xt_value in params.get("xt", []):
+        if xt_value.startswith("urn:btih:"):
+            info_hash = xt_value.split(":")[-1].upper()
+            break
+    release_id = info_hash or str(uuid4())
+    
+    # Extract display name
+    dn_values = params.get("dn", [])
+    release_name = unquote(dn_values[0]) if dn_values else release_id
+
     command = CreateReleaseCommand(
-        magnet_link=payload.magnet_link, request_ids=list(payload.request_ids)
+        magnet_link=payload.magnet_link,
+        request_ids=list(payload.request_ids),
+        name=release_name,
+        id=release_id,
     )
     try:
         dto = await create_use_case.execute(command)
