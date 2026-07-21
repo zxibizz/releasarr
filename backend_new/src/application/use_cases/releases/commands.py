@@ -19,6 +19,10 @@ class ListReleasesOptions:
 class CreateReleaseCommand:
     magnet_link: str
     request_ids: list[str]
+    name: str
+    id: str
+    source: str | None = None
+    quality: str | None = None
 
 
 @dataclass(slots=True)

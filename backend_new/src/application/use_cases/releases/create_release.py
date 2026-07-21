@@ -21,7 +21,14 @@ class CreateReleaseUseCase:
         if not request_ids:
             raise ValueError("at least one request_id must be supplied")
 
-        data = CreateReleaseData(magnet_link=command.magnet_link, request_ids=request_ids)
+        data = CreateReleaseData(
+            magnet_link=command.magnet_link,
+            request_ids=request_ids,
+            name=command.name,
+            id=command.id,
+            source=command.source or "",
+            quality=command.quality or "",
+        )
         record = await self._repository.create_release(data)
         return record_to_dto(record)
 
