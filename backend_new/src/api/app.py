@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
@@ -27,10 +27,29 @@ async def lifespan(_: FastAPI):
 
     container = get_container()
     container.startup()
+    
+    # Verify DB connectivity
+    try:
+        from sqlalchemy import text
+        async with container.db_manager.session() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        # In a real deployment we might want to prevent startup, 
+        # but for now we'll just log or re-raise
+        raise RuntimeError("Database connection failed during startup") from exc
+
     try:
         yield
     finally:
-        container.shutdown()
+        # Ensure http clients are closed
+        if container.repositories:
+            # Check if any repo needs cleanup (none currently do, but good practice)
+            pass
+            
+        # Services cleanup - specifically search/lifecycle clients if they exist
+        # The container shutdown method usually handles this if implemented correctly
+        # Let's verify container shutdown implementation
+        await container.shutdown()
 
 
 container = get_container()
@@ -62,6 +81,22 @@ register_routes(app)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
+@app.get("/readyz")
+async def readiness_probe() -> dict[str, str]:
+    """Check application dependencies."""
+    from sqlalchemy import text
+    
+    container = get_container()
+    try:
+        async with container.db_manager.session() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database connectivity failed"
+        ) from exc
+    return {"status": "ready"}
 
 
 @app.get("/healthz")
