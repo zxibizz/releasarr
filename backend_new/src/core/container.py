@@ -295,11 +295,31 @@ class AppContainer:
         configure_logging(self.settings)
         return None
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Hook for disposing resources during application shutdown."""
 
-        # Intentionally left blank until infrastructure is implemented.
-        return None
+        if "services" not in self.__dict__:
+            return
+
+        services = self.__dict__["services"]
+        
+        # Cleanup qBittorrent lifecycle client
+        if "release_lifecycle" in services.__dict__:
+            lifecycle = services.__dict__["release_lifecycle"]
+            if hasattr(lifecycle, "client") and hasattr(lifecycle.client, "close"):
+                await lifecycle.client.close()
+
+        # Cleanup qBittorrent download client
+        if "release_download" in services.__dict__:
+            download = services.__dict__["release_download"]
+            if hasattr(download, "client") and hasattr(download.client, "close"):
+                await download.client.close()
+
+        # Cleanup TVDB client
+        if "tvdb" in services.__dict__:
+            tvdb = services.__dict__["tvdb"]
+            if tvdb and hasattr(tvdb, "aclose"):
+                await tvdb.aclose()
 
     @cached_property
     def db_manager(self) -> DBManager:
