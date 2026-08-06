@@ -6,11 +6,9 @@ services:
       context: .
     restart: always
     volumes:
-      - ./db.sqlite3:/app/db.sqlite3
-      - ./logs/backend:/app/logs
+      - ./backend_new/releasarr.db:/app/releasarr.db
+      - ./backend_new/logs:/app/logs
     env_file:
-      - .env
-    environment:
-      - ENABLE_TASK_SCHEDULER=1
+      - ./backend_new/.env
     ports:
       - 8050:80
