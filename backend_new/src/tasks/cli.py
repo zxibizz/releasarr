@@ -31,13 +31,16 @@ def release_summary_command(json_output: bool = typer.Option(False, "--json")) -
 def sync_sonarr_requests_command() -> None:
     """Synchronise Sonarr missing seasons into media requests."""
 
-    container = get_container()
-    container.startup()
-    try:
-        use_case = container.use_cases.media_requests.sync_sonarr
-        result = asyncio.run(use_case.execute())
-    finally:
-        asyncio.run(container.shutdown())
+    async def _run():
+        container = get_container()
+        container.startup()
+        try:
+            use_case = container.use_cases.media_requests.sync_sonarr
+            return await use_case.execute()
+        finally:
+            await container.shutdown()
+
+    result = asyncio.run(_run())
 
     typer.echo(
         "Sonarr sync complete "
@@ -51,29 +54,32 @@ def sync_releases_command() -> None:
     from src.tasks.sync_releases import SyncReleasesTask
     from src.infrastructure.qbittorrent import QbittorrentClient
 
-    container = get_container()
-    settings = container.settings
-    
-    if not settings.qbittorrent_url or not settings.qbittorrent_username:
-        typer.echo("qBittorrent not configured. Set RELEASARR_QBITTORRENT_* env vars.")
-        raise typer.Exit(code=1)
-    
-    container.startup()
-    try:
-        client = QbittorrentClient(
-            base_url=settings.qbittorrent_url,
-            username=settings.qbittorrent_username,
-            password=settings.qbittorrent_password,
-            timeout=settings.qbittorrent_timeout,
-        )
-        task = SyncReleasesTask(
-            db=container.db_manager,
-            client=client,
-            category=settings.qbittorrent_category,
-        )
-        result = asyncio.run(task.execute())
-    finally:
-        asyncio.run(container.shutdown())
+    async def _run():
+        container = get_container()
+        settings = container.settings
+        
+        if not settings.qbittorrent_url or not settings.qbittorrent_username:
+            typer.echo("qBittorrent not configured. Set RELEASARR_QBITTORRENT_* env vars.")
+            raise typer.Exit(code=1)
+        
+        container.startup()
+        try:
+            client = QbittorrentClient(
+                base_url=settings.qbittorrent_url,
+                username=settings.qbittorrent_username,
+                password=settings.qbittorrent_password,
+                timeout=settings.qbittorrent_timeout,
+            )
+            task = SyncReleasesTask(
+                db=container.db_manager,
+                client=client,
+                category=settings.qbittorrent_category,
+            )
+            return await task.execute()
+        finally:
+            await container.shutdown()
+
+    result = asyncio.run(_run())
 
     typer.echo(
         f"Release sync complete (synced={result.synced}, failed={result.failed}, not_found={result.not_found})"
