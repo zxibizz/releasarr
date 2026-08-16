@@ -85,6 +85,9 @@ def make_release_record(
         request_ids=request_ids or [],
         torrent_source="indexer",
         quality="1080p",
+        requests=[],
+        last_exported_info_hash=None,
+        export_failures_count=0,
         files=files or [],
     )
 
@@ -349,7 +352,8 @@ async def test_create_release_requires_request_id() -> None:
 @pytest.mark.asyncio
 async def test_delete_release_not_found_raises() -> None:
     repository = FakeReleaseRepository()
-    use_case = DeleteReleaseUseCase(repository)
+    download_service = FakeDownloadService()
+    use_case = DeleteReleaseUseCase(repository, download_service)
 
     with pytest.raises(ReleaseNotFoundError):
         await use_case.execute("rel-unknown")
@@ -584,6 +588,7 @@ async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
 
     class DummyTorrent:
         magnet_link = "magnet:?xt=urn:btih:DUMMYHASH"
+        files = []
 
     def fake_from_string(cls, payload):  # type: ignore[unused-argument]
         return DummyTorrent()
@@ -645,7 +650,8 @@ async def test_search_release_sources_maps_results() -> None:
 async def test_delete_release_removes_record() -> None:
     release = make_release_record("rel-1")
     repository = FakeReleaseRepository({release.id: release})
-    use_case = DeleteReleaseUseCase(repository)
+    download_service = FakeDownloadService()
+    use_case = DeleteReleaseUseCase(repository, download_service)
 
     await use_case.execute("rel-1")
 

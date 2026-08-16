@@ -76,6 +76,7 @@ class CreateReleaseData:
     id: str
     source: str
     quality: str
+    files: list[ReleaseFileRecord] | None = None
 
 
 @dataclass(slots=True)
@@ -198,6 +199,9 @@ class ReleaseDownloadService(Protocol):
         torrent_bytes: bytes | None = None,
     ) -> QueuedDownload:
         """Download a release for the provided request identifier."""
+
+    async def delete_download(self, release_id: str) -> None:
+        """Remove a release download from the client."""
 
 
 __all__ = [

@@ -207,7 +207,33 @@ class QbittorrentClient:
             payload["category"] = category
         if tags:
             payload["tags"] = ",".join(tag for tag in tags if tag)
-        return payload
+    async def delete_torrent(self, info_hash: str, delete_files: bool = False) -> None:
+        """Delete a torrent by info hash."""
+        await self._ensure_login()
+        try:
+            response = await self._client.post(
+                "/torrents/delete",
+                data={
+                    "hashes": info_hash.lower(),
+                    "deleteFiles": "true" if delete_files else "false",
+                },
+            )
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.post(
+                    "/torrents/delete",
+                    data={
+                        "hashes": info_hash.lower(),
+                        "deleteFiles": "true" if delete_files else "false",
+                    },
+                )
+            if response.status_code != httpx.codes.NOT_FOUND:
+                response.raise_for_status()
+        except httpx.HTTPError:
+            # Swallow network/client errors to allow DB cleanup
+            pass
+        return None
 
 
 __all__ = ["QbittorrentClient"]
