@@ -10,6 +10,7 @@ from torrentool.api import Torrent
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
+    ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRepository,
     ReleaseSearchService,
@@ -22,6 +23,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseNotFoundError,
 )
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
+from uuid import uuid4
 
 
 class QueueReleaseDownloadUseCase:
@@ -70,6 +72,9 @@ class QueueReleaseDownloadUseCase:
                     error=str(exc),
                 )
                 torrent_bytes = None
+                torrent = None
+        else:
+            torrent = None
 
         if not magnet_link:
             raise ReleaseNotFoundError(command.release_id)
@@ -93,6 +98,7 @@ class QueueReleaseDownloadUseCase:
                     name=candidate.release_name,
                     source=candidate.source,
                     quality=candidate.quality,
+                    files=self._extract_files(torrent) if torrent else None,
                 )
             )
         except ValueError as exc:
@@ -108,6 +114,20 @@ class QueueReleaseDownloadUseCase:
         if quoted_name:
             magnet = f"{magnet}&dn={quoted_name}"
         return magnet
+
+    def _extract_files(self, torrent: Torrent) -> list[ReleaseFileRecord]:
+        files: list[ReleaseFileRecord] = []
+        for file in torrent.files:
+            files.append(
+                ReleaseFileRecord(
+                    id=str(uuid4()),
+                    name=file.name,
+                    size_bytes=file.length,
+                    path=file.name,  # Simple path for now
+                    mapping=None,
+                )
+            )
+        return files
 
 
 __all__ = ["QueueReleaseDownloadUseCase"]

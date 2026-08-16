@@ -77,5 +77,8 @@ class QbittorrentReleaseDownloadService(ReleaseDownloadService):
         tags.append(request_id)
         return tags
 
+    async def delete_download(self, release_id: str) -> None:
+        await self.client.delete_torrent(release_id, delete_files=True)
+
 
 __all__ = ["QbittorrentReleaseDownloadService"]

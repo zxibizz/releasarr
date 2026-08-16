@@ -69,10 +69,10 @@ const SeriesPage: React.FC = () => {
   const handleGrabSubmit = async (releasePk: string) => {
     setLoading({ ...loading, grab: releasePk });
     try {
-      await fetch(`${apiUrl}/api/shows/${showId}/grab`, {
+      await fetch(`${apiUrl}/api/requests/${showId}/releases/download`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ release_pk: releasePk }),
+        body: JSON.stringify({ release_id: releasePk }),
       });
       await fetchShow();
     } catch (error) {
@@ -115,11 +115,11 @@ const SeriesPage: React.FC = () => {
     }
   };
 
-  const handleDeleteRelease = async (releaseName: string) => {
+  const handleDeleteRelease = async (releaseId: string) => {
     if (!window.confirm("Are you sure you want to delete this release?"))
       return;
     try {
-      await fetch(`${apiUrl}/api/shows/${showId}/releases/${releaseName}`, {
+      await fetch(`${apiUrl}/api/releases/${releaseId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
@@ -300,7 +300,7 @@ const SeriesPage: React.FC = () => {
             <button
               type="button"
               className="bg-red-500 text-white py-2 px-4 rounded-lg mt-4"
-              onClick={() => handleDeleteRelease(release.name)}
+              onClick={() => handleDeleteRelease(release.id)}
             >
               Delete
             </button>

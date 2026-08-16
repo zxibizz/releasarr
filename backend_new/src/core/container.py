@@ -243,7 +243,10 @@ class ReleaseUseCases:
 
     @cached_property
     def delete(self) -> DeleteReleaseUseCase:
-        return DeleteReleaseUseCase(repository=self._container.repositories.releases)
+        return DeleteReleaseUseCase(
+            repository=self._container.repositories.releases,
+            download_service=self._container.services.release_download,
+        )
 
     @cached_property
     def update_mappings(self) -> UpdateReleaseFileMappingsUseCase:
