@@ -32,6 +32,15 @@ class ReleaseFileRecord:
 
 
 @dataclass(slots=True)
+class ReleaseRequestSnapshot:
+    """Subset of request data needed for release operations."""
+    
+    id: str
+    sonarr_series_id: int | None
+    title: str
+
+
+@dataclass(slots=True)
 class ReleaseRecord:
     """Normalized representation of a release with its files."""
 
@@ -49,9 +58,12 @@ class ReleaseRecord:
     added_at: datetime
     completed_at: datetime | None
     request_ids: list[str]
+    requests: list[ReleaseRequestSnapshot]
     torrent_source: str | None
     quality: str | None
     files: list[ReleaseFileRecord]
+    last_exported_info_hash: str | None
+    export_failures_count: int
 
 
 @dataclass(slots=True)
@@ -142,6 +154,15 @@ class ReleaseRepository(Protocol):
     ) -> bool:
         """Apply file mapping updates. Returns True on success."""
 
+    async def get_finished_not_exported(self) -> list[ReleaseRecord]:
+        """Fetch completed releases that haven't been exported to Sonarr."""
+
+    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+        """Fetch completed releases that might have better versions available."""
+    
+    async def update_release(self, release_id: str, **kwargs: object) -> bool:
+        """Update arbitrary fields of a release."""
+
 
 class ReleaseLifecycleService(Protocol):
     """Control operations for pausing/resuming release downloads."""
@@ -189,6 +210,7 @@ __all__ = [
     "ReleaseLifecycleService",
     "ReleaseRecord",
     "ReleaseRepository",
+    "ReleaseRequestSnapshot",
     "ReleaseSearchResultRecord",
     "ReleaseSearchResults",
     "ReleaseSearchService",

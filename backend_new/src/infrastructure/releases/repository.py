@@ -19,10 +19,11 @@ from src.application.interfaces.releases import (
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRepository,
+    ReleaseRequestSnapshot,
 )
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import MediaRequestStatus, ReleaseStatus
 
 
 @dataclass(slots=True)
@@ -175,6 +176,55 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
             await session.flush()
             return True
 
+    async def get_finished_not_exported(self) -> list[ReleaseRecord]:
+        async with self.db.session() as session:
+            stmt = (
+                select(models.Release)
+                .options(
+                    selectinload(models.Release.files),
+                    selectinload(models.Release.requests),
+                )
+                .where(
+                    models.Release.status == ReleaseStatus.COMPLETED,
+                    models.Release.export_failures_count < 5,
+                    (models.Release.last_exported_info_hash != models.Release.info_hash)
+                    | (models.Release.last_exported_info_hash.is_(None)),
+                )
+            )
+            result = await session.execute(stmt)
+            return [self._to_record(release) for release in result.scalars().all()]
+
+    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+        async with self.db.session() as session:
+            stmt = (
+                select(models.Release)
+                .join(models.Release.requests)
+                .options(
+                    selectinload(models.Release.files),
+                    selectinload(models.Release.requests),
+                )
+                .where(
+                    models.Release.status == ReleaseStatus.COMPLETED,
+                    models.Release.torrent_source == "prowlarr",
+                    models.MediaRequest.status == MediaRequestStatus.PENDING,
+                )
+                .distinct()
+            )
+            result = await session.execute(stmt)
+            return [self._to_record(release) for release in result.scalars().all()]
+
+    async def update_release(self, release_id: str, **kwargs: object) -> bool:
+        async with self.db.transaction() as session:
+            release = await session.get(models.Release, release_id)
+            if release is None:
+                return False
+            
+            for key, value in kwargs.items():
+                if hasattr(release, key):
+                    setattr(release, key, value)
+            
+            return True
+
     async def _count_releases(
         self,
         session: AsyncSession,
@@ -226,6 +276,14 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
         info_hash = release.info_hash or release.id
         size_bytes = release.size_bytes or 0
         request_ids = [request.id for request in release.requests]
+        requests_snapshot = [
+            ReleaseRequestSnapshot(
+                id=request.id,
+                sonarr_series_id=request.sonarr_series_id,
+                title=request.title,
+            )
+            for request in release.requests
+        ]
         added_at = self._ensure_datetime(release.added_at) or datetime.now(UTC)
         completed_at = self._ensure_datetime(release.completed_at)
         torrent_source = release.torrent_source or None
@@ -245,9 +303,12 @@ class SqlAlchemyReleaseRepository(ReleaseRepository):
             added_at=added_at,
             completed_at=completed_at,
             request_ids=request_ids,
+            requests=requests_snapshot,
             torrent_source=torrent_source,
             quality=quality,
             files=files,
+            last_exported_info_hash=release.last_exported_info_hash,
+            export_failures_count=release.export_failures_count,
         )
 
     def _to_file_record(self, file: models.ReleaseFile) -> ReleaseFileRecord:
