@@ -42,6 +42,25 @@ class SeriesDetails:
     seasons: dict[int, SeriesSeasonDetails]
 
 
+@dataclass(slots=True)
+class ManualImportFile:
+    """File details for Sonarr manual import command."""
+
+    path: str
+    series_id: int
+    episode_ids: list[int]
+    folder_name: str
+
+
+@dataclass(slots=True)
+class SonarrEpisode:
+    """Minimal details for a Sonarr episode."""
+
+    id: int
+    season_number: int
+    episode_number: int
+
+
 class SonarrService(Protocol):
     """Protocol describing the subset of Sonarr operations we rely on."""
 
@@ -51,10 +70,18 @@ class SonarrService(Protocol):
     async def get_series(self, series_id: int) -> SeriesDetails:
         """Return detailed information for a single Sonarr series."""
 
+    async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
+        """Return all episodes for a series."""
+
+    async def manual_import(self, files: list[ManualImportFile]) -> bool:
+        """Trigger a manual import command for the designated files."""
+
 
 __all__ = [
+    "ManualImportFile",
     "MissingSeriesRecord",
     "SeriesDetails",
     "SeriesSeasonDetails",
+    "SonarrEpisode",
     "SonarrService",
 ]

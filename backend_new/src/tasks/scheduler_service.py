@@ -36,6 +36,8 @@ class SchedulerService:
         tasks = [
             asyncio.create_task(self._run_sonarr_sync_loop()),
             asyncio.create_task(self._run_release_sync_loop()),
+            asyncio.create_task(self._run_export_task()),
+            asyncio.create_task(self._run_regrab_task()),
         ]
 
         try:
@@ -120,6 +122,38 @@ class SchedulerService:
 
             # Sleep for 30 seconds
             await self._sleep(30)
+
+    async def _run_export_task(self) -> None:
+        """Run series export task every 5 minutes."""
+        while not self._shutdown:
+            try:
+                self.container.startup()
+                use_case = self.container.use_cases.releases.export_finished
+                
+                result = await use_case.execute()
+                
+                if result.succeeded > 0 or result.failed > 0:
+                    self.logger.info(
+                        f"Export finished series complete (succeeded={result.succeeded}, failed={result.failed})"
+                    )
+            except Exception as exc:
+                self.logger.exception(f"Export task failed: {exc}")
+
+            await self._sleep(5 * 60)
+
+    async def _run_regrab_task(self) -> None:
+        """Run regrab outdated releases task every 60 minutes."""
+        while not self._shutdown:
+            try:
+                self.container.startup()
+                use_case = self.container.use_cases.releases.regrab_outdated
+                
+                await use_case.execute()
+                # Use case logs internally
+            except Exception as exc:
+                self.logger.exception(f"Regrab task failed: {exc}")
+
+            await self._sleep(60 * 60)
 
     async def _sleep(self, seconds: float) -> None:
         """Sleep that can be interrupted by shutdown."""
