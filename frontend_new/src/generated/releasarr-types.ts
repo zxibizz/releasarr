@@ -407,7 +407,7 @@ export interface components {
             /** Format: int64 */
             size: number;
             path: string;
-            request_mapping?: components["schemas"]["FileRequestMapping"];
+            request_mapping?: components["schemas"]["FileRequestMapping"] | null;
         };
         FileRequestMapping: components["schemas"]["MovieFileRequestMapping"] | components["schemas"]["SeriesFileRequestMapping"];
         MovieFileRequestMapping: {
@@ -444,9 +444,9 @@ export interface components {
              * @description Initial status assigned to the async operation.
              * @enum {string}
              */
-            status: "queued" | "pending";
+            status: "queued" | "pending" | "running" | "completed" | "failed";
             /** @description Unique identifier clients can use to poll for completion. */
-            operation_id?: string;
+            operation_id?: string | null;
             /**
              * Format: uri
              * @description Alternative URL for polling if different from the Location header.

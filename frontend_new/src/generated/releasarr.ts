@@ -129,7 +129,7 @@ const ReleaseFile = z
     name: z.string(),
     size: z.number().int(),
     path: z.string(),
-    request_mapping: FileRequestMapping.optional(),
+    request_mapping: FileRequestMapping.nullish(),
   })
   .passthrough();
 const ReleaseStatus = z.enum(['pending', 'downloading', 'seeding', 'completed', 'failed']);
@@ -168,8 +168,8 @@ const AddReleaseRequest = z
 const AsyncOperationResponse = z
   .object({
     operation: z.string(),
-    status: z.enum(['queued', 'pending']),
-    operation_id: z.string().optional(),
+    status: z.enum(['queued', 'pending', 'running', 'completed', 'failed']),
+    operation_id: z.string().nullish(),
     location: z.string().url().nullish(),
     message: z.string().nullish(),
     resource_id: z.string().nullish(),
