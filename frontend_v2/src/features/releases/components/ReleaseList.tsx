@@ -1,8 +1,7 @@
-import { Alert, Button, Group, Loader, Paper, Skeleton, Stack, Text } from '@mantine/core';
-import { useEffect, useMemo } from 'react';
+import { Alert, Button, Group, Loader, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { EmptyState } from '@/components/EmptyState';
 import { ReleaseCard } from '@/features/releases/components/ReleaseCard';
 import { useReleaseActions, useReleasesByRequest } from '@/features/releases/queries';
 import { useRequestsList } from '@/features/requests/queries';
@@ -48,8 +47,15 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
     }
   }, [isLoading, isFetching, releases, onReleasesLoaded]);
 
+  const section = (children: ReactNode) => (
+    <Stack gap="md">
+      <Title order={3}>{t('releasesList.title')}</Title>
+      {children}
+    </Stack>
+  );
+
   if (isLoading && releases.length === 0) {
-    return (
+    return section(
       <Stack gap="md">
         {Array.from({ length: 2 }).map((_, index) => (
           <Paper key={index} withBorder radius="lg" p="lg">
@@ -60,12 +66,12 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
             </Stack>
           </Paper>
         ))}
-      </Stack>
+      </Stack>,
     );
   }
 
   if (error) {
-    return (
+    return section(
       <Alert color="red" radius="lg" title={t('releasesList.error.title')}>
         <Stack align="flex-start" gap="sm">
           <Text>{getErrorMessage(error, t('releasesList.error.description'))}</Text>
@@ -73,21 +79,17 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
             {t('common.tryAgain')}
           </Button>
         </Stack>
-      </Alert>
+      </Alert>,
     );
   }
 
+  // Nothing to announce when a request has no releases yet — the manual search
+  // panel below takes over as the call to action.
   if (releases.length === 0) {
-    return (
-      <EmptyState
-        icon="📦"
-        title={t('releasesList.empty.title')}
-        description={t('releasesList.empty.description')}
-      />
-    );
+    return null;
   }
 
-  return (
+  return section(
     <Stack gap="md">
       {isFetching && (
         <Group gap={6} c="dimmed">
@@ -109,6 +111,6 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
           isBusy={isBusy}
         />
       ))}
-    </Stack>
+    </Stack>,
   );
 }

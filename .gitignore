@@ -164,7 +164,7 @@ cython_debug/
 .vscode
 persistence_data
 logs/
-# Allow React query helpers committed from frontend_new
-!frontend_new/src/lib/
-!frontend_new/src/lib/*
+# Allow React query helpers committed from frontend_v2
+!frontend_v2/src/lib/
+!frontend_v2/src/lib/*
 
