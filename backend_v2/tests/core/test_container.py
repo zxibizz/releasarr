@@ -31,7 +31,9 @@ def test_get_container_returns_singleton() -> None:
 
 
 def test_container_provides_singletons() -> None:
-    container = get_container()
+    # Explicit settings rather than get_container(): init kwargs outrank .env, so
+    # the wiring assertions don't depend on which integrations are configured locally.
+    container = AppContainer(settings=AppSettings(prowlarr_url="", qbittorrent_url=""))
 
     media_repo = container.repositories.media_requests
     release_repo = container.repositories.releases
@@ -48,7 +50,7 @@ def test_container_provides_singletons() -> None:
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
     assert isinstance(lifecycle_service, InMemoryReleaseLifecycleService)
-    assert isinstance(search_service, (ProwlarrReleaseSearchService, InMemoryReleaseSearchService))
+    assert isinstance(search_service, InMemoryReleaseSearchService)
     assert isinstance(download_service, InMemoryReleaseDownloadService)
     assert isinstance(log_reader, LogFileReader)
     assert isinstance(logs_query, ListLogsQuery)

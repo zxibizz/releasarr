@@ -6,9 +6,9 @@ services:
       context: .
     restart: always
     volumes:
-      - ./backend_new/releasarr.db:/app/releasarr.db
-      - ./backend_new/logs:/app/logs
+      - ./backend_v2/releasarr.db:/app/releasarr.db
+      - ./backend_v2/logs:/app/logs
     env_file:
-      - ./backend_new/.env
+      - ./backend_v2/.env
     ports:
       - 8050:80
