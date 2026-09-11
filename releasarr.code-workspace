@@ -5,10 +5,10 @@
 			"name": "root"
 		},
 		{
-			"path": "frontend_v2",
+			"path": "frontend",
 		},
 		{
-			"path": "backend_v2",
+			"path": "backend",
 		},
 		{
 			"path": "frontend",
