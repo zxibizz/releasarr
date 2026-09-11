@@ -1,8 +1,8 @@
 FROM node:20-slim AS frontend-builder
 WORKDIR /app
-COPY frontend_v2/package*.json ./
+COPY frontend/package*.json ./
 RUN npm install
-COPY frontend_v2/ .
+COPY frontend/ .
 ENV VITE_API_URL=/api
 RUN npm run build
 
@@ -14,8 +14,8 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend_v2/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend_v2/pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
 # ------------------------------------------------
@@ -37,9 +37,9 @@ COPY --from=backend-builder --chown=app:app /app/.venv /app/.venv
 COPY --from=frontend-builder --chown=app:app /app/dist /static
 
 # Copy Backend Code
-COPY backend_v2/src /app/src
-COPY backend_v2/alembic /app/alembic
-COPY backend_v2/alembic.ini /app
+COPY backend/src /app/src
+COPY backend/alembic /app/alembic
+COPY backend/alembic.ini /app
 
 # Configure Nginx
 COPY nginx.conf /etc/nginx/sites-available/default
