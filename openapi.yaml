@@ -575,10 +575,10 @@ paths:
       tags: [Tasks]
       summary: Queue every task
       description: |
-        Queues every task in dependency order: Sonarr request sync, download
-        state refresh, import of finished releases into Sonarr, and re-grab of
-        outdated releases. Execution happens in the scheduler process, so the
-        response only acknowledges that the work was queued.
+        Queues every task in dependency order: Sonarr and Radarr request syncs,
+        download state refresh, import of finished releases back into them, and
+        re-grab of outdated releases. Execution happens in the scheduler process,
+        so the response only acknowledges that the work was queued.
       operationId: triggerFullSync
       responses:
         '202':
@@ -602,11 +602,11 @@ paths:
   /tasks/sync_downloads:
     post:
       tags: [Tasks]
-      summary: Queue a download sync and Sonarr import
+      summary: Queue a download sync and library import
       description: |
         Refreshes download state from the download client and imports finished
-        releases into Sonarr. Intended for a download client to call when a
-        torrent finishes, so it deliberately skips the slower Sonarr and
+        releases into Sonarr and Radarr. Intended for a download client to call
+        when a torrent finishes, so it deliberately skips the slower library and
         indexer tasks of a full sync.
       operationId: triggerDownloadSync
       responses:
@@ -1016,6 +1016,10 @@ components:
             imdb_id:
               type: string
               description: IMDb identifier.
+            radarr_movie_id:
+              type: integer
+              nullable: true
+              description: Identifier of the linked Radarr movie when the request was auto-synchronised.
     SeriesRequest:
       allOf:
         - $ref: '#/components/schemas/BaseMediaRequest'
@@ -1356,12 +1360,13 @@ components:
           type: boolean
     SyncJobKind:
       type: string
-      enum: [sonarr_sync, release_sync, export, regrab]
+      enum: [sonarr_sync, radarr_sync, release_sync, export, regrab]
       description: |
         A unit of background work. `sonarr_sync` pulls wanted episodes from
-        Sonarr, `release_sync` refreshes download state from the download
-        client, `export` imports finished releases into Sonarr, and `regrab`
-        re-downloads releases the indexer has since replaced.
+        Sonarr, `radarr_sync` pulls wanted movies from Radarr, `release_sync`
+        refreshes download state from the download client, `export` imports
+        finished releases back into Sonarr and Radarr, and `regrab` re-downloads
+        releases the indexer has since replaced.
     SyncJobStatus:
       type: string
       enum: [queued, running, completed, failed]

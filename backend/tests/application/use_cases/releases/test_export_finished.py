@@ -21,7 +21,7 @@ from src.application.interfaces.sonarr import (
     SonarrEpisode,
 )
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
-from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
+from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 
@@ -208,11 +208,11 @@ def build_use_case(
     requests: list[MediaRequestRecord],
     request_repository: FakeMediaRequestRepository | None = None,
     sonarr: FakeSonarrService | None = None,
-) -> tuple[ExportFinishedSeriesUseCase, FakeReleaseRepository, FakeSonarrService]:
+) -> tuple[ExportFinishedReleasesUseCase, FakeReleaseRepository, FakeSonarrService]:
     repository = FakeReleaseRepository(release)
     sonarr = sonarr or FakeSonarrService()
     request_repository = request_repository or FakeMediaRequestRepository(requests)
-    use_case = ExportFinishedSeriesUseCase(
+    use_case = ExportFinishedReleasesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=sonarr,  # type: ignore[arg-type]
         auto_mapper=build_auto_mapper(repository, request_repository),
@@ -331,7 +331,7 @@ async def test_release_stays_unexported_when_the_download_directory_is_unknown()
     repository = FakeReleaseRepository(release)
     sonarr = FakeSonarrService()
     request_repository = FakeMediaRequestRepository([])
-    use_case = ExportFinishedSeriesUseCase(
+    use_case = ExportFinishedReleasesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=sonarr,  # type: ignore[arg-type]
         auto_mapper=build_auto_mapper(repository, request_repository),

@@ -216,10 +216,10 @@ export interface paths {
         put?: never;
         /**
          * Queue every task
-         * @description Queues every task in dependency order: Sonarr request sync, download
-         *     state refresh, import of finished releases into Sonarr, and re-grab of
-         *     outdated releases. Execution happens in the scheduler process, so the
-         *     response only acknowledges that the work was queued.
+         * @description Queues every task in dependency order: Sonarr and Radarr request syncs,
+         *     download state refresh, import of finished releases back into them, and
+         *     re-grab of outdated releases. Execution happens in the scheduler process,
+         *     so the response only acknowledges that the work was queued.
          */
         post: operations["triggerFullSync"];
         delete?: never;
@@ -238,10 +238,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Queue a download sync and Sonarr import
+         * Queue a download sync and library import
          * @description Refreshes download state from the download client and imports finished
-         *     releases into Sonarr. Intended for a download client to call when a
-         *     torrent finishes, so it deliberately skips the slower Sonarr and
+         *     releases into Sonarr and Radarr. Intended for a download client to call
+         *     when a torrent finishes, so it deliberately skips the slower library and
          *     indexer tasks of a full sync.
          */
         post: operations["triggerDownloadSync"];
@@ -423,6 +423,8 @@ export interface components {
             runtime: number;
             /** @description IMDb identifier. */
             imdb_id: string;
+            /** @description Identifier of the linked Radarr movie when the request was auto-synchronised. */
+            radarr_movie_id?: number | null;
         } & {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -600,12 +602,13 @@ export interface components {
         };
         /**
          * @description A unit of background work. `sonarr_sync` pulls wanted episodes from
-         *     Sonarr, `release_sync` refreshes download state from the download
-         *     client, `export` imports finished releases into Sonarr, and `regrab`
-         *     re-downloads releases the indexer has since replaced.
+         *     Sonarr, `radarr_sync` pulls wanted movies from Radarr, `release_sync`
+         *     refreshes download state from the download client, `export` imports
+         *     finished releases back into Sonarr and Radarr, and `regrab` re-downloads
+         *     releases the indexer has since replaced.
          * @enum {string}
          */
-        SyncJobKind: "sonarr_sync" | "release_sync" | "export" | "regrab";
+        SyncJobKind: "sonarr_sync" | "radarr_sync" | "release_sync" | "export" | "regrab";
         /** @enum {string} */
         SyncJobStatus: "queued" | "running" | "completed" | "failed";
         /**

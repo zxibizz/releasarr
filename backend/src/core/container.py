@@ -39,6 +39,7 @@ from src.application.use_cases.requests.create_request import CreateMediaRequest
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
+from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
@@ -57,6 +58,7 @@ from src.infrastructure.qbittorrent import (
     QbittorrentReleaseDownloadService,
     QbittorrentReleaseLifecycleService,
 )
+from src.infrastructure.radarr import RadarrHttpClient
 from src.infrastructure.releases import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
@@ -68,11 +70,12 @@ from src.infrastructure.sync_jobs import (
     SqlAlchemyScheduledTaskRepository,
     SqlAlchemySyncJobRepository,
 )
+from src.infrastructure.tmdb import TmdbHttpClient
 from src.infrastructure.tvdb import TvdbHttpClient
 from src.settings.config import AppSettings, get_settings
 
 if TYPE_CHECKING:
-    from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
+    from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
     from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 
 
@@ -161,6 +164,14 @@ class ServiceContainer:
         )
 
     @cached_property
+    def radarr(self) -> RadarrHttpClient:
+        settings = self._container.settings
+        return RadarrHttpClient(
+            base_url=settings.radarr_url,
+            api_key=settings.radarr_api_key.get_secret_value(),
+        )
+
+    @cached_property
     def tvdb(self) -> TvdbHttpClient | None:
         settings = self._container.settings
         if not settings.tvdb_api_key.get_secret_value():
@@ -168,6 +179,16 @@ class ServiceContainer:
         return TvdbHttpClient(
             base_url=settings.tvdb_base_url,
             api_token=settings.tvdb_api_key.get_secret_value(),
+        )
+
+    @cached_property
+    def tmdb(self) -> TmdbHttpClient | None:
+        settings = self._container.settings
+        if not settings.tmdb_api_key.get_secret_value():
+            return None
+        return TmdbHttpClient(
+            base_url=settings.tmdb_base_url,
+            api_token=settings.tmdb_api_key.get_secret_value(),
         )
 
 
@@ -252,6 +273,15 @@ class MediaRequestUseCases:
             metadata_languages=self._container.settings.metadata_languages,
         )
 
+    @cached_property
+    def sync_radarr(self) -> SyncRadarrMediaRequestsUseCase:
+        return SyncRadarrMediaRequestsUseCase(
+            repository=self._container.repositories.media_requests,
+            radarr_service=self._container.services.radarr,
+            tmdb_service=self._container.services.tmdb,
+            metadata_languages=self._container.settings.metadata_languages,
+        )
+
 
 @dataclass
 class ReleaseUseCases:
@@ -322,12 +352,15 @@ class ReleaseUseCases:
         )
 
     @cached_property
-    def export_finished(self) -> ExportFinishedSeriesUseCase:
-        from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
+    def export_finished(self) -> ExportFinishedReleasesUseCase:
+        from src.application.use_cases.releases.export_finished import (
+            ExportFinishedReleasesUseCase,
+        )
 
-        return ExportFinishedSeriesUseCase(
+        return ExportFinishedReleasesUseCase(
             repository=self._container.repositories.releases,
             sonarr=self._container.services.sonarr,
+            radarr=self._container.services.radarr,
             auto_mapper=self.auto_mapper,
             download_service=self._container.services.release_download,
             request_repository=self._container.repositories.media_requests,
@@ -398,7 +431,7 @@ class AppContainer:
             await client.close()
 
         # Close any resolved HTTP-backed services exposing an async close hook.
-        for key in ("tvdb", "sonarr", "release_search"):
+        for key in ("tvdb", "tmdb", "sonarr", "radarr", "release_search"):
             service = services.__dict__.get(key)
             if service is not None and hasattr(service, "aclose"):
                 await service.aclose()

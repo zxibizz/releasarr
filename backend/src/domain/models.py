@@ -90,6 +90,10 @@ class MediaRequest(Base):
             "season_number",
             name="uq_media_requests_sonarr_series_season",
         ),
+        UniqueConstraint(
+            "radarr_movie_id",
+            name="uq_media_requests_radarr_movie",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -120,6 +124,7 @@ class MediaRequest(Base):
     series_title: Mapped[str | None] = mapped_column(String(255))
     series_year: Mapped[int | None] = mapped_column(Integer)
     sonarr_series_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    radarr_movie_id: Mapped[int | None] = mapped_column(Integer, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

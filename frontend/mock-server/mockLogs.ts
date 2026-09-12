@@ -199,6 +199,13 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     ].join('\n'),
   },
   {
+    task: 'radarr_sync',
+    level: 'info',
+    message: 'Radarr sync finished',
+    source: 'src.application.use_cases.requests.sync_radarr',
+    metadata: { component: 'sync_radarr_requests', created: 1, updated: 1, completed: 0 },
+  },
+  {
     task: 'release_sync',
     level: 'info',
     message: 'Request status changed from downloading to completed',
@@ -217,7 +224,17 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     level: 'info',
     message: 'Imported a release into Sonarr',
     source: 'src.application.use_cases.releases.export_finished',
-    metadata: { component: 'export_finished_series', release_name: 'Some.Show.S02E04.1080p' },
+    metadata: { component: 'export_finished_releases', release_name: 'Some.Show.S02E04.1080p' },
+  },
+  {
+    task: 'export',
+    level: 'info',
+    message: 'Imported a release into Radarr',
+    source: 'src.application.use_cases.releases.export_finished',
+    metadata: {
+      component: 'export_finished_releases',
+      release_name: 'Some.Movie.2019.1080p.BluRay.x264',
+    },
   },
   {
     task: 'export',

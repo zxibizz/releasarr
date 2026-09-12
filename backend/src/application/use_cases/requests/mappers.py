@@ -34,6 +34,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
             localizations=_clone_localizations(record.localizations),
             runtime=record.runtime_minutes or 0,
             imdb_id=imdb_id,
+            radarr_movie_id=record.radarr_movie_id,
         )
 
     return SeriesRequestDTO(

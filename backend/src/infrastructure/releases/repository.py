@@ -252,21 +252,34 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    def _to_request_snapshot(self, request: models.MediaRequest) -> ReleaseRequestSnapshot:
+        alternate_titles: list[str] = []
+        for localization in (request.localizations or {}).values():
+            if not isinstance(localization, dict):
+                continue
+            title = localization.get("title")
+            if title and title != request.title:
+                alternate_titles.append(str(title))
+        if request.series_title and request.series_title != request.title:
+            alternate_titles.append(request.series_title)
+
+        return ReleaseRequestSnapshot(
+            id=request.id,
+            sonarr_series_id=request.sonarr_series_id,
+            title=request.title,
+            media_type=request.media_type,
+            season_number=request.season_number,
+            radarr_movie_id=request.radarr_movie_id,
+            year=request.year,
+            alternate_titles=alternate_titles,
+        )
+
     def _to_record(self, release: models.Release) -> ReleaseRecord:
         files = [self._to_file_record(file) for file in release.files]
         info_hash = release.info_hash or release.id
         size_bytes = release.size_bytes or 0
         request_ids = [request.id for request in release.requests]
-        requests_snapshot = [
-            ReleaseRequestSnapshot(
-                id=request.id,
-                sonarr_series_id=request.sonarr_series_id,
-                title=request.title,
-                media_type=request.media_type,
-                season_number=request.season_number,
-            )
-            for request in release.requests
-        ]
+        requests_snapshot = [self._to_request_snapshot(request) for request in release.requests]
         added_at = self._ensure_datetime(release.added_at) or datetime.now(UTC)
         completed_at = self._ensure_datetime(release.completed_at)
         torrent_source = release.torrent_source or None

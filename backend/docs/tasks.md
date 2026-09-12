@@ -27,6 +27,15 @@ metadata when configured).
 uv run python -m src.tasks.cli sync-sonarr-requests
 ```
 
+## Sync Radarr Requests
+
+Imports Radarr missing movies into media requests (enriched with TMDB
+metadata when configured).
+
+```bash
+uv run python -m src.tasks.cli sync-radarr-requests
+```
+
 ## Sync Releases
 
 Refreshes release download stats (progress, speeds, seeders, status) from
@@ -38,15 +47,16 @@ uv run python -m src.tasks.cli sync-releases
 
 ## The Task Set
 
-Four tasks make up all recurring work. They are defined once, in
+Five tasks make up all recurring work. They are defined once, in
 `src/application/use_cases/tasks/definitions.py`, and shared by the scheduler
 and the API so the UI can never disagree with what actually runs.
 
 | Task | Default interval | What it does |
 | --- | --- | --- |
 | `sonarr_sync` | 60m | Import Sonarr's missing episodes as media requests |
+| `radarr_sync` | 60m | Import Radarr's missing movies as media requests |
 | `release_sync` | 30s | Refresh download progress and state from qBittorrent |
-| `export` | 5m | Import finished releases into Sonarr |
+| `export` | 5m | Import finished releases into Sonarr and Radarr |
 | `regrab` | 60m | Re-download releases the indexer has since replaced |
 
 The order above is significant: `export` can only import releases that
@@ -130,8 +140,9 @@ filter over paging through everything.
 ### Hooking up qBittorrent
 
 Point qBittorrent's completion hook at `sync_downloads` so finished torrents are
-imported into Sonarr immediately instead of waiting for the 5-minute export
-loop. In **Options → Downloads → Run external program on torrent finished**:
+imported into Sonarr and Radarr immediately instead of waiting for the 5-minute
+export loop. In **Options → Downloads → Run external program on torrent
+finished**:
 
 ```bash
 curl -fsS -X POST -H "X-API-Key: $RELEASARR_API_KEY" http://releasarr:8000/api/tasks/sync_downloads
@@ -139,7 +150,8 @@ curl -fsS -X POST -H "X-API-Key: $RELEASARR_API_KEY" http://releasarr:8000/api/t
 
 Substitute your own host and key; the `/api` prefix is what nginx serves the API
 under. The narrow endpoint is deliberate: a full sync on every torrent would hit
-Sonarr, TVDB, and the indexers far more often than necessary.
+Sonarr, Radarr, the metadata providers, and the indexers far more often than
+necessary.
 
 Runs triggered this way show up in the Queue section of **System → Tasks** in
 the web UI, tagged with the download client as their trigger, and their log

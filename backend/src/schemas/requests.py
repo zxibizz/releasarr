@@ -40,6 +40,7 @@ class MovieRequest(BaseMediaRequest):
     type: Literal["movie"]
     runtime: int
     imdb_id: str
+    radarr_movie_id: int | None = None
 
 
 class SeriesRequest(BaseMediaRequest):

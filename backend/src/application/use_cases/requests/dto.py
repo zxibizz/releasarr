@@ -28,6 +28,7 @@ class MovieRequestDTO(BaseMediaRequestDTO):
     type: MediaType = MediaType.MOVIE
     runtime: int = 0
     imdb_id: str = ""
+    radarr_movie_id: int | None = None
 
 
 @dataclass(slots=True)
