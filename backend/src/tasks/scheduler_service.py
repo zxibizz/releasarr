@@ -84,7 +84,8 @@ class SchedulerService:
                 result = await task.execute()
                 self.logger.info(
                     f"Release sync complete (synced={result.synced}, "
-                    f"failed={result.failed}, not_found={result.not_found})"
+                    f"failed={result.failed}, not_found={result.not_found}, "
+                    f"requests_updated={result.requests_updated})"
                 )
             except Exception as exc:
                 self.logger.exception(f"Release sync failed: {exc}")

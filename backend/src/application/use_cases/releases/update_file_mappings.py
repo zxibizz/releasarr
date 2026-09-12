@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from loguru import logger
+
 from src.application.interfaces.releases import (
     FileMappingUpdateData,
     ReleaseFileMapping,
@@ -43,7 +45,41 @@ class UpdateReleaseFileMappingsUseCase:
         if not updated:
             raise ReleaseNotFoundError(command.release_id)
 
+        self._log_mappings(command)
+
         return True
+
+    @staticmethod
+    def _log_mappings(command: UpdateFileMappingsCommand) -> None:
+        """Record one activity entry per request touched by this mapping change.
+
+        Entries are bound per request id because the /logs endpoint filters on it,
+        and a single release can map files to several requests at once.
+        """
+        mapped_per_request: dict[str, int] = {}
+        cleared = 0
+        for file_command in command.files:
+            if file_command.mapping_type is None or not file_command.request_id:
+                cleared += 1
+                continue
+            mapped_per_request[file_command.request_id] = (
+                mapped_per_request.get(file_command.request_id, 0) + 1
+            )
+
+        for request_id, count in mapped_per_request.items():
+            logger.info(
+                f"Mapped {count} release file(s) to this request",
+                request_id=request_id,
+                release_id=command.release_id,
+                file_count=count,
+            )
+
+        if cleared:
+            logger.info(
+                f"Cleared mapping for {cleared} release file(s)",
+                release_id=command.release_id,
+                file_count=cleared,
+            )
 
     def _build_mapping(self, command: FileMappingCommand) -> ReleaseFileMapping | None:
         if command.mapping_type is None:

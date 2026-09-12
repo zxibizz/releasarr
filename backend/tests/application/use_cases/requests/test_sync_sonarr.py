@@ -300,3 +300,36 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
 
     # TVDB client should be invoked once per series
     assert tvdb.calls == [(555, ("rus", "eng"))]
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_preserves_in_flight_status() -> None:
+    """A metadata refresh must not knock a downloading season back to pending."""
+
+    records = make_existing_records()
+    records["req-1"].status = MediaRequestStatus.DOWNLOADING
+    repository = FakeMediaRequestRepository(records=records)
+    missing = [
+        MissingSeriesRecord(
+            series_id=10,
+            title="Example Show",
+            season_numbers=[1],
+            tvdb_id=555,
+            imdb_id="tt1234567",
+        )
+    ]
+    sonarr = FakeSonarrService(missing=missing, catalogue={10: make_series_details()})
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=None,
+    )
+    await use_case.execute()
+
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.status == MediaRequestStatus.DOWNLOADING
+    # The rest of the metadata is still refreshed.
+    assert season_one.title == "Example Show - Season 1"
+    assert season_one.total_episodes == 10

@@ -21,7 +21,7 @@ class AppSettings(BaseSettings):
 
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)
-    log_file: str = Field(default="logs/backend.log")
+    log_file: str = Field(default=".logs/backend.log")
 
     default_page: int = Field(default=1)
     default_page_size: int = Field(default=20)
