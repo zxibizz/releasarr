@@ -48,6 +48,27 @@ def sync_sonarr_requests_command() -> None:
     )
 
 
+@app.command("sync-radarr-requests")
+def sync_radarr_requests_command() -> None:
+    """Synchronise Radarr missing movies into media requests."""
+
+    async def _run():
+        container = get_container()
+        container.startup()
+        try:
+            use_case = container.use_cases.media_requests.sync_radarr
+            return await use_case.execute()
+        finally:
+            await container.shutdown()
+
+    result = asyncio.run(_run())
+
+    typer.echo(
+        "Radarr sync complete "
+        f"(created={result.created}, updated={result.updated}, completed={result.completed})"
+    )
+
+
 @app.command("sync-releases")
 def sync_releases_command() -> None:
     """Synchronise release stats from qBittorrent."""

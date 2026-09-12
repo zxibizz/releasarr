@@ -203,7 +203,7 @@ async def trigger_full_sync(
     response_model=AsyncOperationResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses=SYNC_RESPONSES,
-    summary="Queue a download sync and Sonarr import",
+    summary="Queue a download sync and library import",
 )
 async def trigger_download_sync(
     response: Response,

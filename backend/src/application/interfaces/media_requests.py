@@ -39,6 +39,7 @@ class MediaRequestRecord:
     created_at: datetime
     updated_at: datetime
     sonarr_series_id: int | None = None
+    radarr_movie_id: int | None = None
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
 
 
@@ -61,6 +62,7 @@ class CreateMediaRequestData:
     series_year: int | None
     status: MediaRequestStatus
     sonarr_series_id: int | None = None
+    radarr_movie_id: int | None = None
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
 
 
@@ -85,6 +87,7 @@ class UpdateMediaRequestData:
     series_title: str | None | _Unset = UNSET
     series_year: int | None | _Unset = UNSET
     sonarr_series_id: int | None | _Unset = UNSET
+    radarr_movie_id: int | None | _Unset = UNSET
     localizations: dict[str, MediaLocalization] | _Unset = UNSET
 
 
@@ -127,6 +130,12 @@ class MediaRequestRepository(Protocol):
 
     async def list_sonarr_requests(self) -> list[MediaRequestRecord]:
         """Return all requests linked to Sonarr series identifiers."""
+
+    async def find_by_radarr(self, *, radarr_movie_id: int) -> MediaRequestRecord | None:
+        """Look up a Radarr-backed request by movie identifier."""
+
+    async def list_radarr_requests(self) -> list[MediaRequestRecord]:
+        """Return all requests linked to Radarr movie identifiers."""
 
 
 __all__ = [

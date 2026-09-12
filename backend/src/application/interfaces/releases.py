@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
@@ -40,6 +40,12 @@ class ReleaseRequestSnapshot:
     title: str
     media_type: MediaType | None = None
     season_number: int | None = None
+    radarr_movie_id: int | None = None
+    year: int | None = None
+    # Every title the request is known by. A movie's own title is whichever
+    # language won the localization, so matching a release named in another
+    # language needs the alternatives too.
+    alternate_titles: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

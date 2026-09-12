@@ -51,6 +51,7 @@ class SyncJobKind(StrEnum):
     """A single unit of background work, runnable on a schedule or on demand."""
 
     SONARR_SYNC = "sonarr_sync"
+    RADARR_SYNC = "radarr_sync"
     RELEASE_SYNC = "release_sync"
     EXPORT = "export"
     REGRAB = "regrab"

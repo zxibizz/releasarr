@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from loguru._logger import Logger
 
-from src.application.interfaces.media_requests import MediaRequestRepository
+from src.application.interfaces.media_requests import MediaRequestRecord, MediaRequestRepository
 from src.application.interfaces.releases import (
     ReleaseRecord,
     ReleaseRepository,
@@ -12,6 +12,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.core.logging import get_logger
+from src.domain.enums import MediaType
 
 
 class ReleaseAutoMapper:
@@ -56,13 +57,25 @@ class ReleaseAutoMapper:
     async def candidate_requests(self, release: ReleaseRecord) -> list[ReleaseRequestSnapshot]:
         """Return the requests a release's files may map to.
 
-        A multi-season pack is normally grabbed from a single season's request, so the
-        sibling season requests of the same Sonarr series are pulled in as well.
+        A pack is normally grabbed from a single request, so its siblings are
+        pulled in as well: the other seasons of the same Sonarr series, or the
+        other outstanding Radarr movies a collection may cover.
         """
 
         candidates = {request.id: request for request in release.requests}
         if self._request_repository is None:
             return list(candidates.values())
+
+        await self._add_sibling_seasons(release, candidates)
+        await self._add_sibling_movies(release, candidates)
+        return list(candidates.values())
+
+    async def _add_sibling_seasons(
+        self,
+        release: ReleaseRecord,
+        candidates: dict[str, ReleaseRequestSnapshot],
+    ) -> None:
+        assert self._request_repository is not None
 
         series_ids = {
             request.sonarr_series_id
@@ -70,7 +83,7 @@ class ReleaseAutoMapper:
             if request.sonarr_series_id is not None
         }
         if not series_ids:
-            return list(candidates.values())
+            return
 
         covered = {
             request.season_number
@@ -87,15 +100,54 @@ class ReleaseAutoMapper:
                 )
                 if record is None or record.id in candidates:
                     continue
-                candidates[record.id] = ReleaseRequestSnapshot(
-                    id=record.id,
-                    sonarr_series_id=record.sonarr_series_id,
-                    title=record.title,
-                    media_type=record.media_type,
-                    season_number=record.season_number,
-                )
+                candidates[record.id] = self._to_snapshot(record)
 
-        return list(candidates.values())
+    async def _add_sibling_movies(
+        self,
+        release: ReleaseRecord,
+        candidates: dict[str, ReleaseRequestSnapshot],
+    ) -> None:
+        """Offer the other outstanding movies to a release that grabbed one.
+
+        A collection pack is grabbed from whichever movie was wanted, and the
+        rest of it only maps if their requests are on the table too. There is no
+        collection link to follow, so every movie Radarr still wants is offered
+        and the matcher decides on the file names.
+        """
+
+        assert self._request_repository is not None
+
+        if not any(request.media_type is MediaType.MOVIE for request in release.requests):
+            return
+
+        for record in await self._request_repository.list_radarr_requests():
+            if record.id in candidates:
+                continue
+            candidates[record.id] = self._to_snapshot(record)
+
+    def _to_snapshot(self, record: MediaRequestRecord) -> ReleaseRequestSnapshot:
+        return ReleaseRequestSnapshot(
+            id=record.id,
+            sonarr_series_id=record.sonarr_series_id,
+            title=record.title,
+            media_type=record.media_type,
+            season_number=record.season_number,
+            radarr_movie_id=record.radarr_movie_id,
+            year=record.year,
+            alternate_titles=_alternate_titles(record),
+        )
+
+
+def _alternate_titles(record: MediaRequestRecord) -> list[str]:
+    """Every other name the request is known by, for matching release names."""
+
+    titles: list[str] = []
+    for localization in record.localizations.values():
+        if localization.title and localization.title != record.title:
+            titles.append(localization.title)
+    if record.series_title and record.series_title != record.title:
+        titles.append(record.series_title)
+    return titles
 
 
 __all__ = ["ReleaseAutoMapper"]

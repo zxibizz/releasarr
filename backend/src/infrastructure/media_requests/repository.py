@@ -70,6 +70,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 series_title=data.series_title,
                 series_year=data.series_year,
                 sonarr_series_id=data.sonarr_series_id,
+                radarr_movie_id=data.radarr_movie_id,
             )
             session.add(request)
             await session.flush()
@@ -141,6 +142,25 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             result = await session.execute(stmt)
             return [self._to_record(request) for request in result.scalars().all()]
 
+    async def find_by_radarr(self, *, radarr_movie_id: int) -> MediaRequestRecord | None:
+        async with self.db.session() as session:
+            stmt = select(models.MediaRequest).where(
+                models.MediaRequest.radarr_movie_id == radarr_movie_id,
+            )
+            result = await session.execute(stmt)
+            request = result.scalar_one_or_none()
+            if request is None:
+                return None
+            return self._to_record(request)
+
+    async def list_radarr_requests(self) -> list[MediaRequestRecord]:
+        async with self.db.session() as session:
+            stmt: Select[tuple[models.MediaRequest]] = select(models.MediaRequest).where(
+                models.MediaRequest.radarr_movie_id.is_not(None)
+            )
+            result = await session.execute(stmt)
+            return [self._to_record(request) for request in result.scalars().all()]
+
     def _to_record(self, request: models.MediaRequest) -> MediaRequestRecord:
         localizations = self._deserialize_localizations(request.localizations)
         return MediaRequestRecord(
@@ -160,6 +180,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             series_title=request.series_title,
             series_year=request.series_year,
             sonarr_series_id=request.sonarr_series_id,
+            radarr_movie_id=request.radarr_movie_id,
             created_at=request.created_at,
             updated_at=request.updated_at,
         )
