@@ -1,4 +1,16 @@
-import { Alert, Button, Group, Loader, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  Group,
+  Paper,
+  Skeleton,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from '@mantine/core';
+import { IconRefresh } from '@tabler/icons-react';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -49,7 +61,23 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
 
   const section = (children: ReactNode) => (
     <Stack gap="md">
-      <Title order={3}>{t('releasesList.title')}</Title>
+      <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+        <Title order={3}>{t('releasesList.title')}</Title>
+
+        {/* Download progress only moves when the list is refetched, and there
+            is no pull-to-refresh here to do it. */}
+        <Tooltip label={t('common.refresh')}>
+          <ActionIcon
+            variant="light"
+            size="lg"
+            aria-label={t('common.refresh')}
+            loading={isFetching}
+            onClick={() => void refetch()}
+          >
+            <IconRefresh size={18} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
       {children}
     </Stack>
   );
@@ -91,13 +119,6 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
 
   return section(
     <Stack gap="md">
-      {isFetching && (
-        <Group gap={6} c="dimmed">
-          <Loader size="xs" />
-          <Text size="sm">{t('releasesList.refreshing')}</Text>
-        </Group>
-      )}
-
       {releases.map((release) => (
         <ReleaseCard
           key={release.id}

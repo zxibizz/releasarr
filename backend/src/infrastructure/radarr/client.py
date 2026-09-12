@@ -33,6 +33,7 @@ class RadarrHttpClient(RadarrService):
         timeout_seconds: float = 15.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        self._api_key = api_key
         self._http = BaseHttpClient(
             base_url=base_url,
             headers={"X-Api-Key": api_key},
@@ -215,6 +216,10 @@ class RadarrHttpClient(RadarrService):
         )
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        # Checked per request rather than in __init__ so that series-only
+        # deployments can still build the container without a Radarr key.
+        if not self._api_key:
+            raise HttpClientError("Radarr API key is not configured; set RELEASARR_RADARR_API_KEY")
         return await self._http.request_json(method, path, **kwargs)
 
     def _extract_poster_url(self, images: list[dict[str, object]]) -> str | None:

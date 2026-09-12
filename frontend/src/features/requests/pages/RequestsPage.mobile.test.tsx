@@ -85,12 +85,12 @@ describe('RequestsPage on a phone', () => {
     renderWithProviders(<RequestsPage />);
 
     await screen.findByText('The Dark Knight');
-    expect(screen.queryByRole('radio', { name: 'Movies' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Movies' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'In progress' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }));
 
-    expect(await screen.findByRole('radio', { name: 'Movies' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Movies' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In progress' })).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('RequestsPage on a phone', () => {
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
     expect(screen.getByText(/war on crime/i)).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Movies' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Movies' })).toBeInTheDocument();
 
     const totals = screen.getByText(/total requests/i).closest('div');
     expect(totals && within(totals).getByText('1')).toBeInTheDocument();
