@@ -1,9 +1,10 @@
-import { Alert, Button, Group, Loader, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Group, Loader, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { Panel } from '@/components/Panel';
 import { ScheduledTasksTable } from '@/features/tasks/components/ScheduledTasksTable';
 import { TaskLogsSection } from '@/features/tasks/components/TaskLogsSection';
 import { QueueSummary, TaskQueueTable } from '@/features/tasks/components/TaskQueueTable';
@@ -82,13 +83,13 @@ export function TasksPage() {
 
       <Stack gap="sm">
         <Title order={3}>{t('tasks.scheduled.title')}</Title>
-        <Paper withBorder radius="lg" p={0}>
+        <Panel>
           {scheduled.isLoading ? (
             <TableSkeleton rows={4} />
           ) : (
             <ScheduledTasksTable tasks={scheduled.data ?? []} activeKinds={activeKinds} />
           )}
-        </Paper>
+        </Panel>
       </Stack>
 
       <Stack gap="sm">
@@ -99,7 +100,7 @@ export function TasksPage() {
         <Text size="sm" c="dimmed">
           {t('tasks.queue.description')}
         </Text>
-        <Paper withBorder radius="lg" p={0}>
+        <Panel>
           {jobs.isLoading ? (
             <TableSkeleton rows={3} />
           ) : jobList.length === 0 ? (
@@ -111,7 +112,7 @@ export function TasksPage() {
           ) : (
             <TaskQueueTable jobs={jobList} />
           )}
-        </Paper>
+        </Panel>
       </Stack>
 
       <TaskLogsSection />

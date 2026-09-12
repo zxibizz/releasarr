@@ -1,6 +1,5 @@
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
-import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -10,6 +9,7 @@ import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import '@/styles/global.css';
 
+import { AppNotifications } from '@/components/AppNotifications';
 import '@/lib/i18n';
 import { queryClient } from '@/lib/queryClient';
 import { router } from '@/router';
@@ -25,7 +25,7 @@ createRoot(container).render(
     <MantineProvider theme={theme} forceColorScheme="dark">
       <QueryClientProvider client={queryClient}>
         <ModalsProvider>
-          <Notifications position="top-right" />
+          <AppNotifications />
           <RouterProvider router={router} />
         </ModalsProvider>
       </QueryClientProvider>

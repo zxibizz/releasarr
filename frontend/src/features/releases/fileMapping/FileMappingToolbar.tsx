@@ -1,6 +1,7 @@
 import { Button, Checkbox, Group, Select } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
 
 interface FileMappingToolbarProps {
@@ -29,14 +30,23 @@ export function FileMappingToolbar({
   onReset,
 }: FileMappingToolbarProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const options = requests.map((request) => ({
     value: request.id,
     label: `${request.title} (${request.year})`,
   }));
 
+  /*
+   * These two labels are long enough that sharing a row on a phone leaves the
+   * text narrower than the button's padding allows, so each takes its own row.
+   * On wider screens they keep their natural width: growing them would let
+   * flexbox shrink the labels below their content.
+   */
+  const buttonFlex = isMobile ? '1 1 100%' : undefined;
+
   return (
-    <Group align="flex-end" gap="sm" wrap="wrap">
+    <Group align="flex-end" gap="sm" wrap="wrap" w="100%">
       <Checkbox
         label={t('fileMapping.videoOnly', {
           defaultValue: 'Show only video files ({{count}})',
@@ -63,16 +73,28 @@ export function FileMappingToolbar({
             onApplyToAll(request);
           }
         }}
-        w={260}
+        w={{ base: '100%', sm: 260 }}
       />
 
-      <Button variant="default" onClick={onAutoFill} disabled={!canAutoFill}>
-        {t('fileMapping.autoFill', { defaultValue: 'Auto-fill from filenames' })}
-      </Button>
+      <Group gap="sm" wrap="wrap" w={{ base: '100%', sm: 'auto' }}>
+        <Button
+          variant="default"
+          onClick={onAutoFill}
+          disabled={!canAutoFill}
+          style={{ flex: buttonFlex }}
+        >
+          {t('fileMapping.autoFill', { defaultValue: 'Auto-fill from filenames' })}
+        </Button>
 
-      <Button variant="default" onClick={onReset} disabled={!hasChanges}>
-        {t('fileMapping.reset', { defaultValue: 'Reset changes' })}
-      </Button>
+        <Button
+          variant="default"
+          onClick={onReset}
+          disabled={!hasChanges}
+          style={{ flex: buttonFlex }}
+        >
+          {t('fileMapping.reset', { defaultValue: 'Reset changes' })}
+        </Button>
+      </Group>
     </Group>
   );
 }

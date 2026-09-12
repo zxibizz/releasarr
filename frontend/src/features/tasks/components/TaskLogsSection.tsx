@@ -1,19 +1,9 @@
-import {
-  Alert,
-  Button,
-  Group,
-  Loader,
-  Paper,
-  Select,
-  Skeleton,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
+import { Alert, Button, Group, Loader, Select, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { Panel } from '@/components/Panel';
 import { LOGS_PAGE_SIZE, useLogs } from '@/features/logs/queries';
 import { TaskLogsTable } from '@/features/tasks/components/TaskLogsTable';
 import { TASK_KINDS, isTaskKind } from '@/features/tasks/formatting';
@@ -78,7 +68,7 @@ export function TaskLogsSection() {
         </Alert>
       )}
 
-      <Paper withBorder radius="lg" p={0}>
+      <Panel>
         {logs.isLoading ? (
           <Stack gap="sm" p="md">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -98,7 +88,7 @@ export function TaskLogsSection() {
         ) : (
           <TaskLogsTable entries={entries} />
         )}
-      </Paper>
+      </Panel>
 
       {total > 0 && (
         <Group justify="space-between" align="center">

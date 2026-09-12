@@ -1,6 +1,7 @@
-import { Modal, Paper, Stack, Tabs, Text } from '@mantine/core';
+import { Paper, Stack, Tabs, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
+import { ResponsiveModal } from '@/components/ResponsiveModal';
 import { FileMappingForm } from '@/features/releases/fileMapping/FileMappingForm';
 import type { DefaultRequest } from '@/features/releases/fileMapping/useFileMappingForm';
 import type { MediaRequest, Release } from '@/types';
@@ -37,14 +38,9 @@ export function ReleaseFilesModal({
   };
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      size="xl"
-      title={`📁 ${release.name}`}
-    >
+    <ResponsiveModal opened={opened} onClose={onClose} title={`📁 ${release.name}`}>
       <Tabs defaultValue="files">
-        <Tabs.List>
+        <Tabs.List grow>
           <Tabs.Tab value="files">{t('filesModal.tabs.files', { defaultValue: 'Files' })}</Tabs.Tab>
           <Tabs.Tab value="mapping">
             {t('filesModal.tabs.mapping', { defaultValue: 'Mapping' })}
@@ -56,7 +52,7 @@ export function ReleaseFilesModal({
             {release.files.map((file) => (
               <Paper key={file.id} withBorder radius="md" p="md">
                 <Stack gap={6}>
-                  <Text fw={600} style={{ wordBreak: 'break-all' }}>
+                  <Text fw={600} className="break-anywhere">
                     {file.name}
                   </Text>
                   <Text size="sm" c="dimmed">
@@ -90,6 +86,6 @@ export function ReleaseFilesModal({
           />
         </Tabs.Panel>
       </Tabs>
-    </Modal>
+    </ResponsiveModal>
   );
 }

@@ -1,9 +1,14 @@
-import { Select } from '@mantine/core';
+import { Select, type MantineSize, type SelectProps } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { supportedLocales, type AppLocale } from '@/locales/resources';
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  size?: MantineSize;
+  w?: SelectProps['w'];
+}
+
+export function LanguageSwitcher({ size = 'xs', w = 110 }: LanguageSwitcherProps) {
   const { i18n, t } = useTranslation();
 
   const currentLocale = supportedLocales.includes(i18n.language as AppLocale)
@@ -13,8 +18,8 @@ export function LanguageSwitcher() {
   return (
     <Select
       aria-label={t('nav.languageLabel')}
-      size="xs"
-      w={110}
+      size={size}
+      w={w}
       allowDeselect={false}
       checkIconPosition="right"
       value={currentLocale}

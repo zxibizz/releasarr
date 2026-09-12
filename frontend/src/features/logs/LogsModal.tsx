@@ -6,7 +6,6 @@ import {
   Collapse,
   Group,
   Loader,
-  Modal,
   Paper,
   Stack,
   Text,
@@ -15,6 +14,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { ResponsiveModal } from '@/components/ResponsiveModal';
 import { formatLogContext } from '@/features/logs/context';
 import { useRequestLogs } from '@/features/logs/queries';
 import type { RequestLogEntry } from '@/types';
@@ -40,7 +40,7 @@ function LogRow({ entry }: { entry: RequestLogEntry }) {
   return (
     <Paper withBorder radius="md" p="md">
       <Stack gap={6}>
-        <Group gap="xs" wrap="nowrap">
+        <Group gap="xs" wrap="wrap">
           <Badge color={LOG_LEVEL_COLOR[entry.level]} variant="light">
             {entry.level}
           </Badge>
@@ -48,16 +48,16 @@ function LogRow({ entry }: { entry: RequestLogEntry }) {
             {entry.timestamp}
           </Text>
           {entry.source ? (
-            <Text size="sm" c="dimmed" truncate>
+            <Text size="sm" c="dimmed" className="break-anywhere">
               {entry.source}
             </Text>
           ) : null}
         </Group>
 
-        <Text style={{ wordBreak: 'break-word' }}>{entry.message}</Text>
+        <Text className="break-anywhere">{entry.message}</Text>
 
         {context ? (
-          <Text size="xs" c="dimmed" style={{ wordBreak: 'break-word' }}>
+          <Text size="xs" c="dimmed" className="break-anywhere">
             {t('requestLogsModal.context')}: {context}
           </Text>
         ) : null}
@@ -70,7 +70,9 @@ function LogRow({ entry }: { entry: RequestLogEntry }) {
                 : t('requestLogsModal.stackTrace.show')}
             </Button>
             <Collapse expanded={stackOpened}>
-              <Code block>{entry.stackTrace}</Code>
+              <Code block className="break-anywhere">
+                {entry.stackTrace}
+              </Code>
             </Collapse>
           </Stack>
         ) : null}
@@ -86,10 +88,9 @@ export function LogsModal({ requestId, requestTitle, opened, onClose }: LogsModa
   const logs = data?.logs ?? [];
 
   return (
-    <Modal
+    <ResponsiveModal
       opened={opened}
       onClose={onClose}
-      size="xl"
       title={t('requestLogsModal.title', { title: requestTitle })}
     >
       <Stack gap="sm">
@@ -116,6 +117,6 @@ export function LogsModal({ requestId, requestTitle, opened, onClose }: LogsModa
           <LogRow key={entry.id} entry={entry} />
         ))}
       </Stack>
-    </Modal>
+    </ResponsiveModal>
   );
 }
