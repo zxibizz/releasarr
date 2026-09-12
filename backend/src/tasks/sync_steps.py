@@ -6,8 +6,9 @@ paths perform identical work and report it the same way.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from loguru import logger
 
@@ -23,6 +24,7 @@ class SyncSteps:
     """Runs a single sync step against the shared application container."""
 
     container: AppContainer
+    _locks: dict[SyncJobKind, asyncio.Lock] = field(default_factory=dict)
 
     def for_kind(self, kind: SyncJobKind) -> Callable[[], Awaitable[StepSummary]]:
         """The callable implementing ``kind``, tagged for the logs view.
@@ -34,12 +36,20 @@ class SyncSteps:
         """
 
         step = getattr(self, _STEP_METHODS[kind])
+        lock = self._locks.setdefault(kind, asyncio.Lock())
 
         async def run() -> StepSummary:
-            # contextualize is contextvar-based, so concurrent task loops each
-            # keep their own value instead of overwriting a shared one.
-            with logger.contextualize(task=kind.value):
-                return await step()
+            # The periodic loops and the queued-job runner share this instance,
+            # so both can reach one task at once: an export waiting on Sonarr
+            # leaves a window wide enough for the next scheduled run to start on
+            # the releases it is still importing, and they duplicate each other's
+            # work. Later arrivals queue rather than being dropped, so a manual
+            # trigger still runs - it just finds the work already done.
+            async with lock:
+                # contextualize is contextvar-based, so concurrent task loops each
+                # keep their own value instead of overwriting a shared one.
+                with logger.contextualize(task=kind.value):
+                    return await step()
 
         return run
 
