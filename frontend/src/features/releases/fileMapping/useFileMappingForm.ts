@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { FileRequestMapping, MediaRequest, ReleaseFile, ReleaseFileMappingInput } from '@/types';
-import { parseEpisodeFromFilename } from '@/utils/files';
+import { compareByFileName, parseEpisodeFromFilename } from '@/utils/files';
 
 export type MappingType = 'movie' | 'series';
 
@@ -212,7 +212,7 @@ export function useFileMappingForm(files: ReleaseFile[], defaultRequest?: Defaul
         let sequential = 1;
 
         [...targetFiles]
-          .sort((a, b) => a.name.localeCompare(b.name))
+          .sort(compareByFileName)
           .forEach((file) => {
             const draft = next[file.id];
             if (!draft?.requestId || draft.mappingType !== 'series') {

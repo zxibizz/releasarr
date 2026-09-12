@@ -14,7 +14,7 @@ import { useUpdateFileMappings } from '@/features/releases/queries';
 import { useRequestsList } from '@/features/requests/queries';
 import type { ReleaseFile } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
-import { groupFilesByType } from '@/utils/files';
+import { compareByFileName, groupFilesByType } from '@/utils/files';
 
 interface FileMappingFormProps {
   releaseId: string;
@@ -42,7 +42,10 @@ export function FileMappingForm({
   const saveMappings = useUpdateFileMappings(releaseId, requestId);
 
   const grouped = useMemo(() => groupFilesByType(files), [files]);
-  const visibleFiles = videoOnly ? grouped.video : files;
+  const visibleFiles = useMemo(
+    () => [...(videoOnly ? grouped.video : files)].sort(compareByFileName),
+    [videoOnly, grouped.video, files],
+  );
 
   const hasChanges = form.dirtyFileIds.length > 0;
 
