@@ -2,11 +2,40 @@ import { Paper, Stack, Tabs, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { ResponsiveModal } from '@/components/ResponsiveModal';
+import { OtherFilesSection } from '@/features/releases/components/OtherFilesSection';
 import { FileMappingForm } from '@/features/releases/fileMapping/FileMappingForm';
 import type { DefaultRequest } from '@/features/releases/fileMapping/useFileMappingForm';
-import type { MediaRequest, Release } from '@/types';
-import { formatEpisodeCode } from '@/utils/files';
+import type { MediaRequest, Release, ReleaseFile } from '@/types';
+import { formatEpisodeCode, splitVideoFiles } from '@/utils/files';
 import { formatFileSize } from '@/utils/formatters';
+
+function ReleaseFileCard({ file }: { file: ReleaseFile }) {
+  const { t } = useTranslation();
+  const mapping = file.request_mapping;
+
+  return (
+    <Paper withBorder radius="md" p="md">
+      <Stack gap={6}>
+        <Text fw={600} className="break-anywhere">
+          {file.name}
+        </Text>
+        <Text size="sm" c="dimmed">
+          {formatFileSize(file.size)}
+        </Text>
+        <Text size="sm" c="dimmed">
+          {t('filesModal.mapping', { defaultValue: 'Mapping' })}:{' '}
+          {mapping
+            ? `${mapping.request_title || mapping.request_id}${
+                mapping.mapping_type === 'series'
+                  ? ` — ${formatEpisodeCode(mapping.season, mapping.episode)}`
+                  : ''
+              }`
+            : t('filesModal.notMapped', { defaultValue: 'Not mapped' })}
+        </Text>
+      </Stack>
+    </Paper>
+  );
+}
 
 interface ReleaseFilesModalProps {
   release: Release | null;
@@ -27,6 +56,7 @@ export function ReleaseFilesModal({
     return null;
   }
 
+  const { video, other } = splitVideoFiles(release.files);
   const isSeries = currentRequest.type === 'series';
   const defaultRequest: DefaultRequest = {
     id: currentRequest.id,
@@ -49,31 +79,14 @@ export function ReleaseFilesModal({
 
         <Tabs.Panel value="files" pt="md">
           <Stack gap="sm">
-            {release.files.map((file) => (
-              <Paper key={file.id} withBorder radius="md" p="md">
-                <Stack gap={6}>
-                  <Text fw={600} className="break-anywhere">
-                    {file.name}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {formatFileSize(file.size)}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {t('filesModal.mapping', { defaultValue: 'Mapping' })}:{' '}
-                    {file.request_mapping
-                      ? `${file.request_mapping.request_title || file.request_mapping.request_id}${
-                          file.request_mapping.mapping_type === 'series'
-                            ? ` — ${formatEpisodeCode(
-                                file.request_mapping.season,
-                                file.request_mapping.episode,
-                              )}`
-                            : ''
-                        }`
-                      : t('filesModal.notMapped', { defaultValue: 'Not mapped' })}
-                  </Text>
-                </Stack>
-              </Paper>
+            {video.map((file) => (
+              <ReleaseFileCard key={file.id} file={file} />
             ))}
+            <OtherFilesSection count={other.length}>
+              {other.map((file) => (
+                <ReleaseFileCard key={file.id} file={file} />
+              ))}
+            </OtherFilesSection>
           </Stack>
         </Tabs.Panel>
 

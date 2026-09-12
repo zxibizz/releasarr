@@ -1,4 +1,4 @@
-import { Button, Checkbox, Group, Select } from '@mantine/core';
+import { Button, Group, Select } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -7,11 +7,8 @@ import type { MediaRequest } from '@/types';
 interface FileMappingToolbarProps {
   requests: MediaRequest[];
   requestsLoading: boolean;
-  videoOnly: boolean;
-  videoCount: number;
   canAutoFill: boolean;
   hasChanges: boolean;
-  onVideoOnlyChange: (value: boolean) => void;
   onApplyToAll: (request: MediaRequest) => void;
   onAutoFill: () => void;
   onReset: () => void;
@@ -20,11 +17,8 @@ interface FileMappingToolbarProps {
 export function FileMappingToolbar({
   requests,
   requestsLoading,
-  videoOnly,
-  videoCount,
   canAutoFill,
   hasChanges,
-  onVideoOnlyChange,
   onApplyToAll,
   onAutoFill,
   onReset,
@@ -47,17 +41,8 @@ export function FileMappingToolbar({
 
   return (
     <Group align="flex-end" gap="sm" wrap="wrap" w="100%">
-      <Checkbox
-        label={t('fileMapping.videoOnly', {
-          defaultValue: 'Show only video files ({{count}})',
-          count: videoCount,
-        })}
-        checked={videoOnly}
-        onChange={(event) => onVideoOnlyChange(event.currentTarget.checked)}
-      />
-
       <Select
-        label={t('fileMapping.applyToAll', { defaultValue: 'Apply request to all files' })}
+        label={t('fileMapping.applyToAll', { defaultValue: 'Apply request to all video files' })}
         placeholder={
           requestsLoading
             ? t('fileMapping.loadingRequests', { defaultValue: 'Loading requests...' })

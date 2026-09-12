@@ -39,6 +39,26 @@ export const groupFilesByType = (files: ReleaseFile[]): GroupedFiles =>
     { video: [], subtitle: [], other: [] },
   );
 
+export interface SplitFiles {
+  video: ReleaseFile[];
+  other: ReleaseFile[];
+}
+
+/**
+ * Videos are what these listings are read for; subtitles, samples and NFOs all
+ * land in one `other` bucket. Both sides come back sorted by name.
+ */
+export const splitVideoFiles = (files: ReleaseFile[]): SplitFiles => {
+  const video: ReleaseFile[] = [];
+  const other: ReleaseFile[] = [];
+
+  files.forEach((file) => {
+    (isVideoFile(file.name) ? video : other).push(file);
+  });
+
+  return { video: video.sort(compareByFileName), other: other.sort(compareByFileName) };
+};
+
 export interface ParsedEpisode {
   season?: number;
   episode?: number;

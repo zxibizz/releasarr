@@ -1,9 +1,10 @@
 import { Alert, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { OtherFilesSection } from '@/features/releases/components/OtherFilesSection';
 import { FileMappingRow } from '@/features/releases/fileMapping/FileMappingRow';
 import { FileMappingToolbar } from '@/features/releases/fileMapping/FileMappingToolbar';
 import {
@@ -15,7 +16,7 @@ import { useRequestsList } from '@/features/requests/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseFile } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
-import { compareByFileName, groupFilesByType } from '@/utils/files';
+import { splitVideoFiles } from '@/utils/files';
 
 interface FileMappingFormProps {
   releaseId: string;
@@ -32,7 +33,6 @@ export function FileMappingForm({
 }: FileMappingFormProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const [videoOnly, setVideoOnly] = useState(true);
 
   // Stretched to share a row on a phone; left at their natural width otherwise,
   // since growing them lets flexbox shrink the labels below their text.
@@ -47,16 +47,13 @@ export function FileMappingForm({
   const form = useFileMappingForm(files, defaultRequest, availableRequests);
   const saveMappings = useUpdateFileMappings(releaseId, requestId);
 
-  const grouped = useMemo(() => groupFilesByType(files), [files]);
-  const visibleFiles = useMemo(
-    () => [...(videoOnly ? grouped.video : files)].sort(compareByFileName),
-    [videoOnly, grouped.video, files],
-  );
+  const { video, other } = useMemo(() => splitVideoFiles(files), [files]);
+  const orderedFiles = useMemo(() => [...video, ...other], [video, other]);
 
   const hasChanges = form.dirtyFileIds.length > 0;
 
   const handleSave = async () => {
-    const payload = form.buildPayload(files);
+    const payload = form.buildPayload(orderedFiles);
 
     if (payload.length === 0) {
       notifications.show({
@@ -88,6 +85,19 @@ export function FileMappingForm({
     }
   };
 
+  const renderRow = (file: ReleaseFile) => (
+    <FileMappingRow
+      key={file.id}
+      file={file}
+      draft={form.getDraft(file.id)}
+      requests={availableRequests}
+      requestsDisabled={requestsLoading || availableRequests.length === 0}
+      isDirty={form.isDirty(file.id)}
+      onSelectRequest={(request) => form.selectRequest(file.id, request, file)}
+      onChange={(changes) => form.updateDraft(file.id, changes)}
+    />
+  );
+
   return (
     <Stack gap="lg">
       <Stack gap={4}>
@@ -101,16 +111,18 @@ export function FileMappingForm({
         </Text>
       </Stack>
 
+      {/*
+        The bulk actions stay on the videos. Mapping a sample or an NFO onto a
+        request is never what "apply to all" was reached for, and the odd
+        subtitle that does need one is a single row away.
+      */}
       <FileMappingToolbar
         requests={availableRequests}
         requestsLoading={requestsLoading}
-        videoOnly={videoOnly}
-        videoCount={grouped.video.length}
         canAutoFill={form.canAutoFill}
         hasChanges={hasChanges}
-        onVideoOnlyChange={setVideoOnly}
-        onApplyToAll={(request) => form.applyToAll(request, visibleFiles)}
-        onAutoFill={() => form.autoFillEpisodes(visibleFiles)}
+        onApplyToAll={(request) => form.applyToAll(request, video)}
+        onAutoFill={() => form.autoFillEpisodes(video)}
         onReset={form.reset}
       />
 
@@ -122,7 +134,7 @@ export function FileMappingForm({
         </Alert>
       )}
 
-      {visibleFiles.length === 0 ? (
+      {files.length === 0 ? (
         <EmptyState
           icon="📁"
           title={t('fileMapping.empty.title', { defaultValue: 'No files to map' })}
@@ -132,18 +144,8 @@ export function FileMappingForm({
         />
       ) : (
         <Stack gap="sm">
-          {visibleFiles.map((file) => (
-            <FileMappingRow
-              key={file.id}
-              file={file}
-              draft={form.getDraft(file.id)}
-              requests={availableRequests}
-              requestsDisabled={requestsLoading || availableRequests.length === 0}
-              isDirty={form.isDirty(file.id)}
-              onSelectRequest={(request) => form.selectRequest(file.id, request, file)}
-              onChange={(changes) => form.updateDraft(file.id, changes)}
-            />
-          ))}
+          {video.map(renderRow)}
+          <OtherFilesSection count={other.length}>{other.map(renderRow)}</OtherFilesSection>
         </Stack>
       )}
 
