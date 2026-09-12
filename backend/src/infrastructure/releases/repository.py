@@ -262,6 +262,8 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 id=request.id,
                 sonarr_series_id=request.sonarr_series_id,
                 title=request.title,
+                media_type=request.media_type,
+                season_number=request.season_number,
             )
             for request in release.requests
         ]

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import posixpath
 from dataclasses import dataclass
 
 from loguru._logger import Logger
 
+from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.releases import (
+    ReleaseDownloadService,
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRepository,
+    ReleaseRequestSnapshot,
 )
 from src.application.interfaces.sonarr import ManualImportFile, SonarrService
 from src.application.utility.file_matcher import ReleaseFileMatcher
@@ -32,11 +36,15 @@ class ExportFinishedSeriesUseCase:
         repository: ReleaseRepository,
         sonarr: SonarrService,
         file_matcher: ReleaseFileMatcher,
+        download_service: ReleaseDownloadService,
+        request_repository: MediaRequestRepository | None = None,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._sonarr = sonarr
         self._file_matcher = file_matcher
+        self._download_service = download_service
+        self._request_repository = request_repository
         self._logger = logger or get_logger(component="export_finished_series")
 
     async def execute(self) -> ExportFinishedSeriesResult:
@@ -64,20 +72,20 @@ class ExportFinishedSeriesUseCase:
         return result
 
     async def _process_release(self, release: ReleaseRecord) -> None:
-        # 1. Autocomplete mappings (local update + db update)
-        updates = self._file_matcher.autocomplete(release.files)
+        # 1. Autocomplete mappings against every season this release could satisfy
+        candidates = await self._candidate_requests(release)
+        updates = self._file_matcher.autocomplete(release.files, candidates)
         if updates:
             await self._repository.update_file_mappings(release.id, updates)
-            # Apply updates locally so we can proceed without refetch
-            file_map = {f.id: f for f in release.files}
-            for update in updates:
-                f = file_map.get(update.file_id)
-                if f and update.mapping:
-                    f.mapping = update.mapping
+            self._logger.info(
+                "Auto-mapped release files",
+                release_id=release.id,
+                release_name=release.name,
+                mapped_files=len(updates),
+            )
 
         # 2. Group files by Sonarr series ID
-        # Map request_id -> sonarr_series_id
-        requests_map = {r.id: r for r in release.requests}
+        requests_map = {request.id: request for request in candidates}
         files_by_series: dict[int, list[ReleaseFileRecord]] = {}
 
         for file in release.files:
@@ -90,7 +98,22 @@ class ExportFinishedSeriesUseCase:
 
             files_by_series.setdefault(req.sonarr_series_id, []).append(file)
 
-        # 3. Process each series
+        if not files_by_series:
+            return
+
+        # 3. Resolve where the download client put the payload. Sonarr reads the
+        # files off the same filesystem, so it needs absolute paths.
+        download_dir = await self._download_service.get_download_directory(release.info_hash)
+        if not download_dir:
+            self._logger.warning(
+                "Skipping export: download directory is unknown",
+                release_id=release.id,
+                release_name=release.name,
+                info_hash=release.info_hash,
+            )
+            return
+
+        # 4. Process each series
         all_import_files: list[ManualImportFile] = []
 
         for series_id, files in files_by_series.items():
@@ -114,7 +137,7 @@ class ExportFinishedSeriesUseCase:
 
                 all_import_files.append(
                     ManualImportFile(
-                        path=file.path,
+                        path=posixpath.join(download_dir, file.path),
                         series_id=series_id,
                         episode_ids=[episode_id],
                         folder_name=release.name,
@@ -122,14 +145,11 @@ class ExportFinishedSeriesUseCase:
                 )
 
         if not all_import_files:
-            # Nothing to import, maybe mappings incomplete or already done?
-            # If we matched nothing, maybe we shouldn't mark as exported?
-            # Or if it's because files are extras (nfo, etc), we should.
-            # For now, let's assume if we found NO importables but have files, we wait?
-            # Or we mark success to avoid retry loop if there are simply no episodes matched.
+            # Nothing resolvable yet: leave the release unexported so a later run can
+            # retry once mappings or Sonarr metadata catch up.
             return
 
-        # 4. Trigger import
+        # 5. Trigger import
         success = await self._sonarr.manual_import(all_import_files)
 
         if success:
@@ -140,3 +160,47 @@ class ExportFinishedSeriesUseCase:
             )
         else:
             raise RuntimeError("Sonarr manual import command failed")
+
+    async def _candidate_requests(self, release: ReleaseRecord) -> list[ReleaseRequestSnapshot]:
+        """Return the requests a release's files may map to.
+
+        A multi-season pack is normally grabbed from a single season's request, so the
+        sibling season requests of the same Sonarr series are pulled in as well.
+        """
+
+        candidates = {request.id: request for request in release.requests}
+        if self._request_repository is None:
+            return list(candidates.values())
+
+        series_ids = {
+            request.sonarr_series_id
+            for request in release.requests
+            if request.sonarr_series_id is not None
+        }
+        if not series_ids:
+            return list(candidates.values())
+
+        covered = {
+            request.season_number
+            for request in release.requests
+            if request.season_number is not None
+        }
+        missing = self._file_matcher.seasons_in(release.files) - covered
+
+        for series_id in sorted(series_ids):
+            for season in sorted(missing):
+                record = await self._request_repository.find_by_sonarr(
+                    sonarr_series_id=series_id,
+                    season_number=season,
+                )
+                if record is None or record.id in candidates:
+                    continue
+                candidates[record.id] = ReleaseRequestSnapshot(
+                    id=record.id,
+                    sonarr_series_id=record.sonarr_series_id,
+                    title=record.title,
+                    media_type=record.media_type,
+                    season_number=record.season_number,
+                )
+
+        return list(candidates.values())

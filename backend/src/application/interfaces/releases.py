@@ -38,6 +38,8 @@ class ReleaseRequestSnapshot:
     id: str
     sonarr_series_id: int | None
     title: str
+    media_type: MediaType | None = None
+    season_number: int | None = None
 
 
 @dataclass(slots=True)
@@ -206,6 +208,14 @@ class ReleaseDownloadService(Protocol):
 
     async def delete_download(self, release_id: str) -> None:
         """Remove a release download from the client."""
+
+    async def get_download_directory(self, info_hash: str) -> str | None:
+        """Return the absolute directory the client downloaded a torrent into.
+
+        Release file paths are stored relative to the torrent root, so this is what
+        turns them into the absolute paths external importers require. Returns None
+        when the client doesn't know the torrent.
+        """
 
 
 __all__ = [

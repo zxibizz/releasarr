@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 import pytest
 
@@ -10,9 +11,10 @@ from src.infrastructure.qbittorrent.service import QbittorrentReleaseDownloadSer
 
 
 class FakeQbittorrentClient:
-    def __init__(self) -> None:
+    def __init__(self, torrent: dict[str, Any] | None = None) -> None:
         self.calls: list[tuple[object, ...]] = []
         self.deleted: list[str] = []
+        self.torrent = torrent
 
     async def add_magnet(
         self,
@@ -56,6 +58,9 @@ class FakeQbittorrentClient:
 
     async def delete_torrent(self, info_hash: str, delete_files: bool = False) -> None:
         self.deleted.append(info_hash)
+
+    async def get_torrent(self, info_hash: str) -> dict[str, Any] | None:
+        return self.torrent
 
 
 @pytest.mark.asyncio
@@ -109,3 +114,21 @@ async def test_service_prefers_torrent_bytes() -> None:
     assert op.details is not None
     assert op.details["ingest_source"] == "torrent_file"
     assert op.details["torrent_bytes_len"] == len(data)
+
+
+@pytest.mark.asyncio
+async def test_download_directory_comes_from_the_torrent() -> None:
+    """qBittorrent knows the real location; the configured path is only a guess."""
+
+    client = FakeQbittorrentClient(torrent={"save_path": "/media/tv-downloads"})
+    service = QbittorrentReleaseDownloadService(client=client, save_path="/downloads")
+
+    assert await service.get_download_directory("ABC") == "/media/tv-downloads"
+
+
+@pytest.mark.asyncio
+async def test_download_directory_falls_back_to_the_configured_path() -> None:
+    client = FakeQbittorrentClient(torrent=None)
+    service = QbittorrentReleaseDownloadService(client=client, save_path="/downloads")
+
+    assert await service.get_download_directory("ABC") == "/downloads"

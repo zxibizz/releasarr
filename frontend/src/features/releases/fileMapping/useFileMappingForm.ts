@@ -1,7 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import type { FileRequestMapping, MediaRequest, ReleaseFile, ReleaseFileMappingInput } from '@/types';
-import { compareByFileName, parseEpisodeFromFilename } from '@/utils/files';
+import type {
+  FileRequestMapping,
+  MediaRequest,
+  ReleaseFile,
+  ReleaseFileMappingInput,
+  SeriesRequest,
+} from '@/types';
+import { compareByFileName, parseEpisodeFromFile } from '@/utils/files';
 
 export type MappingType = 'movie' | 'series';
 
@@ -23,11 +29,55 @@ export interface DefaultRequest {
   title: string;
   type: MappingType;
   seasonNumber?: number;
+  seriesTitle?: string;
+  sonarrSeriesId?: number | null;
 }
 
 type DraftMap = Record<string, MappingDraft>;
 
+/** Season number to the request tracking it, for one series. */
+type SeasonIndex = Map<number, MediaRequest>;
+
 const EMPTY_DRAFT: MappingDraft = { requestId: '', requestTitle: '', mappingType: 'movie' };
+/** Stable default so the draft memos don't invalidate on every render. */
+const NO_REQUESTS: MediaRequest[] = [];
+
+const isSeriesRequest = (request: MediaRequest): request is SeriesRequest =>
+  request.type === 'series';
+
+/**
+ * Identity of the series a request belongs to. Sonarr's id is authoritative; the
+ * series title is the fallback for requests that predate a Sonarr link.
+ */
+const seriesKeyOf = (sonarrSeriesId: number | null | undefined, seriesTitle: string): string =>
+  sonarrSeriesId != null ? `sonarr:${sonarrSeriesId}` : `title:${seriesTitle.trim().toLowerCase()}`;
+
+const seriesKeyOfRequest = (request: SeriesRequest): string =>
+  seriesKeyOf(request.sonarr_series_id, request.series_title);
+
+const seriesKeyOfDefault = (defaultRequest: DefaultRequest): string | undefined =>
+  defaultRequest.type === 'series'
+    ? seriesKeyOf(defaultRequest.sonarrSeriesId, defaultRequest.seriesTitle ?? defaultRequest.title)
+    : undefined;
+
+/**
+ * A complete-series pack holds several seasons, each tracked by its own request,
+ * so files have to be routed per season instead of onto a single request.
+ */
+const buildSeasonIndexes = (requests: MediaRequest[]): Map<string, SeasonIndex> => {
+  const indexes = new Map<string, SeasonIndex>();
+
+  requests.filter(isSeriesRequest).forEach((request) => {
+    const key = seriesKeyOfRequest(request);
+    const index = indexes.get(key) ?? new Map<number, MediaRequest>();
+    if (!index.has(request.season_number)) {
+      index.set(request.season_number, request);
+    }
+    indexes.set(key, index);
+  });
+
+  return indexes;
+};
 
 const draftFromMapping = (mapping: FileRequestMapping): MappingDraft =>
   mapping.mapping_type === 'series'
@@ -44,8 +94,32 @@ const draftFromMapping = (mapping: FileRequestMapping): MappingDraft =>
         mappingType: 'movie',
       };
 
-const buildInitialDrafts = (files: ReleaseFile[], defaultRequest?: DefaultRequest): DraftMap => {
+/** Series draft pointing at whichever request owns `season`, falling back to `fallback`. */
+const seriesDraft = (
+  season: number | undefined,
+  episode: number | undefined,
+  fallback: { id: string; title: string },
+  seasonIndex: SeasonIndex | undefined,
+): MappingDraft => {
+  const owner = season !== undefined ? seasonIndex?.get(season) : undefined;
+
+  return {
+    requestId: owner?.id ?? fallback.id,
+    requestTitle: owner?.title ?? fallback.title,
+    mappingType: 'series',
+    season,
+    episode,
+  };
+};
+
+const buildInitialDrafts = (
+  files: ReleaseFile[],
+  defaultRequest: DefaultRequest | undefined,
+  seasonIndexes: Map<string, SeasonIndex>,
+): DraftMap => {
   const drafts: DraftMap = {};
+  const seriesKey = defaultRequest ? seriesKeyOfDefault(defaultRequest) : undefined;
+  const seasonIndex = seriesKey ? seasonIndexes.get(seriesKey) : undefined;
 
   files.forEach((file) => {
     if (file.request_mapping) {
@@ -59,14 +133,13 @@ const buildInitialDrafts = (files: ReleaseFile[], defaultRequest?: DefaultReques
     }
 
     if (defaultRequest.type === 'series') {
-      const parsed = parseEpisodeFromFilename(file.name);
-      drafts[file.id] = {
-        requestId: defaultRequest.id,
-        requestTitle: defaultRequest.title,
-        mappingType: 'series',
-        season: parsed.season ?? defaultRequest.seasonNumber ?? 1,
-        episode: parsed.episode ?? 1,
-      };
+      const parsed = parseEpisodeFromFile(file);
+      drafts[file.id] = seriesDraft(
+        parsed.season ?? defaultRequest.seasonNumber,
+        parsed.episode,
+        defaultRequest,
+        seasonIndex,
+      );
     } else {
       drafts[file.id] = {
         requestId: defaultRequest.id,
@@ -92,14 +165,19 @@ const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput
   }
 
   if (draft.mappingType === 'series') {
+    // Guessing 1 here would persist a wrong episode; leave the file unmapped instead.
+    if (!draft.season || !draft.episode) {
+      return null;
+    }
+
     return {
       file_id: fileId,
       request_mapping: {
         request_id: draft.requestId,
         request_title: draft.requestTitle || undefined,
         mapping_type: 'series',
-        season: draft.season && draft.season > 0 ? draft.season : 1,
-        episode: draft.episode && draft.episode > 0 ? draft.episode : 1,
+        season: draft.season,
+        episode: draft.episode,
       },
     };
   }
@@ -114,10 +192,20 @@ const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput
   };
 };
 
-export function useFileMappingForm(files: ReleaseFile[], defaultRequest?: DefaultRequest) {
+export function useFileMappingForm(
+  files: ReleaseFile[],
+  defaultRequest?: DefaultRequest,
+  availableRequests: MediaRequest[] = NO_REQUESTS,
+) {
+  const seasonIndexes = useMemo(() => buildSeasonIndexes(availableRequests), [availableRequests]);
+  const requestsById = useMemo(
+    () => new Map(availableRequests.map((request) => [request.id, request])),
+    [availableRequests],
+  );
+
   const initialDrafts = useMemo(
-    () => buildInitialDrafts(files, defaultRequest),
-    [files, defaultRequest],
+    () => buildInitialDrafts(files, defaultRequest, seasonIndexes),
+    [files, defaultRequest, seasonIndexes],
   );
 
   const [drafts, setDrafts] = useState<DraftMap>(initialDrafts);
@@ -143,21 +231,21 @@ export function useFileMappingForm(files: ReleaseFile[], defaultRequest?: Defaul
   }, []);
 
   const selectRequest = useCallback(
-    (fileId: string, request: MediaRequest | null, fileName: string) => {
+    (fileId: string, request: MediaRequest | null, file: ReleaseFile) => {
       if (!request) {
         updateDraft(fileId, { ...EMPTY_DRAFT });
         return;
       }
 
-      if (request.type === 'series') {
-        const parsed = parseEpisodeFromFilename(fileName);
+      if (isSeriesRequest(request)) {
+        const parsed = parseEpisodeFromFile(file);
         const existing = drafts[fileId];
         updateDraft(fileId, {
           requestId: request.id,
           requestTitle: request.title,
           mappingType: 'series',
-          season: existing?.season ?? parsed.season ?? request.season_number ?? 1,
-          episode: existing?.episode ?? parsed.episode ?? 1,
+          season: existing?.season ?? parsed.season ?? request.season_number,
+          episode: existing?.episode ?? parsed.episode,
         });
       } else {
         updateDraft(fileId, {
@@ -172,68 +260,87 @@ export function useFileMappingForm(files: ReleaseFile[], defaultRequest?: Defaul
     [drafts, updateDraft],
   );
 
-  /** Applies one request to every listed file at once. */
+  /**
+   * Applies one request to every listed file. For a series the request only sets
+   * the series: each file still lands on the request owning its own season.
+   */
   const applyToAll = useCallback(
     (request: MediaRequest, targetFiles: ReleaseFile[]) => {
+      const seasonIndex = isSeriesRequest(request)
+        ? seasonIndexes.get(seriesKeyOfRequest(request))
+        : undefined;
+
       setDrafts((current) => {
         const next = { ...current };
+
         targetFiles.forEach((file) => {
-          if (request.type === 'series') {
-            const parsed = parseEpisodeFromFilename(file.name);
-            next[file.id] = {
-              requestId: request.id,
-              requestTitle: request.title,
-              mappingType: 'series',
-              season: parsed.season ?? request.season_number ?? 1,
-              episode: parsed.episode ?? current[file.id]?.episode ?? 1,
-            };
-          } else {
+          if (!isSeriesRequest(request)) {
             next[file.id] = {
               requestId: request.id,
               requestTitle: request.title,
               mappingType: 'movie',
             };
+            return;
           }
+
+          const parsed = parseEpisodeFromFile(file);
+          next[file.id] = seriesDraft(
+            parsed.season ?? request.season_number,
+            parsed.episode ?? current[file.id]?.episode,
+            request,
+            seasonIndex,
+          );
         });
+
         return next;
       });
     },
-    [],
+    [seasonIndexes],
   );
 
   /**
-   * Fills season/episode for series mappings, preferring numbers parsed from
-   * the filename and falling back to a sequential counter.
+   * Fills season/episode for series mappings, preferring numbers parsed from the
+   * file and falling back to a counter kept per season.
    */
   const autoFillEpisodes = useCallback(
     (targetFiles: ReleaseFile[]) => {
       setDrafts((current) => {
         const next = { ...current };
-        let sequential = 1;
+        const lastEpisode = new Map<number, number>();
 
-        [...targetFiles]
-          .sort(compareByFileName)
-          .forEach((file) => {
-            const draft = next[file.id];
-            if (!draft?.requestId || draft.mappingType !== 'series') {
-              return;
-            }
+        [...targetFiles].sort(compareByFileName).forEach((file) => {
+          const draft = next[file.id];
+          if (!draft?.requestId || draft.mappingType !== 'series') {
+            return;
+          }
 
-            const parsed = parseEpisodeFromFilename(file.name);
-            const episode = parsed.episode ?? sequential;
-            sequential = Math.max(sequential, episode + 1);
+          const parsed = parseEpisodeFromFile(file);
+          const season = parsed.season ?? draft.season;
+          if (season === undefined) {
+            return;
+          }
 
-            next[file.id] = {
-              ...draft,
-              season: parsed.season ?? draft.season ?? 1,
-              episode,
-            };
-          });
+          const episode = parsed.episode ?? (lastEpisode.get(season) ?? 0) + 1;
+          lastEpisode.set(season, Math.max(lastEpisode.get(season) ?? 0, episode));
+
+          const request = requestsById.get(draft.requestId);
+          const seasonIndex =
+            request && isSeriesRequest(request)
+              ? seasonIndexes.get(seriesKeyOfRequest(request))
+              : undefined;
+
+          next[file.id] = seriesDraft(
+            season,
+            episode,
+            { id: draft.requestId, title: draft.requestTitle },
+            seasonIndex,
+          );
+        });
 
         return next;
       });
     },
-    [],
+    [requestsById, seasonIndexes],
   );
 
   const reset = useCallback(() => {
@@ -247,7 +354,10 @@ export function useFileMappingForm(files: ReleaseFile[], defaultRequest?: Defaul
   );
 
   const dirtyFileIds = useMemo(
-    () => Object.keys(drafts).filter((fileId) => !isSameDraft(drafts[fileId], initialDrafts[fileId] ?? EMPTY_DRAFT)),
+    () =>
+      Object.keys(drafts).filter(
+        (fileId) => !isSameDraft(drafts[fileId], initialDrafts[fileId] ?? EMPTY_DRAFT),
+      ),
     [drafts, initialDrafts],
   );
 

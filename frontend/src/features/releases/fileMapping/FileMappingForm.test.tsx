@@ -106,16 +106,6 @@ describe('FileMappingForm', () => {
           episode: 2,
         },
       },
-      {
-        file_id: 'f3',
-        request_mapping: {
-          request_id: 'req-1',
-          request_title: 'Severance',
-          mapping_type: 'series',
-          season: 2,
-          episode: 1,
-        },
-      },
     ]);
   });
 });
