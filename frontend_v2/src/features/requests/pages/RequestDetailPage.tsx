@@ -1,4 +1,4 @@
-import { Button, Card, Select, Skeleton, Stack, Title } from '@mantine/core';
+import { Button, Card, Select, Skeleton, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
@@ -161,14 +161,11 @@ export function RequestDetailPage() {
         }
       />
 
-      <Stack gap="md">
-        <Title order={3}>{t('releasesList.title', { defaultValue: 'Releases' })}</Title>
-        <ReleaseList
-          requestId={localizedRequest.id}
-          onViewFiles={handleViewFiles}
-          onReleasesLoaded={handleReleasesLoaded}
-        />
-      </Stack>
+      <ReleaseList
+        requestId={localizedRequest.id}
+        onViewFiles={handleViewFiles}
+        onReleasesLoaded={handleReleasesLoaded}
+      />
 
       <div ref={searchSectionRef}>
         {showSearch && (

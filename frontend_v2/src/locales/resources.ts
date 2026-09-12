@@ -133,14 +133,11 @@ export const resources = {
         subtitle: 'Releases linked to this request',
       },
       releasesList: {
+        title: 'Releases',
         error: {
           title: 'Unable to load releases',
           description: 'We could not retrieve releases for this request.',
           fallbackTitle: 'Error loading releases',
-        },
-        empty: {
-          title: 'No releases found',
-          description: 'No releases have been added for this request yet.',
         },
         refreshing: 'Refreshing releases…',
       },
@@ -401,14 +398,11 @@ export const resources = {
         subtitle: 'Релизы, связанные с этим запросом',
       },
       releasesList: {
+        title: 'Релизы',
         error: {
           title: 'Не удалось загрузить релизы',
           description: 'Не удалось получить релизы для этого запроса.',
           fallbackTitle: 'Ошибка загрузки релизов',
-        },
-        empty: {
-          title: 'Релизы не найдены',
-          description: 'Для этого запроса ещё не добавлено ни одного релиза.',
         },
         refreshing: 'Обновляем релизы…',
       },
