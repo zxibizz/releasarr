@@ -123,6 +123,9 @@ class InMemoryReleaseDownloadService(ReleaseDownloadService):
     async def delete_download(self, release_id: str) -> None:
         self.downloads = [entry for entry in self.downloads if entry[1] != release_id]
 
+    async def get_download_directory(self, info_hash: str) -> str | None:
+        return str(self.download_dir)
+
 
 __all__ = [
     "InMemoryReleaseDownloadService",

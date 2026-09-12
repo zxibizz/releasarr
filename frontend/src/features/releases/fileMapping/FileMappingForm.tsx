@@ -38,7 +38,7 @@ export function FileMappingForm({
     [requests],
   );
 
-  const form = useFileMappingForm(files, defaultRequest);
+  const form = useFileMappingForm(files, defaultRequest, availableRequests);
   const saveMappings = useUpdateFileMappings(releaseId, requestId);
 
   const grouped = useMemo(() => groupFilesByType(files), [files]);
@@ -132,7 +132,7 @@ export function FileMappingForm({
               requests={availableRequests}
               requestsDisabled={requestsLoading || availableRequests.length === 0}
               isDirty={form.isDirty(file.id)}
-              onSelectRequest={(request) => form.selectRequest(file.id, request, file.name)}
+              onSelectRequest={(request) => form.selectRequest(file.id, request, file)}
               onChange={(changes) => form.updateDraft(file.id, changes)}
             />
           ))}

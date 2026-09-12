@@ -26,11 +26,14 @@ export function ReleaseFilesModal({
     return null;
   }
 
+  const isSeries = currentRequest.type === 'series';
   const defaultRequest: DefaultRequest = {
     id: currentRequest.id,
     title: currentRequest.title,
-    type: currentRequest.type === 'series' ? 'series' : 'movie',
-    seasonNumber: currentRequest.type === 'series' ? currentRequest.season_number : undefined,
+    type: isSeries ? 'series' : 'movie',
+    seasonNumber: isSeries ? currentRequest.season_number : undefined,
+    seriesTitle: isSeries ? currentRequest.series_title : undefined,
+    sonarrSeriesId: isSeries ? currentRequest.sonarr_series_id : undefined,
   };
 
   return (
