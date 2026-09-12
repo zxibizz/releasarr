@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -27,7 +28,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.db import Base
-from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from src.domain.enums import (
+    MediaRequestStatus,
+    MediaType,
+    ReleaseStatus,
+    SyncJobKind,
+    SyncJobStatus,
+    SyncJobTrigger,
+)
 
 JSONDict = MutableDict.as_mutable(JSON)
 JSONList = MutableList.as_mutable(JSON)
@@ -252,9 +260,75 @@ class ReleaseFile(Base):
     mapped_request: Mapped[MediaRequest | None] = relationship("MediaRequest", lazy="selectin")
 
 
+class SyncJob(Base):
+    """An on-demand run of a single task.
+
+    The API and the scheduler run as separate processes, so this table is the
+    hand-off between them: the API enqueues a row and the scheduler claims it.
+    Scheduled runs are not recorded here; they update :class:`ScheduledTask`.
+    """
+
+    __tablename__ = "sync_jobs"
+    __table_args__ = (Index("ix_sync_jobs_status_queued_at", "status", "queued_at"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[SyncJobKind] = mapped_column(
+        build_enum(SyncJobKind, "sync_job_kind"),
+        nullable=False,
+    )
+    status: Mapped[SyncJobStatus] = mapped_column(
+        build_enum(SyncJobStatus, "sync_job_status"),
+        nullable=False,
+        default=SyncJobStatus.QUEUED,
+        server_default=SyncJobStatus.QUEUED.value,
+    )
+    trigger: Mapped[SyncJobTrigger] = mapped_column(
+        build_enum(SyncJobTrigger, "sync_job_trigger"),
+        nullable=False,
+        default=SyncJobTrigger.API,
+        server_default=SyncJobTrigger.API.value,
+    )
+    queued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error: Mapped[str | None] = mapped_column(Text())
+    result: Mapped[dict[str, object]] = mapped_column(JSONDict, nullable=False, default=dict)
+
+
+class ScheduledTask(Base):
+    """Last known state of a task's recurring schedule.
+
+    Kept separate from :class:`SyncJob` so the scheduler can report when each
+    task last ran without writing a history row on every tick, and so the
+    schedule survives a restart.
+    """
+
+    __tablename__ = "scheduled_tasks"
+
+    kind: Mapped[SyncJobKind] = mapped_column(
+        build_enum(SyncJobKind, "scheduled_task_kind"),
+        primary_key=True,
+    )
+    interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_execution: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_duration_ms: Mapped[int | None] = mapped_column(Integer)
+    last_status: Mapped[SyncJobStatus | None] = mapped_column(
+        build_enum(SyncJobStatus, "scheduled_task_status"),
+        nullable=True,
+    )
+    last_error: Mapped[str | None] = mapped_column(Text())
+
+
 __all__ = [
     "RELEASE_REQUEST_LINKS",
     "MediaRequest",
     "Release",
     "ReleaseFile",
+    "ScheduledTask",
+    "SyncJob",
 ]

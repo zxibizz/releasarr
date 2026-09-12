@@ -1,4 +1,4 @@
-import type { MediaRequest, RequestLogEntry } from '../src/types';
+import type { MediaRequest, RequestLogEntry, SyncJobKind } from '../src/types';
 
 const formatTimestamp = (date: Date) =>
   date.toLocaleString(undefined, {
@@ -162,6 +162,95 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
       },
     }),
   ];
+
+  logs.sort((a, b) => b.occurredAt - a.occurredAt);
+  return logs;
+};
+
+type TaskLogSeed = {
+  task: SyncJobKind;
+  level: RequestLogEntry['level'];
+  message: string;
+  source: string;
+  metadata?: Record<string, unknown>;
+  stackTrace?: string;
+};
+
+/** Mirrors the backend, which tags every line logged while a task runs. */
+const TASK_LOG_SEEDS: TaskLogSeed[] = [
+  {
+    task: 'sonarr_sync',
+    level: 'info',
+    message: 'Sonarr sync finished',
+    source: 'src.application.use_cases.requests.sync_sonarr',
+    metadata: { component: 'sync_sonarr_requests', created: 0, updated: 2, completed: 1 },
+  },
+  {
+    task: 'sonarr_sync',
+    level: 'error',
+    message: "request to '/wanted/missing' failed: All connection attempts failed",
+    source: 'src.tasks.scheduler_service',
+    metadata: { service: 'Scheduler' },
+    stackTrace: [
+      'Traceback (most recent call last):',
+      '  File "src/tasks/scheduler_service.py", line 130, in _run_scheduled',
+      '    summary = await self.steps.for_kind(kind)()',
+      'httpx.ConnectError: All connection attempts failed',
+    ].join('\n'),
+  },
+  {
+    task: 'release_sync',
+    level: 'info',
+    message: 'Request status changed from downloading to completed',
+    source: 'src.tasks.sync_releases',
+    metadata: { previous_status: 'downloading', status: 'completed' },
+  },
+  {
+    task: 'release_sync',
+    level: 'warning',
+    message: 'Torrent no longer present in the download client',
+    source: 'src.tasks.sync_releases',
+    metadata: { release_id: 'rls-15873' },
+  },
+  {
+    task: 'export',
+    level: 'info',
+    message: 'Imported a release into Sonarr',
+    source: 'src.application.use_cases.releases.export_finished',
+    metadata: { component: 'export_finished_series', release_name: 'Some.Show.S02E04.1080p' },
+  },
+  {
+    task: 'export',
+    level: 'info',
+    message: 'Task complete',
+    source: 'src.tasks.sync_jobs',
+    metadata: { component: 'sync_job_runner', job_id: 'a1b2c3d4', trigger: 'download_client' },
+  },
+  {
+    task: 'regrab',
+    level: 'info',
+    message: 'No outdated releases found',
+    source: 'src.application.use_cases.releases.regrab_outdated',
+    metadata: { component: 'regrab_outdated_releases' },
+  },
+];
+
+/** Repeats the seeds over the last few hours so pagination has something to page. */
+export const generateMockTaskLogs = (): RequestLogEntry[] => {
+  const now = new Date();
+
+  const logs = Array.from({ length: 6 }).flatMap((_, round) =>
+    TASK_LOG_SEEDS.map((seed, index) => {
+      const minutes = round * 30 + index * 2;
+      const { task, metadata, ...rest } = seed;
+
+      return buildLog(now, minutes, {
+        ...rest,
+        id: `task-log-${round}-${index}`,
+        metadata: { ...metadata, task },
+      });
+    }),
+  );
 
   logs.sort((a, b) => b.occurredAt - a.occurredAt);
   return logs;

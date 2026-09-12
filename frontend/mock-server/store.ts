@@ -1,16 +1,45 @@
 import { getMockReleases, getMockRequests, searchMockReleaseSources } from './mockData';
-import { generateMockRequestLogs } from './mockLogs';
+import { generateMockRequestLogs, generateMockTaskLogs } from './mockLogs';
 import type {
   MediaRequest,
   Release,
   ReleaseFile,
   ReleaseSearchResult,
   RequestLogEntry,
+  ScheduledTask,
+  SyncJob,
+  SyncJobKind,
+  SyncJobTrigger,
 } from '../src/types';
 
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];
 type ReleaseStatus = Release['status'];
+
+type EnqueueSyncJobPayload = {
+  kinds: SyncJobKind[];
+  trigger: SyncJobTrigger;
+};
+
+/** How long a mock job pretends to be queued, then running, before finishing. */
+const MOCK_JOB_QUEUED_MS = 1_500;
+const MOCK_JOB_RUNNING_MS = 4_000;
+
+const MOCK_TASK_INTERVALS: Record<SyncJobKind, number> = {
+  sonarr_sync: 3_600,
+  release_sync: 30,
+  export: 300,
+  regrab: 3_600,
+};
+
+const MOCK_TASK_ORDER: SyncJobKind[] = ['sonarr_sync', 'release_sync', 'export', 'regrab'];
+
+const MOCK_TASK_RESULTS: Record<SyncJobKind, Record<string, unknown>> = {
+  sonarr_sync: { created: 0, updated: 2, completed: 1 },
+  release_sync: { synced: 3, failed: 0, not_found: 0, requests_updated: 1 },
+  export: { succeeded: 1, failed: 0 },
+  regrab: { completed: true },
+};
 
 type NewMediaRequestPayload = {
   type: RequestType;
@@ -66,6 +95,8 @@ export class MockStore {
   private releasesCache: Release[] | null = null;
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
+  private taskLogsCache: RequestLogEntry[] | null = null;
+  private syncJobs: SyncJob[] = [];
 
   private async ensureRequests(): Promise<MediaRequest[]> {
     if (!this.requestsCache) {
@@ -247,24 +278,35 @@ export class MockStore {
     return result.map((release) => clone(release));
   }
 
-  async listRequestLogs(filters: { requestId?: string } = {}): Promise<RequestLogEntry[]> {
-    const { requestId } = filters;
+  async listRequestLogs(
+    filters: { requestId?: string; task?: SyncJobKind } = {},
+  ): Promise<RequestLogEntry[]> {
+    const { requestId, task } = filters;
 
     if (requestId) {
       const logs = await this.ensureRequestLogs(requestId);
-      const copy = clone(logs) as RequestLogEntry[];
-      copy.sort((a, b) => b.occurredAt - a.occurredAt);
-      return copy;
+      return this.sortedCopy(logs);
+    }
+
+    if (!this.taskLogsCache) {
+      this.taskLogsCache = generateMockTaskLogs();
+    }
+
+    if (task) {
+      return this.sortedCopy(this.taskLogsCache.filter((log) => log.metadata?.task === task));
     }
 
     const requests = await this.ensureRequests();
-    const aggregated: RequestLogEntry[] = [];
+    const aggregated: RequestLogEntry[] = [...this.taskLogsCache];
     for (const req of requests) {
-      const logs = await this.ensureRequestLogs(req.id);
-      aggregated.push(...logs);
+      aggregated.push(...(await this.ensureRequestLogs(req.id)));
     }
 
-    const copy = clone(aggregated) as RequestLogEntry[];
+    return this.sortedCopy(aggregated);
+  }
+
+  private sortedCopy(logs: RequestLogEntry[]): RequestLogEntry[] {
+    const copy = clone(logs) as RequestLogEntry[];
     copy.sort((a, b) => b.occurredAt - a.occurredAt);
     return copy;
   }
@@ -479,6 +521,102 @@ export class MockStore {
     }
 
     return clonedResults;
+  }
+
+  /**
+   * Mirrors the backend: a task already queued absorbs an equivalent request,
+   * and jobs keep the order the caller asked for.
+   */
+  async enqueueSyncJob(
+    payload: EnqueueSyncJobPayload,
+  ): Promise<{ jobs: SyncJob[]; created: number }> {
+    this.advanceSyncJobs();
+
+    const jobs: SyncJob[] = [];
+    let created = 0;
+
+    for (const kind of payload.kinds) {
+      const pending = this.syncJobs.find((job) => job.status === 'queued' && job.kind === kind);
+      if (pending) {
+        jobs.push(clone(pending));
+        continue;
+      }
+
+      const job: SyncJob = {
+        id: randomId(),
+        kind,
+        status: 'queued',
+        trigger: payload.trigger,
+        queued_at: new Date().toISOString(),
+        started_at: null,
+        finished_at: null,
+        duration_ms: null,
+        error: null,
+        result: null,
+      };
+      this.syncJobs.unshift(job);
+      jobs.push(clone(job));
+      created += 1;
+    }
+
+    return { jobs, created };
+  }
+
+  async listSyncJobs(limit = 20): Promise<SyncJob[]> {
+    this.advanceSyncJobs();
+    return this.syncJobs.slice(0, limit).map((job) => clone(job));
+  }
+
+  async getSyncJob(id: string): Promise<SyncJob | null> {
+    this.advanceSyncJobs();
+    const job = this.syncJobs.find((candidate) => candidate.id === id);
+    return job ? clone(job) : null;
+  }
+
+  /** Pretends the scheduler has been running each task on its interval. */
+  async listScheduledTasks(): Promise<ScheduledTask[]> {
+    const now = Date.now();
+
+    return MOCK_TASK_ORDER.map((kind) => {
+      const interval = MOCK_TASK_INTERVALS[kind];
+      // Place the last run partway through the interval so "next execution"
+      // always reads as a plausible future time.
+      const lastExecution = new Date(now - interval * 1_000 * 0.4);
+
+      return {
+        kind,
+        interval_seconds: interval,
+        last_execution: lastExecution.toISOString(),
+        last_duration_ms: 200 + MOCK_TASK_ORDER.indexOf(kind) * 350,
+        last_status: 'completed',
+        last_error: null,
+        next_execution: new Date(lastExecution.getTime() + interval * 1_000).toISOString(),
+      } satisfies ScheduledTask;
+    });
+  }
+
+  /** Moves jobs through queued → running → completed based on elapsed time. */
+  private advanceSyncJobs(): void {
+    const now = Date.now();
+
+    for (const job of this.syncJobs) {
+      const queuedAt = new Date(job.queued_at).getTime();
+
+      if (job.status === 'queued' && now - queuedAt >= MOCK_JOB_QUEUED_MS) {
+        job.status = 'running';
+        job.started_at = new Date(queuedAt + MOCK_JOB_QUEUED_MS).toISOString();
+      }
+
+      if (job.status === 'running') {
+        const startedAt = new Date(job.started_at ?? job.queued_at).getTime();
+        if (now - startedAt >= MOCK_JOB_RUNNING_MS) {
+          job.status = 'completed';
+          job.finished_at = new Date(startedAt + MOCK_JOB_RUNNING_MS).toISOString();
+          job.duration_ms = MOCK_JOB_RUNNING_MS;
+          job.result = MOCK_TASK_RESULTS[job.kind];
+        }
+      }
+    }
   }
 }
 

@@ -40,6 +40,12 @@ from src.application.use_cases.requests.get_request import GetMediaRequestUseCas
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
+from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
+from src.application.use_cases.tasks.get_sync_job import (
+    GetSyncJobUseCase,
+    ListScheduledTasksUseCase,
+    ListSyncJobsUseCase,
+)
 from src.core.logging import configure_logging
 from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
@@ -57,6 +63,10 @@ from src.infrastructure.releases import (
     SqlAlchemyReleaseRepository,
 )
 from src.infrastructure.sonarr import SonarrHttpClient
+from src.infrastructure.sync_jobs import (
+    SqlAlchemyScheduledTaskRepository,
+    SqlAlchemySyncJobRepository,
+)
 from src.infrastructure.tvdb import TvdbHttpClient
 from src.settings.config import AppSettings, get_settings
 
@@ -76,6 +86,14 @@ class RepositoryContainer:
     @cached_property
     def releases(self) -> SqlAlchemyReleaseRepository:
         return SqlAlchemyReleaseRepository(db=self._container.db_manager)
+
+    @cached_property
+    def sync_jobs(self) -> SqlAlchemySyncJobRepository:
+        return SqlAlchemySyncJobRepository(db=self._container.db_manager)
+
+    @cached_property
+    def scheduled_tasks(self) -> SqlAlchemyScheduledTaskRepository:
+        return SqlAlchemyScheduledTaskRepository(db=self._container.db_manager)
 
 
 @dataclass
@@ -182,6 +200,10 @@ class UseCaseContainer:
     @cached_property
     def releases(self) -> ReleaseUseCases:
         return ReleaseUseCases(self._container)
+
+    @cached_property
+    def tasks(self) -> TaskUseCases:
+        return TaskUseCases(self._container)
 
 
 @dataclass
@@ -307,6 +329,27 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
             download_service=self._container.services.release_download,
         )
+
+
+@dataclass
+class TaskUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def enqueue_sync(self) -> EnqueueSyncJobUseCase:
+        return EnqueueSyncJobUseCase(repository=self._container.repositories.sync_jobs)
+
+    @cached_property
+    def get_sync_job(self) -> GetSyncJobUseCase:
+        return GetSyncJobUseCase(repository=self._container.repositories.sync_jobs)
+
+    @cached_property
+    def list_sync_jobs(self) -> ListSyncJobsUseCase:
+        return ListSyncJobsUseCase(repository=self._container.repositories.sync_jobs)
+
+    @cached_property
+    def list_scheduled_tasks(self) -> ListScheduledTasksUseCase:
+        return ListScheduledTasksUseCase(repository=self._container.repositories.scheduled_tasks)
 
 
 @dataclass

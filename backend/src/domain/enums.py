@@ -47,10 +47,37 @@ class AsyncJobStatus(StrEnum):
     FAILED = "failed"
 
 
+class SyncJobKind(StrEnum):
+    """A single unit of background work, runnable on a schedule or on demand."""
+
+    SONARR_SYNC = "sonarr_sync"
+    RELEASE_SYNC = "release_sync"
+    EXPORT = "export"
+    REGRAB = "regrab"
+
+
+class SyncJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class SyncJobTrigger(StrEnum):
+    """Who asked for the sync."""
+
+    API = "api"
+    DOWNLOAD_CLIENT = "download_client"
+    SCHEDULE = "schedule"
+
+
 __all__ = [
     "AsyncJobStatus",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",
     "RequestLogLevel",
+    "SyncJobKind",
+    "SyncJobStatus",
+    "SyncJobTrigger",
 ]

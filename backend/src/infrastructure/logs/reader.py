@@ -39,8 +39,16 @@ class LogFileReader:
     def __init__(self, log_file: str | Path) -> None:
         self._path = Path(log_file)
 
-    def read_entries(self, request_id: str | None = None) -> list[LogEntry]:
-        """Return log entries in chronological order, optionally filtered by request id."""
+    def read_entries(
+        self,
+        request_id: str | None = None,
+        task: str | None = None,
+    ) -> list[LogEntry]:
+        """Return log entries in chronological order, optionally filtered.
+
+        Filters are combined, and both match on fields the producer bound onto
+        the record rather than on the message text.
+        """
 
         if not self._path.exists():
             return []
@@ -54,15 +62,17 @@ class LogFileReader:
                 entry = self._parse_line(stripped)
                 if entry is None:
                     continue
-                if request_id is not None and not self._matches_request(entry, request_id):
+                if request_id is not None and not self._matches(entry, "request_id", request_id):
+                    continue
+                if task is not None and not self._matches(entry, "task", task):
                     continue
                 entries.append(entry)
         return entries
 
     @staticmethod
-    def _matches_request(entry: LogEntry, request_id: str) -> bool:
+    def _matches(entry: LogEntry, key: str, value: str) -> bool:
         metadata = entry.metadata
-        return metadata is not None and metadata.get("request_id") == request_id
+        return metadata is not None and metadata.get(key) == value
 
     def _parse_line(self, line: str) -> LogEntry | None:
         try:

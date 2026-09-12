@@ -16,14 +16,24 @@ class MockLogFileReader(LogFileReader):
     def __init__(self, entries: list[LogEntry]) -> None:
         self.entries = entries
         self.last_filter_request_id: str | None = None
+        self.last_filter_task: str | None = None
 
-    def read_entries(self, request_id: str | None = None) -> list[LogEntry]:
+    def read_entries(
+        self,
+        request_id: str | None = None,
+        task: str | None = None,
+    ) -> list[LogEntry]:
         self.last_filter_request_id = request_id
+        self.last_filter_task = task
+
+        entries = self.entries
         if request_id:
-            return [
-                e for e in self.entries if e.metadata and e.metadata.get("request_id") == request_id
+            entries = [
+                e for e in entries if e.metadata and e.metadata.get("request_id") == request_id
             ]
-        return self.entries
+        if task:
+            entries = [e for e in entries if e.metadata and e.metadata.get("task") == task]
+        return entries
 
 
 @pytest.fixture
@@ -33,10 +43,13 @@ def make_entry() -> Any:
         timestamp: float | None = None,
         level: str = "INFO",
         request_id: str | None = None,
+        task: str | None = None,
     ) -> LogEntry:
         metadata = {}
         if request_id:
             metadata["request_id"] = request_id
+        if task:
+            metadata["task"] = task
 
         return LogEntry(
             id="log-id",
@@ -105,6 +118,37 @@ def test_list_logs_filters_by_request_id(make_entry: Any, settings: AppSettings)
     assert result.logs[0].message == "Log 3"
     assert result.logs[1].message == "Log 1"
     assert reader.last_filter_request_id == "target-req"
+
+
+def test_list_logs_filters_by_task(make_entry: Any, settings: AppSettings) -> None:
+    entries = [
+        make_entry("Exported one", task="export"),
+        make_entry("Synced downloads", task="release_sync"),
+        make_entry("Exported two", task="export"),
+    ]
+    reader = MockLogFileReader(entries)
+    query = ListLogsQuery(reader, settings)
+
+    result = query.execute(task="export")
+
+    assert [entry.message for entry in result.logs] == ["Exported two", "Exported one"]
+    assert reader.last_filter_task == "export"
+
+
+def test_list_logs_combines_request_and_task_filters(
+    make_entry: Any, settings: AppSettings
+) -> None:
+    entries = [
+        make_entry("Imported for request", request_id="req-1", task="export"),
+        make_entry("Imported for another", request_id="req-2", task="export"),
+        make_entry("Synced for request", request_id="req-1", task="release_sync"),
+    ]
+    reader = MockLogFileReader(entries)
+    query = ListLogsQuery(reader, settings)
+
+    result = query.execute(request_id="req-1", task="export")
+
+    assert [entry.message for entry in result.logs] == ["Imported for request"]
 
 
 def test_list_logs_validates_pagination_params(settings: AppSettings) -> None:

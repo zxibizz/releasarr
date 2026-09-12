@@ -28,3 +28,11 @@ export type SuccessResponse = Schemas['SuccessResponse'];
 export type RequestLogLevel = Schemas['RequestLogLevel'];
 export type RequestLogEntry = Schemas['RequestLogEntry'];
 export type LogsResponse = Schemas['LogsResponse'];
+
+export type SyncJobKind = Schemas['SyncJobKind'];
+export type SyncJobStatus = Schemas['SyncJobStatus'];
+export type SyncJobTrigger = Schemas['SyncJobTrigger'];
+export type SyncJob = Schemas['SyncJob'];
+export type SyncJobsResponse = Schemas['SyncJobsResponse'];
+export type ScheduledTask = Schemas['ScheduledTask'];
+export type ScheduledTasksResponse = Schemas['ScheduledTasksResponse'];

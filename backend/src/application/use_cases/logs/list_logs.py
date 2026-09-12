@@ -12,6 +12,15 @@ class ListLogsUseCase:
     query: ListLogsQuery
 
     async def execute(
-        self, page: int, per_page: int, request_id: str | None = None
+        self,
+        page: int,
+        per_page: int,
+        request_id: str | None = None,
+        task: str | None = None,
     ) -> LogsPageResult:
-        return self.query.execute(page=page, per_page=per_page, request_id=request_id)
+        return self.query.execute(
+            page=page,
+            per_page=per_page,
+            request_id=request_id,
+            task=task,
+        )

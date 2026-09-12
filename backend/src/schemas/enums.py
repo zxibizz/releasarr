@@ -8,6 +8,9 @@ from src.domain.enums import (
     MediaType,
     ReleaseStatus,
     RequestLogLevel,
+    SyncJobKind,
+    SyncJobStatus,
+    SyncJobTrigger,
 )
 
 __all__ = [
@@ -16,4 +19,7 @@ __all__ = [
     "MediaType",
     "ReleaseStatus",
     "RequestLogLevel",
+    "SyncJobKind",
+    "SyncJobStatus",
+    "SyncJobTrigger",
 ]
