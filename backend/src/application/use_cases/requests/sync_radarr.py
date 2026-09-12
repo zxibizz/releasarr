@@ -81,6 +81,22 @@ class SyncRadarrMediaRequestsUseCase:
         )
         return result
 
+    async def sync_movie_by_id(self, movie_id: int) -> str | None:
+        """Create or refresh the request for a single movie.
+
+        Serves the add-request flow, where the request has to exist by the time
+        the call returns. Radarr's missing list is deliberately not consulted: an
+        unreleased movie is absent from it, and the full sweep is what owns
+        completing requests.
+        """
+
+        self._metadata_cache.clear()
+        details = await self._radarr.get_movie(movie_id)
+        await self._sync_movie(details)
+
+        record = await self._repository.find_by_radarr(radarr_movie_id=movie_id)
+        return None if record is None else record.id
+
     async def _sync_movie(self, details: MovieDetails) -> str:
         """Create or update a Radarr-backed request for a single movie."""
 

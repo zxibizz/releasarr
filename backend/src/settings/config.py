@@ -33,6 +33,11 @@ class AppSettings(BaseSettings):
     radarr_url: str = Field(default="http://localhost:7878/api/v3")
     radarr_api_key: SecretStr = Field(default=SecretStr(""))
 
+    # Sonarr and Radarr refuse an add without a quality profile, which releasarr
+    # itself never grabs by. Left unset, the first profile they report is used.
+    sonarr_quality_profile_id: int | None = Field(default=None)
+    radarr_quality_profile_id: int | None = Field(default=None)
+
     tvdb_base_url: str = Field(default="https://api4.thetvdb.com/v4")
     tvdb_api_key: SecretStr = Field(default=SecretStr(""))
 

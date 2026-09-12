@@ -18,6 +18,10 @@ from src.application.interfaces.releases import (
 )
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
+from src.application.use_cases.discover.add_request import AddMediaRequestUseCase
+from src.application.use_cases.discover.list_root_folders import ListRootFoldersUseCase
+from src.application.use_cases.discover.list_season_options import ListSeasonOptionsUseCase
+from src.application.use_cases.discover.search_media import SearchMediaUseCase
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
@@ -212,6 +216,10 @@ class UseCaseContainer:
     _container: AppContainer
 
     @cached_property
+    def discover(self) -> DiscoverUseCases:
+        return DiscoverUseCases(self._container)
+
+    @cached_property
     def logs(self) -> LogUseCases:
         return LogUseCases(self._container)
 
@@ -280,6 +288,52 @@ class MediaRequestUseCases:
             radarr_service=self._container.services.radarr,
             tmdb_service=self._container.services.tmdb,
             metadata_languages=self._container.settings.metadata_languages,
+        )
+
+
+@dataclass
+class DiscoverUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def search(self) -> SearchMediaUseCase:
+        return SearchMediaUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+            tvdb_service=self._container.services.tvdb,
+            tmdb_service=self._container.services.tmdb,
+            metadata_languages=self._container.settings.metadata_languages,
+        )
+
+    @cached_property
+    def season_options(self) -> ListSeasonOptionsUseCase:
+        return ListSeasonOptionsUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            tvdb_service=self._container.services.tvdb,
+            metadata_languages=self._container.settings.metadata_languages,
+        )
+
+    @cached_property
+    def root_folders(self) -> ListRootFoldersUseCase:
+        return ListRootFoldersUseCase(
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+        )
+
+    @cached_property
+    def add_request(self) -> AddMediaRequestUseCase:
+        settings = self._container.settings
+        media_requests = self._container.use_cases.media_requests
+        return AddMediaRequestUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+            sync_sonarr=media_requests.sync_sonarr,
+            sync_radarr=media_requests.sync_radarr,
+            sonarr_quality_profile_id=settings.sonarr_quality_profile_id,
+            radarr_quality_profile_id=settings.radarr_quality_profile_id,
         )
 
 

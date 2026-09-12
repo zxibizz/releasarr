@@ -15,6 +15,13 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from src.application.use_cases.discover.exceptions import (
+    InvalidRootFolderError,
+    MediaNotFoundError,
+    MetadataProviderUnavailableError,
+    NoQualityProfileError,
+    SeasonSelectionError,
+)
 from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
@@ -28,6 +35,7 @@ from src.application.use_cases.requests.exceptions import (
     MediaRequestNotFoundError,
 )
 from src.application.use_cases.tasks.exceptions import SyncJobNotFoundError
+from src.infrastructure.http import HttpClientError
 
 ErrorDetail = Mapping[str, Any] | Sequence[Any] | None
 Handler = Callable[[Request, Exception], Awaitable[JSONResponse]]
@@ -43,6 +51,17 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     ReleaseDownloadConflictError: (status.HTTP_409_CONFLICT, "release_download_conflict"),
     ReleaseDownloadFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed"),
     SyncJobNotFoundError: (status.HTTP_404_NOT_FOUND, "sync_job_not_found"),
+    MetadataProviderUnavailableError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "metadata_provider_unavailable",
+    ),
+    MediaNotFoundError: (status.HTTP_404_NOT_FOUND, "media_not_found"),
+    NoQualityProfileError: (status.HTTP_400_BAD_REQUEST, "no_quality_profile"),
+    InvalidRootFolderError: (status.HTTP_400_BAD_REQUEST, "invalid_root_folder"),
+    SeasonSelectionError: (status.HTTP_400_BAD_REQUEST, "invalid_season_selection"),
+    # Sonarr, Radarr and the metadata providers all report through this one, so a
+    # failure of theirs surfaces as a bad gateway rather than our own crash.
+    HttpClientError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),
 }
 
 

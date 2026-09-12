@@ -7,105 +7,17 @@ from typing import Any
 
 import httpx
 
-from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbService, TmdbTranslation
+from src.application.interfaces.tmdb import (
+    TmdbMovieMetadata,
+    TmdbSearchResult,
+    TmdbService,
+    TmdbTranslation,
+)
+from src.application.utility.languages import TWO_TO_THREE_LETTER, to_two_letter
 from src.infrastructure.http import BaseHttpClient
 
-# TMDB reports languages as ISO 639-1, while requests store their localizations
-# under the 3-letter codes TVDB uses, so movie and series entries stay
-# interchangeable in the UI. Both the terminological and the bibliographic
-# 3-letter form are accepted, since either may appear in configuration.
-LANGUAGE_ALIASES: dict[str, str] = {
-    "ara": "ar",
-    "bul": "bg",
-    "cat": "ca",
-    "ces": "cs",
-    "cze": "cs",
-    "chi": "zh",
-    "dan": "da",
-    "deu": "de",
-    "dut": "nl",
-    "ell": "el",
-    "eng": "en",
-    "est": "et",
-    "fas": "fa",
-    "fin": "fi",
-    "fra": "fr",
-    "fre": "fr",
-    "ger": "de",
-    "gre": "el",
-    "heb": "he",
-    "hin": "hi",
-    "hrv": "hr",
-    "hun": "hu",
-    "ind": "id",
-    "ita": "it",
-    "jpn": "ja",
-    "kor": "ko",
-    "lav": "lv",
-    "lit": "lt",
-    "nld": "nl",
-    "nor": "no",
-    "per": "fa",
-    "pol": "pl",
-    "por": "pt",
-    "ron": "ro",
-    "rum": "ro",
-    "rus": "ru",
-    "slk": "sk",
-    "slo": "sk",
-    "slv": "sl",
-    "spa": "es",
-    "srp": "sr",
-    "swe": "sv",
-    "tha": "th",
-    "tur": "tr",
-    "ukr": "uk",
-    "vie": "vi",
-    "zho": "zh",
-}
-
-# Used when no language filter is supplied and a 2-letter code has to be widened
-# back to the 3-letter form requests are keyed by.
-CANONICAL_LANGUAGES: dict[str, str] = {
-    "ar": "ara",
-    "bg": "bul",
-    "ca": "cat",
-    "cs": "ces",
-    "da": "dan",
-    "de": "deu",
-    "el": "ell",
-    "en": "eng",
-    "es": "spa",
-    "et": "est",
-    "fa": "fas",
-    "fi": "fin",
-    "fr": "fra",
-    "he": "heb",
-    "hi": "hin",
-    "hr": "hrv",
-    "hu": "hun",
-    "id": "ind",
-    "it": "ita",
-    "ja": "jpn",
-    "ko": "kor",
-    "lt": "lit",
-    "lv": "lav",
-    "nl": "nld",
-    "no": "nor",
-    "pl": "pol",
-    "pt": "por",
-    "ro": "ron",
-    "ru": "rus",
-    "sk": "slk",
-    "sl": "slv",
-    "sr": "srp",
-    "sv": "swe",
-    "th": "tha",
-    "tr": "tur",
-    "uk": "ukr",
-    "vi": "vie",
-    "zh": "zho",
-}
+# TMDB serves posters from a separate image host and reports only the path.
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
 
 class TmdbHttpClient(TmdbService):
@@ -158,6 +70,63 @@ class TmdbHttpClient(TmdbService):
             translations=self._extract_translations(data, languages),
         )
 
+    async def search_movies(
+        self,
+        query: str,
+        limit: int = 20,
+        languages: Sequence[str] | None = None,
+    ) -> list[TmdbSearchResult]:
+        params: dict[str, Any] = {"query": query, "include_adult": "false"}
+        # Search accepts a single locale, so the first configured language wins
+        # and TMDB falls back to the original title where it has no translation.
+        language = self._search_language(languages)
+        if language:
+            params["language"] = language
+
+        payload = await self._request("GET", "/search/movie", params=params)
+        entries = payload.get("results") if isinstance(payload, dict) else None
+        if not isinstance(entries, list):
+            return []
+
+        results: list[TmdbSearchResult] = []
+        for entry in entries[:limit]:
+            if not isinstance(entry, dict):
+                continue
+            result = self._to_search_result(entry)
+            if result is not None:
+                results.append(result)
+        return results
+
+    def _to_search_result(self, entry: dict[str, Any]) -> TmdbSearchResult | None:
+        tmdb_id = self._safe_int(entry.get("id"))
+        if tmdb_id is None:
+            return None
+        title = self._safe_str(entry.get("title") or entry.get("original_title"))
+        if not title:
+            return None
+
+        poster_path = self._safe_str(entry.get("poster_path"))
+        return TmdbSearchResult(
+            tmdb_id=tmdb_id,
+            title=title,
+            year=self._release_year(entry.get("release_date")),
+            overview=self._safe_str(entry.get("overview")),
+            poster_url=f"{TMDB_IMAGE_BASE_URL}{poster_path}" if poster_path else None,
+        )
+
+    def _search_language(self, languages: Sequence[str] | None) -> str | None:
+        for language in languages or ():
+            short = to_two_letter(language)
+            if short:
+                return short
+        return None
+
+    def _release_year(self, value: object) -> int | None:
+        released = self._safe_str(value)
+        if not released:
+            return None
+        return self._safe_int(released[:4])
+
     def _extract_translations(
         self,
         data: dict[str, Any],
@@ -206,14 +175,13 @@ class TmdbHttpClient(TmdbService):
         for language in languages or []:
             if not language:
                 continue
-            requested = language.strip().lower()
-            short = LANGUAGE_ALIASES.get(requested, requested if len(requested) == 2 else None)
+            short = to_two_letter(language)
             if short:
                 wanted.setdefault(short, language)
         return wanted
 
     def _canonical(self, code: str) -> str:
-        return CANONICAL_LANGUAGES.get(code.lower(), code.lower())
+        return TWO_TO_THREE_LETTER.get(code.lower(), code.lower())
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         if self._auth_params:
