@@ -15,6 +15,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { formatLogContext } from '@/features/logs/context';
 import { useRequestLogs } from '@/features/logs/queries';
 import type { RequestLogEntry } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
@@ -27,27 +28,14 @@ interface LogsModalProps {
   onClose: () => void;
 }
 
-/** Keys the backend attaches to every record that carry no meaning for the reader. */
-const HIDDEN_METADATA_KEYS = new Set(['request_id']);
-
-const formatContext = (metadata: RequestLogEntry['metadata']): string | null => {
-  if (!metadata) {
-    return null;
-  }
-  const entries = Object.entries(metadata).filter(
-    ([key, value]) => !HIDDEN_METADATA_KEYS.has(key) && value !== null && value !== '',
-  );
-  if (entries.length === 0) {
-    return null;
-  }
-  return entries.map(([key, value]) => `${key}=${String(value)}`).join('  ');
-};
+/** The request is already named in the title, so repeating its id adds nothing. */
+const HIDDEN_METADATA_KEYS = ['request_id'];
 
 function LogRow({ entry }: { entry: RequestLogEntry }) {
   const { t } = useTranslation();
   const [stackOpened, stack] = useDisclosure(false);
 
-  const context = formatContext(entry.metadata);
+  const context = formatLogContext(entry.metadata, HIDDEN_METADATA_KEYS);
 
   return (
     <Paper withBorder radius="md" p="md">

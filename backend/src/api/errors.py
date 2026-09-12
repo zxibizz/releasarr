@@ -27,6 +27,7 @@ from src.application.use_cases.requests.exceptions import (
     EmptyUpdatePayloadError,
     MediaRequestNotFoundError,
 )
+from src.application.use_cases.tasks.exceptions import SyncJobNotFoundError
 
 ErrorDetail = Mapping[str, Any] | Sequence[Any] | None
 Handler = Callable[[Request, Exception], Awaitable[JSONResponse]]
@@ -41,6 +42,7 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     ReleaseConflictError: (status.HTTP_409_CONFLICT, "release_conflict"),
     ReleaseDownloadConflictError: (status.HTTP_409_CONFLICT, "release_download_conflict"),
     ReleaseDownloadFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed"),
+    SyncJobNotFoundError: (status.HTTP_404_NOT_FOUND, "sync_job_not_found"),
 }
 
 

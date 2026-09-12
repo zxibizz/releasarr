@@ -6,6 +6,7 @@ import { releasesByRequestQuery } from '@/features/releases/queries';
 import { RequestDetailPage } from '@/features/requests/pages/RequestDetailPage';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { requestDetailQuery, requestsListQuery } from '@/features/requests/queries';
+import { TasksPage } from '@/features/tasks/pages/TasksPage';
 import { queryClient } from '@/lib/queryClient';
 
 const requestsLoader = async () => {
@@ -45,6 +46,11 @@ export const router = createBrowserRouter([
         path: 'request/:id',
         element: <RequestDetailPage />,
         loader: requestDetailLoader,
+        errorElement: <RouteErrorBoundary />,
+      },
+      {
+        path: 'system/tasks',
+        element: <TasksPage />,
         errorElement: <RouteErrorBoundary />,
       },
       { path: '*', element: <NotFound /> },

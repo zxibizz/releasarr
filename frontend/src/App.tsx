@@ -4,12 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useSyncWatcher } from '@/features/tasks/queries';
 
 function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
-  const isRequestsActive =
-    location.pathname === '/' || location.pathname.startsWith('/request');
+  const isRequestsActive = location.pathname === '/' || location.pathname.startsWith('/request');
+  const isSystemActive = location.pathname.startsWith('/system');
 
   return (
     <Container size="lg" h="100%">
@@ -36,6 +37,16 @@ function Navigation() {
           >
             {t('nav.requests')}
           </Text>
+          <Text
+            component={Link}
+            to="/system/tasks"
+            size="sm"
+            fw={600}
+            c={isSystemActive ? 'blue.4' : 'dimmed'}
+            style={{ textDecoration: 'none' }}
+          >
+            {t('nav.system')}
+          </Text>
           <LanguageSwitcher />
         </Group>
       </Group>
@@ -45,6 +56,10 @@ function Navigation() {
 
 export function AppLayout() {
   const location = useLocation();
+
+  // Watched here rather than on the tasks page so a sync finishing still
+  // refreshes request and release data wherever the user happens to be.
+  useSyncWatcher();
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });

@@ -189,8 +189,142 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List request processing logs */
+        /**
+         * List processing logs
+         * @description Application log entries, newest first. Filters match fields the log
+         *     producer bound onto the record, so `task` returns everything logged
+         *     while that background task was running, including lines emitted deeper
+         *     in the call stack.
+         */
         get: operations["listRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/sync_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue every task
+         * @description Queues every task in dependency order: Sonarr request sync, download
+         *     state refresh, import of finished releases into Sonarr, and re-grab of
+         *     outdated releases. Execution happens in the scheduler process, so the
+         *     response only acknowledges that the work was queued.
+         */
+        post: operations["triggerFullSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/sync_downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a download sync and Sonarr import
+         * @description Refreshes download state from the download client and imports finished
+         *     releases into Sonarr. Intended for a download client to call when a
+         *     torrent finishes, so it deliberately skips the slower Sonarr and
+         *     indexer tasks of a full sync.
+         */
+        post: operations["triggerDownloadSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/run/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a single task
+         * @description Queues one task for immediate execution, equivalent to the run button
+         *     next to each task on the system tasks page.
+         */
+        post: operations["runTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recurring tasks
+         * @description Returns every task the scheduler runs on an interval, along with when it
+         *     last ran and when it is next due. Scheduled runs are not recorded as
+         *     jobs, so this is the only place their outcome is reported.
+         */
+        get: operations["listScheduledTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent task runs
+         * @description History of on-demand runs, newest first. Only runs triggered over the
+         *     API or by a download client appear here; scheduled runs are reported by
+         *     the scheduled tasks endpoint instead.
+         */
+        get: operations["listSyncJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a task run */
+        get: operations["getSyncJob"];
         put?: never;
         post?: never;
         delete?: never;
@@ -464,6 +598,65 @@ export interface components {
         SuccessResponse: {
             success: boolean;
         };
+        /**
+         * @description A unit of background work. `sonarr_sync` pulls wanted episodes from
+         *     Sonarr, `release_sync` refreshes download state from the download
+         *     client, `export` imports finished releases into Sonarr, and `regrab`
+         *     re-downloads releases the indexer has since replaced.
+         * @enum {string}
+         */
+        SyncJobKind: "sonarr_sync" | "release_sync" | "export" | "regrab";
+        /** @enum {string} */
+        SyncJobStatus: "queued" | "running" | "completed" | "failed";
+        /**
+         * @description Origin of the sync request.
+         * @enum {string}
+         */
+        SyncJobTrigger: "api" | "download_client" | "schedule";
+        SyncJob: {
+            id: string;
+            kind: components["schemas"]["SyncJobKind"];
+            status: components["schemas"]["SyncJobStatus"];
+            trigger: components["schemas"]["SyncJobTrigger"];
+            /** Format: date-time */
+            queued_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Wall-clock run time, absent until the job finishes. */
+            duration_ms?: number | null;
+            /** @description Why the run failed. */
+            error?: string | null;
+            /** @description Summary of the work performed. */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        SyncJobsResponse: {
+            jobs: components["schemas"]["SyncJob"][];
+        };
+        ScheduledTask: {
+            kind: components["schemas"]["SyncJobKind"];
+            /** @description How often the scheduler runs this task. */
+            interval_seconds: number;
+            /**
+             * Format: date-time
+             * @description Absent until the scheduler has run the task once.
+             */
+            last_execution?: string | null;
+            last_duration_ms?: number | null;
+            last_status?: components["schemas"]["SyncJobStatus"];
+            last_error?: string | null;
+            /**
+             * Format: date-time
+             * @description Computed from the last execution; absent if never run.
+             */
+            next_execution?: string | null;
+        };
+        ScheduledTasksResponse: {
+            tasks: components["schemas"]["ScheduledTask"][];
+        };
         AddReleaseRequest: {
             magnet_link: string;
             request_ids: string[];
@@ -509,6 +702,8 @@ export interface components {
         RequestId: string;
         /** @description Unique identifier for a release. */
         ReleaseId: string;
+        /** @description Unique identifier for a sync job. */
+        JobId: string;
         /** @description Results page to retrieve (1-indexed). */
         Page: number;
         /** @description Number of items to return per page. */
@@ -521,6 +716,8 @@ export interface components {
         ReleaseStatus: components["schemas"]["ReleaseStatus"];
         /** @description Optional media request identifier to filter results. */
         RequestIdFilter: string;
+        /** @description Optional background task to filter results. */
+        TaskFilter: components["schemas"]["SyncJobKind"];
     };
     requestBodies: never;
     headers: never;
@@ -1306,6 +1503,8 @@ export interface operations {
                 per_page?: components["parameters"]["PerPage"];
                 /** @description Optional media request identifier to filter results. */
                 request_id?: components["parameters"]["RequestIdFilter"];
+                /** @description Optional background task to filter results. */
+                task?: components["parameters"]["TaskFilter"];
             };
             header?: never;
             path?: never;
@@ -1324,6 +1523,222 @@ export interface operations {
             };
             /** @description Invalid pagination or filter parameters. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    triggerFullSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    triggerDownloadSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    runTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task to run. */
+                kind: components["schemas"]["SyncJobKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unknown task. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listScheduledTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recurring tasks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledTasksResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSyncJobs: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of jobs to return, newest first. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recently queued sync jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncJobsResponse"];
+                };
+            };
+            /** @description Invalid pagination parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSyncJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a sync job. */
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested sync job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncJob"];
+                };
+            };
+            /** @description Sync job not found. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
