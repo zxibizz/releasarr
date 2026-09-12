@@ -1,1 +1,10 @@
-frontend/.env
+**/node_modules
+**/.venv
+**/__pycache__
+**/.git
+**/.pytest_cache
+**/.coverage
+**/.env
+**/.DS_Store
+frontend/dist
+backend/.mypy_cache

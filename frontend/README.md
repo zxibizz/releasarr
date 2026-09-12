@@ -1,46 +1,95 @@
-# Getting Started with Create React App
+# Releasarr Frontend (v2)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A ground-up rewrite of the Releasarr web UI built on **Vite + React 19 + TypeScript + Mantine**,
+talking to the same backend contract described by [`../openapi.yaml`](../openapi.yaml).
 
-## Available Scripts
+## Getting started
 
-In the project directory, you can run:
+```bash
+npm install
+npm run dev:mock
+```
 
-### `npm start`
+`dev:mock` starts two processes:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+| Process | Port | Description                                        |
+| ------- | ---- | -------------------------------------------------- |
+| `mock`  | 8001 | Express mock API serving the OpenAPI contract       |
+| `app`   | 3000 | Vite dev server pointed at `http://localhost:8001/api` |
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Open http://localhost:3000 once both are up.
 
-### `npm test`
+To run the app against a real backend instead, set `VITE_API_URL` and use `npm run dev`.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Scripts
 
-### `npm run build`
+| Script                | Purpose                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `npm run dev`         | Vite dev server only (uses `VITE_API_URL` from `.env`)          |
+| `npm run dev:mock`    | Dev server + mock API together                                  |
+| `npm run mock:server` | Mock API only                                                   |
+| `npm run build`       | Typecheck then production build into `dist/`                    |
+| `npm run preview`     | Serve the production build                                      |
+| `npm test`            | Run the Vitest suite once                                       |
+| `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config         |
+| `npm run codegen`     | Regenerate API types from `../openapi.yaml`                     |
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Environment
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+`.env` holds development defaults:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+VITE_API_URL=http://localhost:8001/api
+VITE_API_KEY=dev-secret
+```
 
-### `npm run eject`
+`VITE_API_KEY` is sent as the `X-API-Key` header on every request. Use `.env.local`
+(git-ignored) for real credentials.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Architecture
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```
+src/
+  components/      Shared presentational pieces (StatusBadge, EmptyState, ...)
+  features/
+    requests/      Request list + detail pages, filtering, localization
+    releases/      Release list, card, search, and file mapping
+    logs/          Request activity logs
+  lib/
+    api/client.ts  The single fetch wrapper used by every request
+    api/generated/ Types generated from the OpenAPI contract (do not edit)
+    i18n.ts        i18next setup
+    queryClient.ts TanStack Query defaults
+  utils/           Formatters, file helpers, error helpers, status colors
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+A few conventions worth knowing:
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- **One HTTP entry point.** Everything goes through `apiRequest` in `lib/api/client.ts`,
+  which handles the base URL, auth header, JSON parsing, and `ApiError` normalisation.
+  Features declare their endpoints in `features/<name>/api.ts` and their cache keys and
+  hooks in `features/<name>/queries.ts`.
+- **Types come from the contract.** `src/types.ts` re-exports the generated schema types;
+  run `npm run codegen` after `../openapi.yaml` changes rather than hand-editing types.
+- **Status colors live in one place.** `utils/status.ts` maps a status to a Mantine color
+  and icon, and `StatusBadge` is the only component that renders them.
+- **Route loaders warm the cache.** `router.tsx` uses `ensureQueryData` so pages have data
+  on first paint; components then read the same query keys.
 
-## Learn More
+## File mapping
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Release files map to requests through a discriminated union (`movie` vs `series`, the
+latter carrying season and episode). `useFileMappingForm` keeps an editable flat draft per
+file id, tracks which rows are dirty, and serialises drafts back into the union shape on
+save. The UI is split into `FileMappingForm` (state + save), `FileMappingToolbar`
+(bulk apply, auto-fill, reset), and `FileMappingRow` (a single file's inputs).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Testing
+
+Vitest with Testing Library and a jsdom environment. `src/test/utils.tsx` renders
+components inside the real Mantine, Query, Router, and i18n providers, so tests exercise
+the same tree as the app.
+
+```bash
+npm test
+```
