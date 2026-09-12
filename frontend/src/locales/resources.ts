@@ -183,6 +183,7 @@ export const resources = {
           label: 'Sort by',
           directionLabel: 'Order',
           fields: {
+            age: 'Age',
             seeders: 'Seeders',
             leechers: 'Leechers',
             size: 'Size',
@@ -200,6 +201,12 @@ export const resources = {
         },
         quality: {
           unknown: 'Unknown',
+        },
+        age: {
+          unknown: 'Unknown age',
+          today: 'Today',
+          days_one: '{{count}} day',
+          days_other: '{{count}} days',
         },
         empty: {
           title: 'No release sources found',
@@ -570,6 +577,7 @@ export const resources = {
           label: 'Сортировка',
           directionLabel: 'Порядок',
           fields: {
+            age: 'Возраст',
             seeders: 'Сиды',
             leechers: 'Личеры',
             size: 'Размер',
@@ -587,6 +595,14 @@ export const resources = {
         },
         quality: {
           unknown: 'Неизвестно',
+        },
+        age: {
+          unknown: 'Возраст неизвестен',
+          today: 'Сегодня',
+          days_one: '{{count}} день',
+          days_few: '{{count}} дня',
+          days_many: '{{count}} дней',
+          days_other: '{{count}} дней',
         },
         empty: {
           title: 'Ничего не найдено',

@@ -95,6 +95,7 @@ def search_results_to_dto(results: ReleaseSearchResults) -> ReleaseSearchRespons
             quality=result.quality,
             source=result.source,
             request_id=result.request_id,
+            publish_date=result.publish_date,
         )
         for result in results.results
     ]

@@ -145,6 +145,9 @@ const mockSeriesRequests: SeriesRequest[] = [
   },
 ];
 
+// Relative so mock ages stay realistic however long this data lives.
+const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString();
+
 // Mock release search candidates
 const mockReleaseSearchResults: ReleaseSearchResult[] = [
   {
@@ -158,6 +161,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     leechers: 23,
     quality: '1080p',
     source: 'SPARKS',
+    publish_date: daysAgo(412),
   },
   {
     release_id: 't2',
@@ -170,6 +174,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     leechers: 45,
     quality: '2160p',
     source: 'TERMINAL',
+    publish_date: daysAgo(31),
   },
   {
     release_id: 't3',
@@ -182,6 +187,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     leechers: 67,
     quality: '720p',
     source: 'YIFY',
+    publish_date: daysAgo(0.2),
   },
   {
     release_id: 't4',
@@ -206,6 +212,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     leechers: 34,
     quality: '1080p',
     source: 'REWARD',
+    publish_date: daysAgo(3),
   },
 ];
 
