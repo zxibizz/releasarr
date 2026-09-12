@@ -164,3 +164,7 @@ cython_debug/
 .vscode
 persistence_data
 logs/
+# Allow React query helpers committed from frontend
+!frontend/src/lib/
+!frontend/src/lib/*
+

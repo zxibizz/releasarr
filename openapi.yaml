@@ -1,0 +1,1229 @@
+openapi: 3.0.3
+info:
+  title: Releasarr API
+  version: 0.1.0
+  description: |
+    Contract derived from the new frontend client. Captures the HTTP interface the
+    UI expects today so the backend can be validated and mocked consistently.
+  license:
+    name: Proprietary
+    url: https://github.com/koreetz/releasarr
+servers:
+  - url: https://api.releasarr.dev/api
+    description: Production server
+  - url: http://localhost:8001/api
+    description: Local development server
+security:
+  - ApiKeyAuth: []
+paths:
+  /requests:
+    get:
+      tags: [Requests]
+      summary: List media requests
+      operationId: listRequests
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/RequestStatus'
+        - $ref: '#/components/parameters/RequestType'
+      responses:
+        '200':
+          description: Paged list of media requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestsResponse'
+        '400':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Requests]
+      summary: Create a media request
+      operationId: createRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequestCreate'
+      responses:
+        '201':
+          description: Created request details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+        '400':
+          description: Malformed request payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}:
+    get:
+      tags: [Requests]
+      summary: Retrieve a single request
+      operationId: getRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Requested media request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Requests]
+      summary: Partially update a media request
+      operationId: updateRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaRequestUpdate'
+      responses:
+        '200':
+          description: Updated request details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaRequest'
+        '400':
+          description: Malformed request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for at least one field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Requests]
+      summary: Delete a media request
+      operationId: deleteRequest
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204':
+          description: Request removed.
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/releases:
+    get:
+      tags: [Releases]
+      summary: List releases attached to a request
+      operationId: listReleasesForRequest
+      deprecated: true
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/ReleaseStatus'
+      responses:
+        '200':
+          description: Releases linked to the provided request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasesResponse'
+        '400':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases:
+    get:
+      tags: [Releases]
+      summary: List releases
+      operationId: listReleases
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/ReleaseStatus'
+        - $ref: '#/components/parameters/RequestIdFilter'
+      responses:
+        '200':
+          description: List of releases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasesResponse'
+        '400':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Releases]
+      summary: Register a new release sourced from an external download
+      operationId: createRelease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddReleaseRequest'
+      responses:
+        '201':
+          description: Created release metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '400':
+          description: Malformed request payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A release with the same identifier already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/{releaseId}:
+    get:
+      tags: [Releases]
+      summary: Retrieve release details
+      operationId: getRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '200':
+          description: Release metadata and files.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '404':
+          description: Release not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Releases]
+      summary: Remove a release
+      operationId: deleteRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '204':
+          description: Release removed.
+        '404':
+          description: Release not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/{releaseId}/pause:
+    post:
+      tags: [Releases]
+      summary: Pause an active release
+      operationId: pauseRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '202':
+          description: Pause accepted.
+          headers:
+            Location:
+              description: URL to poll for the async pause operation status.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '400':
+          description: Release cannot be paused because the request was invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Release not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Release is not in a pausable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/{releaseId}/resume:
+    post:
+      tags: [Releases]
+      summary: Resume a paused release
+      operationId: resumeRelease
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '202':
+          description: Resume accepted.
+          headers:
+            Location:
+              description: URL to poll for the async resume operation status.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '400':
+          description: Release cannot be resumed because the request was invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Release not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Release is not in a resumable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/{releaseId}/files/mapping:
+    put:
+      tags: [Releases]
+      summary: Update mappings for release files
+      operationId: updateReleaseFileMappings
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseFileMappingsUpdate'
+      responses:
+        '200':
+          description: Mapping update acknowledgement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Malformed request payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Release or file not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/search:
+    get:
+      tags: [Releases]
+      summary: Search for release sources
+      operationId: searchReleaseSources
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Free-text query string.
+        - in: query
+          name: request_id
+          required: false
+          schema:
+            type: string
+          description: Identifier of the media request initiating the search.
+      responses:
+        '200':
+          description: Release source search results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseSearchResponse'
+        '400':
+          description: Malformed search query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/releases/download:
+    post:
+      tags: [Releases]
+      summary: Queue a release download for a request
+      operationId: queueReleaseDownload
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseDownloadRequest'
+      responses:
+        '202':
+          description: Release source accepted for download.
+          headers:
+            Location:
+              description: URL to poll for the queued download status.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '400':
+          description: Malformed request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Release candidate not found for the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request already has an active download.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /logs:
+    get:
+      tags: [Logs]
+      summary: List request processing logs
+      operationId: listRequestLogs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/RequestIdFilter'
+      responses:
+        '200':
+          description: Request logs matching the supplied filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogsResponse'
+        '400':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key required to authorize requests.
+  parameters:
+    RequestId:
+      in: path
+      name: requestId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a media request.
+    ReleaseId:
+      in: path
+      name: releaseId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a release.
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+      description: Results page to retrieve (1-indexed).
+    PerPage:
+      in: query
+      name: per_page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+      description: Number of items to return per page.
+    RequestStatus:
+      in: query
+      name: status
+      schema:
+        $ref: '#/components/schemas/MediaRequestStatus'
+      description: Filter requests by lifecycle status.
+    RequestType:
+      in: query
+      name: type
+      schema:
+        $ref: '#/components/schemas/MediaType'
+      description: Filter requests by media type.
+    ReleaseStatus:
+      in: query
+      name: status
+      schema:
+        $ref: '#/components/schemas/ReleaseStatus'
+      description: Filter releases by lifecycle status.
+    RequestIdFilter:
+      in: query
+      name: request_id
+      schema:
+        type: string
+      description: Optional media request identifier to filter results.
+  schemas:
+    MediaType:
+      type: string
+      enum: [movie, series]
+    MediaRequestStatus:
+      type: string
+      enum: [pending, searching, downloading, completed, failed]
+    ReleaseStatus:
+      type: string
+      enum: [pending, downloading, seeding, completed, failed]
+    RequestLogLevel:
+      type: string
+      enum: [info, warning, error]
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error identifier.
+        message:
+          type: string
+          description: Human-readable explanation of the error.
+        details:
+          description: Optional key/value data with context for the failure.
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: array
+                items:
+                  type: string
+    RequestsResponse:
+      type: object
+      required: [requests, total, page, per_page]
+      properties:
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaRequest'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+    ReleasesResponse:
+      type: object
+      required: [releases, total, page, per_page]
+      properties:
+        releases:
+          type: array
+          items:
+            $ref: '#/components/schemas/Release'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+    LogsResponse:
+      type: object
+      required: [logs, total, page, per_page]
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestLogEntry'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+    RequestLogMetadata:
+      type: object
+      additionalProperties:
+        anyOf:
+          - type: string
+          - type: number
+          - type: boolean
+    RequestLogEntry:
+      type: object
+      required:
+        - id
+        - occurredAt
+        - timestamp
+        - level
+        - message
+      properties:
+        id:
+          type: string
+        occurredAt:
+          type: integer
+          format: int64
+          description: Milliseconds since Unix epoch when the event occurred.
+        timestamp:
+          type: string
+          description: Human-readable timestamp formatted for display.
+        level:
+          $ref: '#/components/schemas/RequestLogLevel'
+        message:
+          type: string
+        source:
+          type: string
+          description: Origin system or component.
+        metadata:
+          $ref: '#/components/schemas/RequestLogMetadata'
+        stackTrace:
+          type: string
+          description: Optional diagnostic stack trace for error logs.
+    MediaLocalization:
+      type: object
+      description: Title and overview translated to a specific language.
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          nullable: true
+        overview:
+          type: string
+          nullable: true
+    BaseMediaRequest:
+      type: object
+      required:
+        - id
+        - title
+        - year
+        - poster_url
+        - overview
+        - genres
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        year:
+          type: integer
+        poster_url:
+          type: string
+          format: uri
+        overview:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/MediaRequestStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        localizations:
+          type: object
+          description: Localized titles and overviews keyed by 3-letter language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
+    MovieRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseMediaRequest'
+        - type: object
+          required: [type, runtime, imdb_id]
+          properties:
+            type:
+              type: string
+              enum: [movie]
+            runtime:
+              type: integer
+              description: Runtime in minutes.
+            imdb_id:
+              type: string
+              description: IMDb identifier.
+    SeriesRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseMediaRequest'
+        - type: object
+          required:
+            - type
+            - season_number
+            - total_episodes
+            - series_title
+            - series_year
+            - imdb_id
+          properties:
+            type:
+              type: string
+              enum: [series]
+            season_number:
+              type: integer
+            total_episodes:
+              type: integer
+            series_title:
+              type: string
+            series_year:
+              type: integer
+            imdb_id:
+              type: string
+            sonarr_series_id:
+              type: integer
+              nullable: true
+              description: Identifier of the linked Sonarr series when the request was auto-synchronised.
+    MediaRequest:
+      oneOf:
+        - $ref: '#/components/schemas/MovieRequest'
+        - $ref: '#/components/schemas/SeriesRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          movie: '#/components/schemas/MovieRequest'
+          series: '#/components/schemas/SeriesRequest'
+    CreateMovieRequest:
+      type: object
+      required: [type, title, year, runtime, imdb_id]
+      properties:
+        type:
+          type: string
+          enum: [movie]
+        title:
+          type: string
+        year:
+          type: integer
+        runtime:
+          type: integer
+        imdb_id:
+          type: string
+        overview:
+          type: string
+        poster_url:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        localizations:
+          type: object
+          description: Optional localized titles and overviews keyed by language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
+    CreateSeriesRequest:
+      type: object
+      required:
+        - type
+        - title
+        - year
+        - season_number
+        - total_episodes
+        - series_title
+        - series_year
+        - imdb_id
+      properties:
+        type:
+          type: string
+          enum: [series]
+        title:
+          type: string
+        year:
+          type: integer
+        season_number:
+          type: integer
+        total_episodes:
+          type: integer
+        series_title:
+          type: string
+        series_year:
+          type: integer
+        imdb_id:
+          type: string
+        overview:
+          type: string
+        poster_url:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        localizations:
+          type: object
+          description: Optional localized titles and overviews keyed by language codes.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
+    MediaRequestCreate:
+      oneOf:
+        - $ref: '#/components/schemas/CreateMovieRequest'
+        - $ref: '#/components/schemas/CreateSeriesRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          movie: '#/components/schemas/CreateMovieRequest'
+          series: '#/components/schemas/CreateSeriesRequest'
+    MediaRequestUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        poster_url:
+          type: string
+          nullable: true
+        overview:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/MediaRequestStatus'
+        runtime:
+          type: integer
+          nullable: true
+        imdb_id:
+          type: string
+          nullable: true
+        season_number:
+          type: integer
+          nullable: true
+        total_episodes:
+          type: integer
+          nullable: true
+        series_title:
+          type: string
+          nullable: true
+        series_year:
+          type: integer
+          nullable: true
+        localizations:
+          type: object
+          nullable: true
+          description: Replace or clear localized metadata when provided.
+          additionalProperties:
+            $ref: '#/components/schemas/MediaLocalization'
+    Release:
+      type: object
+      required:
+        - id
+        - name
+        - hash
+        - size
+        - files
+        - status
+        - progress
+        - download_speed
+        - upload_speed
+        - seeders
+        - leechers
+        - ratio
+        - added_date
+        - request_ids
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hash:
+          type: string
+        size:
+          type: integer
+          format: int64
+          description: Total bytes.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseFile'
+        status:
+          $ref: '#/components/schemas/ReleaseStatus'
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        download_speed:
+          type: number
+          format: float
+        upload_speed:
+          type: number
+          format: float
+        seeders:
+          type: integer
+        leechers:
+          type: integer
+        ratio:
+          type: number
+          format: float
+        added_date:
+          type: string
+          format: date-time
+        completed_date:
+          type: string
+          format: date-time
+          nullable: true
+        request_ids:
+          type: array
+          items:
+            type: string
+        torrent_source:
+          type: string
+          nullable: true
+        quality:
+          type: string
+          nullable: true
+    ReleaseFile:
+      type: object
+      required: [id, name, size, path]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+        path:
+          type: string
+        request_mapping:
+          $ref: '#/components/schemas/FileRequestMapping'
+    FileRequestMapping:
+      oneOf:
+        - $ref: '#/components/schemas/MovieFileRequestMapping'
+        - $ref: '#/components/schemas/SeriesFileRequestMapping'
+      discriminator:
+        propertyName: mapping_type
+        mapping:
+          movie: '#/components/schemas/MovieFileRequestMapping'
+          series: '#/components/schemas/SeriesFileRequestMapping'
+    MovieFileRequestMapping:
+      type: object
+      required: [request_id, mapping_type]
+      properties:
+        request_id:
+          type: string
+        request_title:
+          type: string
+        mapping_type:
+          type: string
+          enum: [movie]
+    SeriesFileRequestMapping:
+      type: object
+      required: [request_id, mapping_type, season, episode]
+      properties:
+        request_id:
+          type: string
+        request_title:
+          type: string
+        mapping_type:
+          type: string
+          enum: [series]
+        season:
+          type: integer
+          minimum: 1
+        episode:
+          type: integer
+          minimum: 1
+    ReleaseFileMappingInput:
+      type: object
+      required: [file_id]
+      properties:
+        file_id:
+          type: string
+        request_mapping:
+          $ref: '#/components/schemas/FileRequestMapping'
+    ReleaseFileMappingsUpdate:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseFileMappingInput'
+    AsyncOperationResponse:
+      type: object
+      required: [operation, status]
+      properties:
+        operation:
+          type: string
+          description: Identifier of the async operation that was accepted.
+        status:
+          type: string
+          enum: [queued, pending]
+          description: Initial status assigned to the async operation.
+        operation_id:
+          type: string
+          description: Unique identifier clients can use to poll for completion.
+        location:
+          type: string
+          format: uri
+          nullable: true
+          description: Alternative URL for polling if different from the Location header.
+        message:
+          type: string
+          nullable: true
+          description: Human-readable acknowledgement of the queued work.
+        resource_id:
+          type: string
+          nullable: true
+          description: Primary resource impacted by the async operation.
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional metadata describing the accepted work.
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+    AddReleaseRequest:
+      type: object
+      required: [magnet_link, request_ids]
+      properties:
+        magnet_link:
+          type: string
+        request_ids:
+          type: array
+          items:
+            type: string
+    ReleaseSearchResult:
+      type: object
+      required:
+        - release_id
+        - release_name
+        - size
+      properties:
+        release_id:
+          type: string
+        release_name:
+          type: string
+        size:
+          type: string
+        magnet_link:
+          type: string
+          format: uri
+          description: Magnet URI for the release when available.
+          nullable: true
+        torrent_file_url:
+          type: string
+          format: uri
+          description: Direct URL to the .torrent file when available.
+          nullable: true
+        info_url:
+          type: string
+          format: uri
+          description: Link to additional release information on the indexer.
+          nullable: true
+        seeders:
+          type: integer
+          minimum: 0
+          nullable: true
+        leechers:
+          type: integer
+          minimum: 0
+          nullable: true
+        quality:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        request_id:
+          type: string
+          description: Identifier of the media request that initiated the search.
+          nullable: true
+    ReleaseSearchResponse:
+      type: object
+      required: [results, query, total_results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseSearchResult'
+        query:
+          type: string
+        total_results:
+          type: integer
+    ReleaseDownloadRequest:
+      type: object
+      required:
+        - release_id
+      properties:
+        release_id:
+          type: string

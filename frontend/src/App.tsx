@@ -1,59 +1,73 @@
-import React from "react";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import LogsList from "./components/LogsList";
-import SeriesList from "./components/SeriesList";
-import SeriesPage from "./components/SeriesPage";
-import TasksPage from "./components/TasksPage";
+import { AppShell, Container, Group, Text, UnstyledButton } from '@mantine/core';
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
-const App: React.FC = () => {
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
+function Navigation() {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const isRequestsActive =
+    location.pathname === '/' || location.pathname.startsWith('/request');
+
   return (
-    <div>
-      <header className="bg-gray-800">
-        <div className="container mx-auto px-4 py-4">
-          <nav className="mt-2">
-            <ul className="flex space-x-6">
-              <li>
-                <a
-                  href="/"
-                  className="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300"
-                >
-                  Home
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/logs"
-                  className="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300"
-                >
-                  Logs
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/tasks"
-                  className="text-white px-3 py-2 rounded hover:bg-gray-700 hover:text-gray-300"
-                >
-                  Tasks
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </header>
-      <Router>
-        <div className="bg-gray-900 text-white min-h-screen flex">
-          <div className="container mx-auto mt-10">
-            <Routes>
-              <Route path="/" element={<SeriesList />} />
-              <Route path="/show/:showId" element={<SeriesPage />} />
-              <Route path="/logs" element={<LogsList />} />
-              <Route path="/tasks" element={<TasksPage />} />
-            </Routes>
-          </div>
-        </div>
-      </Router>
-    </div>
-  );
-};
+    <Container size="lg" h="100%">
+      <Group h="100%" justify="space-between" wrap="nowrap">
+        <UnstyledButton component={Link} to="/">
+          <Text
+            fz="xl"
+            fw={700}
+            variant="gradient"
+            gradient={{ from: 'blue', to: 'grape', deg: 135 }}
+          >
+            Releasarr
+          </Text>
+        </UnstyledButton>
 
-export default App;
+        <Group gap="lg" wrap="nowrap">
+          <Text
+            component={Link}
+            to="/"
+            size="sm"
+            fw={600}
+            c={isRequestsActive ? 'blue.4' : 'dimmed'}
+            style={{ textDecoration: 'none' }}
+          >
+            {t('nav.requests')}
+          </Text>
+          <LanguageSwitcher />
+        </Group>
+      </Group>
+    </Container>
+  );
+}
+
+export function AppLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
+
+  return (
+    <AppShell header={{ height: 64 }} padding="md">
+      <AppShell.Header
+        style={{
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        <Navigation />
+      </AppShell.Header>
+
+      <AppShell.Main>
+        <Container size="lg" py="xl">
+          <Outlet />
+        </Container>
+      </AppShell.Main>
+    </AppShell>
+  );
+}
+
+export default AppLayout;
