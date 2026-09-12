@@ -51,10 +51,29 @@ describe('RequestsPage', () => {
   });
 
   it('renders requests returned by the API', async () => {
-    renderWithProviders(<RequestsPage />);
+    renderWithProviders(<RequestsPage />, { route: '/?filter=all' });
 
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Severance')).toBeInTheDocument();
+  });
+
+  it('hides requests that have already completed by default', async () => {
+    renderWithProviders(<RequestsPage />);
+
+    // `movie` is completed; `series` is still downloading.
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+    expect(screen.queryByText('The Dark Knight')).not.toBeInTheDocument();
+  });
+
+  it('counts a failed request as still unfinished', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      requests: [{ ...movie, id: '3', title: 'Tenet', status: 'failed' }],
+      total: 1,
+    });
+
+    renderWithProviders(<RequestsPage />);
+
+    expect(await screen.findByText('Tenet')).toBeInTheDocument();
   });
 
   it('applies the type filter from the URL', async () => {

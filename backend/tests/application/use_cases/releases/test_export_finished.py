@@ -20,6 +20,7 @@ from src.application.interfaces.sonarr import (
     SeriesSeasonDetails,
     SonarrEpisode,
 )
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
@@ -210,15 +211,26 @@ def build_use_case(
 ) -> tuple[ExportFinishedSeriesUseCase, FakeReleaseRepository, FakeSonarrService]:
     repository = FakeReleaseRepository(release)
     sonarr = sonarr or FakeSonarrService()
+    request_repository = request_repository or FakeMediaRequestRepository(requests)
     use_case = ExportFinishedSeriesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=sonarr,  # type: ignore[arg-type]
-        file_matcher=ReleaseFileMatcher(),
+        auto_mapper=build_auto_mapper(repository, request_repository),
         download_service=FakeDownloadService(),  # type: ignore[arg-type]
-        request_repository=request_repository  # type: ignore[arg-type]
-        or FakeMediaRequestRepository(requests),
+        request_repository=request_repository,  # type: ignore[arg-type]
     )
     return use_case, repository, sonarr
+
+
+def build_auto_mapper(
+    repository: FakeReleaseRepository,
+    request_repository: FakeMediaRequestRepository,
+) -> ReleaseAutoMapper:
+    return ReleaseAutoMapper(
+        repository=repository,  # type: ignore[arg-type]
+        file_matcher=ReleaseFileMatcher(),
+        request_repository=request_repository,  # type: ignore[arg-type]
+    )
 
 
 async def test_multi_season_pack_maps_each_season_to_its_own_request() -> None:
@@ -318,12 +330,13 @@ async def test_release_stays_unexported_when_the_download_directory_is_unknown()
     release = make_release([make_file("f1", "Avatar/Avatar.S01E01.mkv")], season=1)
     repository = FakeReleaseRepository(release)
     sonarr = FakeSonarrService()
+    request_repository = FakeMediaRequestRepository([])
     use_case = ExportFinishedSeriesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=sonarr,  # type: ignore[arg-type]
-        file_matcher=ReleaseFileMatcher(),
+        auto_mapper=build_auto_mapper(repository, request_repository),
         download_service=FakeDownloadService(None),  # type: ignore[arg-type]
-        request_repository=FakeMediaRequestRepository([]),  # type: ignore[arg-type]
+        request_repository=request_repository,  # type: ignore[arg-type]
     )
 
     result = await use_case.execute()

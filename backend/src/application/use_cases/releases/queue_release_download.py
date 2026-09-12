@@ -20,6 +20,7 @@ from src.application.interfaces.releases import (
     ReleaseRepository,
     ReleaseSearchService,
 )
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import QueueReleaseDownloadCommand
 from src.application.use_cases.releases.dto import AsyncOperationDTO
 from src.application.use_cases.releases.exceptions import (
@@ -40,11 +41,13 @@ class QueueReleaseDownloadUseCase:
         download_service: ReleaseDownloadService,
         search_service: ReleaseSearchService,
         request_repository: MediaRequestRepository | None = None,
+        auto_mapper: ReleaseAutoMapper | None = None,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
         self._search_service = search_service
         self._request_repository = request_repository
+        self._auto_mapper = auto_mapper
 
     async def execute(self, command: QueueReleaseDownloadCommand) -> AsyncOperationDTO:
         release = await self._repository.get_release(command.release_id)
@@ -119,8 +122,27 @@ class QueueReleaseDownloadUseCase:
             quality=candidate.quality,
         )
         await self._mark_request_downloading(effective_request_id)
+        await self._auto_map_files(release)
 
         return queued_download_to_async_operation(queued)
+
+    async def _auto_map_files(self, release: ReleaseRecord) -> None:
+        """Map the files the torrent metadata revealed.
+
+        A grab that only resolved to a magnet link carries no file list, leaving
+        nothing to map. The download is queued and the release stored by now, so a
+        failure here must not surface.
+        """
+        if self._auto_mapper is None or not release.files:
+            return
+        try:
+            await self._auto_mapper.apply(release)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to auto-map release files",
+                release_id=release.id,
+                error=str(exc),
+            )
 
     async def _mark_request_downloading(self, request_id: str) -> None:
         """Reflect the grab on the request straight away.

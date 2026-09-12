@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
@@ -15,9 +16,11 @@ from src.application.interfaces.releases import (
     ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
+    ReleaseRequestSnapshot,
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
 )
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
     FileMappingCommand,
@@ -43,6 +46,7 @@ from src.application.use_cases.releases.queue_release_download import QueueRelea
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
+from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaType, ReleaseStatus
 from src.settings.config import AppSettings
 
@@ -67,6 +71,7 @@ def make_release_record(
     *,
     request_ids: list[str] | None = None,
     files: list[ReleaseFileRecord] | None = None,
+    requests: list[ReleaseRequestSnapshot] | None = None,
     status: ReleaseStatus = ReleaseStatus.PENDING,
 ) -> ReleaseRecord:
     now = datetime.now(UTC)
@@ -87,7 +92,7 @@ def make_release_record(
         request_ids=request_ids or [],
         torrent_source="indexer",
         quality="1080p",
-        requests=[],
+        requests=requests or [],
         last_exported_info_hash=None,
         export_failures_count=0,
         files=files or [],
@@ -95,8 +100,13 @@ def make_release_record(
 
 
 class FakeReleaseRepository:
-    def __init__(self, releases: dict[str, ReleaseRecord] | None = None) -> None:
+    def __init__(
+        self,
+        releases: dict[str, ReleaseRecord] | None = None,
+        known_requests: dict[str, ReleaseRequestSnapshot] | None = None,
+    ) -> None:
         self.releases = releases or {}
+        self.known_requests = known_requests or {}
         self.last_list_call: dict[str, object] | None = None
         self.last_created: CreateReleaseData | None = None
         self.last_updates: list[FileMappingUpdateData] | None = None
@@ -131,7 +141,16 @@ class FakeReleaseRepository:
     async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
         self.last_created = data
         release_id = data.id
-        record = make_release_record(release_id, request_ids=list(data.request_ids))
+        record = make_release_record(
+            release_id,
+            request_ids=list(data.request_ids),
+            files=list(data.files or []),
+            requests=[
+                self.known_requests[request_id]
+                for request_id in data.request_ids
+                if request_id in self.known_requests
+            ],
+        )
         self.releases[release_id] = record
         return record
 
@@ -704,6 +723,73 @@ async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
     assert result.operation == "queue_download"
     assert download_service.calls[0][2] == "magnet:?xt=urn:btih:DUMMYHASH"
     assert download_service.calls[0][3] == b"torrent-data"
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_maps_files_on_grab(monkeypatch) -> None:
+    """A grab carrying torrent metadata must not wait for the export to map files."""
+
+    snapshot = ReleaseRequestSnapshot(
+        id="req-1",
+        sonarr_series_id=42,
+        title="Avatar: The Last Airbender - Season 1",
+        media_type=MediaType.SERIES,
+        season_number=1,
+    )
+    repository = FakeReleaseRepository(known_requests={"req-1": snapshot})
+    download_service = FakeDownloadService()
+    candidate = ReleaseSearchResultRecord(
+        release_id="candidate-3",
+        release_name="Avatar.The.Last.Airbender.S01.1080p.BluRay.x264",
+        size="1 GB",
+        magnet_link=None,
+        torrent_file_url="https://example.test/torrent",
+        info_url=None,
+        seeders=5,
+        leechers=1,
+        quality="1080p",
+        source="indexer",
+        request_id="req-1",
+    )
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="query", total_results=1),
+        torrent_bytes=b"torrent-data",
+    )
+
+    class DummyTorrent:
+        magnet_link = "magnet:?xt=urn:btih:DUMMYHASH"
+        files: ClassVar[list[object]] = [
+            SimpleNamespace(name="Avatar/Avatar.S01E01.mkv", length=2048),
+            SimpleNamespace(name="Avatar/Avatar.S01E02.mkv", length=2048),
+        ]
+
+    import importlib
+
+    queue_module = importlib.import_module(
+        "src.application.use_cases.releases.queue_release_download"
+    )
+    monkeypatch.setattr(
+        queue_module.Torrent,
+        "from_string",
+        classmethod(lambda cls, payload: DummyTorrent()),
+    )
+
+    use_case = QueueReleaseDownloadUseCase(
+        repository,
+        download_service,
+        search_service,
+        auto_mapper=ReleaseAutoMapper(repository, ReleaseFileMatcher()),
+    )
+    command = QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-3")
+
+    await use_case.execute(command)
+
+    assert repository.last_updates is not None
+    assert [
+        (update.mapping.request_id, update.mapping.season, update.mapping.episode)
+        for update in repository.last_updates
+        if update.mapping is not None
+    ] == [("req-1", 1, 1), ("req-1", 1, 2)]
 
 
 @pytest.mark.asyncio
