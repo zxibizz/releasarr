@@ -16,6 +16,8 @@ from src.application.interfaces.sonarr import (
 )
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 
+UNKNOWN_QUALITY_ID = 0
+
 
 class SonarrHttpClient(SonarrService):
     """Interact with Sonarr's HTTP API."""
@@ -133,29 +135,91 @@ class SonarrHttpClient(SonarrService):
         if not files:
             return True
 
-        command_files = [
-            {
-                "path": file.path,
-                "seriesId": file.series_id,
-                "episodeIds": file.episode_ids,
-                "folderName": file.folder_name,
-            }
-            for file in files
-        ]
-
         try:
-            await self._request(
-                "POST",
-                "/command",
-                json={
-                    "name": "ManualImport",
-                    "files": command_files,
-                    "importMode": "Auto",
-                },
-            )
+            resolved = await self._reprocess(files)
+            await self._run_import_command(files, resolved)
             return True
         except (HttpClientError, httpx.HTTPError):
             return False
+
+    async def _reprocess(self, files: list[ManualImportFile]) -> dict[str, dict[str, Any]]:
+        """Run the files through Sonarr's import preview, keyed by path.
+
+        Serves two purposes. It validates the import while we can still react: the
+        ``ManualImport`` command is queued and reports its outcome only in Sonarr's
+        own logs, so a file Sonarr cannot read would otherwise look like a success
+        and leave the release marked as exported. And it resolves the metadata the
+        command would otherwise overwrite with blanks - see ``_command_payload``.
+        """
+
+        payload = await self._request(
+            "POST",
+            "/manualimport",
+            json=[
+                {
+                    "path": file.path,
+                    "seriesId": file.series_id,
+                    "episodeIds": file.episode_ids,
+                    # Sonarr dereferences both, and only fills them in from the file
+                    # name when they arrive as these "unknown" forms.
+                    "quality": {"quality": {"id": UNKNOWN_QUALITY_ID}},
+                    "languages": [],
+                }
+                for file in files
+            ],
+        )
+
+        if not isinstance(payload, list):
+            return {}
+        return {
+            str(item.get("path")): item
+            for item in payload
+            if isinstance(item, dict) and item.get("path")
+        }
+
+    async def _run_import_command(
+        self,
+        files: list[ManualImportFile],
+        resolved: dict[str, dict[str, Any]],
+    ) -> None:
+        await self._request(
+            "POST",
+            "/command",
+            json={
+                "name": "ManualImport",
+                "files": [self._command_payload(file, resolved.get(file.path)) for file in files],
+                # Copy rather than move: the files belong to a torrent we keep seeding.
+                "importMode": "copy",
+            },
+        )
+
+    def _command_payload(
+        self,
+        file: ManualImportFile,
+        resolved: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Build one entry of the ``ManualImport`` command.
+
+        The command applies quality, languages and the release fields verbatim,
+        overwriting whatever it worked out from the file itself, so anything left
+        out here is stored as unknown. The preview's values are passed straight
+        back, which is also what Sonarr's own interactive import does.
+        """
+
+        payload: dict[str, Any] = {
+            "path": file.path,
+            "seriesId": file.series_id,
+            "episodeIds": file.episode_ids,
+            "folderName": file.folder_name,
+        }
+        if resolved is None:
+            return payload
+
+        for key in ("quality", "languages", "releaseGroup", "indexerFlags", "releaseType"):
+            value = resolved.get(key)
+            if value is not None:
+                payload[key] = value
+        return payload
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         return await self._http.request_json(method, path, **kwargs)

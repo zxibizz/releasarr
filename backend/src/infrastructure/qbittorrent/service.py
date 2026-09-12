@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from src.application.interfaces.releases import QueuedDownload, ReleaseDownloadService
 
@@ -33,6 +33,8 @@ class QbittorrentClientPort(Protocol):
     ) -> None: ...
 
     async def delete_torrent(self, info_hash: str, delete_files: bool = False) -> None: ...
+
+    async def get_torrent(self, info_hash: str) -> dict[str, Any] | None: ...
 
 
 @dataclass(slots=True)
@@ -105,6 +107,22 @@ class QbittorrentReleaseDownloadService(ReleaseDownloadService):
 
     async def delete_download(self, release_id: str) -> None:
         await self.client.delete_torrent(release_id, delete_files=True)
+
+    async def get_download_directory(self, info_hash: str) -> str | None:
+        """The torrent's save path as qBittorrent currently reports it.
+
+        Read live rather than from the configured save path: qBittorrent may have
+        been told a different location per torrent, or none at all, in which case
+        it falls back to its own default which we never see.
+        """
+
+        torrent = await self.client.get_torrent(info_hash)
+        if torrent is None:
+            return self.save_path
+        save_path = torrent.get("save_path")
+        if isinstance(save_path, str) and save_path:
+            return save_path
+        return self.save_path
 
 
 __all__ = ["QbittorrentReleaseDownloadService"]

@@ -28,6 +28,32 @@ const seriesRequest: MediaRequest = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
+const seasonRequest = (id: string, seasonNumber: number): MediaRequest => ({
+  ...seriesRequest,
+  id,
+  title: `Avatar - Season ${seasonNumber}`,
+  season_number: seasonNumber,
+  series_title: 'Avatar',
+  sonarr_series_id: 42,
+});
+
+const packFiles: ReleaseFile[] = [
+  { id: 'p1', name: 'Avatar.S01E01.mkv', size: 1, path: 'Avatar/Avatar.S01E01.mkv' },
+  { id: 'p2', name: 'Avatar.S02E01.mkv', size: 1, path: 'Avatar/Avatar.S02E01.mkv' },
+  { id: 'p3', name: '01 - The Awakening.mkv', size: 1, path: 'Avatar/Season 3/01 - The Awakening.mkv' },
+];
+
+const packRequests = [seasonRequest('req-s1', 1), seasonRequest('req-s2', 2), seasonRequest('req-s3', 3)];
+
+const packDefault = {
+  id: 'req-s1',
+  title: 'Avatar - Season 1',
+  type: 'series' as const,
+  seasonNumber: 1,
+  seriesTitle: 'Avatar',
+  sonarrSeriesId: 42,
+};
+
 describe('useFileMappingForm', () => {
   it('starts with empty drafts and no pending changes', () => {
     const { result } = renderHook(() => useFileMappingForm(files));
@@ -104,5 +130,48 @@ describe('useFileMappingForm', () => {
       episode: 7,
     });
     expect(result.current.dirtyFileIds).toEqual([]);
+  });
+
+  it('routes each file of a multi-season pack to the request owning its season', () => {
+    const { result } = renderHook(() => useFileMappingForm(packFiles, packDefault, packRequests));
+
+    expect(result.current.getDraft('p1')).toMatchObject({ requestId: 'req-s1', season: 1 });
+    expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
+    expect(result.current.getDraft('p3')).toMatchObject({ requestId: 'req-s3', season: 3, episode: 1 });
+  });
+
+  it('spreads a pack across seasons when applying one request to all files', () => {
+    const { result } = renderHook(() => useFileMappingForm(packFiles, undefined, packRequests));
+
+    act(() => result.current.applyToAll(packRequests[0], packFiles));
+
+    expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
+    expect(result.current.getDraft('p3')).toMatchObject({ requestId: 'req-s3', season: 3 });
+  });
+
+  it('counts auto-filled episodes per season instead of across the whole release', () => {
+    const unnumbered: ReleaseFile[] = [
+      { id: 'u1', name: 'a.mkv', size: 1, path: 'Avatar/Season 1/a.mkv' },
+      { id: 'u2', name: 'b.mkv', size: 1, path: 'Avatar/Season 1/b.mkv' },
+      { id: 'u3', name: 'c.mkv', size: 1, path: 'Avatar/Season 2/c.mkv' },
+    ];
+
+    const { result } = renderHook(() => useFileMappingForm(unnumbered, packDefault, packRequests));
+
+    act(() => result.current.autoFillEpisodes(unnumbered));
+
+    expect(result.current.getDraft('u1')).toMatchObject({ season: 1, episode: 1 });
+    expect(result.current.getDraft('u2')).toMatchObject({ season: 1, episode: 2 });
+    expect(result.current.getDraft('u3')).toMatchObject({ requestId: 'req-s2', season: 2, episode: 1 });
+  });
+
+  it('leaves series files without an episode number out of the payload', () => {
+    const unparseable: ReleaseFile[] = [
+      { id: 'x1', name: 'behind the scenes.mkv', size: 1, path: 'Avatar/behind the scenes.mkv' },
+    ];
+
+    const { result } = renderHook(() => useFileMappingForm(unparseable, packDefault, packRequests));
+
+    expect(result.current.buildPayload(unparseable)).toEqual([]);
   });
 });

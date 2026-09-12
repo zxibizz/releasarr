@@ -318,6 +318,8 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             sonarr=self._container.services.sonarr,
             file_matcher=ReleaseFileMatcher(),
+            download_service=self._container.services.release_download,
+            request_repository=self._container.repositories.media_requests,
         )
 
     @cached_property
