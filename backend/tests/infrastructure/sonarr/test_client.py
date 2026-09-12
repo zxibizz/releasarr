@@ -8,8 +8,10 @@ from typing import Any
 from unittest.mock import patch
 
 import httpx
+import pytest
 
 from src.application.interfaces.sonarr import ManualImportFile
+from src.infrastructure.http import HttpClientError
 from src.infrastructure.sonarr import SonarrHttpClient
 from src.infrastructure.sonarr import client as sonarr_client
 
@@ -144,3 +146,19 @@ async def test_manual_import_reports_a_command_sonarr_could_not_run() -> None:
     client = build_client(handler)
 
     assert await client.manual_import([IMPORT_FILE]) is False
+
+
+async def test_a_missing_api_key_is_reported_as_configuration_not_as_a_401() -> None:
+    """Sonarr answers an empty key with a bare 401, which reads like a bad key."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("no request should leave without an API key")
+
+    client = SonarrHttpClient(
+        base_url="https://sonarr.example/api/v3",
+        api_key="",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(HttpClientError, match="RELEASARR_SONARR_API_KEY"):
+        await client.get_missing_series()

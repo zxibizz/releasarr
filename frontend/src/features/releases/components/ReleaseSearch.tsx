@@ -1,19 +1,25 @@
 import {
+  ActionIcon,
   Alert,
   Anchor,
   Badge,
   Button,
   Card,
+  Collapse,
   Group,
+  Indicator,
   Paper,
   Select,
   Skeleton,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
+import { IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +40,9 @@ type SortField = 'age' | 'seeders' | 'leechers' | 'size';
 type SortOrder = 'desc' | 'asc';
 
 const SORT_FIELDS: SortField[] = ['age', 'seeders', 'leechers', 'size'];
+
+const DEFAULT_SORT_FIELD: SortField = 'age';
+const DEFAULT_SOURCE_FILTER = 'all';
 
 /**
  * Each field has a different "most useful first" direction: freshest releases
@@ -103,7 +112,13 @@ export function ReleaseSearch({
 }: ReleaseSearchProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // The phone renders a textarea and the desktop an input, so the ref is
+  // assigned by hand rather than typed to one element.
+  const assignInputRef = (node: HTMLInputElement | HTMLTextAreaElement | null) => {
+    inputRef.current = node;
+  };
 
   // Only stretch the actions on a phone; growing them on desktop shrinks the
   // labels below their content width and clips them.
@@ -118,10 +133,15 @@ export function ReleaseSearch({
   const [query, setQuery] = useState(prefillQuery ?? '');
   const [results, setResults] = useState<ReleaseSearchResult[]>([]);
   const [searchedQuery, setSearchedQuery] = useState('');
-  const [sortField, setSortField] = useState<SortField>('age');
-  const [sortOrder, setSortOrder] = useState<SortOrder>(NATURAL_SORT_ORDER.age);
-  const [sourceFilter, setSourceFilter] = useState('all');
+  const [sortField, setSortField] = useState<SortField>(DEFAULT_SORT_FIELD);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(NATURAL_SORT_ORDER[DEFAULT_SORT_FIELD]);
+  const [sourceFilter, setSourceFilter] = useState(DEFAULT_SOURCE_FILTER);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [filtersExpanded, { toggle: toggleFilters }] = useDisclosure(false);
+
+  // The field wraps over several lines on a phone, and an indexer has no use
+  // for the line breaks that puts in the query.
+  const normalizedQuery = query.replace(/\s+/g, ' ').trim();
 
   const search = useMutation({
     mutationFn: (value: string) => releasesApi.search(value, requestId),
@@ -200,9 +220,8 @@ export function ReleaseSearch({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    const trimmed = query.trim();
-    if (trimmed) {
-      search.mutate(trimmed);
+    if (normalizedQuery) {
+      search.mutate(normalizedQuery);
     }
   };
 
@@ -210,8 +229,63 @@ export function ReleaseSearch({
     setQuery('');
     setResults([]);
     setSearchedQuery('');
-    setSourceFilter('all');
+    setSourceFilter(DEFAULT_SOURCE_FILTER);
   };
+
+  // Anything a collapsed panel is hiding shows as a dot on the toggle, so a
+  // narrowed or reordered result list is never unexplained.
+  const filtersAdjusted =
+    sortField !== DEFAULT_SORT_FIELD ||
+    sortOrder !== NATURAL_SORT_ORDER[DEFAULT_SORT_FIELD] ||
+    sourceFilter !== DEFAULT_SOURCE_FILTER;
+
+  const filterControls = (
+    <Group gap="sm" wrap="wrap">
+      <Select
+        label={t('releaseSearch.sort.label')}
+        size="xs"
+        w={{ base: '47%', sm: 150 }}
+        allowDeselect={false}
+        value={sortField}
+        onChange={(value) => {
+          if (!value) return;
+          const field = value as SortField;
+          setSortField(field);
+          setSortOrder(NATURAL_SORT_ORDER[field]);
+        }}
+        data={SORT_FIELDS.map((field) => ({
+          value: field,
+          label: t(`releaseSearch.sort.fields.${field}`),
+        }))}
+      />
+      <Select
+        label={t('releaseSearch.sort.directionLabel')}
+        size="xs"
+        w={{ base: '47%', sm: 140 }}
+        allowDeselect={false}
+        value={sortOrder}
+        onChange={(value) => value && setSortOrder(value as SortOrder)}
+        data={[
+          { value: 'desc', label: t('releaseSearch.sort.directions.desc') },
+          { value: 'asc', label: t('releaseSearch.sort.directions.asc') },
+        ]}
+      />
+      {sources.length > 0 && (
+        <Select
+          label={t('releaseSearch.filters.source.label')}
+          size="xs"
+          w={{ base: '100%', sm: 170 }}
+          allowDeselect={false}
+          value={sourceFilter}
+          onChange={(value) => value && setSourceFilter(value)}
+          data={[
+            { value: DEFAULT_SOURCE_FILTER, label: t('releaseSearch.filters.source.all') },
+            ...sources.map((source) => ({ value: source, label: source })),
+          ]}
+        />
+      )}
+    </Group>
+  );
 
   return (
     <Card withBorder radius="lg" padding="lg">
@@ -220,21 +294,41 @@ export function ReleaseSearch({
 
         <form onSubmit={handleSubmit}>
           <Group align="flex-end" gap="sm" wrap="wrap">
-            <TextInput
-              ref={inputRef}
-              type="search"
-              enterKeyHint="search"
-              style={{ flex: '1 1 220px', minWidth: 0 }}
-              value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
-              placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
-              aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
-            />
+            {isMobile ? (
+              /*
+                Queries here are whole release titles — the prefilled request
+                title alone outruns a phone-width field, and a single line hid
+                everything but its first few words behind a horizontal scroll.
+                The field grows to show the query instead, up to four lines.
+              */
+              <Textarea
+                ref={assignInputRef}
+                autosize
+                minRows={1}
+                maxRows={4}
+                w="100%"
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+              />
+            ) : (
+              <TextInput
+                ref={assignInputRef}
+                type="search"
+                enterKeyHint="search"
+                style={{ flex: '1 1 220px', minWidth: 0 }}
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+              />
+            )}
             <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
               <Button
                 type="submit"
                 loading={search.isPending}
-                disabled={!query.trim()}
+                disabled={!normalizedQuery}
                 style={{ flex: actionFlex }}
               >
                 {t('releaseSearch.actions.search')}
@@ -272,71 +366,60 @@ export function ReleaseSearch({
 
         {visibleResults.length > 0 && (
           <Stack gap="md">
-            <Group justify="space-between" wrap="wrap">
+            <Group justify="space-between" wrap="wrap" gap="xs">
               <Title order={5}>{t('releaseSearch.results.heading')}</Title>
-              <Text size="sm" c="dimmed">
-                {t(
-                  visibleResults.length === results.length
-                    ? 'releaseSearch.results.summary'
-                    : 'releaseSearch.results.summaryWithTotal',
-                  {
-                    count: visibleResults.length,
-                    total: results.length,
-                    query: searchedQuery,
-                  },
+              <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                <Text size="sm" c="dimmed">
+                  {t(
+                    visibleResults.length === results.length
+                      ? 'releaseSearch.results.summary'
+                      : 'releaseSearch.results.summaryWithTotal',
+                    {
+                      count: visibleResults.length,
+                      total: results.length,
+                      query: searchedQuery,
+                    },
+                  )}
+                </Text>
+                {isMobile && (
+                  <Indicator disabled={!filtersAdjusted} size={8} offset={4}>
+                    <ActionIcon
+                      variant={filtersExpanded ? 'filled' : 'default'}
+                      size="lg"
+                      // The dot is only visual, so the label carries the same news.
+                      aria-label={t(
+                        filtersAdjusted
+                          ? 'releaseSearch.filters.toggleActive'
+                          : 'releaseSearch.filters.toggle',
+                      )}
+                      aria-expanded={filtersExpanded}
+                      onClick={toggleFilters}
+                    >
+                      <IconAdjustmentsHorizontal size={18} />
+                    </ActionIcon>
+                  </Indicator>
                 )}
-              </Text>
+              </Group>
             </Group>
 
-            <Group gap="sm" wrap="wrap">
-              <Select
-                label={t('releaseSearch.sort.label')}
-                size="xs"
-                w={{ base: '47%', sm: 150 }}
-                allowDeselect={false}
-                value={sortField}
-                onChange={(value) => {
-                  if (!value) return;
-                  const field = value as SortField;
-                  setSortField(field);
-                  setSortOrder(NATURAL_SORT_ORDER[field]);
-                }}
-                data={SORT_FIELDS.map((field) => ({
-                  value: field,
-                  label: t(`releaseSearch.sort.fields.${field}`),
-                }))}
-              />
-              <Select
-                label={t('releaseSearch.sort.directionLabel')}
-                size="xs"
-                w={{ base: '47%', sm: 140 }}
-                allowDeselect={false}
-                value={sortOrder}
-                onChange={(value) => value && setSortOrder(value as SortOrder)}
-                data={[
-                  { value: 'desc', label: t('releaseSearch.sort.directions.desc') },
-                  { value: 'asc', label: t('releaseSearch.sort.directions.asc') },
-                ]}
-              />
-              {sources.length > 0 && (
-                <Select
-                  label={t('releaseSearch.filters.source.label')}
-                  size="xs"
-                  w={{ base: '100%', sm: 170 }}
-                  allowDeselect={false}
-                  value={sourceFilter}
-                  onChange={(value) => value && setSourceFilter(value)}
-                  data={[
-                    { value: 'all', label: t('releaseSearch.filters.source.all') },
-                    ...sources.map((source) => ({ value: source, label: source })),
-                  ]}
-                />
-              )}
-            </Group>
+            {/*
+              Two rows of sort and source controls on a phone pushed the
+              candidates themselves below the fold, and the default order —
+              freshest first, every source — is the one wanted almost every
+              time. Unmounted while closed so the hidden controls stay out of
+              the tab order.
+            */}
+            {isMobile ? (
+              <Collapse expanded={filtersExpanded} keepMounted={false}>
+                {filterControls}
+              </Collapse>
+            ) : (
+              filterControls
+            )}
 
             <Stack gap="sm">
               {visibleResults.map((candidate) => {
-                const quality = candidate.quality ?? t('releaseSearch.quality.unknown');
+                const quality = candidate.quality;
                 const age = ageInDays(candidate);
                 const publishedAt = candidate.publish_date
                   ? formatDateTime(candidate.publish_date)
@@ -345,18 +428,28 @@ export function ReleaseSearch({
                   <Paper key={candidate.release_id} withBorder radius="md" p="md">
                     <Group justify="space-between" align="center" wrap="wrap" gap="md">
                       <Stack gap={6} style={{ flex: '1 1 240px', minWidth: 0 }}>
-                        <Text size="sm" fw={600} lineClamp={2} className="break-anywhere">
+                        {/*
+                          The name is the whole basis for picking one candidate
+                          over another — group, resolution, audio tracks and
+                          release tags all live in its tail — so it wraps in
+                          full rather than being clamped.
+                        */}
+                        <Text size="sm" fw={600} className="break-anywhere">
                           {candidate.release_name}
                         </Text>
                         <Group gap="sm" fz="xs" c="dimmed" wrap="wrap">
-                          <Badge
-                            size="sm"
-                            radius="xl"
-                            variant="light"
-                            color={QUALITY_COLORS[quality] ?? 'gray'}
-                          >
-                            {quality}
-                          </Badge>
+                          {/* An indexer that reported no quality gets no badge:
+                              "Unknown" named the gap without narrowing it. */}
+                          {quality && (
+                            <Badge
+                              size="sm"
+                              radius="xl"
+                              variant="light"
+                              color={QUALITY_COLORS[quality] ?? 'gray'}
+                            >
+                              {quality}
+                            </Badge>
+                          )}
                           <Text size="xs" title={publishedAt ?? undefined}>
                             🕒 {ageLabel(age)}
                           </Text>

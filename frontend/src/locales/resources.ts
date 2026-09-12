@@ -152,7 +152,6 @@ export const resources = {
           description: 'We could not retrieve releases for this request.',
           fallbackTitle: 'Error loading releases',
         },
-        refreshing: 'Refreshing releases…',
       },
       releaseSearch: {
         title: '🔍 Search Release Sources',
@@ -205,13 +204,12 @@ export const resources = {
           },
         },
         filters: {
+          toggle: 'Filters',
+          toggleActive: 'Filters (active)',
           source: {
             label: 'Source',
             all: 'All sources',
           },
-        },
-        quality: {
-          unknown: 'Unknown',
         },
         age: {
           unknown: 'Unknown age',
@@ -580,7 +578,6 @@ export const resources = {
           description: 'Не удалось получить релизы для этого запроса.',
           fallbackTitle: 'Ошибка загрузки релизов',
         },
-        refreshing: 'Обновляем релизы…',
       },
       releaseSearch: {
         title: '🔍 Поиск релизов',
@@ -633,13 +630,12 @@ export const resources = {
           },
         },
         filters: {
+          toggle: 'Фильтры',
+          toggleActive: 'Фильтры (активны)',
           source: {
             label: 'Источник',
             all: 'Все источники',
           },
-        },
-        quality: {
-          unknown: 'Неизвестно',
         },
         age: {
           unknown: 'Возраст неизвестен',

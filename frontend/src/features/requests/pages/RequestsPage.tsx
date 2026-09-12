@@ -9,7 +9,6 @@ import {
   Indicator,
   Paper,
   ScrollArea,
-  SegmentedControl,
   Select,
   SimpleGrid,
   Skeleton,
@@ -99,17 +98,23 @@ function FilterRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 /**
+ * One control for both filter rows: type and status ask the same kind of
+ * question — pick one of these — and answering them through two different
+ * widgets made the pair read as unrelated.
+ *
  * Seven statuses wrap onto three rows on a phone and push the list off screen,
- * so they scroll sideways as a single row instead.
+ * so the pills scroll sideways as a single row instead.
  */
-function StatusPills({
-  status,
+function FilterPills<T extends string>({
+  value,
+  options,
   onSelect,
   label,
 }: {
-  status: StatusFilter;
-  onSelect: (key: StatusFilter) => void;
-  label: (key: StatusFilter) => string;
+  value: T;
+  options: readonly T[];
+  onSelect: (key: T) => void;
+  label: (key: T) => string;
 }) {
   const isMobile = useIsMobile();
 
@@ -121,12 +126,15 @@ function StatusPills({
       // squeezing every pill down to a single letter.
       w={isMobile ? 'max-content' : undefined}
     >
-      {STATUS_KEYS.map((key) => (
+      {options.map((key) => (
         <Button
           key={key}
           size="xs"
           radius="xl"
-          variant={status === key ? 'filled' : 'default'}
+          variant={value === key ? 'filled' : 'default'}
+          // A filled pill is the only visual mark of the current choice, so
+          // the pressed state has to be announced as well.
+          aria-pressed={value === key}
           onClick={() => onSelect(key)}
           style={{ flexShrink: 0 }}
         >
@@ -188,19 +196,6 @@ function RequestFilters({
   const isMobile = useIsMobile();
   const [expanded, { toggle }] = useDisclosure(false);
 
-  const typeControl = (
-    <SegmentedControl
-      value={type}
-      onChange={(value) => setType(value as TypeFilter)}
-      data={TYPE_KEYS.map((key) => ({ value: key, label: typeLabel(key) }))}
-      size="xs"
-      radius="xl"
-      fullWidth={isMobile}
-      // Only as wide as its three options need on a desktop.
-      w={isMobile ? '100%' : 'fit-content'}
-    />
-  );
-
   const searchInput = (
     <TextInput
       // The label repeated the placeholder verbatim, so on a phone it only cost
@@ -246,10 +241,14 @@ function RequestFilters({
     />
   );
 
-  const typeRow = <FilterRow label={t('requestsList.filters.typeLabel')}>{typeControl}</FilterRow>;
+  const typeRow = (
+    <FilterRow label={t('requestsList.filters.typeLabel')}>
+      <FilterPills value={type} options={TYPE_KEYS} onSelect={setType} label={typeLabel} />
+    </FilterRow>
+  );
   const statusRow = (
     <FilterRow label={t('requestsList.filters.statusLabel')}>
-      <StatusPills status={status} onSelect={setStatus} label={statusLabel} />
+      <FilterPills value={status} options={STATUS_KEYS} onSelect={setStatus} label={statusLabel} />
     </FilterRow>
   );
 

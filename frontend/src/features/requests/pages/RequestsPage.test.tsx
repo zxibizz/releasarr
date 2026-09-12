@@ -99,7 +99,7 @@ describe('RequestsPage', () => {
 
     expect(await screen.findByText('Severance')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Series' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Series' }));
 
     // Narrowing to series must not widen the status back to everything.
     expect(screen.getByText('Severance')).toBeInTheDocument();
