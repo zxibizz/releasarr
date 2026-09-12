@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
@@ -26,6 +28,7 @@ async def test_search_returns_mapped_results() -> None:
                 "leechers": 2,
                 "quality": "1080p",
                 "indexer": "IndexerOne",
+                "publishDate": "2026-03-04T12:30:00Z",
             },
             {
                 "title": "Second Release",
@@ -65,6 +68,10 @@ async def test_search_returns_mapped_results() -> None:
     assert first.quality == "1080p"
     assert first.source == "IndexerOne"
     assert first.request_id == "req-1"
+    assert first.publish_date == datetime(2026, 3, 4, 12, 30, tzinfo=UTC)
+
+    # Prowlarr omits publishDate for some indexers; the field stays optional.
+    assert results.results[1].publish_date is None
 
 
 @pytest.mark.asyncio

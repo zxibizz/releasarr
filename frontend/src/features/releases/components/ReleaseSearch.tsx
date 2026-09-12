@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { releasesApi } from '@/features/releases/api';
 import type { ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/formatters';
 
 const QUALITY_COLORS: Record<string, string> = {
   '2160p': 'grape',
@@ -28,8 +29,23 @@ const QUALITY_COLORS: Record<string, string> = {
   '720p': 'teal',
 };
 
-type SortField = 'seeders' | 'leechers' | 'size';
+type SortField = 'age' | 'seeders' | 'leechers' | 'size';
 type SortOrder = 'desc' | 'asc';
+
+const SORT_FIELDS: SortField[] = ['age', 'seeders', 'leechers', 'size'];
+
+/**
+ * Each field has a different "most useful first" direction: freshest releases
+ * mean the lowest age, while more seeders/leechers/bytes mean the highest value.
+ */
+const NATURAL_SORT_ORDER: Record<SortField, SortOrder> = {
+  age: 'asc',
+  seeders: 'desc',
+  leechers: 'desc',
+  size: 'desc',
+};
+
+const DAY_IN_MS = 86_400_000;
 
 const SIZE_MULTIPLIERS: Record<string, number> = {
   B: 1,
@@ -50,7 +66,20 @@ const parseSizeToBytes = (size: string | null | undefined): number | null => {
   return Number.isNaN(value) || !multiplier ? null : value * multiplier;
 };
 
+/** Age of a release in days, or null when the indexer reported no publish date. */
+const ageInDays = (candidate: ReleaseSearchResult): number | null => {
+  if (!candidate.publish_date) {
+    return null;
+  }
+  const published = new Date(candidate.publish_date).getTime();
+  if (Number.isNaN(published)) {
+    return null;
+  }
+  return Math.max(0, (Date.now() - published) / DAY_IN_MS);
+};
+
 const sortValue = (candidate: ReleaseSearchResult, field: SortField): number | null => {
+  if (field === 'age') return ageInDays(candidate);
   if (field === 'seeders') return candidate.seeders ?? null;
   if (field === 'leechers') return candidate.leechers ?? null;
   return parseSizeToBytes(candidate.size);
@@ -74,11 +103,17 @@ export function ReleaseSearch({
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const ageLabel = (days: number | null): string => {
+    if (days === null) return t('releaseSearch.age.unknown');
+    if (days < 1) return t('releaseSearch.age.today');
+    return t('releaseSearch.age.days', { count: Math.floor(days) });
+  };
+
   const [query, setQuery] = useState(prefillQuery ?? '');
   const [results, setResults] = useState<ReleaseSearchResult[]>([]);
   const [searchedQuery, setSearchedQuery] = useState('');
-  const [sortField, setSortField] = useState<SortField>('seeders');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [sortField, setSortField] = useState<SortField>('age');
+  const [sortOrder, setSortOrder] = useState<SortOrder>(NATURAL_SORT_ORDER.age);
   const [sourceFilter, setSourceFilter] = useState('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -240,12 +275,16 @@ export function ReleaseSearch({
                 w={150}
                 allowDeselect={false}
                 value={sortField}
-                onChange={(value) => value && setSortField(value as SortField)}
-                data={[
-                  { value: 'seeders', label: t('releaseSearch.sort.fields.seeders') },
-                  { value: 'leechers', label: t('releaseSearch.sort.fields.leechers') },
-                  { value: 'size', label: t('releaseSearch.sort.fields.size') },
-                ]}
+                onChange={(value) => {
+                  if (!value) return;
+                  const field = value as SortField;
+                  setSortField(field);
+                  setSortOrder(NATURAL_SORT_ORDER[field]);
+                }}
+                data={SORT_FIELDS.map((field) => ({
+                  value: field,
+                  label: t(`releaseSearch.sort.fields.${field}`),
+                }))}
               />
               <Select
                 label={t('releaseSearch.sort.directionLabel')}
@@ -278,6 +317,10 @@ export function ReleaseSearch({
             <Stack gap="sm">
               {visibleResults.map((candidate) => {
                 const quality = candidate.quality ?? t('releaseSearch.quality.unknown');
+                const age = ageInDays(candidate);
+                const publishedAt = candidate.publish_date
+                  ? formatDateTime(candidate.publish_date)
+                  : null;
                 return (
                   <Paper key={candidate.release_id} withBorder radius="md" p="md">
                     <Group justify="space-between" align="center" wrap="wrap" gap="md">
@@ -294,6 +337,9 @@ export function ReleaseSearch({
                           >
                             {quality}
                           </Badge>
+                          <Text size="xs" title={publishedAt ?? undefined}>
+                            🕒 {ageLabel(age)}
+                          </Text>
                           <Text size="xs">📦 {candidate.size}</Text>
                           <Text size="xs" c="teal">
                             ⬆️ {candidate.seeders ?? 0}

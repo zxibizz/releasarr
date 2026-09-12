@@ -686,6 +686,11 @@ export interface components {
             source?: string | null;
             /** @description Identifier of the media request that initiated the search. */
             request_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the indexer published the release. Used to derive release age.
+             */
+            publish_date?: string | null;
         };
         ReleaseSearchResponse: {
             results: components["schemas"]["ReleaseSearchResult"][];

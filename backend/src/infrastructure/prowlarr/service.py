@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import httpx
 
@@ -100,6 +101,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
             quality=self._safe_str(item.get("quality")),
             source=self._safe_str(item.get("indexer")),
             request_id=request_id,
+            publish_date=self._safe_datetime(item.get("publishDate")),
         )
 
     def _safe_str(self, value: object) -> str | None:
@@ -107,6 +109,18 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
             return None
         result = str(value).strip()
         return result or None
+
+    def _safe_datetime(self, value: object) -> datetime | None:
+        text = self._safe_str(value)
+        if text is None:
+            return None
+        # Prowlarr sends ISO-8601, commonly with a trailing "Z" that
+        # fromisoformat only accepts from Python 3.11 onwards.
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
     def _safe_int(self, value: object) -> int | None:
         if not isinstance(value, int | float | str):
