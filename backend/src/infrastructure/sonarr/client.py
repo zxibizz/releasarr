@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 import httpx
@@ -17,6 +19,10 @@ from src.application.interfaces.sonarr import (
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 
 UNKNOWN_QUALITY_ID = 0
+COMMAND_POLL_INTERVAL_SECONDS = 1.0
+COMMAND_TIMEOUT_SECONDS = 300.0
+COMMAND_SUCCESS_STATUS = "completed"
+TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
 
 
 class SonarrHttpClient(SonarrService):
@@ -137,8 +143,8 @@ class SonarrHttpClient(SonarrService):
 
         try:
             resolved = await self._reprocess(files)
-            await self._run_import_command(files, resolved)
-            return True
+            command_id = await self._run_import_command(files, resolved)
+            return await self._await_command(command_id)
         except (HttpClientError, httpx.HTTPError):
             return False
 
@@ -181,8 +187,8 @@ class SonarrHttpClient(SonarrService):
         self,
         files: list[ManualImportFile],
         resolved: dict[str, dict[str, Any]],
-    ) -> None:
-        await self._request(
+    ) -> int | None:
+        payload = await self._request(
             "POST",
             "/command",
             json={
@@ -192,6 +198,32 @@ class SonarrHttpClient(SonarrService):
                 "importMode": "copy",
             },
         )
+        if not isinstance(payload, dict):
+            return None
+        return self._safe_int(payload.get("id"))
+
+    async def _await_command(self, command_id: int | None) -> bool:
+        """Block until Sonarr has finished running the queued command.
+
+        Sonarr only queues the command, so returning as soon as it is accepted
+        reports success before a single file has been copied, and leaves callers
+        reading series statistics that have not caught up yet. Waiting past the
+        timeout is not treated as a failure: the import is still running and
+        re-queueing it would just duplicate the work.
+        """
+
+        if command_id is None:
+            return True
+
+        deadline = time.monotonic() + COMMAND_TIMEOUT_SECONDS
+        while True:
+            payload = await self._request("GET", f"/command/{command_id}")
+            status = str(payload.get("status") or "") if isinstance(payload, dict) else ""
+            if status in TERMINAL_COMMAND_STATUSES:
+                return status == COMMAND_SUCCESS_STATUS
+            if time.monotonic() >= deadline:
+                return True
+            await asyncio.sleep(COMMAND_POLL_INTERVAL_SECONDS)
 
     def _command_payload(
         self,

@@ -54,6 +54,9 @@ class StubReleaseRepository:
     async def update_file_mappings(self, release_id: str, updates: Any) -> bool:
         return True
 
+    async def update_release(self, release_id: str, **kwargs: Any) -> bool:
+        return True
+
 
 def make_release() -> ReleaseRecord:
     return ReleaseRecord(
