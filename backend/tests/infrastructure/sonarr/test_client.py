@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 
 from src.application.interfaces.sonarr import ManualImportFile
 from src.infrastructure.sonarr import SonarrHttpClient
+from src.infrastructure.sonarr import client as sonarr_client
 
 IMPORT_FILE = ManualImportFile(
     path="/media/downloads/Avatar/Season_01/s01e19.avi",
@@ -35,7 +37,8 @@ async def test_manual_import_reprocesses_before_queueing_the_command() -> None:
     calls: list[tuple[str, Any]] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
-        calls.append((request.url.path, json.loads(request.read())))
+        body = request.read()
+        calls.append((request.url.path, json.loads(body) if body else None))
 
         if request.url.path.endswith("/manualimport"):
             return httpx.Response(
@@ -52,12 +55,18 @@ async def test_manual_import_reprocesses_before_queueing_the_command() -> None:
                     }
                 ],
             )
+        if request.url.path.endswith("/command/7"):
+            return httpx.Response(200, json={"id": 7, "status": "completed"})
         return httpx.Response(201, json={"id": 7})
 
     client = build_client(handler)
     assert await client.manual_import([IMPORT_FILE]) is True
 
-    assert [path for path, _ in calls] == ["/api/v3/manualimport", "/api/v3/command"]
+    assert [path for path, _ in calls] == [
+        "/api/v3/manualimport",
+        "/api/v3/command",
+        "/api/v3/command/7",
+    ]
 
     preview = calls[0][1]
     assert preview[0]["path"] == IMPORT_FILE.path
@@ -84,7 +93,7 @@ async def test_manual_import_reprocesses_before_queueing_the_command() -> None:
 
 
 async def test_manual_import_fails_when_sonarr_cannot_read_the_file() -> None:
-    """A queued command reports nothing back, so the preview is the only guard."""
+    """A rejected preview must stop the release from being recorded as exported."""
 
     command_calls = 0
 
@@ -99,3 +108,39 @@ async def test_manual_import_fails_when_sonarr_cannot_read_the_file() -> None:
 
     assert await client.manual_import([IMPORT_FILE]) is False
     assert command_calls == 0
+
+
+async def test_manual_import_waits_for_the_queued_command_to_finish() -> None:
+    """Sonarr only queues the command, so accepting it is not the same as importing."""
+
+    statuses = iter(("queued", "started", "completed"))
+    polls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal polls
+        if request.url.path.endswith("/manualimport"):
+            return httpx.Response(200, json=[])
+        if request.url.path.endswith("/command/7"):
+            polls += 1
+            return httpx.Response(200, json={"id": 7, "status": next(statuses)})
+        return httpx.Response(201, json={"id": 7})
+
+    client = build_client(handler)
+
+    with patch.object(sonarr_client, "COMMAND_POLL_INTERVAL_SECONDS", 0):
+        assert await client.manual_import([IMPORT_FILE]) is True
+
+    assert polls == 3
+
+
+async def test_manual_import_reports_a_command_sonarr_could_not_run() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/manualimport"):
+            return httpx.Response(200, json=[])
+        if request.url.path.endswith("/command/7"):
+            return httpx.Response(200, json={"id": 7, "status": "failed"})
+        return httpx.Response(201, json={"id": 7})
+
+    client = build_client(handler)
+
+    assert await client.manual_import([IMPORT_FILE]) is False

@@ -101,6 +101,7 @@ class FakeReleaseRepository:
         self.last_created: CreateReleaseData | None = None
         self.last_updates: list[FileMappingUpdateData] | None = None
         self.last_deleted: str | None = None
+        self.release_updates: dict[str, object] = {}
 
     async def list_releases(
         self,
@@ -164,7 +165,10 @@ class FakeReleaseRepository:
         return []
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
-        return release_id in self.releases
+        if release_id not in self.releases:
+            return False
+        self.release_updates.update(kwargs)
+        return True
 
     async def count_by_status(self) -> dict[ReleaseStatus, int]:
         counts: dict[ReleaseStatus, int] = {}
@@ -450,6 +454,35 @@ async def test_update_file_mappings_updates_movie_mapping() -> None:
     assert file_record.mapping is not None
     assert file_record.mapping.mapping_type is MediaType.MOVIE
     assert file_record.mapping.request_id == "req-1"
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_queues_the_release_for_export_again() -> None:
+    """Remapping is how a wrong import gets corrected, so it has to re-export."""
+
+    release = make_release_record("rel-1", files=[make_release_file("file-1")])
+    release.last_exported_info_hash = release.info_hash
+    release.export_failures_count = 5
+    repository = FakeReleaseRepository({release.id: release})
+    use_case = UpdateReleaseFileMappingsUseCase(repository)
+    command = UpdateFileMappingsCommand(
+        release_id="rel-1",
+        files=[
+            FileMappingCommand(
+                file_id="file-1",
+                mapping_type=MediaType.MOVIE.value,
+                request_id="req-1",
+                request_title="Example Movie",
+            )
+        ],
+    )
+
+    await use_case.execute(command)
+
+    assert repository.release_updates == {
+        "last_exported_info_hash": None,
+        "export_failures_count": 0,
+    }
 
 
 @pytest.mark.asyncio

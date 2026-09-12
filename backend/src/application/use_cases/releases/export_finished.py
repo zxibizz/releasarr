@@ -7,7 +7,10 @@ from dataclasses import dataclass
 
 from loguru._logger import Logger
 
-from src.application.interfaces.media_requests import MediaRequestRepository
+from src.application.interfaces.media_requests import (
+    MediaRequestRepository,
+    UpdateMediaRequestData,
+)
 from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseFileRecord,
@@ -15,9 +18,10 @@ from src.application.interfaces.releases import (
     ReleaseRepository,
     ReleaseRequestSnapshot,
 )
-from src.application.interfaces.sonarr import ManualImportFile, SonarrService
+from src.application.interfaces.sonarr import ManualImportFile, SeriesDetails, SonarrService
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.core.logging import get_logger
+from src.domain.enums import MediaRequestStatus
 
 
 @dataclass(slots=True)
@@ -115,6 +119,7 @@ class ExportFinishedSeriesUseCase:
 
         # 4. Process each series
         all_import_files: list[ManualImportFile] = []
+        imported_seasons: set[tuple[int, int]] = set()
 
         for series_id, files in files_by_series.items():
             episodes = await self._sonarr.get_episodes(series_id)
@@ -143,6 +148,7 @@ class ExportFinishedSeriesUseCase:
                         folder_name=release.name,
                     )
                 )
+                imported_seasons.add((series_id, file.mapping.season))
 
         if not all_import_files:
             # Nothing resolvable yet: leave the release unexported so a later run can
@@ -152,14 +158,64 @@ class ExportFinishedSeriesUseCase:
         # 5. Trigger import
         success = await self._sonarr.manual_import(all_import_files)
 
-        if success:
-            await self._repository.update_release(
-                release.id,
-                last_exported_info_hash=release.info_hash,
-                export_failures_count=0,
-            )
-        else:
+        if not success:
             raise RuntimeError("Sonarr manual import command failed")
+
+        await self._repository.update_release(
+            release.id,
+            last_exported_info_hash=release.info_hash,
+            export_failures_count=0,
+        )
+        await self._complete_requests(candidates, imported_seasons)
+
+    async def _complete_requests(
+        self,
+        candidates: list[ReleaseRequestSnapshot],
+        imported_seasons: set[tuple[int, int]],
+    ) -> None:
+        """Close the requests whose season Sonarr now holds in full.
+
+        The Sonarr sync owns this transition everywhere else, but the sequence a
+        finished download runs deliberately leaves that task out, so a request
+        would otherwise stay in flight until the next hourly sync. Sonarr is
+        still asked to confirm rather than assuming the import covered the
+        season, since the release may only carry part of it.
+        """
+
+        if self._request_repository is None:
+            return
+
+        details_by_series: dict[int, SeriesDetails] = {}
+
+        for request in candidates:
+            series_id = request.sonarr_series_id
+            season_number = request.season_number
+            if series_id is None or season_number is None:
+                continue
+            if (series_id, season_number) not in imported_seasons:
+                continue
+
+            details = details_by_series.get(series_id)
+            if details is None:
+                details = await self._sonarr.get_series(series_id)
+                details_by_series[series_id] = details
+
+            season = details.seasons.get(season_number)
+            if season is None or not season.episode_count:
+                continue
+            if season.episode_file_count < season.episode_count:
+                continue
+
+            await self._request_repository.update_request(
+                request.id,
+                UpdateMediaRequestData(status=MediaRequestStatus.COMPLETED),
+            )
+            self._logger.info(
+                "Marked request as completed",
+                request_id=request.id,
+                sonarr_series_id=series_id,
+                season_number=season_number,
+            )
 
     async def _candidate_requests(self, release: ReleaseRecord) -> list[ReleaseRequestSnapshot]:
         """Return the requests a release's files may map to.
