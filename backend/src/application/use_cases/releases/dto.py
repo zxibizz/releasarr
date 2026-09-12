@@ -68,6 +68,7 @@ class ReleaseSearchResultDTO:
     quality: str | None
     source: str | None
     request_id: str | None
+    publish_date: datetime | None = None
 
 
 @dataclass(slots=True)

@@ -1504,6 +1504,11 @@ components:
           type: string
           description: Identifier of the media request that initiated the search.
           nullable: true
+        publish_date:
+          type: string
+          format: date-time
+          description: When the indexer published the release. Used to derive release age.
+          nullable: true
     ReleaseSearchResponse:
       type: object
       required: [results, query, total_results]

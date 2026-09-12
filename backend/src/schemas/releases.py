@@ -90,6 +90,7 @@ class ReleaseSearchResult(APIModel):
     quality: str | None = None
     source: str | None = None
     request_id: str | None = None
+    publish_date: datetime | None = None
 
 
 class ReleaseSearchResponse(APIModel):
