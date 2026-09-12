@@ -31,9 +31,9 @@ const seriesRequest: MediaRequest = {
 };
 
 const files: ReleaseFile[] = [
-  { id: 'f1', name: 'Severance.S02E01.1080p.mkv', size: 100, path: '/d/f1.mkv' },
   { id: 'f2', name: 'Severance.S02E02.1080p.mkv', size: 200, path: '/d/f2.mkv' },
   { id: 'f3', name: 'readme.txt', size: 10, path: '/d/readme.txt' },
+  { id: 'f1', name: 'Severance.S02E01.1080p.mkv', size: 100, path: '/d/f1.mkv' },
 ];
 
 const renderForm = () =>
@@ -52,7 +52,7 @@ describe('FileMappingForm', () => {
     vi.mocked(apiRequest).mockResolvedValue({ requests: [seriesRequest], total: 1 });
   });
 
-  it('lists only video files by default and seeds season/episode from filenames', async () => {
+  it('lists video files by name and seeds season/episode from filenames', async () => {
     renderForm();
 
     expect(await screen.findByText('Severance.S02E01.1080p.mkv')).toBeInTheDocument();
@@ -62,6 +62,16 @@ describe('FileMappingForm', () => {
     const episodeInputs = screen.getAllByLabelText('Episode');
     expect(episodeInputs[0]).toHaveValue('1');
     expect(episodeInputs[1]).toHaveValue('2');
+  });
+
+  it('keeps non-video files behind a collapsed section', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await screen.findByText('Severance.S02E01.1080p.mkv');
+    await user.click(screen.getByRole('button', { name: 'Other files (1)' }));
+
+    expect(await screen.findByText('readme.txt')).toBeInTheDocument();
   });
 
   it('sends the mapped files to the API when saving', async () => {
