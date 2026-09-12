@@ -14,11 +14,11 @@ interface MediaInfoProps {
 
 function InfoItem({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <Paper withBorder radius="md" p="sm">
+    <Paper withBorder radius="md" p={{ base: 'xs', sm: 'sm' }}>
       <Text size="xs" c="dimmed" tt="uppercase">
         {label}
       </Text>
-      <Text size="sm" fw={600} mt={4}>
+      <Text size="sm" fw={600} mt={4} className="break-anywhere">
         {children}
       </Text>
     </Paper>
@@ -34,8 +34,8 @@ export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
     <Image
       src={request.poster_url}
       alt={t('requestCard.posterAlt', { title: request.title })}
-      w={{ base: 100, md: 240 }}
-      h={{ base: 150, md: 360 }}
+      w={{ base: 84, md: 240 }}
+      h={{ base: 126, md: 360 }}
       radius="md"
       fit="cover"
       fallbackSrc="https://placehold.co/240x360?text=No+Poster"
@@ -43,31 +43,39 @@ export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
     />
   );
 
-  const heading = (
-    <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
-      <Stack gap={4} style={{ minWidth: 0 }}>
-        <Title order={2}>{request.title}</Title>
-        <Group gap="xs" c="dimmed">
-          <Text fw={600}>{request.year}</Text>
-          <Text>•</Text>
-          <Text>
-            {isMovie
-              ? formatRuntime(request.runtime)
-              : t('requestCard.season', { season: request.season_number })}
-          </Text>
-        </Group>
-      </Stack>
-
-      <Group gap="sm">
-        {languageSelector}
-        <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
+  /*
+   * Beside the poster the title gets barely half the screen, and a localised
+   * title is often one unbreakable word longer than that — at `h2` it ran past
+   * the card edge. A step down in size plus a mid-word wrap keeps every title
+   * whole, whatever language it came back in.
+   */
+  const titleBlock = (
+    <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+      <Title order={isMobile ? 3 : 2} className="break-anywhere">
+        {request.title}
+      </Title>
+      <Group gap="xs" c="dimmed">
+        <Text fw={600}>{request.year}</Text>
+        <Text>•</Text>
+        <Text>
+          {isMovie
+            ? formatRuntime(request.runtime)
+            : t('requestCard.season', { season: request.season_number })}
+        </Text>
       </Group>
+    </Stack>
+  );
+
+  const controls = (
+    <Group gap="sm" wrap="nowrap">
+      {languageSelector}
+      <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
     </Group>
   );
 
   const details = (
     <>
-      <SimpleGrid cols={{ base: 2, md: 3 }} spacing="sm">
+      <SimpleGrid cols={{ base: 2, md: 3 }} spacing={{ base: 'xs', sm: 'sm' }}>
         <InfoItem label={t('mediaInfo.labels.type')}>
           {isMovie ? `🎬 ${t('mediaType.movie')}` : `📺 ${t('mediaType.series')}`}
         </InfoItem>
@@ -108,19 +116,20 @@ export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
   );
 
   /*
-   * A phone cannot fit the poster beside the details grid, so only the heading
-   * sits next to it and everything else spans the full width underneath.
+   * A phone cannot fit the poster beside the details grid, so only the title
+   * sits next to it and everything else spans the full width underneath. The
+   * language picker and status take a row of their own rather than wrapping
+   * inside the narrow column left over next to the poster.
    */
   if (isMobile) {
     return (
-      <Card withBorder radius="lg" padding="md">
-        <Stack gap="lg">
-          <Group align="flex-start" gap="md" wrap="nowrap">
+      <Card withBorder radius="lg" padding="sm">
+        <Stack gap="md">
+          <Group align="flex-start" gap="sm" wrap="nowrap">
             {poster}
-            <Stack gap="sm" style={{ flex: 1, minWidth: 0 }}>
-              {heading}
-            </Stack>
+            {titleBlock}
           </Group>
+          {controls}
           {details}
         </Stack>
       </Card>
@@ -132,7 +141,10 @@ export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
       <Group align="flex-start" gap="xl" wrap="nowrap">
         {poster}
         <Stack gap="lg" style={{ flex: 1, minWidth: 0 }}>
-          {heading}
+          <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
+            {titleBlock}
+            {controls}
+          </Group>
           {details}
         </Stack>
       </Group>

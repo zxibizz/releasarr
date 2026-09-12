@@ -154,8 +154,14 @@ export function AppLayout() {
     closeMenu();
   }, [location.pathname, location.search, closeMenu]);
 
+  /*
+   * A phone has no width to spare: the shell padding and the container padding
+   * used to stack into a ~26px gutter on each side, so the cards inside them
+   * lost a seventh of the screen before any content was drawn. The shell keeps
+   * its padding only from `sm` up and the container owns the phone gutter.
+   */
   return (
-    <AppShell header={{ height: { base: 56, sm: 64 } }} padding={{ base: 'xs', sm: 'md' }}>
+    <AppShell header={{ height: { base: 56, sm: 64 } }} padding={{ base: 0, sm: 'md' }}>
       <AppShell.Header
         style={{
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
@@ -168,7 +174,12 @@ export function AppLayout() {
       <MobileMenu opened={menuOpened} onClose={closeMenu} />
 
       <AppShell.Main>
-        <Container size="lg" py={{ base: 'md', sm: 'xl' }} className="safe-area-bottom">
+        <Container
+          size="lg"
+          px={{ base: 'xs', sm: 'md' }}
+          py={{ base: 'sm', sm: 'xl' }}
+          className="safe-area-bottom"
+        >
           <Outlet />
         </Container>
       </AppShell.Main>

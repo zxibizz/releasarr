@@ -288,7 +288,7 @@ export function ReleaseSearch({
   );
 
   return (
-    <Card withBorder radius="lg" padding="lg">
+    <Card withBorder radius="lg" padding={isMobile ? 'sm' : 'lg'}>
       <Stack gap="lg">
         <Title order={4}>{t('releaseSearch.title')}</Title>
 
@@ -425,7 +425,12 @@ export function ReleaseSearch({
                   ? formatDateTime(candidate.publish_date)
                   : null;
                 return (
-                  <Paper key={candidate.release_id} withBorder radius="md" p="md">
+                  <Paper
+                    key={candidate.release_id}
+                    withBorder
+                    radius="md"
+                    p={{ base: 'sm', sm: 'md' }}
+                  >
                     <Group justify="space-between" align="center" wrap="wrap" gap="md">
                       <Stack gap={6} style={{ flex: '1 1 240px', minWidth: 0 }}>
                         {/*
@@ -498,7 +503,7 @@ export function ReleaseSearch({
         )}
 
         {searchedQuery && !search.isPending && visibleResults.length === 0 && (
-          <Paper withBorder radius="lg" p="xl">
+          <Paper withBorder radius="lg" p={{ base: 'md', sm: 'xl' }}>
             <Stack align="center" gap="xs">
               <Text fz={32}>🔍</Text>
               <Title order={5}>{t('releaseSearch.empty.title')}</Title>
