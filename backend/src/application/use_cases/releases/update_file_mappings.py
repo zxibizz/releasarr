@@ -45,6 +45,16 @@ class UpdateReleaseFileMappingsUseCase:
         if not updated:
             raise ReleaseNotFoundError(command.release_id)
 
+        # Re-arm the release for export. Remapping is how a wrong or incomplete
+        # import gets corrected, so the export has to run again on what is now a
+        # different set of files - and a run that exhausted its retries deserves
+        # a fresh budget, since the mapping change is the fix for it.
+        await self._repository.update_release(
+            command.release_id,
+            last_exported_info_hash=None,
+            export_failures_count=0,
+        )
+
         self._log_mappings(command)
 
         return True
