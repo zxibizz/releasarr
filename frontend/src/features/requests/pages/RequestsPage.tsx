@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Alert,
+  Box,
   Button,
   Collapse,
   Divider,
@@ -8,6 +9,7 @@ import {
   Indicator,
   Paper,
   ScrollArea,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Skeleton,
@@ -19,7 +21,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconAdjustmentsHorizontal, IconRefresh, IconSearch } from '@tabler/icons-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -27,13 +29,16 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { RequestCard } from '@/features/requests/components/RequestCard';
 import {
   DEFAULT_SORT,
-  FILTER_KEYS,
+  DEFAULT_STATUS,
+  DEFAULT_TYPE,
   SORT_KEYS,
-  TYPE_FILTER_KEYS,
+  STATUS_KEYS,
+  TYPE_KEYS,
   buildStats,
   filterAndSortRequests,
-  type FilterKey,
   type SortKey,
+  type StatusFilter,
+  type TypeFilter,
 } from '@/features/requests/filtering';
 import { localizeRequest, useLanguageSelection } from '@/features/requests/localization';
 import { useRequestsList } from '@/features/requests/queries';
@@ -42,14 +47,19 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequestStatus } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
-const FILTER_LABEL_KEYS: Record<string, string> = {
-  active: 'requestsList.filters.active',
+const TYPE_LABEL_KEYS: Record<TypeFilter, string> = {
   all: 'requestsList.filters.all',
-  movies: 'requestsList.filters.movies',
+  movie: 'requestsList.filters.movies',
   series: 'requestsList.filters.series',
 };
 
-const HEADING_KEYS: Partial<Record<FilterKey, string>> = {
+/** Statuses that aren't a single `MediaRequestStatus` need their own wording. */
+const STATUS_LABEL_KEYS: Partial<Record<StatusFilter, string>> = {
+  active: 'requestsList.filters.active',
+  all: 'requestsList.filters.anyStatus',
+};
+
+const HEADING_KEYS: Partial<Record<StatusFilter, string>> = {
   active: 'requestsList.headings.active',
   all: 'requestsList.headings.all',
 };
@@ -72,25 +82,36 @@ function RequestsSkeleton() {
 }
 
 /**
- * The filters wrap onto three rows on a phone and push the list off screen, so
- * they scroll sideways as a single row instead. Narrowing by media type is a
- * desktop-only affordance: it is the least used of the filters and the status
- * ones are what a phone has room for.
+ * Names the dimension a row of controls belongs to. Both filters offer an "all"
+ * option, so without the label a phone would show two identical pills. The label
+ * sits beside the control rather than above it to cost no vertical space, and
+ * the two share a fixed width so the controls line up.
  */
-function FilterPills({
-  filter,
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Group gap="sm" wrap="nowrap" align="center">
+      <Text size="xs" c="dimmed" tt="uppercase" w={58} style={{ flexShrink: 0 }}>
+        {label}
+      </Text>
+      <Box style={{ flex: 1, minWidth: 0 }}>{children}</Box>
+    </Group>
+  );
+}
+
+/**
+ * Seven statuses wrap onto three rows on a phone and push the list off screen,
+ * so they scroll sideways as a single row instead.
+ */
+function StatusPills({
+  status,
   onSelect,
   label,
 }: {
-  filter: FilterKey;
-  onSelect: (key: FilterKey) => void;
-  label: (key: string) => string;
+  status: StatusFilter;
+  onSelect: (key: StatusFilter) => void;
+  label: (key: StatusFilter) => string;
 }) {
   const isMobile = useIsMobile();
-
-  const keys = isMobile
-    ? FILTER_KEYS.filter((key) => !TYPE_FILTER_KEYS.includes(key))
-    : FILTER_KEYS;
 
   const pills = (
     <Group
@@ -100,12 +121,12 @@ function FilterPills({
       // squeezing every pill down to a single letter.
       w={isMobile ? 'max-content' : undefined}
     >
-      {keys.map((key) => (
+      {STATUS_KEYS.map((key) => (
         <Button
           key={key}
           size="xs"
           radius="xl"
-          variant={filter === key ? 'filled' : 'default'}
+          variant={status === key ? 'filled' : 'default'}
           onClick={() => onSelect(key)}
           style={{ flexShrink: 0 }}
         >
@@ -127,9 +148,12 @@ function FilterPills({
 }
 
 interface RequestFiltersProps {
-  filter: FilterKey;
-  setFilter: (key: FilterKey) => void;
-  filterLabel: (key: string) => string;
+  type: TypeFilter;
+  setType: (key: TypeFilter) => void;
+  typeLabel: (key: TypeFilter) => string;
+  status: StatusFilter;
+  setStatus: (key: StatusFilter) => void;
+  statusLabel: (key: StatusFilter) => string;
   search: string;
   setSearch: (value: string) => void;
   sort: SortKey;
@@ -140,15 +164,18 @@ interface RequestFiltersProps {
 }
 
 /**
- * The pills plus three labelled fields filled a phone screen on their own. Only
- * the pills and the search box stay out in the open here; sort and metadata
- * language move behind a toggle, marked with a dot while either is set so a
- * non-default sort is never hidden silently.
+ * The pills plus three labelled fields filled a phone screen on their own. Type,
+ * status and search stay out in the open here; sort and metadata language move
+ * behind a toggle, marked with a dot while either is set so a non-default sort
+ * is never hidden silently.
  */
 function RequestFilters({
-  filter,
-  setFilter,
-  filterLabel,
+  type,
+  setType,
+  typeLabel,
+  status,
+  setStatus,
+  statusLabel,
   search,
   setSearch,
   sort,
@@ -160,6 +187,19 @@ function RequestFilters({
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [expanded, { toggle }] = useDisclosure(false);
+
+  const typeControl = (
+    <SegmentedControl
+      value={type}
+      onChange={(value) => setType(value as TypeFilter)}
+      data={TYPE_KEYS.map((key) => ({ value: key, label: typeLabel(key) }))}
+      size="xs"
+      radius="xl"
+      fullWidth={isMobile}
+      // Only as wide as its three options need on a desktop.
+      w={isMobile ? '100%' : 'fit-content'}
+    />
+  );
 
   const searchInput = (
     <TextInput
@@ -206,10 +246,18 @@ function RequestFilters({
     />
   );
 
+  const typeRow = <FilterRow label={t('requestsList.filters.typeLabel')}>{typeControl}</FilterRow>;
+  const statusRow = (
+    <FilterRow label={t('requestsList.filters.statusLabel')}>
+      <StatusPills status={status} onSelect={setStatus} label={statusLabel} />
+    </FilterRow>
+  );
+
   if (!isMobile) {
     return (
-      <Stack gap="md">
-        <FilterPills filter={filter} onSelect={setFilter} label={filterLabel} />
+      <Stack gap="sm">
+        {typeRow}
+        {statusRow}
         <Group align="flex-end" gap="sm" wrap="wrap">
           {searchInput}
           {sortSelect}
@@ -219,19 +267,26 @@ function RequestFilters({
     );
   }
 
-  const adjusted = sort !== DEFAULT_SORT || language !== null;
+  // Anything the collapsed panel is hiding shows as a dot on the toggle, so a
+  // narrowed list is never unexplained.
+  const adjusted =
+    type !== DEFAULT_TYPE ||
+    status !== DEFAULT_STATUS ||
+    sort !== DEFAULT_SORT ||
+    language !== null;
 
   return (
     <Stack gap="xs">
-      <FilterPills filter={filter} onSelect={setFilter} label={filterLabel} />
-
       <Group gap="xs" wrap="nowrap" align="center">
         {searchInput}
         <Indicator disabled={!adjusted} size={8} offset={4}>
           <ActionIcon
             variant={expanded ? 'filled' : 'default'}
             size="lg"
-            aria-label={t('requestsList.moreFilters')}
+            // The dot is only visual, so the label carries the same news.
+            aria-label={t(
+              adjusted ? 'requestsList.filtersToggleActive' : 'requestsList.filtersToggle',
+            )}
             aria-expanded={expanded}
             onClick={toggle}
           >
@@ -241,11 +296,16 @@ function RequestFilters({
       </Group>
 
       {/*
-        Unmounted while closed so the hidden selects stay out of the tab order;
-        both read their value from the URL, so there is no state to preserve.
+        Every control lives behind the toggle on a phone: the default list is the
+        one wanted almost every time, and four rows of filters above it cost more
+        than they earned. Unmounted while closed so the hidden controls stay out
+        of the tab order — all of them read their value from the URL, so there is
+        no state to preserve.
       */}
       <Collapse expanded={expanded} keepMounted={false}>
         <Stack gap="sm" pt="xs">
+          {typeRow}
+          {statusRow}
           {sortSelect}
           {languageSelect}
         </Stack>
@@ -257,7 +317,8 @@ function RequestFilters({
 export function RequestsPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const { filter, sort, search, setFilter, setSort, setSearch } = useRequestFilters();
+  const { type, status, sort, search, setType, setStatus, setSort, setSearch } =
+    useRequestFilters();
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
   const { availableLanguages, language, setLanguage } = useLanguageSelection(requests);
 
@@ -267,21 +328,32 @@ export function RequestsPage() {
   );
 
   const visibleRequests = useMemo(
-    () => filterAndSortRequests(localizedRequests, { filter, sort, search }),
-    [localizedRequests, filter, sort, search],
+    () => filterAndSortRequests(localizedRequests, { type, status, sort, search }),
+    [localizedRequests, type, status, sort, search],
   );
 
   const stats = useMemo(() => buildStats(requests), [requests]);
 
-  const filterLabel = (key: string) =>
-    FILTER_LABEL_KEYS[key] ? t(FILTER_LABEL_KEYS[key]) : t(`status.${key}`);
+  const typeLabel = (key: TypeFilter) => t(TYPE_LABEL_KEYS[key]);
+  const statusLabel = (key: StatusFilter) => {
+    const labelKey = STATUS_LABEL_KEYS[key];
+    return labelKey ? t(labelKey) : t(`status.${key}`);
+  };
 
-  // The two filters that aren't a single status read badly through the
-  // "{{label}} Requests" template, so they name the list themselves.
-  const headingKey = HEADING_KEYS[filter];
-  const heading = headingKey
+  // The statuses that aren't a single `MediaRequestStatus` read badly through the
+  // "{{label}} Requests" template, so they name the list themselves. A chosen
+  // type qualifies whichever heading results.
+  const headingKey = HEADING_KEYS[status];
+  const statusHeading = headingKey
     ? t(headingKey)
-    : t('requestsList.headings.filtered', { label: filterLabel(filter) });
+    : t('requestsList.headings.filtered', { label: statusLabel(status) });
+  const heading =
+    type === 'all'
+      ? statusHeading
+      : t('requestsList.headings.withType', {
+          status: statusHeading,
+          type: typeLabel(type),
+        });
 
   if (isLoading && requests.length === 0) {
     return (
@@ -330,9 +402,12 @@ export function RequestsPage() {
       </Group>
 
       <RequestFilters
-        filter={filter}
-        setFilter={setFilter}
-        filterLabel={filterLabel}
+        type={type}
+        setType={setType}
+        typeLabel={typeLabel}
+        status={status}
+        setStatus={setStatus}
+        statusLabel={statusLabel}
         search={search}
         setSearch={setSearch}
         sort={sort}
@@ -378,13 +453,18 @@ function RequestStats({ stats }: { stats: ReturnType<typeof buildStats> }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
 
+  /*
+   * The whole panel is desktop-only. Every number in it repeats something a
+   * phone already shows: the totals match the result count above the list, the
+   * type split is in the type filter, and each request carries its own status
+   * badge on its card.
+   */
+  if (isMobile) {
+    return null;
+  }
+
   const breakdown = (
-    <Group
-      gap="xs"
-      wrap={isMobile ? 'nowrap' : 'wrap'}
-      w={isMobile ? 'max-content' : undefined}
-      py={isMobile ? 2 : undefined}
-    >
+    <Group gap="xs" wrap="wrap">
       {(Object.keys(stats.byStatus) as MediaRequestStatus[]).map((status) => (
         <Group key={status} gap={6} style={{ flexShrink: 0 }}>
           <StatusBadge status={status} size="sm" />
@@ -395,16 +475,6 @@ function RequestStats({ stats }: { stats: ReturnType<typeof buildStats> }) {
       ))}
     </Group>
   );
-
-  if (isMobile) {
-    /*
-     * The four headline totals cost roughly a third of a phone screen to repeat
-     * numbers already on it: the total matches the result count above the list,
-     * and the movie/series split is one tap away on the pills. Only the
-     * per-status breakdown is unique, so only it survives.
-     */
-    return <ScrollArea type="never">{breakdown}</ScrollArea>;
-  }
 
   return (
     <Paper withBorder radius="lg" p="md">
