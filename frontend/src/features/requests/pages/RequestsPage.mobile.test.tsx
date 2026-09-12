@@ -22,7 +22,8 @@ const movie: MediaRequest = {
   poster_url: 'https://example.test/poster.jpg',
   overview: 'Batman raises the stakes in his war on crime.',
   genres: ['Action', 'Crime'],
-  status: 'completed',
+  // Unfinished, so the default filter keeps it in the list.
+  status: 'downloading',
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-02T00:00:00.000Z',
 };
@@ -62,6 +63,15 @@ describe('RequestsPage on a phone', () => {
     expect(await screen.findByRole('combobox', { name: /sort requests/i })).toBeInTheDocument();
   });
 
+  it('leaves the media type filters to the desktop layout', async () => {
+    renderWithProviders(<RequestsPage />);
+
+    await screen.findByText('The Dark Knight');
+    expect(screen.queryByRole('button', { name: 'Movies' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Series' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In progress' })).toBeInTheDocument();
+  });
+
   it('drops the headline totals that the result count already shows', async () => {
     renderWithProviders(<RequestsPage />);
 
@@ -78,6 +88,7 @@ describe('RequestsPage on a phone', () => {
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
     expect(screen.getByText(/war on crime/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Movies' })).toBeInTheDocument();
 
     const totals = screen.getByText(/total requests/i).closest('div');
     expect(totals && within(totals).getByText('1')).toBeInTheDocument();

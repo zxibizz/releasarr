@@ -1,6 +1,7 @@
 import type { MediaRequest, MediaRequestStatus } from '@/types';
 
 export const FILTER_KEYS = [
+  'active',
   'all',
   'movies',
   'series',
@@ -16,8 +17,15 @@ export const SORT_KEYS = ['created_desc', 'created_asc', 'title_asc', 'title_des
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type SortKey = (typeof SORT_KEYS)[number];
 
-export const DEFAULT_FILTER: FilterKey = 'all';
+/**
+ * Requests still needing attention. A failed request counts: it has not
+ * succeeded, and it is the one most likely to need looking at.
+ */
+export const DEFAULT_FILTER: FilterKey = 'active';
 export const DEFAULT_SORT: SortKey = 'created_desc';
+
+/** Filters that narrow by media type rather than by progress. */
+export const TYPE_FILTER_KEYS: readonly FilterKey[] = ['movies', 'series'];
 
 export const isFilterKey = (value: string | null): value is FilterKey =>
   Boolean(value) && FILTER_KEYS.includes(value as FilterKey);
@@ -34,6 +42,7 @@ const SORTERS: Record<SortKey, (a: MediaRequest, b: MediaRequest) => number> = {
 
 const matchesFilter = (request: MediaRequest, filter: FilterKey): boolean => {
   if (filter === 'all') return true;
+  if (filter === 'active') return request.status !== 'completed';
   if (filter === 'movies') return request.type === 'movie';
   if (filter === 'series') return request.type === 'series';
   return request.status === filter;
