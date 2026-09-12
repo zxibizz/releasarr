@@ -1,10 +1,15 @@
 import type { MediaRequest, MediaRequestStatus } from '@/types';
 
-export const FILTER_KEYS = [
+/**
+ * Media type and progress are independent questions — "which series are still
+ * downloading?" needs both — so they are separate filters rather than one list
+ * of pills where picking a type threw away the status.
+ */
+export const TYPE_KEYS = ['all', 'movie', 'series'] as const;
+
+export const STATUS_KEYS = [
   'active',
   'all',
-  'movies',
-  'series',
   'pending',
   'searching',
   'downloading',
@@ -14,21 +19,24 @@ export const FILTER_KEYS = [
 
 export const SORT_KEYS = ['created_desc', 'created_asc', 'title_asc', 'title_desc'] as const;
 
-export type FilterKey = (typeof FILTER_KEYS)[number];
+export type TypeFilter = (typeof TYPE_KEYS)[number];
+export type StatusFilter = (typeof STATUS_KEYS)[number];
 export type SortKey = (typeof SORT_KEYS)[number];
+
+export const DEFAULT_TYPE: TypeFilter = 'all';
 
 /**
  * Requests still needing attention. A failed request counts: it has not
  * succeeded, and it is the one most likely to need looking at.
  */
-export const DEFAULT_FILTER: FilterKey = 'active';
+export const DEFAULT_STATUS: StatusFilter = 'active';
 export const DEFAULT_SORT: SortKey = 'created_desc';
 
-/** Filters that narrow by media type rather than by progress. */
-export const TYPE_FILTER_KEYS: readonly FilterKey[] = ['movies', 'series'];
+export const isTypeFilter = (value: string | null): value is TypeFilter =>
+  Boolean(value) && TYPE_KEYS.includes(value as TypeFilter);
 
-export const isFilterKey = (value: string | null): value is FilterKey =>
-  Boolean(value) && FILTER_KEYS.includes(value as FilterKey);
+export const isStatusFilter = (value: string | null): value is StatusFilter =>
+  Boolean(value) && STATUS_KEYS.includes(value as StatusFilter);
 
 export const isSortKey = (value: string | null): value is SortKey =>
   Boolean(value) && SORT_KEYS.includes(value as SortKey);
@@ -40,12 +48,13 @@ const SORTERS: Record<SortKey, (a: MediaRequest, b: MediaRequest) => number> = {
   title_desc: (a, b) => b.title.localeCompare(a.title),
 };
 
-const matchesFilter = (request: MediaRequest, filter: FilterKey): boolean => {
-  if (filter === 'all') return true;
-  if (filter === 'active') return request.status !== 'completed';
-  if (filter === 'movies') return request.type === 'movie';
-  if (filter === 'series') return request.type === 'series';
-  return request.status === filter;
+const matchesType = (request: MediaRequest, type: TypeFilter): boolean =>
+  type === 'all' || request.type === type;
+
+const matchesStatus = (request: MediaRequest, status: StatusFilter): boolean => {
+  if (status === 'all') return true;
+  if (status === 'active') return request.status !== 'completed';
+  return request.status === status;
 };
 
 const matchesSearch = (request: MediaRequest, search: string): boolean => {
@@ -56,12 +65,22 @@ const matchesSearch = (request: MediaRequest, search: string): boolean => {
 
 export const filterAndSortRequests = (
   requests: MediaRequest[],
-  { filter, sort, search }: { filter: FilterKey; sort: SortKey; search: string },
+  {
+    type,
+    status,
+    sort,
+    search,
+  }: { type: TypeFilter; status: StatusFilter; sort: SortKey; search: string },
 ): MediaRequest[] => {
   const normalizedSearch = search.trim().toLowerCase();
 
   return requests
-    .filter((request) => matchesFilter(request, filter) && matchesSearch(request, normalizedSearch))
+    .filter(
+      (request) =>
+        matchesType(request, type) &&
+        matchesStatus(request, status) &&
+        matchesSearch(request, normalizedSearch),
+    )
     .sort(SORTERS[sort]);
 };
 
