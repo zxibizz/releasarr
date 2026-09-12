@@ -182,6 +182,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/discover/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search TVDB or TMDB for media to request
+         * @description Results come from the metadata provider for the given type - TVDB for
+         *     series, TMDB for movies - and are annotated with what releasarr already
+         *     holds: whether Sonarr/Radarr has the item in its library, and which of
+         *     its seasons already have a request. The annotation is best-effort, so a
+         *     Sonarr or Radarr that cannot be reached leaves the results unannotated
+         *     rather than failing the search.
+         *
+         *     Omitting `type` searches both providers and returns one mixed list,
+         *     ordered by how closely each title matches the term. Only one of the two
+         *     providers has to be configured, and a provider that cannot be reached is
+         *     left out rather than failing the search.
+         */
+        get: operations["searchMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/series/{tvdbId}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seasons of a series, with their request state
+         * @description Season numbers come from Sonarr's own lookup, so they are the ones an add
+         *     would actually monitor. For a series already in the library each season
+         *     also reports whether Sonarr monitors it and whether it already has a
+         *     request.
+         */
+        get: operations["listSeriesSeasons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/root-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the library locations media can be added to */
+        get: operations["listRootFolders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add media to Sonarr/Radarr and request it
+         * @description Adds the picked series or movie to Sonarr/Radarr by its TVDB/TMDB id,
+         *     monitoring the selected seasons, and creates the matching media requests
+         *     before responding. Media already in the library is not re-added: only the
+         *     monitoring is widened to cover the selection.
+         */
+        post: operations["addRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/logs": {
         parameters: {
             query?: never;
@@ -703,6 +796,69 @@ export interface components {
         ReleaseDownloadRequest: {
             release_id: string;
         };
+        MediaSearchResult: {
+            type: components["schemas"]["MediaType"];
+            /** @description TVDB id for a series, TMDB id for a movie. What the add is keyed by. */
+            provider_id: number;
+            title: string;
+            year?: number | null;
+            overview?: string | null;
+            poster_url?: string | null;
+            /**
+             * @description Whether Sonarr/Radarr already holds this media.
+             * @default false
+             */
+            in_library: boolean;
+            /** @description Sonarr series id or Radarr movie id, when already in the library. */
+            library_id?: number | null;
+            /** @description Season numbers that already have a request. Series only. */
+            requested_seasons?: number[];
+            /** @description Identifier of the existing request. Movies only. */
+            request_id?: string | null;
+            /** @description Status of the existing request. Movies only. */
+            request_status?: components["schemas"]["MediaRequestStatus"] | null;
+        };
+        MediaSearchResponse: {
+            results: components["schemas"]["MediaSearchResult"][];
+        };
+        SeasonOption: {
+            season_number: number;
+            /**
+             * @description Whether Sonarr monitors the season today.
+             * @default false
+             */
+            monitored: boolean;
+            /** @default false */
+            requested: boolean;
+            request_id?: string | null;
+        };
+        SeriesSeasonsResponse: {
+            tvdb_id: number;
+            /** @default false */
+            in_library: boolean;
+            library_id?: number | null;
+            seasons: components["schemas"]["SeasonOption"][];
+        };
+        RootFolder: {
+            path: string;
+            /** @description Bytes available, as the *arr app reports them. */
+            free_space?: number | null;
+        };
+        RootFoldersResponse: {
+            folders: components["schemas"]["RootFolder"][];
+        };
+        AddRequestPayload: {
+            type: components["schemas"]["MediaType"];
+            /** @description TVDB id for a series, TMDB id for a movie. */
+            provider_id: number;
+            root_folder_path: string;
+            /** @description Seasons to request. Required for series, rejected for movies. */
+            season_numbers?: number[] | null;
+        };
+        AddRequestResponse: {
+            /** @description One request per requested season for a series, a single one for a movie. */
+            requests: components["schemas"]["MediaRequest"][];
+        };
     };
     responses: never;
     parameters: {
@@ -712,6 +868,8 @@ export interface components {
         ReleaseId: string;
         /** @description Unique identifier for a sync job. */
         JobId: string;
+        /** @description TVDB identifier of a series. */
+        TvdbId: number;
         /** @description Results page to retrieve (1-indexed). */
         Page: number;
         /** @description Number of items to return per page. */
@@ -1493,6 +1651,245 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    searchMedia: {
+        parameters: {
+            query: {
+                /** @description Free-text title to search for. */
+                q: string;
+                /**
+                 * @description Restrict the search to one media type. Both are searched when
+                 *     omitted.
+                 */
+                type?: components["schemas"]["MediaType"];
+                /**
+                 * @description Preferred language for the titles and overviews, as a 2- or
+                 *     3-letter code. Takes precedence over the configured metadata
+                 *     languages, and is ignored if the provider has no translation.
+                 */
+                lang?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metadata provider matches, annotated with library and request state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaSearchResponse"];
+                };
+            };
+            /** @description Invalid search parameters. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr, Radarr or the metadata provider could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The metadata provider is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSeriesSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description TVDB identifier of a series. */
+                tvdbId: components["parameters"]["TvdbId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seasons the series offers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description No series matches the TVDB id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or the metadata provider could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRootFolders: {
+        parameters: {
+            query: {
+                /** @description Whether to read Sonarr's or Radarr's root folders. */
+                type: components["schemas"]["MediaType"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Root folders configured in the *arr app, unreachable ones omitted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootFoldersResponse"];
+                };
+            };
+            /** @description Invalid media type. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    addRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddRequestPayload"];
+            };
+        };
+        responses: {
+            /** @description The created requests, one per season for a series. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddRequestResponse"];
+                };
+            };
+            /** @description Invalid root folder, season selection or quality profile. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No media matches the provider id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

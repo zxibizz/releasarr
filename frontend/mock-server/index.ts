@@ -6,7 +6,7 @@ import express from 'express';
 import morgan from 'morgan';
 
 import { mockStore } from './store';
-import type { MediaRequest, Release } from '../src/types';
+import type { MediaRequest, MediaType, Release } from '../src/types';
 
 const DEFAULT_PORT = 8001;
 const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 10);
@@ -204,6 +204,76 @@ api.get('/releases/search', async (req, res) => {
     query,
     total_results: results.length,
   });
+});
+
+const parseMediaType = (value: unknown): MediaType | undefined =>
+  value === 'movie' || value === 'series' ? value : undefined;
+
+api.get('/discover/search', async (req, res) => {
+  const query = ((req.query.q as string | undefined) ?? '').trim();
+  const rawType = req.query.type as string | undefined;
+  const type = parseMediaType(rawType);
+  const language = (req.query.lang as string | undefined) ?? null;
+  if (!query) {
+    return res.status(422).json({ message: 'Query parameter q is required' });
+  }
+  // An absent type searches both kinds; a type that is neither is still a bug.
+  if (rawType && !type) {
+    return res.status(422).json({ message: 'Query parameter type must be movie or series' });
+  }
+
+  const results = await mockStore.searchDiscoverMedia(query, type ?? null, language);
+  res.json({ results });
+});
+
+api.get('/discover/series/:tvdbId/seasons', async (req, res) => {
+  const tvdbId = Number.parseInt(req.params.tvdbId, 10);
+  if (!Number.isInteger(tvdbId) || tvdbId < 1) {
+    return res.status(422).json({ message: 'tvdbId must be a positive integer' });
+  }
+
+  const seasons = await mockStore.listDiscoverSeasons(tvdbId);
+  if (!seasons) {
+    return res.status(404).json({ message: 'No series matches the TVDB id' });
+  }
+  res.json(seasons);
+});
+
+api.get('/discover/root-folders', async (req, res) => {
+  const type = parseMediaType(req.query.type);
+  if (!type) {
+    return res.status(422).json({ message: 'Query parameter type must be movie or series' });
+  }
+  res.json({ folders: await mockStore.listDiscoverRootFolders(type) });
+});
+
+api.post('/discover/requests', async (req, res) => {
+  const payload = req.body ?? {};
+  const type = parseMediaType(payload.type);
+  const providerId = Number.parseInt(String(payload.provider_id), 10);
+  if (!type || !Number.isInteger(providerId)) {
+    return res.status(422).json({ message: 'type and provider_id are required' });
+  }
+
+  try {
+    const requests = await mockStore.addDiscoverRequest({
+      type,
+      provider_id: providerId,
+      root_folder_path: String(payload.root_folder_path ?? ''),
+      season_numbers: Array.isArray(payload.season_numbers) ? payload.season_numbers : undefined,
+    });
+    res.status(201).json({ requests });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'unknown';
+    if (code === 'media_not_found') {
+      return res.status(404).json({ code, message: 'No media matches the provider id' });
+    }
+    if (code === 'invalid_root_folder' || code === 'invalid_season_selection') {
+      return res.status(400).json({ code, message: `Add rejected: ${code}` });
+    }
+    console.error('Failed to add discover request', error);
+    return res.status(500).json({ message: 'Failed to add request' });
+  }
 });
 
 api.get('/logs', async (req, res) => {

@@ -87,6 +87,29 @@ class SyncSonarrMediaRequestsUseCase:
         )
         return result
 
+    async def sync_series(self, series_id: int, season_numbers: Sequence[int]) -> list[str]:
+        """Create or refresh requests for named seasons of a single series.
+
+        Serves the add-request flow, where the seasons to cover are known and the
+        request has to exist by the time the call returns. Sonarr's missing list
+        is deliberately not consulted: a season whose episodes have not aired yet
+        is absent from it, and the full sweep is what owns completing requests.
+        """
+
+        self._metadata_cache.clear()
+        details = await self._sonarr.get_series(series_id)
+
+        request_ids: list[str] = []
+        for season_number in sorted(set(season_numbers)):
+            await self._sync_season(details, season_number)
+            record = await self._repository.find_by_sonarr(
+                sonarr_series_id=series_id,
+                season_number=season_number,
+            )
+            if record is not None:
+                request_ids.append(record.id)
+        return request_ids
+
     async def _sync_season(self, details: SeriesDetails, season_number: int) -> str:
         """Create or update a Sonarr-backed request for a specific season."""
 

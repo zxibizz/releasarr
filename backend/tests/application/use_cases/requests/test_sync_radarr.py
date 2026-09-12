@@ -20,6 +20,7 @@ from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbService, Tmdb
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType
+from tests.fakes import UnusedRadarrLibraryCalls, UnusedTmdbSearch
 
 
 class FakeMediaRequestRepository(MediaRequestRepository):
@@ -92,7 +93,7 @@ class FakeMediaRequestRepository(MediaRequestRepository):
         return [record for record in self.records.values() if record.radarr_movie_id is not None]
 
 
-class FakeRadarrService:
+class FakeRadarrService(UnusedRadarrLibraryCalls):
     def __init__(self, missing: list[MovieDetails]) -> None:
         self._missing = missing
 
@@ -106,7 +107,7 @@ class FakeRadarrService:
         return True
 
 
-class FakeTmdbService(TmdbService):
+class FakeTmdbService(UnusedTmdbSearch, TmdbService):
     def __init__(self, metadata: dict[int, TmdbMovieMetadata]) -> None:
         self._metadata = metadata
         self.calls: list[tuple[int, tuple[str, ...]]] = []

@@ -536,6 +536,208 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /discover/search:
+    get:
+      tags: [Discover]
+      summary: Search TVDB or TMDB for media to request
+      description: |
+        Results come from the metadata provider for the given type - TVDB for
+        series, TMDB for movies - and are annotated with what releasarr already
+        holds: whether Sonarr/Radarr has the item in its library, and which of
+        its seasons already have a request. The annotation is best-effort, so a
+        Sonarr or Radarr that cannot be reached leaves the results unannotated
+        rather than failing the search.
+
+        Omitting `type` searches both providers and returns one mixed list,
+        ordered by how closely each title matches the term. Only one of the two
+        providers has to be configured, and a provider that cannot be reached is
+        left out rather than failing the search.
+      operationId: searchMedia
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Free-text title to search for.
+        - in: query
+          name: type
+          required: false
+          schema:
+            $ref: '#/components/schemas/MediaType'
+          description: |
+            Restrict the search to one media type. Both are searched when
+            omitted.
+        - in: query
+          name: lang
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 8
+          description: |
+            Preferred language for the titles and overviews, as a 2- or
+            3-letter code. Takes precedence over the configured metadata
+            languages, and is ignored if the provider has no translation.
+      responses:
+        '200':
+          description: Metadata provider matches, annotated with library and request state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaSearchResponse'
+        '422':
+          description: Invalid search parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr, Radarr or the metadata provider could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The metadata provider is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /discover/series/{tvdbId}/seasons:
+    get:
+      tags: [Discover]
+      summary: List the seasons of a series, with their request state
+      description: |
+        Season numbers come from Sonarr's own lookup, so they are the ones an add
+        would actually monitor. For a series already in the library each season
+        also reports whether Sonarr monitors it and whether it already has a
+        request.
+      operationId: listSeriesSeasons
+      parameters:
+        - $ref: '#/components/parameters/TvdbId'
+      responses:
+        '200':
+          description: The seasons the series offers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesSeasonsResponse'
+        '404':
+          description: No series matches the TVDB id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or the metadata provider could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /discover/root-folders:
+    get:
+      tags: [Discover]
+      summary: List the library locations media can be added to
+      operationId: listRootFolders
+      parameters:
+        - in: query
+          name: type
+          required: true
+          schema:
+            $ref: '#/components/schemas/MediaType'
+          description: Whether to read Sonarr's or Radarr's root folders.
+      responses:
+        '200':
+          description: Root folders configured in the *arr app, unreachable ones omitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RootFoldersResponse'
+        '422':
+          description: Invalid media type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or Radarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /discover/requests:
+    post:
+      tags: [Discover]
+      summary: Add media to Sonarr/Radarr and request it
+      description: |
+        Adds the picked series or movie to Sonarr/Radarr by its TVDB/TMDB id,
+        monitoring the selected seasons, and creates the matching media requests
+        before responding. Media already in the library is not re-added: only the
+        monitoring is widened to cover the selection.
+      operationId: addRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRequestPayload'
+      responses:
+        '201':
+          description: The created requests, one per season for a series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddRequestResponse'
+        '400':
+          description: Invalid root folder, season selection or quality profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No media matches the provider id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or Radarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /logs:
     get:
       tags: [Logs]
@@ -782,6 +984,14 @@ components:
       schema:
         type: string
       description: Unique identifier for a sync job.
+    TvdbId:
+      in: path
+      name: tvdbId
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: TVDB identifier of a series.
     Page:
       in: query
       name: page
@@ -1533,3 +1743,130 @@ components:
       properties:
         release_id:
           type: string
+    MediaSearchResult:
+      type: object
+      required: [type, provider_id, title]
+      properties:
+        type:
+          $ref: '#/components/schemas/MediaType'
+        provider_id:
+          type: integer
+          description: TVDB id for a series, TMDB id for a movie. What the add is keyed by.
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        overview:
+          type: string
+          nullable: true
+        poster_url:
+          type: string
+          nullable: true
+        in_library:
+          type: boolean
+          default: false
+          description: Whether Sonarr/Radarr already holds this media.
+        library_id:
+          type: integer
+          nullable: true
+          description: Sonarr series id or Radarr movie id, when already in the library.
+        requested_seasons:
+          type: array
+          description: Season numbers that already have a request. Series only.
+          items:
+            type: integer
+        request_id:
+          type: string
+          nullable: true
+          description: Identifier of the existing request. Movies only.
+        request_status:
+          allOf:
+            - $ref: '#/components/schemas/MediaRequestStatus'
+          nullable: true
+          description: Status of the existing request. Movies only.
+    MediaSearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaSearchResult'
+    SeasonOption:
+      type: object
+      required: [season_number]
+      properties:
+        season_number:
+          type: integer
+        monitored:
+          type: boolean
+          default: false
+          description: Whether Sonarr monitors the season today.
+        requested:
+          type: boolean
+          default: false
+        request_id:
+          type: string
+          nullable: true
+    SeriesSeasonsResponse:
+      type: object
+      required: [tvdb_id, seasons]
+      properties:
+        tvdb_id:
+          type: integer
+        in_library:
+          type: boolean
+          default: false
+        library_id:
+          type: integer
+          nullable: true
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonOption'
+    RootFolder:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+        free_space:
+          type: integer
+          nullable: true
+          description: Bytes available, as the *arr app reports them.
+    RootFoldersResponse:
+      type: object
+      required: [folders]
+      properties:
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/RootFolder'
+    AddRequestPayload:
+      type: object
+      required: [type, provider_id, root_folder_path]
+      properties:
+        type:
+          $ref: '#/components/schemas/MediaType'
+        provider_id:
+          type: integer
+          description: TVDB id for a series, TMDB id for a movie.
+        root_folder_path:
+          type: string
+          minLength: 1
+        season_numbers:
+          type: array
+          nullable: true
+          description: Seasons to request. Required for series, rejected for movies.
+          items:
+            type: integer
+    AddRequestResponse:
+      type: object
+      required: [requests]
+      properties:
+        requests:
+          type: array
+          description: One request per requested season for a series, a single one for a movie.
+          items:
+            $ref: '#/components/schemas/MediaRequest'

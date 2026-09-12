@@ -28,6 +28,18 @@ class TvdbSeriesMetadata:
     year: int | None
     genres: list[str]
     translations: dict[str, TvdbTranslation]
+    seasons: list[int] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TvdbSearchResult:
+    """A single series match returned by a TVDB title search."""
+
+    tvdb_id: int
+    name: str
+    year: int | None = None
+    overview: str | None = None
+    image_url: str | None = None
 
 
 class TvdbService(Protocol):
@@ -40,5 +52,18 @@ class TvdbService(Protocol):
     ) -> TvdbSeriesMetadata:
         """Return detailed metadata for a series with optional language filtering."""
 
+    async def search_series(
+        self,
+        query: str,
+        limit: int = 20,
+        languages: Sequence[str] | None = None,
+    ) -> list[TvdbSearchResult]:
+        """Return series matching a free-text query."""
 
-__all__ = ["TvdbSeriesMetadata", "TvdbService", "TvdbTranslation"]
+
+__all__ = [
+    "TvdbSearchResult",
+    "TvdbSeriesMetadata",
+    "TvdbService",
+    "TvdbTranslation",
+]

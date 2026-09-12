@@ -17,6 +17,15 @@ export type ReleaseSearchResult = Schemas['ReleaseSearchResult'];
 export type ReleaseSearchResponse = Schemas['ReleaseSearchResponse'];
 export type ReleaseDownloadRequest = Schemas['ReleaseDownloadRequest'];
 
+export type MediaSearchResult = Schemas['MediaSearchResult'];
+export type MediaSearchResponse = Schemas['MediaSearchResponse'];
+export type SeasonOption = Schemas['SeasonOption'];
+export type SeriesSeasonsResponse = Schemas['SeriesSeasonsResponse'];
+export type RootFolder = Schemas['RootFolder'];
+export type RootFoldersResponse = Schemas['RootFoldersResponse'];
+export type AddRequestPayload = Schemas['AddRequestPayload'];
+export type AddRequestResponse = Schemas['AddRequestResponse'];
+
 export type FileRequestMapping = Schemas['FileRequestMapping'];
 export type MovieFileRequestMapping = Schemas['MovieFileRequestMapping'];
 export type SeriesFileRequestMapping = Schemas['SeriesFileRequestMapping'];

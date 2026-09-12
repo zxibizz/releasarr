@@ -1,12 +1,23 @@
 import { getMockReleases, getMockRequests, searchMockReleaseSources } from './mockData';
+import {
+  DISCOVER_CATALOGUE,
+  DISCOVER_ROOT_FOLDERS,
+  type DiscoverCatalogueEntry,
+  localizeEntry,
+} from './mockDiscover';
 import { generateMockRequestLogs, generateMockTaskLogs } from './mockLogs';
 import type {
+  MediaSearchResult,
   MediaRequest,
+  MediaType,
   Release,
   ReleaseFile,
   ReleaseSearchResult,
   RequestLogEntry,
+  RootFolder,
   ScheduledTask,
+  SeasonOption,
+  SeriesSeasonsResponse,
   SyncJob,
   SyncJobKind,
   SyncJobTrigger,
@@ -91,6 +102,21 @@ const DEFAULT_POSTER = (title: string) =>
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
+/**
+ * Mirrors how the backend orders a search that spans both media types: the
+ * closest titles first, so movies and series interleave by relevance.
+ */
+const titleScore = (title: string, term: string): number => {
+  const candidate = title.toLowerCase();
+  if (candidate === term) {
+    return 0;
+  }
+  if (candidate.startsWith(term)) {
+    return 1;
+  }
+  return candidate.includes(term) ? 2 : 3;
+};
+
 const randomId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -105,6 +131,10 @@ export class MockStore {
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
   private syncJobs: SyncJob[] = [];
+  // Cloned because adding media mutates it, standing in for the *arr library.
+  private discoverCatalogue: DiscoverCatalogueEntry[] = DISCOVER_CATALOGUE.map((entry) =>
+    clone(entry),
+  );
 
   private async ensureRequests(): Promise<MediaRequest[]> {
     if (!this.requestsCache) {
@@ -601,6 +631,188 @@ export class MockStore {
         next_execution: new Date(lastExecution.getTime() + interval * 1_000).toISOString(),
       } satisfies ScheduledTask;
     });
+  }
+
+  /** A null type searches both kinds, as the real endpoint does. */
+  async searchDiscoverMedia(
+    query: string,
+    type: MediaType | null,
+    language?: string | null,
+  ): Promise<MediaSearchResult[]> {
+    const term = query.trim().toLowerCase();
+    if (!term) {
+      return [];
+    }
+
+    const requests = await this.ensureRequests();
+    return this.discoverCatalogue
+      .filter((entry) => type === null || entry.type === type)
+      .map((entry) => ({ entry, localized: localizeEntry(entry, language) }))
+      .filter(
+        ({ entry, localized }) =>
+          entry.title.toLowerCase().includes(term) || localized.title.toLowerCase().includes(term),
+      )
+      .map(({ entry, localized }) => {
+        const related = this.requestsForEntry(requests, entry);
+        const seasons = related
+          .map((request) => (request.type === 'series' ? request.season_number : null))
+          .filter((season): season is number => season !== null)
+          .sort((a, b) => a - b);
+
+        return {
+          type: entry.type,
+          provider_id: entry.provider_id,
+          title: localized.title,
+          year: entry.year,
+          overview: localized.overview,
+          poster_url: entry.poster_url,
+          in_library: entry.library_id !== undefined,
+          library_id: entry.library_id ?? null,
+          requested_seasons: seasons,
+          request_id: entry.type === 'movie' ? (related[0]?.id ?? null) : null,
+          request_status: entry.type === 'movie' ? (related[0]?.status ?? null) : null,
+        } satisfies MediaSearchResult;
+      })
+      .sort((a, b) => titleScore(a.title, term) - titleScore(b.title, term));
+  }
+
+  async listDiscoverSeasons(tvdbId: number): Promise<SeriesSeasonsResponse | null> {
+    const entry = this.discoverCatalogue.find(
+      (candidate) => candidate.type === 'series' && candidate.provider_id === tvdbId,
+    );
+    if (!entry) {
+      return null;
+    }
+
+    const requests = await this.ensureRequests();
+    const requestBySeason = new Map(
+      this.requestsForEntry(requests, entry)
+        .filter((request) => request.type === 'series')
+        .map((request) => [(request as { season_number: number }).season_number, request.id]),
+    );
+
+    return {
+      tvdb_id: entry.provider_id,
+      in_library: entry.library_id !== undefined,
+      library_id: entry.library_id ?? null,
+      seasons: (entry.seasons ?? []).map(
+        (seasonNumber) =>
+          ({
+            season_number: seasonNumber,
+            monitored: (entry.monitored_seasons ?? []).includes(seasonNumber),
+            requested: requestBySeason.has(seasonNumber),
+            request_id: requestBySeason.get(seasonNumber) ?? null,
+          }) satisfies SeasonOption,
+      ),
+    };
+  }
+
+  async listDiscoverRootFolders(type: MediaType): Promise<RootFolder[]> {
+    return DISCOVER_ROOT_FOLDERS[type].map((folder) => clone(folder));
+  }
+
+  /**
+   * Adds the picked media and returns the resulting requests, mirroring the real
+   * endpoint: the rows exist by the time this resolves, and media already in the
+   * library is monitored rather than re-added.
+   */
+  async addDiscoverRequest(payload: {
+    type: MediaType;
+    provider_id: number;
+    root_folder_path: string;
+    season_numbers?: number[];
+  }): Promise<MediaRequest[]> {
+    const entry = this.discoverCatalogue.find(
+      (candidate) =>
+        candidate.type === payload.type && candidate.provider_id === payload.provider_id,
+    );
+    if (!entry) {
+      throw new Error('media_not_found');
+    }
+
+    const alreadyInLibrary = entry.library_id !== undefined;
+    if (!alreadyInLibrary) {
+      const folders = DISCOVER_ROOT_FOLDERS[payload.type];
+      if (!folders.some((folder) => folder.path === payload.root_folder_path)) {
+        throw new Error('invalid_root_folder');
+      }
+      entry.library_id = 900 + this.discoverCatalogue.indexOf(entry);
+    }
+
+    if (payload.type === 'movie') {
+      if (payload.season_numbers?.length) {
+        throw new Error('invalid_season_selection');
+      }
+      const requests = await this.ensureRequests();
+      const existing = this.requestsForEntry(requests, entry)[0];
+      if (existing) {
+        return [clone(existing)];
+      }
+      const created = await this.createRequest({
+        type: 'movie',
+        title: entry.title,
+        year: entry.year,
+        overview: entry.overview,
+        poster_url: entry.poster_url ?? undefined,
+        runtime: 120,
+        imdb_id: `tt${entry.provider_id}`,
+      });
+      return [created];
+    }
+
+    const seasons = [...new Set(payload.season_numbers ?? [])].sort((a, b) => a - b);
+    if (seasons.length === 0) {
+      throw new Error('invalid_season_selection');
+    }
+    const known = entry.seasons ?? [];
+    if (known.length > 0 && seasons.some((season) => !known.includes(season))) {
+      throw new Error('invalid_season_selection');
+    }
+
+    entry.monitored_seasons = [...new Set([...(entry.monitored_seasons ?? []), ...seasons])];
+
+    const created: MediaRequest[] = [];
+    for (const seasonNumber of seasons) {
+      const requests = await this.ensureRequests();
+      const existing = this.requestsForEntry(requests, entry).find(
+        (request) => request.type === 'series' && request.season_number === seasonNumber,
+      );
+      created.push(
+        existing
+          ? clone(existing)
+          : await this.createRequest({
+              type: 'series',
+              title:
+                seasonNumber <= 0
+                  ? `${entry.title} - Specials`
+                  : `${entry.title} - Season ${seasonNumber}`,
+              year: entry.year,
+              overview: entry.overview,
+              poster_url: entry.poster_url ?? undefined,
+              season_number: seasonNumber,
+              total_episodes: 10,
+              series_title: entry.title,
+              series_year: entry.year,
+              imdb_id: `tt${entry.provider_id}`,
+            }),
+      );
+    }
+    return created;
+  }
+
+  /**
+   * The real backend joins requests to media on the Sonarr/Radarr id; the mock
+   * data carries no such ids, so the title stands in for one.
+   */
+  private requestsForEntry(
+    requests: MediaRequest[],
+    entry: DiscoverCatalogueEntry,
+  ): MediaRequest[] {
+    return requests.filter((request) =>
+      request.type === 'series'
+        ? entry.type === 'series' && request.series_title === entry.title
+        : entry.type === 'movie' && request.title === entry.title,
+    );
   }
 
   /** Moves jobs through queued → running → completed based on elapsed time. */

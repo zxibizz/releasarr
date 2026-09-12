@@ -30,6 +30,11 @@ const NAV_ITEMS: NavItem[] = [
     isActive: (pathname) => pathname === '/' || pathname.startsWith('/request'),
   },
   {
+    to: '/add',
+    labelKey: 'nav.add',
+    isActive: (pathname) => pathname.startsWith('/add'),
+  },
+  {
     to: '/system/tasks',
     labelKey: 'nav.system',
     isActive: (pathname) => pathname.startsWith('/system'),

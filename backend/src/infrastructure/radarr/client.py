@@ -8,9 +8,11 @@ from typing import Any
 
 import httpx
 
+from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.radarr import (
     MovieDetails,
     MovieImportFile,
+    MovieLookup,
     RadarrService,
 )
 from src.infrastructure.http import BaseHttpClient, HttpClientError
@@ -20,6 +22,10 @@ COMMAND_POLL_INTERVAL_SECONDS = 1.0
 COMMAND_TIMEOUT_SECONDS = 300.0
 COMMAND_SUCCESS_STATUS = "completed"
 TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
+
+# Radarr only reports a movie as wanted once it reaches this availability, and
+# anything stricter would hide a request from our own sync until release day.
+MINIMUM_AVAILABILITY = "released"
 
 
 class RadarrHttpClient(RadarrService):
@@ -89,6 +95,102 @@ class RadarrHttpClient(RadarrService):
             return await self._await_command(command_id)
         except (HttpClientError, httpx.HTTPError):
             return False
+
+    async def get_root_folders(self) -> list[ArrRootFolder]:
+        data = await self._request("GET", "/rootfolder")
+        if not isinstance(data, list):
+            return []
+
+        folders: list[ArrRootFolder] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            path = self._safe_str(item.get("path"))
+            if not path:
+                continue
+            folders.append(
+                ArrRootFolder(
+                    path=path,
+                    free_space=self._safe_int(item.get("freeSpace")),
+                    # Absent on older Radarr versions, where every configured
+                    # folder is assumed reachable.
+                    accessible=bool(item.get("accessible", True)),
+                )
+            )
+        return folders
+
+    async def get_quality_profiles(self) -> list[ArrQualityProfile]:
+        data = await self._request("GET", "/qualityprofile")
+        if not isinstance(data, list):
+            return []
+
+        profiles: list[ArrQualityProfile] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            profile_id = self._safe_int(item.get("id"))
+            if profile_id is None:
+                continue
+            profiles.append(
+                ArrQualityProfile(id=profile_id, name=str(item.get("name") or profile_id))
+            )
+        return profiles
+
+    async def search_movies(self, term: str) -> list[MovieLookup]:
+        payloads = await self._lookup(term)
+        return [lookup for lookup in map(self._to_movie_lookup, payloads) if lookup is not None]
+
+    async def lookup_movie(self, tmdb_id: int) -> MovieLookup | None:
+        payload = await self._lookup_by_tmdb_id(tmdb_id)
+        return None if payload is None else self._to_movie_lookup(payload)
+
+    async def add_movie(
+        self,
+        *,
+        tmdb_id: int,
+        root_folder_path: str,
+        quality_profile_id: int,
+    ) -> int:
+        """Add a movie to the library and return its Radarr id.
+
+        The lookup payload is sent back to Radarr as it arrived, with only the
+        library fields filled in, which is what Radarr's own add form does: it
+        carries the title slug and images Radarr expects, and rebuilding those by
+        hand risks disagreeing with its metadata.
+        """
+
+        payload = await self._lookup_by_tmdb_id(tmdb_id)
+        if payload is None:
+            raise HttpClientError(f"Radarr found no movie for TMDB id {tmdb_id}")
+
+        payload["rootFolderPath"] = root_folder_path
+        payload["qualityProfileId"] = quality_profile_id
+        payload["monitored"] = True
+        payload["minimumAvailability"] = MINIMUM_AVAILABILITY
+        # Releasarr does its own grabbing through Prowlarr and qBittorrent.
+        payload["addOptions"] = {"searchForMovie": False}
+
+        created = await self._request("POST", "/movie", json=payload)
+        movie_id = self._safe_int(created.get("id")) if isinstance(created, dict) else None
+        if movie_id is None:
+            raise HttpClientError(f"Radarr did not return an id for the added movie {tmdb_id}")
+        return movie_id
+
+    async def set_movie_monitored(self, movie_id: int) -> None:
+        """Monitor a movie already in the library.
+
+        An unmonitored movie stays out of Radarr's wanted list, and so out of our
+        own sync, which would leave the request stuck as completed.
+        """
+
+        payload = await self._request("GET", f"/movie/{movie_id}")
+        if not isinstance(payload, dict):
+            raise HttpClientError(f"Radarr returned no movie for id {movie_id}")
+        if payload.get("monitored"):
+            return
+
+        payload["monitored"] = True
+        await self._request("PUT", f"/movie/{movie_id}", json=payload)
 
     async def _reprocess(self, files: list[MovieImportFile]) -> dict[str, dict[str, Any]]:
         """Run the files through Radarr's import preview, keyed by path.
@@ -192,6 +294,28 @@ class RadarrHttpClient(RadarrService):
             if value is not None:
                 payload[key] = value
         return payload
+
+    async def _lookup(self, term: str) -> list[dict[str, Any]]:
+        data = await self._request("GET", "/movie/lookup", params={"term": term})
+        if not isinstance(data, list):
+            return []
+        return [item for item in data if isinstance(item, dict)]
+
+    async def _lookup_by_tmdb_id(self, tmdb_id: int) -> dict[str, Any] | None:
+        payloads = await self._lookup(f"tmdb:{tmdb_id}")
+        return payloads[0] if payloads else None
+
+    def _to_movie_lookup(self, data: dict[str, Any]) -> MovieLookup | None:
+        tmdb_id = self._safe_int(data.get("tmdbId"))
+        if not tmdb_id:
+            return None
+        return MovieLookup(
+            tmdb_id=tmdb_id,
+            title=str(data.get("title") or ""),
+            year=self._safe_int(data.get("year")),
+            # Radarr reports a movie it does not hold with id 0.
+            existing_movie_id=self._safe_int(data.get("id")) or None,
+        )
 
     def _to_movie(
         self,

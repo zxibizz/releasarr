@@ -26,6 +26,7 @@ from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService, Tvd
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType
+from tests.fakes import UnusedSonarrLibraryCalls, UnusedTvdbSearch
 
 
 class FakeMediaRequestRepository(MediaRequestRepository):
@@ -105,7 +106,7 @@ class FakeMediaRequestRepository(MediaRequestRepository):
         return [record for record in self.records.values() if record.sonarr_series_id is not None]
 
 
-class FakeSonarrService:
+class FakeSonarrService(UnusedSonarrLibraryCalls):
     def __init__(
         self,
         missing: list[MissingSeriesRecord],
@@ -202,7 +203,7 @@ def make_existing_records() -> dict[str, MediaRequestRecord]:
     }
 
 
-class FakeTvdbService(TvdbService):
+class FakeTvdbService(UnusedTvdbSearch, TvdbService):
     def __init__(self, metadata: dict[int, TvdbSeriesMetadata]) -> None:
         self._metadata = metadata
         self.calls: list[tuple[int, tuple[str, ...]]] = []

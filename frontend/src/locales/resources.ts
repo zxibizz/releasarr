@@ -7,6 +7,7 @@ export const resources = {
     translation: {
       nav: {
         requests: 'Requests',
+        add: 'Add',
         system: 'System',
         openMenu: 'Open navigation menu',
         languageLabel: 'Select language',
@@ -107,6 +108,66 @@ export const resources = {
           title: 'Unable to load requests',
           description: 'We could not retrieve the latest requests from the server.',
           fallbackTitle: 'Error loading requests',
+        },
+      },
+      discover: {
+        title: 'Add Request',
+        subtitle: 'Search TVDB or TMDB, then add the result to Sonarr or Radarr',
+        searchPlaceholder: 'Search movies and series by title…',
+        actions: {
+          add: 'Add Request',
+          addShort: 'Add',
+          search: 'Search',
+          request: 'Request',
+          pickSeasons: 'Choose seasons',
+          viewRequest: 'View request',
+        },
+        badges: {
+          inLibrary: 'In library',
+          requestedSeasons: 'Requested: {{seasons}}',
+        },
+        results: {
+          heading: 'Results',
+          count_one: '{{count}} result',
+          count_other: '{{count}} results',
+        },
+        seasons: {
+          label: 'Seasons',
+          season: 'Season {{season}}',
+          specials: 'Specials',
+          selectAll: 'Select all',
+          clearAll: 'Clear all',
+          alreadyRequested: 'Already requested',
+          none: 'No seasons are available for this series yet.',
+          loadFailed: 'We could not load the seasons for this series.',
+        },
+        modal: {
+          rootFolder: 'Library folder',
+          rootFolderHint: 'Where Sonarr or Radarr will store the files.',
+          rootFolderPlaceholder: 'Pick a folder',
+          rootFolderOption: '{{path}} ({{free}} free)',
+          rootFolderFailed: 'We could not load the available folders.',
+          noRootFolders: 'No library folders are configured in Sonarr or Radarr.',
+          inLibraryMovie: 'This movie is already in Radarr, so only monitoring will be enabled.',
+          inLibrarySeries:
+            'This series is already in Sonarr, so only the seasons you pick will be monitored.',
+          confirm: 'Add request',
+        },
+        added_one: 'Added {{count}} request',
+        added_other: 'Added {{count}} requests',
+        addFailed: 'Failed to add request',
+        empty: {
+          title: 'No matches found',
+          description: 'Try a different spelling, or search for the original title.',
+        },
+        start: {
+          title: 'Search for something to request',
+          description:
+            'Movies and series are searched together, so you do not have to know which it is.',
+        },
+        error: {
+          title: 'Search failed',
+          description: 'We could not reach the metadata provider.',
         },
       },
       notFound: {
@@ -435,6 +496,7 @@ export const resources = {
     translation: {
       nav: {
         requests: 'Запросы',
+        add: 'Добавить',
         system: 'Система',
         openMenu: 'Открыть меню навигации',
         languageLabel: 'Выберите язык',
@@ -541,6 +603,69 @@ export const resources = {
           title: 'Не удалось загрузить запросы',
           description: 'Не удалось получить последние запросы с сервера.',
           fallbackTitle: 'Ошибка загрузки запросов',
+        },
+      },
+      discover: {
+        title: 'Новый запрос',
+        subtitle: 'Найдите в TVDB или TMDB и добавьте результат в Sonarr или Radarr',
+        searchPlaceholder: 'Поиск фильмов и сериалов по названию…',
+        actions: {
+          add: 'Новый запрос',
+          addShort: 'Добавить',
+          search: 'Найти',
+          request: 'Запросить',
+          pickSeasons: 'Выбрать сезоны',
+          viewRequest: 'Открыть запрос',
+        },
+        badges: {
+          inLibrary: 'В библиотеке',
+          requestedSeasons: 'Запрошено: {{seasons}}',
+        },
+        results: {
+          heading: 'Результаты',
+          count_one: '{{count}} результат',
+          count_few: '{{count}} результата',
+          count_many: '{{count}} результатов',
+          count_other: '{{count}} результатов',
+        },
+        seasons: {
+          label: 'Сезоны',
+          season: 'Сезон {{season}}',
+          specials: 'Спецэпизоды',
+          selectAll: 'Выбрать все',
+          clearAll: 'Снять все',
+          alreadyRequested: 'Уже запрошен',
+          none: 'У этого сериала пока нет доступных сезонов.',
+          loadFailed: 'Не удалось загрузить сезоны этого сериала.',
+        },
+        modal: {
+          rootFolder: 'Папка библиотеки',
+          rootFolderHint: 'Куда Sonarr или Radarr сохранит файлы.',
+          rootFolderPlaceholder: 'Выберите папку',
+          rootFolderOption: '{{path}} (свободно {{free}})',
+          rootFolderFailed: 'Не удалось загрузить доступные папки.',
+          noRootFolders: 'В Sonarr или Radarr не настроено ни одной папки библиотеки.',
+          inLibraryMovie: 'Фильм уже есть в Radarr, поэтому будет включено только отслеживание.',
+          inLibrarySeries:
+            'Сериал уже есть в Sonarr, поэтому отслеживание включится только для выбранных сезонов.',
+          confirm: 'Добавить запрос',
+        },
+        added_one: 'Добавлен {{count}} запрос',
+        added_few: 'Добавлено {{count}} запроса',
+        added_many: 'Добавлено {{count}} запросов',
+        added_other: 'Добавлено {{count}} запросов',
+        addFailed: 'Не удалось добавить запрос',
+        empty: {
+          title: 'Ничего не найдено',
+          description: 'Попробуйте другое написание или оригинальное название.',
+        },
+        start: {
+          title: 'Найдите то, что хотите запросить',
+          description: 'Фильмы и сериалы ищутся вместе, поэтому не нужно знать заранее, что это.',
+        },
+        error: {
+          title: 'Поиск не удался',
+          description: 'Не удалось связаться с сервисом метаданных.',
         },
       },
       notFound: {

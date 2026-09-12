@@ -24,6 +24,17 @@ class TmdbMovieMetadata:
     translations: dict[str, TmdbTranslation]
 
 
+@dataclass(slots=True)
+class TmdbSearchResult:
+    """A single movie match returned by a TMDB title search."""
+
+    tmdb_id: int
+    title: str
+    year: int | None = None
+    overview: str | None = None
+    poster_url: str | None = None
+
+
 class TmdbService(Protocol):
     """Protocol describing required TMDB operations."""
 
@@ -34,5 +45,18 @@ class TmdbService(Protocol):
     ) -> TmdbMovieMetadata:
         """Return localized metadata for a movie with optional language filtering."""
 
+    async def search_movies(
+        self,
+        query: str,
+        limit: int = 20,
+        languages: Sequence[str] | None = None,
+    ) -> list[TmdbSearchResult]:
+        """Return movies matching a free-text query."""
 
-__all__ = ["TmdbMovieMetadata", "TmdbService", "TmdbTranslation"]
+
+__all__ = [
+    "TmdbMovieMetadata",
+    "TmdbSearchResult",
+    "TmdbService",
+    "TmdbTranslation",
+]

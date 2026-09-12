@@ -19,9 +19,10 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconAdjustmentsHorizontal, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconAdjustmentsHorizontal, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -386,18 +387,30 @@ export function RequestsPage() {
           {!isMobile && <Text c="dimmed">{t('requestsList.subtitle')}</Text>}
         </Stack>
 
-        {/* There is no pull-to-refresh here, so reloading needs a control. */}
-        <Tooltip label={t('common.refresh')}>
-          <ActionIcon
-            variant="light"
-            size="lg"
-            aria-label={t('common.refresh')}
-            loading={isFetching}
-            onClick={() => void refetch()}
+        <Group gap="xs" wrap="nowrap">
+          {/* The label is the point of the button, so a phone keeps the icon only. */}
+          <Button
+            component={Link}
+            to="/add"
+            size={isMobile ? 'compact-sm' : 'sm'}
+            leftSection={<IconPlus size={16} />}
           >
-            <IconRefresh size={18} />
-          </ActionIcon>
-        </Tooltip>
+            {isMobile ? t('discover.actions.addShort') : t('discover.actions.add')}
+          </Button>
+
+          {/* There is no pull-to-refresh here, so reloading needs a control. */}
+          <Tooltip label={t('common.refresh')}>
+            <ActionIcon
+              variant="light"
+              size="lg"
+              aria-label={t('common.refresh')}
+              loading={isFetching}
+              onClick={() => void refetch()}
+            >
+              <IconRefresh size={18} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Group>
 
       <RequestFilters

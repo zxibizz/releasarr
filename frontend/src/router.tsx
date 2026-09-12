@@ -56,6 +56,14 @@ export const router = createBrowserRouter([
         errorElement: <RouteErrorBoundary />,
       },
       {
+        path: 'add',
+        lazy: async () => {
+          const { AddRequestPage } = await import('@/features/discover/pages/AddRequestPage');
+          return { Component: AddRequestPage };
+        },
+        errorElement: <RouteErrorBoundary />,
+      },
+      {
         path: 'system/tasks',
         lazy: async () => {
           const { TasksPage } = await import('@/features/tasks/pages/TasksPage');

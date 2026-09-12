@@ -7,8 +7,18 @@ from collections.abc import Sequence
 
 import httpx
 
-from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService, TvdbTranslation
+from src.application.interfaces.tvdb import (
+    TvdbSearchResult,
+    TvdbSeriesMetadata,
+    TvdbService,
+    TvdbTranslation,
+)
 from src.infrastructure.http import build_async_client
+
+# TVDB models a season three times over - by broadcast order, by DVD order and
+# by absolute numbering - and only the broadcast ("official") one lines up with
+# the season numbers Sonarr works in.
+OFFICIAL_SEASON_TYPE = "official"
 
 
 class _TvdbAuth(httpx.Auth):
@@ -70,6 +80,7 @@ class TvdbHttpClient(TvdbService):
         base_url: str,
         api_token: str,
         timeout_seconds: float = 15.0,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._auth = _TvdbAuth(base_url=self._base_url, api_token=api_token)
@@ -77,6 +88,7 @@ class TvdbHttpClient(TvdbService):
             base_url=self._base_url,
             auth=self._auth,
             timeout=timeout_seconds,
+            transport=transport,
         )
         self._auth.client = self._client
 
@@ -105,10 +117,102 @@ class TvdbHttpClient(TvdbService):
             year=self._safe_int(data.get("year")),
             genres=genres,
             translations=translations,
+            seasons=self._extract_season_numbers(data),
         )
+
+    async def search_series(
+        self,
+        query: str,
+        limit: int = 20,
+        languages: Sequence[str] | None = None,
+    ) -> list[TvdbSearchResult]:
+        response = await self._client.get(
+            "/search",
+            params={"query": query, "type": "series", "limit": limit},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        entries = payload.get("data") or []
+        if not isinstance(entries, list):
+            return []
+
+        results: list[TvdbSearchResult] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            result = self._to_search_result(entry, languages)
+            if result is not None:
+                results.append(result)
+        return results
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    def _to_search_result(
+        self,
+        entry: dict[str, object],
+        languages: Sequence[str] | None,
+    ) -> TvdbSearchResult | None:
+        # Search reports the id as a string, unlike every other TVDB endpoint.
+        tvdb_id = self._safe_int(entry.get("tvdb_id") or entry.get("id"))
+        if tvdb_id is None:
+            return None
+
+        name = self._localized(entry.get("translations"), languages) or self._safe_str(
+            entry.get("name")
+        )
+        if not name:
+            return None
+        overview = self._localized(entry.get("overviews"), languages) or self._safe_str(
+            entry.get("overview")
+        )
+
+        return TvdbSearchResult(
+            tvdb_id=tvdb_id,
+            name=name,
+            year=self._safe_int(entry.get("year")),
+            overview=overview,
+            image_url=self._safe_str(entry.get("image_url") or entry.get("thumbnail")),
+        )
+
+    def _localized(self, value: object, languages: Sequence[str] | None) -> str | None:
+        """Pick the first configured language out of a search entry's translations.
+
+        Search returns translations as a flat ``{language: text}`` mapping rather
+        than the list of records the extended endpoint uses, so the configured
+        order decides which one is shown.
+        """
+
+        if not isinstance(value, dict):
+            return None
+        for language in languages or ():
+            translated = self._safe_str(value.get(language.lower()))
+            if translated:
+                return translated
+        return None
+
+    def _extract_season_numbers(self, data: dict[str, object]) -> list[int]:
+        seasons = data.get("seasons")
+        if not isinstance(seasons, list):
+            return []
+
+        numbers: set[int] = set()
+        for season in seasons:
+            if not isinstance(season, dict):
+                continue
+            season_type = season.get("type")
+            type_name = (
+                str(season_type.get("type") or "").lower() if isinstance(season_type, dict) else ""
+            )
+            if type_name and type_name != OFFICIAL_SEASON_TYPE:
+                continue
+            raw_number = season.get("number")
+            if raw_number is None:
+                raw_number = season.get("seasonNumber")
+            number = self._safe_int(raw_number)
+            if number is not None:
+                numbers.add(number)
+        return sorted(numbers)
 
     def _extract_translations(
         self,

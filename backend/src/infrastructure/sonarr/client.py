@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Sequence
 from typing import Any
 
 import httpx
 
+from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.sonarr import (
     ManualImportFile,
     MissingSeriesRecord,
     SeriesDetails,
+    SeriesLookup,
     SeriesSeasonDetails,
     SonarrEpisode,
     SonarrService,
@@ -23,6 +26,12 @@ COMMAND_POLL_INTERVAL_SECONDS = 1.0
 COMMAND_TIMEOUT_SECONDS = 300.0
 COMMAND_SUCCESS_STATUS = "completed"
 TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
+
+# Sonarr refreshes a freshly added series in the background, so its episodes -
+# and with them the season episode counts - appear a moment after the add call
+# returns.
+REFRESH_POLL_INTERVAL_SECONDS = 1.0
+REFRESH_TIMEOUT_SECONDS = 30.0
 
 
 class SonarrHttpClient(SonarrService):
@@ -94,33 +103,153 @@ class SonarrHttpClient(SonarrService):
             params={"includeSeasonImages": "false"},
         )
 
-        seasons: dict[int, SeriesSeasonDetails] = {}
-        for season_data in data.get("seasons", []):
-            season_number = int(season_data.get("seasonNumber") or 0)
-            statistics = season_data.get("statistics") or {}
-            seasons[season_number] = SeriesSeasonDetails(
-                season_number=season_number,
-                episode_count=int(statistics.get("episodeCount") or 0),
-                total_episode_count=int(
-                    statistics.get("totalEpisodeCount") or statistics.get("episodeCount") or 0
-                ),
-                episode_file_count=int(statistics.get("episodeFileCount") or 0),
+        return self._to_series_details(data, fallback_id=series_id)
+
+    async def get_root_folders(self) -> list[ArrRootFolder]:
+        data = await self._request("GET", "/rootfolder")
+        if not isinstance(data, list):
+            return []
+
+        folders: list[ArrRootFolder] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            path = self._safe_str(item.get("path"))
+            if not path:
+                continue
+            folders.append(
+                ArrRootFolder(
+                    path=path,
+                    free_space=self._safe_int(item.get("freeSpace")),
+                    # Absent on older Sonarr versions, where every configured
+                    # folder is assumed reachable.
+                    accessible=bool(item.get("accessible", True)),
+                )
             )
+        return folders
 
-        images = data.get("images") or []
-        poster_url = self._extract_poster_url(images)
+    async def get_quality_profiles(self) -> list[ArrQualityProfile]:
+        data = await self._request("GET", "/qualityprofile")
+        if not isinstance(data, list):
+            return []
 
-        return SeriesDetails(
-            id=int(data.get("id") or series_id),
-            title=str(data.get("title") or ""),
-            year=self._safe_int(data.get("year")),
-            overview=self._safe_str(data.get("overview")),
-            poster_url=poster_url,
-            imdb_id=self._safe_str(data.get("imdbId")),
-            tvdb_id=self._safe_int(data.get("tvdbId")),
-            genres=[str(genre) for genre in data.get("genres", []) if genre],
-            seasons=seasons,
-        )
+        profiles: list[ArrQualityProfile] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            profile_id = self._safe_int(item.get("id"))
+            if profile_id is None:
+                continue
+            profiles.append(
+                ArrQualityProfile(id=profile_id, name=str(item.get("name") or profile_id))
+            )
+        return profiles
+
+    async def search_series(self, term: str) -> list[SeriesLookup]:
+        payloads = await self._lookup(term)
+        return [lookup for lookup in map(self._to_series_lookup, payloads) if lookup is not None]
+
+    async def lookup_series(self, tvdb_id: int) -> SeriesLookup | None:
+        payload = await self._lookup_by_tvdb_id(tvdb_id)
+        return None if payload is None else self._to_series_lookup(payload)
+
+    async def add_series(
+        self,
+        *,
+        tvdb_id: int,
+        root_folder_path: str,
+        quality_profile_id: int,
+        monitored_seasons: Sequence[int],
+    ) -> int:
+        """Add a series to the library, monitoring only the requested seasons.
+
+        The lookup payload is sent back to Sonarr as it arrived, with only the
+        library fields filled in, which is what Sonarr's own add form does: it
+        carries the title slug, images and season list Sonarr expects, and
+        rebuilding those by hand risks disagreeing with its metadata.
+        """
+
+        payload = await self._lookup_by_tvdb_id(tvdb_id)
+        if payload is None:
+            raise HttpClientError(f"Sonarr found no series for TVDB id {tvdb_id}")
+
+        wanted = set(monitored_seasons)
+        payload["rootFolderPath"] = root_folder_path
+        payload["qualityProfileId"] = quality_profile_id
+        payload["monitored"] = True
+        payload["seasonFolder"] = True
+        payload["seasons"] = [
+            {**season, "monitored": self._season_number(season) in wanted}
+            for season in payload.get("seasons") or []
+            if isinstance(season, dict)
+        ]
+        payload["addOptions"] = {
+            # Monitors the episodes of the seasons flagged above. Without it the
+            # episodes arrive unmonitored, which keeps them out of Sonarr's
+            # wanted list and so out of our own sync.
+            "monitor": "all",
+            # Releasarr does its own grabbing through Prowlarr and qBittorrent.
+            "searchForMissingEpisodes": False,
+            "searchForCutoffUnmetEpisodes": False,
+        }
+
+        created = await self._request("POST", "/series", json=payload)
+        series_id = self._safe_int(created.get("id")) if isinstance(created, dict) else None
+        if series_id is None:
+            raise HttpClientError(f"Sonarr did not return an id for the added series {tvdb_id}")
+        return series_id
+
+    async def set_season_monitoring(
+        self,
+        series_id: int,
+        monitored_seasons: Sequence[int],
+    ) -> None:
+        """Add the given seasons to what Sonarr already monitors for a series.
+
+        Seasons the user monitors today are left alone: this is only ever called
+        to widen the selection, and silently unmonitoring the rest would drop
+        episodes out of Sonarr's wanted list behind their back.
+        """
+
+        payload = await self._request("GET", f"/series/{series_id}")
+        if not isinstance(payload, dict):
+            raise HttpClientError(f"Sonarr returned no series for id {series_id}")
+
+        wanted = set(monitored_seasons)
+        seasons = [season for season in payload.get("seasons") or [] if isinstance(season, dict)]
+        if not any(self._season_number(season) in wanted for season in seasons):
+            return
+
+        payload["monitored"] = True
+        payload["seasons"] = [
+            {**season, "monitored": True} if self._season_number(season) in wanted else season
+            for season in seasons
+        ]
+        await self._request("PUT", f"/series/{series_id}", json=payload)
+
+    async def wait_for_series_episodes(
+        self,
+        series_id: int,
+        season_numbers: Sequence[int],
+        timeout_seconds: float | None = None,
+    ) -> SeriesDetails:
+        """Poll a series until Sonarr reports episodes for the given seasons.
+
+        A series added a moment ago still has no episodes, so reading its season
+        statistics right away records every request as holding zero episodes.
+        Timing out is not an error: the counts are refreshed by the next sync,
+        and failing the add over them would be worse than a stale number.
+        """
+
+        timeout = REFRESH_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+        deadline = time.monotonic() + timeout
+        while True:
+            details = await self.get_series(series_id)
+            if self._seasons_populated(details, season_numbers):
+                return details
+            if time.monotonic() >= deadline:
+                return details
+            await asyncio.sleep(REFRESH_POLL_INTERVAL_SECONDS)
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         data = await self._request("GET", "/episode", params={"seriesId": series_id})
@@ -253,6 +382,83 @@ class SonarrHttpClient(SonarrService):
             if value is not None:
                 payload[key] = value
         return payload
+
+    def _seasons_populated(self, details: SeriesDetails, season_numbers: Sequence[int]) -> bool:
+        for season_number in season_numbers:
+            season = details.seasons.get(season_number)
+            if season is None or season.total_episode_count <= 0:
+                return False
+        return True
+
+    async def _lookup(self, term: str) -> list[dict[str, Any]]:
+        data = await self._request("GET", "/series/lookup", params={"term": term})
+        if not isinstance(data, list):
+            return []
+        return [item for item in data if isinstance(item, dict)]
+
+    async def _lookup_by_tvdb_id(self, tvdb_id: int) -> dict[str, Any] | None:
+        payloads = await self._lookup(f"tvdb:{tvdb_id}")
+        return payloads[0] if payloads else None
+
+    def _to_series_lookup(self, data: dict[str, Any]) -> SeriesLookup | None:
+        tvdb_id = self._safe_int(data.get("tvdbId"))
+        if not tvdb_id:
+            return None
+
+        season_numbers: list[int] = []
+        monitored_seasons: list[int] = []
+        for season in data.get("seasons") or []:
+            if not isinstance(season, dict):
+                continue
+            season_number = self._season_number(season)
+            if season_number is None:
+                continue
+            season_numbers.append(season_number)
+            if season.get("monitored"):
+                monitored_seasons.append(season_number)
+
+        return SeriesLookup(
+            tvdb_id=tvdb_id,
+            title=str(data.get("title") or ""),
+            year=self._safe_int(data.get("year")),
+            # Sonarr reports a series it does not hold with id 0.
+            existing_series_id=self._safe_int(data.get("id")) or None,
+            season_numbers=sorted(set(season_numbers)),
+            monitored_seasons=sorted(set(monitored_seasons)),
+        )
+
+    def _to_series_details(self, data: Any, *, fallback_id: int) -> SeriesDetails:
+        if not isinstance(data, dict):
+            data = {}
+
+        seasons: dict[int, SeriesSeasonDetails] = {}
+        for season_data in data.get("seasons", []):
+            season_number = int(season_data.get("seasonNumber") or 0)
+            statistics = season_data.get("statistics") or {}
+            seasons[season_number] = SeriesSeasonDetails(
+                season_number=season_number,
+                episode_count=int(statistics.get("episodeCount") or 0),
+                total_episode_count=int(
+                    statistics.get("totalEpisodeCount") or statistics.get("episodeCount") or 0
+                ),
+                episode_file_count=int(statistics.get("episodeFileCount") or 0),
+                monitored=bool(season_data.get("monitored")),
+            )
+
+        return SeriesDetails(
+            id=int(data.get("id") or fallback_id),
+            title=str(data.get("title") or ""),
+            year=self._safe_int(data.get("year")),
+            overview=self._safe_str(data.get("overview")),
+            poster_url=self._extract_poster_url(data.get("images") or []),
+            imdb_id=self._safe_str(data.get("imdbId")),
+            tvdb_id=self._safe_int(data.get("tvdbId")),
+            genres=[str(genre) for genre in data.get("genres", []) if genre],
+            seasons=seasons,
+        )
+
+    def _season_number(self, season: dict[str, Any]) -> int | None:
+        return self._safe_int(season.get("seasonNumber"))
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Checked per request rather than in __init__ so that movie-only
