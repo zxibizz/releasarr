@@ -17,6 +17,7 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.sonarr import SeriesDetails, SonarrService
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
+from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
 
@@ -132,13 +133,20 @@ class SyncSonarrMediaRequestsUseCase:
             )
             return "created"
 
+        # This is a metadata refresh for a season Sonarr still reports as missing.
+        # Only a previously completed request needs to fall back to pending; an
+        # in-flight status is owned by the release sync and must survive the refresh.
+        status: MediaRequestStatus | _Unset = UNSET
+        if existing.status == MediaRequestStatus.COMPLETED:
+            status = MediaRequestStatus.PENDING
+
         update = UpdateMediaRequestData(
             title=title,
             year=year,
             overview=overview,
             poster_url=poster_url,
             genres=genres,
-            status=MediaRequestStatus.PENDING,
+            status=status,
             imdb_id=imdb_id,
             season_number=season_number,
             total_episodes=total_episodes,

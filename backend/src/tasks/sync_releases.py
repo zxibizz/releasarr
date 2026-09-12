@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -12,8 +13,15 @@ from sqlalchemy.orm import selectinload
 
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import MediaRequestStatus, ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
+
+# Release states that mean a grab is in flight for the owning request. Seeding and
+# completed torrents count: the bytes are on disk but Sonarr has not imported them
+# yet, so the request is still being worked on.
+ACTIVE_RELEASE_STATUSES = frozenset(
+    {ReleaseStatus.DOWNLOADING, ReleaseStatus.SEEDING, ReleaseStatus.COMPLETED}
+)
 
 
 @dataclass(slots=True)
@@ -23,6 +31,7 @@ class SyncResult:
     synced: int
     failed: int
     not_found: int
+    requests_updated: int = 0
 
 
 @dataclass(slots=True)
@@ -37,6 +46,9 @@ class SyncReleasesTask:
     - ratio
     - status (based on qBT state)
     - completed_at (when download finishes)
+
+    It then propagates the refreshed release statuses onto the media requests those
+    releases belong to, so a request reflects that a download is under way.
     """
 
     db: DBManager
@@ -76,7 +88,14 @@ class SyncReleasesTask:
                 failed += 1
                 logger.error(f"Failed to sync release {release.id}: {exc}")
 
-        return SyncResult(synced=synced, failed=failed, not_found=not_found)
+        requests_updated = await self._sync_request_statuses()
+
+        return SyncResult(
+            synced=synced,
+            failed=failed,
+            not_found=not_found,
+            requests_updated=requests_updated,
+        )
 
     async def _update_release(self, release_id: str, torrent: dict[str, Any]) -> None:
         """Update a single release with torrent data."""
@@ -105,6 +124,57 @@ class SyncReleasesTask:
                     release.completed_at = datetime.fromtimestamp(int(completion_on), tz=UTC)
 
             await session.flush()
+
+    async def _sync_request_statuses(self) -> int:
+        """Reflect the state of each request's releases on the request itself.
+
+        Completed requests are skipped: Sonarr owns that transition (a season is only
+        done once it stops being reported missing), and a finished torrent usually
+        keeps seeding long after the import, which would otherwise flip the request
+        back and forth on every cycle.
+        """
+        updated = 0
+        async with self.db.transaction() as session:
+            stmt = (
+                select(models.MediaRequest)
+                .where(models.MediaRequest.status != MediaRequestStatus.COMPLETED)
+                .where(models.MediaRequest.releases.any())
+                .options(selectinload(models.MediaRequest.releases))
+            )
+            result = await session.execute(stmt)
+
+            for request in result.scalars():
+                derived = self._derive_request_status(
+                    [release.status for release in request.releases]
+                )
+                if derived is None or derived == request.status:
+                    continue
+                previous = request.status
+                request.status = derived
+                updated += 1
+                logger.info(
+                    f"Request status changed from {previous.value} to {derived.value}",
+                    request_id=request.id,
+                    previous_status=previous.value,
+                    status=derived.value,
+                )
+
+            await session.flush()
+
+        return updated
+
+    @staticmethod
+    def _derive_request_status(
+        release_statuses: Sequence[ReleaseStatus],
+    ) -> MediaRequestStatus | None:
+        """Status implied by a request's releases, or None to leave it untouched."""
+        if not release_statuses:
+            return None
+        if any(status in ACTIVE_RELEASE_STATUSES for status in release_statuses):
+            return MediaRequestStatus.DOWNLOADING
+        if all(status == ReleaseStatus.FAILED for status in release_statuses):
+            return MediaRequestStatus.FAILED
+        return None
 
     @staticmethod
     def _map_status(qbt_state: str) -> ReleaseStatus:

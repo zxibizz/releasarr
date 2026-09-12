@@ -284,6 +284,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             search_service=self._container.services.release_search,
+            request_repository=self._container.repositories.media_requests,
         )
 
     @cached_property
