@@ -7,6 +7,7 @@ export const resources = {
     translation: {
       nav: {
         requests: 'Requests',
+        system: 'System',
         languageLabel: 'Select language',
         languages: {
           en: 'English',
@@ -30,6 +31,8 @@ export const resources = {
         seeding: 'Seeding',
         completed: 'Completed',
         failed: 'Failed',
+        queued: 'Queued',
+        running: 'Running',
       },
       requestCard: {
         posterAlt: '{{title}} poster',
@@ -268,12 +271,132 @@ export const resources = {
           hide: 'Hide stack trace',
         },
       },
+      tasks: {
+        toasts: {
+          queued: 'Sync queued',
+          finished: 'Sync finished',
+          failedTitle: 'Sync failed',
+          failedFallback: 'Some sync steps did not finish.',
+          queueFailedTitle: 'Could not queue sync',
+          queueFailedFallback: 'The server rejected the sync request.',
+        },
+        page: {
+          title: 'Tasks',
+          subtitle: 'Background work Releasarr runs for you, and what it has run recently.',
+          runAll: 'Run all tasks',
+          error: {
+            title: 'Could not load tasks',
+            description: 'The task list is unavailable right now.',
+          },
+          stalled: {
+            title: 'Nothing is picking up queued tasks',
+            description:
+              'A task has been waiting for a while. The scheduler process may not be running.',
+          },
+        },
+        kinds: {
+          sonarr_sync: {
+            name: 'Sonarr Sync',
+            description: 'Pull wanted episodes and series from Sonarr.',
+          },
+          release_sync: {
+            name: 'Refresh Downloads',
+            description: 'Update download progress and state from the download client.',
+          },
+          export: {
+            name: 'Import Finished',
+            description: 'Import completed downloads into Sonarr.',
+          },
+          regrab: {
+            name: 'Regrab Outdated',
+            description: 'Re-download releases the indexer has since replaced.',
+          },
+        },
+        triggers: {
+          api: 'Manual',
+          download_client: 'Download client',
+          schedule: 'Scheduled',
+        },
+        scheduled: {
+          title: 'Scheduled',
+          runNow: 'Run now',
+          runTask: 'Run {{name}} now',
+          never: 'Never',
+          pendingFirstRun: 'On next start',
+          lastRunFailed: 'The last scheduled run failed.',
+          columns: {
+            name: 'Name',
+            interval: 'Interval',
+            lastExecution: 'Last execution',
+            lastDuration: 'Last duration',
+            nextExecution: 'Next execution',
+          },
+        },
+        queue: {
+          title: 'Queue',
+          description:
+            'Runs you or your download client asked for. Scheduled runs are reported above.',
+          count_one: '{{count}} run',
+          count_other: '{{count}} runs',
+          active_one: '{{count}} active',
+          active_other: '{{count}} active',
+          toggleDetails: 'Show details for {{name}}',
+          empty: {
+            title: 'No runs yet',
+            description: 'Tasks you run manually will appear here with their output.',
+          },
+          columns: {
+            name: 'Name',
+            trigger: 'Trigger',
+            queued: 'Queued',
+            started: 'Started',
+            duration: 'Duration',
+            status: 'Status',
+          },
+        },
+        output: {
+          empty: 'This run did not report any details.',
+          errorTitle: 'Error',
+        },
+      },
+      logLevels: {
+        info: 'Info',
+        warning: 'Warning',
+        error: 'Error',
+      },
+      taskLogs: {
+        title: 'Logs',
+        description: 'Everything the background tasks logged, newest first.',
+        filterLabel: 'Filter by task',
+        allTasks: 'All tasks',
+        source: 'Source',
+        toggleDetails: 'Show log details',
+        previous: 'Previous',
+        next: 'Next',
+        pageStatus: 'Page {{page}} of {{lastPage}} · {{total}} entries',
+        columns: {
+          time: 'Time',
+          level: 'Level',
+          task: 'Task',
+          message: 'Message',
+        },
+        empty: {
+          title: 'No log entries',
+          description: 'Log entries appear here once the background tasks start running.',
+          filtered: 'Nothing has been logged by {{name}} yet.',
+        },
+        error: {
+          title: 'Could not load logs',
+          description: 'The log file is unavailable right now.',
+        },
+      },
     },
   },
   ru: {
     translation: {
       nav: {
         requests: 'Запросы',
+        system: 'Система',
         languageLabel: 'Выберите язык',
         languages: {
           en: 'Английский',
@@ -297,6 +420,8 @@ export const resources = {
         seeding: 'Раздача',
         completed: 'Готово',
         failed: 'Ошибка',
+        queued: 'В очереди',
+        running: 'Выполняется',
       },
       requestCard: {
         posterAlt: 'Постер «{{title}}»',
@@ -531,6 +656,126 @@ export const resources = {
         stackTrace: {
           show: 'Показать стек',
           hide: 'Скрыть стек',
+        },
+      },
+      tasks: {
+        toasts: {
+          queued: 'Синхронизация добавлена в очередь',
+          finished: 'Синхронизация завершена',
+          failedTitle: 'Ошибка синхронизации',
+          failedFallback: 'Некоторые шаги синхронизации не завершились.',
+          queueFailedTitle: 'Не удалось запустить синхронизацию',
+          queueFailedFallback: 'Сервер отклонил запрос на синхронизацию.',
+        },
+        page: {
+          title: 'Задачи',
+          subtitle: 'Фоновые задачи Releasarr и история их запусков.',
+          runAll: 'Запустить все',
+          error: {
+            title: 'Не удалось загрузить задачи',
+            description: 'Список задач сейчас недоступен.',
+          },
+          stalled: {
+            title: 'Задачи из очереди не выполняются',
+            description: 'Задача ждёт слишком долго. Возможно, планировщик не запущен.',
+          },
+        },
+        kinds: {
+          sonarr_sync: {
+            name: 'Синхронизация Sonarr',
+            description: 'Загрузить нужные серии и сериалы из Sonarr.',
+          },
+          release_sync: {
+            name: 'Обновить загрузки',
+            description: 'Обновить прогресс и состояние из клиента загрузок.',
+          },
+          export: {
+            name: 'Импорт завершённых',
+            description: 'Импортировать завершённые загрузки в Sonarr.',
+          },
+          regrab: {
+            name: 'Перезагрузка устаревших',
+            description: 'Скачать заново релизы, заменённые на трекере.',
+          },
+        },
+        triggers: {
+          api: 'Вручную',
+          download_client: 'Клиент загрузок',
+          schedule: 'По расписанию',
+        },
+        scheduled: {
+          title: 'Расписание',
+          runNow: 'Запустить сейчас',
+          runTask: 'Запустить «{{name}}» сейчас',
+          never: 'Никогда',
+          pendingFirstRun: 'При следующем старте',
+          lastRunFailed: 'Последний запуск по расписанию завершился ошибкой.',
+          columns: {
+            name: 'Название',
+            interval: 'Интервал',
+            lastExecution: 'Последний запуск',
+            lastDuration: 'Длительность',
+            nextExecution: 'Следующий запуск',
+          },
+        },
+        queue: {
+          title: 'Очередь',
+          description:
+            'Запуски, инициированные вами или клиентом загрузок. Запуски по расписанию показаны выше.',
+          count_one: '{{count}} запуск',
+          count_few: '{{count}} запуска',
+          count_many: '{{count}} запусков',
+          active_one: '{{count}} активный',
+          active_few: '{{count}} активных',
+          active_many: '{{count}} активных',
+          toggleDetails: 'Показать детали «{{name}}»',
+          empty: {
+            title: 'Пока нет запусков',
+            description: 'Задачи, запущенные вручную, появятся здесь вместе с результатом.',
+          },
+          columns: {
+            name: 'Название',
+            trigger: 'Источник',
+            queued: 'В очереди',
+            started: 'Начало',
+            duration: 'Длительность',
+            status: 'Статус',
+          },
+        },
+        output: {
+          empty: 'Этот запуск не вернул подробностей.',
+          errorTitle: 'Ошибка',
+        },
+      },
+      logLevels: {
+        info: 'Инфо',
+        warning: 'Предупреждение',
+        error: 'Ошибка',
+      },
+      taskLogs: {
+        title: 'Логи',
+        description: 'Всё, что записали фоновые задачи, сначала новые.',
+        filterLabel: 'Фильтр по задаче',
+        allTasks: 'Все задачи',
+        source: 'Источник',
+        toggleDetails: 'Показать подробности записи',
+        previous: 'Назад',
+        next: 'Вперёд',
+        pageStatus: 'Страница {{page}} из {{lastPage}} · записей: {{total}}',
+        columns: {
+          time: 'Время',
+          level: 'Уровень',
+          task: 'Задача',
+          message: 'Сообщение',
+        },
+        empty: {
+          title: 'Записей нет',
+          description: 'Записи появятся здесь после первого запуска фоновых задач.',
+          filtered: 'Задача «{{name}}» пока ничего не записала.',
+        },
+        error: {
+          title: 'Не удалось загрузить логи',
+          description: 'Файл логов сейчас недоступен.',
         },
       },
     },

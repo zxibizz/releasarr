@@ -41,6 +41,12 @@ def torrent(state: str, *, info_hash: str = INFO_HASH) -> dict[str, Any]:
     }
 
 
+def finished_torrent(state: str, *, info_hash: str = INFO_HASH) -> dict[str, Any]:
+    """A torrent qBittorrent has fully downloaded."""
+
+    return torrent(state, info_hash=info_hash) | {"progress": 1.0, "completion_on": 1_700_000_000}
+
+
 def make_task(db: DBManager, torrents: list[dict[str, Any]]) -> SyncReleasesTask:
     client = cast(QbittorrentClient, FakeQbittorrentClient(torrents))
     return SyncReleasesTask(db=db, client=client)
@@ -137,3 +143,50 @@ async def test_request_without_releases_is_untouched(db_manager: DBManager) -> N
 
     assert result.requests_updated == 0
     assert await request_status(db_manager) == MediaRequestStatus.PENDING
+
+
+async def release_record(db: DBManager) -> models.Release:
+    async with db.session() as session:
+        release = await session.get(models.Release, "rel-1")
+        assert release is not None
+        return release
+
+
+@pytest.mark.parametrize("qbt_state", ["uploading", "stalledup", "pausedup"])
+async def test_fully_downloaded_torrent_is_completed(
+    db_manager: DBManager,
+    qbt_state: str,
+) -> None:
+    """Export depends on this: a seeding state must not mask completion."""
+
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+
+    await make_task(db_manager, [finished_torrent(qbt_state)]).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.COMPLETED
+    assert release.completed_at is not None
+
+
+async def test_full_progress_without_completion_time_is_not_completed(
+    db_manager: DBManager,
+) -> None:
+    """qBittorrent reports progress 1.0 while still checking a resumed torrent."""
+
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    torrent_data = torrent("checkingup") | {"progress": 1.0, "completion_on": 0}
+
+    await make_task(db_manager, [torrent_data]).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.DOWNLOADING
+    assert release.completed_at is None
+
+
+async def test_missing_files_outranks_completion(db_manager: DBManager) -> None:
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+
+    await make_task(db_manager, [finished_torrent("missingfiles")]).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.FAILED

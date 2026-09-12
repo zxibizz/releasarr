@@ -88,6 +88,9 @@ app.get('/__health', (_req, res) => {
 
 const api = express.Router();
 
+const TASK_KINDS = ['sonarr_sync', 'release_sync', 'export', 'regrab'] as const;
+type TaskKind = (typeof TASK_KINDS)[number];
+
 api.get('/requests', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
   const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));
@@ -207,7 +210,14 @@ api.get('/logs', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
   const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '100', 10));
   const requestId = (req.query.request_id as string | undefined)?.trim();
-  const logs = await mockStore.listRequestLogs({ requestId: requestId || undefined });
+  const task = (req.query.task as string | undefined)?.trim();
+  if (task && !TASK_KINDS.includes(task as TaskKind)) {
+    return res.status(422).json({ message: `Unknown task: ${task}` });
+  }
+  const logs = await mockStore.listRequestLogs({
+    requestId: requestId || undefined,
+    task: (task as TaskKind | undefined) || undefined,
+  });
   const total = logs.length;
   const start = (page - 1) * perPage;
   const paginated = logs.slice(start, start + perPage);
@@ -312,6 +322,75 @@ api.post('/requests/:requestId/releases/download', async (req, res) => {
       message: 'Failed to queue release download',
     });
   }
+});
+
+const SYNC_ALL_SEQUENCE: TaskKind[] = [...TASK_KINDS];
+const SYNC_DOWNLOADS_SEQUENCE: TaskKind[] = ['release_sync', 'export'];
+
+const queueSync = async (
+  kinds: TaskKind[],
+  operation: string,
+  trigger: 'api' | 'download_client',
+  res: express.Response,
+) => {
+  const { jobs, created } = await mockStore.enqueueSyncJob({ kinds, trigger });
+  // The last job finishing means the whole sequence is done.
+  const tracked = jobs[jobs.length - 1];
+
+  const body = {
+    ...buildAsyncResponse(
+      operation,
+      tracked.id,
+      created > 0 ? `${operation} queued (mock)` : 'An equivalent run is already queued.',
+      {
+        job_ids: jobs.map((job) => job.id),
+        tasks: jobs.map((job) => job.kind),
+        created,
+      },
+    ),
+    operation_id: tracked.id,
+    location: `${apiBaseUrl}/tasks/jobs/${tracked.id}`,
+  };
+
+  res.status(202).location(body.location).json(body);
+};
+
+api.post('/tasks/sync_all', async (_req, res) => {
+  await queueSync(SYNC_ALL_SEQUENCE, 'sync_all', 'api', res);
+});
+
+api.post('/tasks/sync_downloads', async (_req, res) => {
+  await queueSync(SYNC_DOWNLOADS_SEQUENCE, 'sync_downloads', 'download_client', res);
+});
+
+api.post('/tasks/run/:kind', async (req, res) => {
+  const kind = req.params.kind as TaskKind;
+  if (!TASK_KINDS.includes(kind)) {
+    return res.status(422).json({ message: `Unknown task: ${kind}` });
+  }
+  await queueSync([kind], `run_${kind}`, 'api', res);
+});
+
+api.get('/tasks/scheduled', async (_req, res) => {
+  const tasks = await mockStore.listScheduledTasks();
+  res.json({ tasks });
+});
+
+api.get('/tasks/jobs', async (req, res) => {
+  const limit = Math.min(
+    100,
+    Math.max(1, Number.parseInt((req.query.limit as string) ?? '20', 10)),
+  );
+  const jobs = await mockStore.listSyncJobs(limit);
+  res.json({ jobs });
+});
+
+api.get('/tasks/jobs/:jobId', async (req, res) => {
+  const job = await mockStore.getSyncJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'Sync job not found' });
+  }
+  res.json(job);
 });
 
 app.use(apiPath, api);

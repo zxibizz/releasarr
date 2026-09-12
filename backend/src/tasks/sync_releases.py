@@ -115,7 +115,7 @@ class SyncReleasesTask:
 
             # Map qBT state to ReleaseStatus
             qbt_state = str(torrent.get("state", "")).lower()
-            release.status = self._map_status(qbt_state)
+            release.status = self._map_status(qbt_state, finished=self._is_finished(torrent))
 
             # Set completed_at if download finished
             if release.status == ReleaseStatus.COMPLETED and release.completed_at is None:
@@ -177,17 +177,33 @@ class SyncReleasesTask:
         return None
 
     @staticmethod
-    def _map_status(qbt_state: str) -> ReleaseStatus:
+    def _is_finished(torrent: dict[str, Any]) -> bool:
+        """Whether qBittorrent has the complete payload on disk.
+
+        Derived from progress and completion time rather than the reported state,
+        because a finished torrent keeps seeding and therefore reports an upload
+        state indistinguishable from one that never finished downloading.
+        """
+        progress = float(torrent.get("progress", 0) or 0)
+        completion_on = int(torrent.get("completion_on", 0) or 0)
+        return progress >= 1.0 and completion_on > 0
+
+    @staticmethod
+    def _map_status(qbt_state: str, *, finished: bool = False) -> ReleaseStatus:
         """Map qBittorrent state to ReleaseStatus enum."""
         # qBittorrent reports lowercased states here; keep comparisons lowercase.
+        # Errors outrank completion: a torrent whose files vanished after finishing
+        # has nothing left to import.
+        if qbt_state in ("error", "missingfiles"):
+            return ReleaseStatus.FAILED
+        if finished:
+            return ReleaseStatus.COMPLETED
         if qbt_state in ("downloading", "stalleddl", "queueddl", "forceddl", "metadl"):
             return ReleaseStatus.DOWNLOADING
         if qbt_state in ("uploading", "stalledup", "queuedup", "forcedup"):
             return ReleaseStatus.SEEDING
         if qbt_state in ("pauseddl", "pausedup"):
             return ReleaseStatus.PENDING
-        if qbt_state in ("error", "missingfiles"):
-            return ReleaseStatus.FAILED
         if qbt_state in ("checkingdl", "checkingup", "checkingresumedata"):
             return ReleaseStatus.DOWNLOADING
         return ReleaseStatus.PENDING

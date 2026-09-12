@@ -22,3 +22,7 @@ class ResizeObserverMock {
 }
 
 window.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+
+// jsdom has no layout, so it omits scrollIntoView. Mantine's dropdowns call it
+// when highlighting the selected option.
+Element.prototype.scrollIntoView = () => {};

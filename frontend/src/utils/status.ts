@@ -13,6 +13,8 @@ const STATUS_PRESENTATION = {
   seeding: { color: 'cyan', icon: '🌱' },
   completed: { color: 'teal', icon: '✅' },
   failed: { color: 'red', icon: '❌' },
+  queued: { color: 'gray', icon: '🕒' },
+  running: { color: 'blue', icon: '⚙️' },
 } as const satisfies Record<string, StatusPresentation>;
 
 const UNKNOWN_STATUS: StatusPresentation = { color: 'gray', icon: '❓' };

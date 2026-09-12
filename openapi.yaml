@@ -539,12 +539,18 @@ paths:
   /logs:
     get:
       tags: [Logs]
-      summary: List request processing logs
+      summary: List processing logs
+      description: |
+        Application log entries, newest first. Filters match fields the log
+        producer bound onto the record, so `task` returns everything logged
+        while that background task was running, including lines emitted deeper
+        in the call stack.
       operationId: listRequestLogs
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PerPage'
         - $ref: '#/components/parameters/RequestIdFilter'
+        - $ref: '#/components/parameters/TaskFilter'
       responses:
         '200':
           description: Request logs matching the supplied filters.
@@ -554,6 +560,189 @@ paths:
                 $ref: '#/components/schemas/LogsResponse'
         '400':
           description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/sync_all:
+    post:
+      tags: [Tasks]
+      summary: Queue every task
+      description: |
+        Queues every task in dependency order: Sonarr request sync, download
+        state refresh, import of finished releases into Sonarr, and re-grab of
+        outdated releases. Execution happens in the scheduler process, so the
+        response only acknowledges that the work was queued.
+      operationId: triggerFullSync
+      responses:
+        '202':
+          description: Sync queued.
+          headers:
+            Location:
+              description: URL to poll for the queued sync job.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/sync_downloads:
+    post:
+      tags: [Tasks]
+      summary: Queue a download sync and Sonarr import
+      description: |
+        Refreshes download state from the download client and imports finished
+        releases into Sonarr. Intended for a download client to call when a
+        torrent finishes, so it deliberately skips the slower Sonarr and
+        indexer tasks of a full sync.
+      operationId: triggerDownloadSync
+      responses:
+        '202':
+          description: Sync queued.
+          headers:
+            Location:
+              description: URL to poll for the queued sync job.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/run/{kind}:
+    post:
+      tags: [Tasks]
+      summary: Queue a single task
+      description: |
+        Queues one task for immediate execution, equivalent to the run button
+        next to each task on the system tasks page.
+      operationId: runTask
+      parameters:
+        - in: path
+          name: kind
+          required: true
+          schema:
+            $ref: '#/components/schemas/SyncJobKind'
+          description: The task to run.
+      responses:
+        '202':
+          description: Task queued.
+          headers:
+            Location:
+              description: URL to poll for the queued sync job.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '422':
+          description: Unknown task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/scheduled:
+    get:
+      tags: [Tasks]
+      summary: List recurring tasks
+      description: |
+        Returns every task the scheduler runs on an interval, along with when it
+        last ran and when it is next due. Scheduled runs are not recorded as
+        jobs, so this is the only place their outcome is reported.
+      operationId: listScheduledTasks
+      responses:
+        '200':
+          description: The recurring tasks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledTasksResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/jobs:
+    get:
+      tags: [Tasks]
+      summary: List recent task runs
+      description: |
+        History of on-demand runs, newest first. Only runs triggered over the
+        API or by a download client appear here; scheduled runs are reported by
+        the scheduled tasks endpoint instead.
+      operationId: listSyncJobs
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of jobs to return, newest first.
+      responses:
+        '200':
+          description: Recently queued sync jobs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncJobsResponse'
+        '400':
+          description: Invalid pagination parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tasks/jobs/{jobId}:
+    get:
+      tags: [Tasks]
+      summary: Get a task run
+      operationId: getSyncJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The requested sync job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncJob'
+        '404':
+          description: Sync job not found.
           content:
             application/json:
               schema:
@@ -586,6 +775,13 @@ components:
       schema:
         type: string
       description: Unique identifier for a release.
+    JobId:
+      in: path
+      name: jobId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a sync job.
     Page:
       in: query
       name: page
@@ -625,6 +821,12 @@ components:
       schema:
         type: string
       description: Optional media request identifier to filter results.
+    TaskFilter:
+      in: query
+      name: task
+      schema:
+        $ref: '#/components/schemas/SyncJobKind'
+      description: Optional background task to filter results.
   schemas:
     MediaType:
       type: string
@@ -1152,6 +1354,100 @@ components:
       properties:
         success:
           type: boolean
+    SyncJobKind:
+      type: string
+      enum: [sonarr_sync, release_sync, export, regrab]
+      description: |
+        A unit of background work. `sonarr_sync` pulls wanted episodes from
+        Sonarr, `release_sync` refreshes download state from the download
+        client, `export` imports finished releases into Sonarr, and `regrab`
+        re-downloads releases the indexer has since replaced.
+    SyncJobStatus:
+      type: string
+      enum: [queued, running, completed, failed]
+    SyncJobTrigger:
+      type: string
+      enum: [api, download_client, schedule]
+      description: Origin of the sync request.
+    SyncJob:
+      type: object
+      required: [id, kind, status, trigger, queued_at]
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/SyncJobKind'
+        status:
+          $ref: '#/components/schemas/SyncJobStatus'
+        trigger:
+          $ref: '#/components/schemas/SyncJobTrigger'
+        queued_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_ms:
+          type: integer
+          nullable: true
+          description: Wall-clock run time, absent until the job finishes.
+        error:
+          type: string
+          nullable: true
+          description: Why the run failed.
+        result:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Summary of the work performed.
+    SyncJobsResponse:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncJob'
+    ScheduledTask:
+      type: object
+      required: [kind, interval_seconds]
+      properties:
+        kind:
+          $ref: '#/components/schemas/SyncJobKind'
+        interval_seconds:
+          type: integer
+          description: How often the scheduler runs this task.
+        last_execution:
+          type: string
+          format: date-time
+          nullable: true
+          description: Absent until the scheduler has run the task once.
+        last_duration_ms:
+          type: integer
+          nullable: true
+        last_status:
+          $ref: '#/components/schemas/SyncJobStatus'
+        last_error:
+          type: string
+          nullable: true
+        next_execution:
+          type: string
+          format: date-time
+          nullable: true
+          description: Computed from the last execution; absent if never run.
+    ScheduledTasksResponse:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledTask'
     AddReleaseRequest:
       type: object
       required: [magnet_link, request_ids]
