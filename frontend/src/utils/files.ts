@@ -14,6 +14,10 @@ export const isVideoFile = (filename: string): boolean =>
 export const isSubtitleFile = (filename: string): boolean =>
   SUBTITLE_EXTENSIONS.includes(extensionOf(filename));
 
+/** Natural ordering so `E9` sorts before `E10`. */
+export const compareByFileName = (a: ReleaseFile, b: ReleaseFile): number =>
+  a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+
 export interface GroupedFiles {
   video: ReleaseFile[];
   subtitle: ReleaseFile[];
