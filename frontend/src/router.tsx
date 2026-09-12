@@ -3,10 +3,8 @@ import { createBrowserRouter, type LoaderFunctionArgs } from 'react-router-dom';
 import AppLayout from '@/App';
 import { NotFound, RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import { releasesByRequestQuery } from '@/features/releases/queries';
-import { RequestDetailPage } from '@/features/requests/pages/RequestDetailPage';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { requestDetailQuery, requestsListQuery } from '@/features/requests/queries';
-import { TasksPage } from '@/features/tasks/pages/TasksPage';
 import { queryClient } from '@/lib/queryClient';
 
 const requestsLoader = async () => {
@@ -42,15 +40,27 @@ export const router = createBrowserRouter([
         loader: requestsLoader,
         errorElement: <RouteErrorBoundary />,
       },
+      /*
+       * The list is the entry point, so it ships in the initial bundle. These two
+       * carry the release search, file mapping and task tables, none of which a
+       * phone should download before it needs them. Their loaders stay eager so
+       * data fetching overlaps the chunk request.
+       */
       {
         path: 'request/:id',
-        element: <RequestDetailPage />,
+        lazy: async () => {
+          const { RequestDetailPage } = await import('@/features/requests/pages/RequestDetailPage');
+          return { Component: RequestDetailPage };
+        },
         loader: requestDetailLoader,
         errorElement: <RouteErrorBoundary />,
       },
       {
         path: 'system/tasks',
-        element: <TasksPage />,
+        lazy: async () => {
+          const { TasksPage } = await import('@/features/tasks/pages/TasksPage');
+          return { Component: TasksPage };
+        },
         errorElement: <RouteErrorBoundary />,
       },
       { path: '*', element: <NotFound /> },

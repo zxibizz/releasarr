@@ -12,6 +12,7 @@ import {
 } from '@/features/releases/fileMapping/useFileMappingForm';
 import { useUpdateFileMappings } from '@/features/releases/queries';
 import { useRequestsList } from '@/features/requests/queries';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseFile } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 import { compareByFileName, groupFilesByType } from '@/utils/files';
@@ -30,7 +31,12 @@ export function FileMappingForm({
   defaultRequest,
 }: FileMappingFormProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [videoOnly, setVideoOnly] = useState(true);
+
+  // Stretched to share a row on a phone; left at their natural width otherwise,
+  // since growing them lets flexbox shrink the labels below their text.
+  const buttonFlex = isMobile ? '1 1 140px' : undefined;
 
   const { requests, isLoading: requestsLoading } = useRequestsList();
   const availableRequests = useMemo(
@@ -85,7 +91,9 @@ export function FileMappingForm({
   return (
     <Stack gap="lg">
       <Stack gap={4}>
-        <Title order={4}>🔗 {t('fileMapping.title', { defaultValue: 'File request mapping' })}</Title>
+        <Title order={4}>
+          🔗 {t('fileMapping.title', { defaultValue: 'File request mapping' })}
+        </Title>
         <Text size="sm" c="dimmed">
           {t('fileMapping.description', {
             defaultValue: 'Map release files to requests to manage shared content.',
@@ -139,8 +147,8 @@ export function FileMappingForm({
         </Stack>
       )}
 
-      <Group justify="flex-end" gap="sm">
-        <Text size="sm" c="dimmed" mr="auto">
+      <Group justify="flex-end" gap="sm" wrap="wrap">
+        <Text size="sm" c="dimmed" mr={{ base: 0, sm: 'auto' }}>
           {hasChanges
             ? t('fileMapping.pendingChanges', {
                 defaultValue: '{{count}} unsaved change(s)',
@@ -148,12 +156,23 @@ export function FileMappingForm({
               })
             : t('fileMapping.noChanges', { defaultValue: 'No unsaved changes' })}
         </Text>
-        <Button variant="default" onClick={form.reset} disabled={!hasChanges}>
-          {t('fileMapping.undoAll', { defaultValue: 'Undo all changes' })}
-        </Button>
-        <Button onClick={handleSave} loading={saveMappings.isPending}>
-          {t('fileMapping.saveAll', { defaultValue: 'Save mappings' })}
-        </Button>
+        <Group gap="sm" wrap="wrap" w={{ base: '100%', sm: 'auto' }}>
+          <Button
+            variant="default"
+            onClick={form.reset}
+            disabled={!hasChanges}
+            style={{ flex: buttonFlex }}
+          >
+            {t('fileMapping.undoAll', { defaultValue: 'Undo all changes' })}
+          </Button>
+          <Button
+            onClick={handleSave}
+            loading={saveMappings.isPending}
+            style={{ flex: buttonFlex }}
+          >
+            {t('fileMapping.saveAll', { defaultValue: 'Save mappings' })}
+          </Button>
+        </Group>
       </Group>
     </Stack>
   );

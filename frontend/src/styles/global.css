@@ -4,29 +4,118 @@ body,
   height: 100%;
 }
 
+html {
+  /* Keep our own type scale when iOS rotates to landscape. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   line-height: 1.6;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  background-attachment: fixed;
+  background: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Stop the page rubber-banding into the parent scroller on touch. */
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+/*
+ * A fixed layer instead of `background-attachment: fixed`, which iOS Safari
+ * repaints on every scroll frame.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
-::-webkit-scrollbar-track {
-  background: #1e293b;
+/*
+ * Safari zooms the viewport when a focused field is under 16px, and never zooms
+ * back out. Mantine sets font-size inline from the `size` prop, so the override
+ * has to win on specificity.
+ */
+@media (max-width: 47.99em) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #475569, #64748b);
-  border-radius: 999px;
+/* Long release names and file paths must never widen the layout. */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #64748b, #94a3b8);
+/*
+ * Touch targets. Mantine's `xs` controls are 30px tall, well under the ~44px a
+ * fingertip needs, so grow them wherever the pointer is imprecise.
+ */
+@media (pointer: coarse) {
+  .mantine-Button-root {
+    min-height: 40px;
+  }
+
+  .mantine-ActionIcon-root {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .mantine-Input-input {
+    min-height: 42px;
+  }
+
+  .mantine-Checkbox-input,
+  .mantine-Radio-radio {
+    min-width: 22px;
+    min-height: 22px;
+  }
+}
+
+/* Keep fixed chrome clear of notches and the iOS home indicator. */
+.safe-area-inline {
+  padding-left: max(var(--mantine-spacing-md), env(safe-area-inset-left));
+  padding-right: max(var(--mantine-spacing-md), env(safe-area-inset-right));
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom scrollbars are a desktop affordance; touch platforms draw their own. */
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #475569, #64748b);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #64748b, #94a3b8);
+  }
 }

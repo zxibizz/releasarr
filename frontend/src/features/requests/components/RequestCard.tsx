@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { StatusBadge } from '@/components/StatusBadge';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
 import { formatDate, formatRuntime } from '@/utils/formatters';
 
@@ -12,6 +13,7 @@ interface RequestCardProps {
 
 export function RequestCard({ request }: RequestCardProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
 
   const subtitle = isMovie
@@ -28,15 +30,20 @@ export function RequestCard({ request }: RequestCardProps) {
       style={{ height: '100%', textDecoration: 'none' }}
     >
       <Group align="flex-start" wrap="nowrap" gap="md" h="100%">
+        {/*
+          The poster is the fastest way to recognise a request, so it stays on a
+          phone too — just narrow enough to leave the text a readable column.
+        */}
         <Image
           src={request.poster_url}
           alt={t('requestCard.posterAlt', { title: request.title })}
-          w={110}
-          h={165}
+          w={{ base: 72, sm: 110 }}
+          h={{ base: 108, sm: 165 }}
           radius="md"
           fit="cover"
-          visibleFrom="sm"
+          loading="lazy"
           fallbackSrc="https://placehold.co/110x165?text=No+Poster"
+          style={{ flexShrink: 0 }}
         />
 
         <Stack gap="xs" style={{ flex: 1, minWidth: 0 }} h="100%">
@@ -49,26 +56,35 @@ export function RequestCard({ request }: RequestCardProps) {
             </Text>
           </div>
 
+          {/*
+            Genres and the synopsis are browsing detail, not identifying detail:
+            on a phone they tripled the height of every card and pushed the list
+            itself off screen. The poster, title and status are what a request is
+            recognised by, so only those survive the narrow layout.
+          */}
           <Group gap="xs">
             <StatusBadge status={request.status} />
             <Badge color={isMovie ? 'red' : 'blue'} variant="light" radius="sm">
               {isMovie ? '🎬' : '📺'} {t(`mediaType.${request.type}`)}
             </Badge>
-            {request.genres.slice(0, 2).map((genre) => (
-              <Badge key={genre} color="gray" variant="default" radius="sm">
-                {genre}
-              </Badge>
-            ))}
-            {request.genres.length > 2 && (
+            {!isMobile &&
+              request.genres.slice(0, 2).map((genre) => (
+                <Badge key={genre} color="gray" variant="default" radius="sm">
+                  {genre}
+                </Badge>
+              ))}
+            {!isMobile && request.genres.length > 2 && (
               <Badge color="gray" variant="default" radius="sm">
                 +{request.genres.length - 2}
               </Badge>
             )}
           </Group>
 
-          <Text size="sm" c="gray.4" lineClamp={3}>
-            {request.overview}
-          </Text>
+          {!isMobile && (
+            <Text size="sm" c="gray.4" lineClamp={3}>
+              {request.overview}
+            </Text>
+          )}
 
           <Text size="xs" c="dimmed" mt="auto">
             {t('requestCard.createdAt', { date: formatDate(request.created_at) })}
