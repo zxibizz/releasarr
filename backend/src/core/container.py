@@ -19,6 +19,7 @@ from src.application.interfaces.releases import (
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
 from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
@@ -301,23 +302,33 @@ class ReleaseUseCases:
         return SearchReleaseSourcesUseCase(search_service=self._container.services.release_search)
 
     @cached_property
+    def auto_mapper(self) -> ReleaseAutoMapper:
+        from src.application.utility.file_matcher import ReleaseFileMatcher
+
+        return ReleaseAutoMapper(
+            repository=self._container.repositories.releases,
+            file_matcher=ReleaseFileMatcher(),
+            request_repository=self._container.repositories.media_requests,
+        )
+
+    @cached_property
     def queue_download(self) -> QueueReleaseDownloadUseCase:
         return QueueReleaseDownloadUseCase(
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             search_service=self._container.services.release_search,
             request_repository=self._container.repositories.media_requests,
+            auto_mapper=self.auto_mapper,
         )
 
     @cached_property
     def export_finished(self) -> ExportFinishedSeriesUseCase:
         from src.application.use_cases.releases.export_finished import ExportFinishedSeriesUseCase
-        from src.application.utility.file_matcher import ReleaseFileMatcher
 
         return ExportFinishedSeriesUseCase(
             repository=self._container.repositories.releases,
             sonarr=self._container.services.sonarr,
-            file_matcher=ReleaseFileMatcher(),
+            auto_mapper=self.auto_mapper,
             download_service=self._container.services.release_download,
             request_repository=self._container.repositories.media_requests,
         )

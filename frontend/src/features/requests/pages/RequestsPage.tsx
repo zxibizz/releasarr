@@ -29,6 +29,7 @@ import {
   DEFAULT_SORT,
   FILTER_KEYS,
   SORT_KEYS,
+  TYPE_FILTER_KEYS,
   buildStats,
   filterAndSortRequests,
   type FilterKey,
@@ -42,9 +43,15 @@ import type { MediaRequestStatus } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
 const FILTER_LABEL_KEYS: Record<string, string> = {
+  active: 'requestsList.filters.active',
   all: 'requestsList.filters.all',
   movies: 'requestsList.filters.movies',
   series: 'requestsList.filters.series',
+};
+
+const HEADING_KEYS: Partial<Record<FilterKey, string>> = {
+  active: 'requestsList.headings.active',
+  all: 'requestsList.headings.all',
 };
 
 function RequestsSkeleton() {
@@ -65,8 +72,10 @@ function RequestsSkeleton() {
 }
 
 /**
- * Eight filters wrap onto three rows on a phone and push the list off screen, so
- * they scroll sideways as a single row instead.
+ * The filters wrap onto three rows on a phone and push the list off screen, so
+ * they scroll sideways as a single row instead. Narrowing by media type is a
+ * desktop-only affordance: it is the least used of the filters and the status
+ * ones are what a phone has room for.
  */
 function FilterPills({
   filter,
@@ -79,6 +88,10 @@ function FilterPills({
 }) {
   const isMobile = useIsMobile();
 
+  const keys = isMobile
+    ? FILTER_KEYS.filter((key) => !TYPE_FILTER_KEYS.includes(key))
+    : FILTER_KEYS;
+
   const pills = (
     <Group
       gap="xs"
@@ -87,7 +100,7 @@ function FilterPills({
       // squeezing every pill down to a single letter.
       w={isMobile ? 'max-content' : undefined}
     >
-      {FILTER_KEYS.map((key) => (
+      {keys.map((key) => (
         <Button
           key={key}
           size="xs"
@@ -263,6 +276,13 @@ export function RequestsPage() {
   const filterLabel = (key: string) =>
     FILTER_LABEL_KEYS[key] ? t(FILTER_LABEL_KEYS[key]) : t(`status.${key}`);
 
+  // The two filters that aren't a single status read badly through the
+  // "{{label}} Requests" template, so they name the list themselves.
+  const headingKey = HEADING_KEYS[filter];
+  const heading = headingKey
+    ? t(headingKey)
+    : t('requestsList.headings.filtered', { label: filterLabel(filter) });
+
   if (isLoading && requests.length === 0) {
     return (
       <Stack gap="xl">
@@ -325,11 +345,7 @@ export function RequestsPage() {
       <RequestStats stats={stats} />
 
       <Group justify="space-between" align="center">
-        <Title order={3}>
-          {filter === 'all'
-            ? t('requestsList.headings.all')
-            : t('requestsList.headings.filtered', { label: filterLabel(filter) })}
-        </Title>
+        <Title order={3}>{heading}</Title>
         <Text c="dimmed" size="sm">
           {t('requestsList.resultsCount', { count: visibleRequests.length })}
         </Text>

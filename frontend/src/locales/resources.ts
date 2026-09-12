@@ -66,6 +66,7 @@ export const resources = {
         moreFilters: 'Sort and language',
         refreshing: 'Refreshing data…',
         filters: {
+          active: 'In progress',
           all: 'All',
           movies: 'Movies',
           series: 'Series',
@@ -84,6 +85,7 @@ export const resources = {
         },
         headings: {
           all: 'All Requests',
+          active: 'In Progress',
           filtered: '{{label}} Requests',
         },
         resultsCount_one: '{{count}} request',
@@ -489,6 +491,7 @@ export const resources = {
         moreFilters: 'Сортировка и язык',
         refreshing: 'Обновляем данные…',
         filters: {
+          active: 'В работе',
           all: 'Все',
           movies: 'Фильмы',
           series: 'Сериалы',
@@ -507,6 +510,7 @@ export const resources = {
         },
         headings: {
           all: 'Все запросы',
+          active: 'В работе',
           filtered: '{{label}}',
         },
         resultsCount_one: '{{count}} запрос',

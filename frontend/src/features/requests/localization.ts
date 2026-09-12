@@ -17,10 +17,7 @@ export const collectLanguages = (requests: MediaRequest[]): string[] => {
   return [...languages].sort();
 };
 
-export const localizeRequest = <T extends MediaRequest>(
-  request: T,
-  language: string | null,
-): T => {
+export const localizeRequest = <T extends MediaRequest>(request: T, language: string | null): T => {
   const localization = language ? request.localizations?.[language] : undefined;
   if (!localization) {
     return request;
