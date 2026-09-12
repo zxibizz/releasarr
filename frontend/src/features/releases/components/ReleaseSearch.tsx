@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/formatters';
@@ -101,7 +102,12 @@ export function ReleaseSearch({
   onDownloadQueued,
 }: ReleaseSearchProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Only stretch the actions on a phone; growing them on desktop shrinks the
+  // labels below their content width and clips them.
+  const actionFlex = isMobile ? 1 : undefined;
 
   const ageLabel = (days: number | null): string => {
     if (days === null) return t('releaseSearch.age.unknown');
@@ -216,20 +222,34 @@ export function ReleaseSearch({
           <Group align="flex-end" gap="sm" wrap="wrap">
             <TextInput
               ref={inputRef}
-              style={{ flex: 1, minWidth: 220 }}
+              type="search"
+              enterKeyHint="search"
+              style={{ flex: '1 1 220px', minWidth: 0 }}
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
               placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
               aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
             />
-            <Button type="submit" loading={search.isPending} disabled={!query.trim()}>
-              {t('releaseSearch.actions.search')}
-            </Button>
-            {(query || results.length > 0) && (
-              <Button type="button" variant="default" onClick={handleClear}>
-                {t('releaseSearch.actions.clear')}
+            <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
+              <Button
+                type="submit"
+                loading={search.isPending}
+                disabled={!query.trim()}
+                style={{ flex: actionFlex }}
+              >
+                {t('releaseSearch.actions.search')}
               </Button>
-            )}
+              {(query || results.length > 0) && (
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleClear}
+                  style={{ flex: actionFlex }}
+                >
+                  {t('releaseSearch.actions.clear')}
+                </Button>
+              )}
+            </Group>
           </Group>
         </form>
 
@@ -272,7 +292,7 @@ export function ReleaseSearch({
               <Select
                 label={t('releaseSearch.sort.label')}
                 size="xs"
-                w={150}
+                w={{ base: '47%', sm: 150 }}
                 allowDeselect={false}
                 value={sortField}
                 onChange={(value) => {
@@ -289,7 +309,7 @@ export function ReleaseSearch({
               <Select
                 label={t('releaseSearch.sort.directionLabel')}
                 size="xs"
-                w={140}
+                w={{ base: '47%', sm: 140 }}
                 allowDeselect={false}
                 value={sortOrder}
                 onChange={(value) => value && setSortOrder(value as SortOrder)}
@@ -302,7 +322,7 @@ export function ReleaseSearch({
                 <Select
                   label={t('releaseSearch.filters.source.label')}
                   size="xs"
-                  w={170}
+                  w={{ base: '100%', sm: 170 }}
                   allowDeselect={false}
                   value={sourceFilter}
                   onChange={(value) => value && setSourceFilter(value)}
@@ -324,8 +344,8 @@ export function ReleaseSearch({
                 return (
                   <Paper key={candidate.release_id} withBorder radius="md" p="md">
                     <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                      <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-                        <Text size="sm" fw={600} lineClamp={2}>
+                      <Stack gap={6} style={{ flex: '1 1 240px', minWidth: 0 }}>
+                        <Text size="sm" fw={600} lineClamp={2} className="break-anywhere">
                           {candidate.release_name}
                         </Text>
                         <Group gap="sm" fz="xs" c="dimmed" wrap="wrap">
@@ -363,8 +383,12 @@ export function ReleaseSearch({
 
                       <Button
                         size="xs"
+                        w={{ base: '100%', sm: 'auto' }}
                         loading={downloadingId === candidate.release_id}
                         disabled={Boolean(downloadingId) && downloadingId !== candidate.release_id}
+                        aria-label={t('releaseSearch.actions.queueDownload', {
+                          name: candidate.release_name,
+                        })}
                         onClick={() => {
                           setDownloadingId(candidate.release_id);
                           download.mutate(candidate);

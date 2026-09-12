@@ -8,6 +8,7 @@ export const resources = {
       nav: {
         requests: 'Requests',
         system: 'System',
+        openMenu: 'Open navigation menu',
         languageLabel: 'Select language',
         languages: {
           en: 'English',
@@ -19,6 +20,7 @@ export const resources = {
         backToRequests: '← Back to Requests',
         close: 'Close',
         cancel: 'Cancel',
+        refresh: 'Refresh',
       },
       mediaType: {
         movie: 'Movie',
@@ -61,6 +63,7 @@ export const resources = {
         subtitle: 'Track and manage your media server requests',
         searchPlaceholder: 'Search requests…',
         sortAriaLabel: 'Sort requests',
+        moreFilters: 'Sort and language',
         refreshing: 'Refreshing data…',
         filters: {
           all: 'All',
@@ -146,7 +149,8 @@ export const resources = {
       },
       releaseSearch: {
         title: '🔍 Search Release Sources',
-        instructions: 'Enter a title or identifier and press the search button to fetch release candidates.',
+        instructions:
+          'Enter a title or identifier and press the search button to fetch release candidates.',
         placeholder: 'Search release sources for "{{title}}"…',
         ariaLabel: 'Search releases for {{title}}',
         actions: {
@@ -214,6 +218,25 @@ export const resources = {
         },
       },
       releaseCard: {
+        source: 'Source',
+        progress: 'Progress',
+        relatedRequests: 'Related requests',
+        added: 'Added {{date}}',
+        completed: 'Completed {{date}}',
+        stats: {
+          seeders: 'Seeders',
+          leechers: 'Leechers',
+          ratio: 'Ratio',
+          health: 'Health',
+        },
+        files: {
+          total_one: '{{count}} file',
+          total_other: '{{count}} files',
+          video_one: '{{count}} video',
+          video_other: '{{count}} video',
+          subtitle_one: '{{count}} subtitle',
+          subtitle_other: '{{count}} subtitles',
+        },
         aria: {
           viewFiles: 'View files',
           toggleDetails: 'Toggle details',
@@ -404,6 +427,7 @@ export const resources = {
       nav: {
         requests: 'Запросы',
         system: 'Система',
+        openMenu: 'Открыть меню навигации',
         languageLabel: 'Выберите язык',
         languages: {
           en: 'Английский',
@@ -413,6 +437,7 @@ export const resources = {
       common: {
         tryAgain: 'Повторить попытку',
         backToRequests: '← Назад к запросам',
+        refresh: 'Обновить',
         close: 'Закрыть',
         cancel: 'Отмена',
       },
@@ -461,6 +486,7 @@ export const resources = {
         subtitle: 'Отслеживайте и управляйте запросами к медиасерверу',
         searchPlaceholder: 'Поиск запросов…',
         sortAriaLabel: 'Сортировать запросы',
+        moreFilters: 'Сортировка и язык',
         refreshing: 'Обновляем данные…',
         filters: {
           all: 'Все',
@@ -540,7 +566,8 @@ export const resources = {
       },
       releaseSearch: {
         title: '🔍 Поиск релизов',
-        instructions: 'Введите название или идентификатор и нажмите поиск, чтобы получить кандидатов.',
+        instructions:
+          'Введите название или идентификатор и нажмите поиск, чтобы получить кандидатов.',
         placeholder: 'Поиск релизов для «{{title}}»…',
         ariaLabel: 'Поиск релизов для {{title}}',
         actions: {
@@ -610,6 +637,28 @@ export const resources = {
         },
       },
       releaseCard: {
+        source: 'Источник',
+        progress: 'Прогресс',
+        relatedRequests: 'Связанные запросы',
+        added: 'Добавлен {{date}}',
+        completed: 'Завершён {{date}}',
+        stats: {
+          seeders: 'Сиды',
+          leechers: 'Личи',
+          ratio: 'Рейтинг',
+          health: 'Здоровье',
+        },
+        files: {
+          total_one: '{{count}} файл',
+          total_few: '{{count}} файла',
+          total_many: '{{count}} файлов',
+          video_one: '{{count}} видео',
+          video_few: '{{count}} видео',
+          video_many: '{{count}} видео',
+          subtitle_one: '{{count}} субтитр',
+          subtitle_few: '{{count}} субтитра',
+          subtitle_many: '{{count}} субтитров',
+        },
         aria: {
           viewFiles: 'Открыть файлы',
           toggleDetails: 'Показать детали',

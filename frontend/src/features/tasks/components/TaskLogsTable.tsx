@@ -1,10 +1,22 @@
-import { ActionIcon, Badge, Box, Code, Collapse, Group, Stack, Table, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Card,
+  Code,
+  Collapse,
+  Group,
+  Stack,
+  Table,
+  Text,
+} from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { formatLogContext } from '@/features/logs/context';
 import { isTaskKind } from '@/features/tasks/formatting';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { RequestLogEntry } from '@/types';
 import { formatDateTime } from '@/utils/formatters';
 import { LOG_LEVEL_COLOR } from '@/utils/status';
@@ -14,7 +26,29 @@ const HIDDEN_METADATA_KEYS = ['task'];
 
 const COLUMN_COUNT = 5;
 
+interface EntryView {
+  context: string | null;
+  hasDetails: boolean;
+  task: unknown;
+}
+
+const describe = (entry: RequestLogEntry): EntryView => {
+  const context = formatLogContext(entry.metadata, HIDDEN_METADATA_KEYS);
+
+  return {
+    context,
+    hasDetails: Boolean(context || entry.stackTrace || entry.source),
+    task: entry.metadata?.task,
+  };
+};
+
 export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
+  const isMobile = useIsMobile();
+
+  return isMobile ? <TaskLogsCards entries={entries} /> : <TaskLogsGrid entries={entries} />;
+}
+
+function TaskLogsGrid({ entries }: { entries: RequestLogEntry[] }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -35,9 +69,7 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
         <Table.Tbody>
           {entries.map((entry) => {
             const open = expanded === entry.id;
-            const context = formatLogContext(entry.metadata, HIDDEN_METADATA_KEYS);
-            const hasDetails = Boolean(context || entry.stackTrace || entry.source);
-            const task = entry.metadata?.task;
+            const { context, hasDetails, task } = describe(entry);
 
             return [
               <Table.Tr
@@ -46,20 +78,7 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
                 style={{ cursor: hasDetails ? 'pointer' : 'default' }}
               >
                 <Table.Td>
-                  {hasDetails && (
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      aria-expanded={open}
-                      aria-label={t('taskLogs.toggleDetails')}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggle(entry.id);
-                      }}
-                    >
-                      {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                    </ActionIcon>
-                  )}
+                  {hasDetails && <ExpandToggle open={open} onToggle={() => toggle(entry.id)} />}
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" c="dimmed" ff="monospace">
@@ -67,9 +86,7 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
                   </Text>
                 </Table.Td>
                 <Table.Td>
-                  <Badge color={LOG_LEVEL_COLOR[entry.level]} variant="light" size="sm">
-                    {t(`logLevels.${entry.level}`)}
-                  </Badge>
+                  <LevelBadge entry={entry} />
                 </Table.Td>
                 <Table.Td>
                   {isTaskKind(task) ? (
@@ -81,7 +98,7 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
                   )}
                 </Table.Td>
                 <Table.Td>
-                  <Text size="sm" style={{ wordBreak: 'break-word' }}>
+                  <Text size="sm" className="break-anywhere">
                     {entry.message}
                   </Text>
                 </Table.Td>
@@ -91,24 +108,7 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
                 <Table.Td colSpan={COLUMN_COUNT} p={0} style={{ borderBottom: 'none' }}>
                   <Collapse expanded={open}>
                     <Box px="md" py="sm">
-                      <Stack gap={6}>
-                        {entry.source && (
-                          <Group gap={6}>
-                            <Text size="xs" c="dimmed">
-                              {t('taskLogs.source')}:
-                            </Text>
-                            <Text size="xs" ff="monospace">
-                              {entry.source}
-                            </Text>
-                          </Group>
-                        )}
-                        {context && (
-                          <Text size="xs" c="dimmed" style={{ wordBreak: 'break-word' }}>
-                            {t('requestLogsModal.context')}: {context}
-                          </Text>
-                        )}
-                        {entry.stackTrace && <Code block>{entry.stackTrace}</Code>}
-                      </Stack>
+                      <EntryDetails entry={entry} context={context} />
                     </Box>
                   </Collapse>
                 </Table.Td>
@@ -118,5 +118,111 @@ export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>
+  );
+}
+
+function TaskLogsCards({ entries }: { entries: RequestLogEntry[] }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const toggle = (id: string) => setExpanded((current) => (current === id ? null : id));
+
+  return (
+    <Stack gap="xs" p="xs">
+      {entries.map((entry) => {
+        const open = expanded === entry.id;
+        const { context, hasDetails, task } = describe(entry);
+
+        return (
+          <Card key={entry.id} withBorder radius="md" padding="sm">
+            <Stack gap="xs">
+              <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
+                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                  <LevelBadge entry={entry} />
+                  <Text size="xs" c="dimmed" ff="monospace" style={{ minWidth: 0 }}>
+                    {formatDateTime(entry.occurredAt)}
+                  </Text>
+                </Group>
+                {hasDetails && <ExpandToggle open={open} onToggle={() => toggle(entry.id)} />}
+              </Group>
+
+              {isTaskKind(task) && (
+                <Text size="xs" c="dimmed">
+                  {t('taskLogs.columns.task')}: {t(`tasks.kinds.${task}.name`)}
+                </Text>
+              )}
+
+              <Text size="sm" className="break-anywhere">
+                {entry.message}
+              </Text>
+
+              <Collapse expanded={open}>
+                <Box pt={4}>
+                  <EntryDetails entry={entry} context={context} />
+                </Box>
+              </Collapse>
+            </Stack>
+          </Card>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function LevelBadge({ entry }: { entry: RequestLogEntry }) {
+  const { t } = useTranslation();
+
+  return (
+    <Badge color={LOG_LEVEL_COLOR[entry.level]} variant="light" size="sm">
+      {t(`logLevels.${entry.level}`)}
+    </Badge>
+  );
+}
+
+function ExpandToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <ActionIcon
+      variant="subtle"
+      color="gray"
+      aria-expanded={open}
+      aria-label={t('taskLogs.toggleDetails')}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+    >
+      {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+    </ActionIcon>
+  );
+}
+
+function EntryDetails({ entry, context }: { entry: RequestLogEntry; context: string | null }) {
+  const { t } = useTranslation();
+
+  return (
+    <Stack gap={6}>
+      {entry.source && (
+        <Group gap={6} wrap="wrap">
+          <Text size="xs" c="dimmed">
+            {t('taskLogs.source')}:
+          </Text>
+          <Text size="xs" ff="monospace" className="break-anywhere">
+            {entry.source}
+          </Text>
+        </Group>
+      )}
+      {context && (
+        <Text size="xs" c="dimmed" className="break-anywhere">
+          {t('requestLogsModal.context')}: {context}
+        </Text>
+      )}
+      {entry.stackTrace && (
+        <Code block className="break-anywhere">
+          {entry.stackTrace}
+        </Code>
+      )}
+    </Stack>
   );
 }

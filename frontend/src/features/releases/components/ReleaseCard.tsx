@@ -14,6 +14,7 @@ import { IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Release } from '@/types';
 import {
   calculateEta,
@@ -60,6 +61,7 @@ export function ReleaseCard({
   isBusy = false,
 }: ReleaseCardProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const isActive = release.status === 'downloading' || release.status === 'pending';
   const isComplete = release.status === 'completed' || release.status === 'seeding';
@@ -86,41 +88,49 @@ export function ReleaseCard({
       onConfirm: () => onDelete(release.id),
     });
 
+  // Actions take a full-width row of their own on a phone, where a row of `xs`
+  // buttons squeezed beside the file counts is both hard to hit and hard to read.
+  const actionSize = isMobile ? 'sm' : 'xs';
+  const actionFlex = isMobile ? 1 : undefined;
+  const actionRowFlex = isMobile ? '1 1 100%' : undefined;
+
   return (
-    <Card withBorder radius="lg" padding="lg">
+    <Card withBorder radius="lg" padding={isMobile ? 'md' : 'lg'}>
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-          <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-            <Text fw={700} lineClamp={2}>
+        <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
+          {/*
+            A `flex-basis` of 0 would let the name collapse to a few characters
+            beside the badges rather than pushing them onto their own line.
+          */}
+          <Stack gap={4} style={{ flex: '1 1 200px', minWidth: 0 }}>
+            <Text fw={700} lineClamp={2} className="break-anywhere">
               {release.name}
             </Text>
             {release.torrent_source && (
-              <Text size="sm" c="dimmed">
-                {t('releaseCard.source', { defaultValue: 'Source' })}: {release.torrent_source}
+              <Text size="sm" c="dimmed" className="break-anywhere">
+                {t('releaseCard.source')}: {release.torrent_source}
               </Text>
             )}
           </Stack>
 
-          <Stack gap="xs" align="flex-end">
+          <Group gap="xs" align="center" wrap="nowrap">
             <StatusBadge status={release.status} />
-            <Group gap="xs">
-              <Text size="sm" c="dimmed">
-                {formatFileSize(release.size)}
-              </Text>
-              {release.quality && (
-                <Badge variant="light" color="blue" radius="sm">
-                  {release.quality}
-                </Badge>
-              )}
-            </Group>
-          </Stack>
+            <Text size="sm" c="dimmed">
+              {formatFileSize(release.size)}
+            </Text>
+            {release.quality && (
+              <Badge variant="light" color="blue" radius="sm">
+                {release.quality}
+              </Badge>
+            )}
+          </Group>
         </Group>
 
         {isActive && (
           <Stack gap={4}>
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
-                {t('releaseCard.progress', { defaultValue: 'Progress' })}
+                {t('releaseCard.progress')}
               </Text>
               <Text size="sm" c="dimmed">
                 {formatProgress(progress)}
@@ -153,19 +163,25 @@ export function ReleaseCard({
           </Group>
         )}
 
-        <Group gap="lg" fz="xs" c="dimmed">
-          <Text size="xs">Seeders: {release.seeders}</Text>
-          <Text size="xs">Leechers: {release.leechers}</Text>
-          <Text size="xs">Ratio: {formatRatio(release.ratio)}</Text>
+        <Group gap="md" fz="xs" c="dimmed" wrap="wrap">
+          <Text size="xs">
+            {t('releaseCard.stats.seeders')}: {release.seeders}
+          </Text>
+          <Text size="xs">
+            {t('releaseCard.stats.leechers')}: {release.leechers}
+          </Text>
+          <Text size="xs">
+            {t('releaseCard.stats.ratio')}: {formatRatio(release.ratio)}
+          </Text>
           <Text size="xs" c={healthColor(health)}>
-            Health: {health}%
+            {t('releaseCard.stats.health')}: {health}%
           </Text>
         </Group>
 
         {relatedRequests.length > 0 && (
           <Stack gap={6}>
             <Text size="sm" fw={600} c="dimmed">
-              {t('releaseCard.relatedRequests', { defaultValue: 'Related requests' })}
+              {t('releaseCard.relatedRequests')}
             </Text>
             <Group gap="xs">
               {relatedRequests.map((id) => (
@@ -178,34 +194,52 @@ export function ReleaseCard({
         )}
 
         <Group justify="space-between" align="center" wrap="wrap" gap="md">
-          <Stack gap={4}>
-            <Group gap="md" fz="sm" c="dimmed">
-              <Text size="sm">📁 {release.files?.length ?? 0} files</Text>
-              {files.video.length > 0 && <Text size="sm">🎬 {files.video.length} video</Text>}
+          <Stack gap={4} style={{ flex: '1 1 200px', minWidth: 0 }}>
+            <Group gap="md" fz="sm" c="dimmed" wrap="wrap">
+              <Text size="sm">
+                📁 {t('releaseCard.files.total', { count: release.files?.length ?? 0 })}
+              </Text>
+              {files.video.length > 0 && (
+                <Text size="sm">
+                  🎬 {t('releaseCard.files.video', { count: files.video.length })}
+                </Text>
+              )}
               {files.subtitle.length > 0 && (
-                <Text size="sm">📝 {files.subtitle.length} subtitle</Text>
+                <Text size="sm">
+                  📝 {t('releaseCard.files.subtitle', { count: files.subtitle.length })}
+                </Text>
               )}
             </Group>
-            <Group gap="md" fz="xs" c="dimmed">
-              <Text size="xs">Added: {formatDateTime(release.added_date)}</Text>
+            <Group gap="md" fz="xs" c="dimmed" wrap="wrap">
+              <Text size="xs">
+                {t('releaseCard.added', { date: formatDateTime(release.added_date) })}
+              </Text>
               {release.completed_date && (
-                <Text size="xs">Completed: {formatDateTime(release.completed_date)}</Text>
+                <Text size="xs">
+                  {t('releaseCard.completed', { date: formatDateTime(release.completed_date) })}
+                </Text>
               )}
             </Group>
           </Stack>
 
-          <Group gap="xs">
-            <Button size="xs" onClick={() => onViewFiles(release)} disabled={isBusy}>
+          <Group gap="xs" wrap="nowrap" style={{ flex: actionRowFlex }}>
+            <Button
+              size={actionSize}
+              onClick={() => onViewFiles(release)}
+              disabled={isBusy}
+              style={{ flex: actionFlex }}
+            >
               {t('releaseCard.buttons.files')}
             </Button>
 
             {isActive && release.status === 'downloading' && (
               <Button
-                size="xs"
+                size={actionSize}
                 color="orange"
                 variant="light"
                 onClick={() => onPause(release.id)}
                 disabled={isBusy}
+                style={{ flex: actionFlex }}
               >
                 {t('releaseCard.buttons.pause')}
               </Button>
@@ -213,11 +247,12 @@ export function ReleaseCard({
 
             {release.status === 'pending' && (
               <Button
-                size="xs"
+                size={actionSize}
                 color="teal"
                 variant="light"
                 onClick={() => onResume(release.id)}
                 disabled={isBusy}
+                style={{ flex: actionFlex }}
               >
                 {t('releaseCard.buttons.resume')}
               </Button>
@@ -227,6 +262,7 @@ export function ReleaseCard({
               <ActionIcon
                 variant="subtle"
                 color="red"
+                size={isMobile ? 'lg' : 'md'}
                 onClick={confirmDelete}
                 disabled={isBusy}
                 aria-label={t('releaseCard.aria.delete')}
