@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
@@ -51,7 +52,7 @@ describe('RequestsPage', () => {
   });
 
   it('renders requests returned by the API', async () => {
-    renderWithProviders(<RequestsPage />, { route: '/?filter=all' });
+    renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Severance')).toBeInTheDocument();
@@ -77,10 +78,32 @@ describe('RequestsPage', () => {
   });
 
   it('applies the type filter from the URL', async () => {
-    renderWithProviders(<RequestsPage />, { route: '/?filter=movies' });
+    renderWithProviders(<RequestsPage />, { route: '/?type=movie&status=all' });
 
     await waitFor(() => expect(screen.getByText('The Dark Knight')).toBeInTheDocument());
     expect(screen.queryByText('Severance')).not.toBeInTheDocument();
+  });
+
+  it('combines the type and status filters', async () => {
+    // `movie` is completed and `series` is downloading, so asking for a
+    // downloading movie has to come back empty.
+    renderWithProviders(<RequestsPage />, { route: '/?type=movie&status=downloading' });
+
+    expect(await screen.findByText(/no matching requests/i)).toBeInTheDocument();
+    expect(screen.queryByText('The Dark Knight')).not.toBeInTheDocument();
+    expect(screen.queryByText('Severance')).not.toBeInTheDocument();
+  });
+
+  it('keeps the status filter when the type changes', async () => {
+    renderWithProviders(<RequestsPage />, { route: '/?status=downloading' });
+
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Series' }));
+
+    // Narrowing to series must not widen the status back to everything.
+    expect(screen.getByText('Severance')).toBeInTheDocument();
+    expect(screen.queryByText('The Dark Knight')).not.toBeInTheDocument();
   });
 
   it('shows an empty state when the API returns no requests', async () => {
