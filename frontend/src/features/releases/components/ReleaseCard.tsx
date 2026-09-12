@@ -95,7 +95,7 @@ export function ReleaseCard({
   const actionRowFlex = isMobile ? '1 1 100%' : undefined;
 
   return (
-    <Card withBorder radius="lg" padding={isMobile ? 'md' : 'lg'}>
+    <Card withBorder radius="lg" padding={isMobile ? 'sm' : 'lg'}>
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
           {/*

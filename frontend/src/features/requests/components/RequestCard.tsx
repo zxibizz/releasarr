@@ -24,7 +24,7 @@ export function RequestCard({ request }: RequestCardProps) {
     <Card
       withBorder
       radius="lg"
-      padding="lg"
+      padding={isMobile ? 'sm' : 'lg'}
       component={Link}
       to={`/request/${request.id}`}
       style={{ height: '100%', textDecoration: 'none' }}
