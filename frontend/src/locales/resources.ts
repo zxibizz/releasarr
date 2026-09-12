@@ -336,13 +336,17 @@ export const resources = {
             name: 'Sonarr Sync',
             description: 'Pull wanted episodes and series from Sonarr.',
           },
+          radarr_sync: {
+            name: 'Radarr Sync',
+            description: 'Pull wanted movies from Radarr.',
+          },
           release_sync: {
             name: 'Refresh Downloads',
             description: 'Update download progress and state from the download client.',
           },
           export: {
             name: 'Import Finished',
-            description: 'Import completed downloads into Sonarr.',
+            description: 'Import completed downloads into Sonarr and Radarr.',
           },
           regrab: {
             name: 'Regrab Outdated',
@@ -764,13 +768,17 @@ export const resources = {
             name: 'Синхронизация Sonarr',
             description: 'Загрузить нужные серии и сериалы из Sonarr.',
           },
+          radarr_sync: {
+            name: 'Синхронизация Radarr',
+            description: 'Загрузить нужные фильмы из Radarr.',
+          },
           release_sync: {
             name: 'Обновить загрузки',
             description: 'Обновить прогресс и состояние из клиента загрузок.',
           },
           export: {
             name: 'Импорт завершённых',
-            description: 'Импортировать завершённые загрузки в Sonarr.',
+            description: 'Импортировать завершённые загрузки в Sonarr и Radarr.',
           },
           regrab: {
             name: 'Перезагрузка устаревших',

@@ -64,14 +64,12 @@ _LOOSE_EPISODE_PATTERN = re.compile(
     r"(?:(?<=^)|(?<=[\s._\-\[\(]))(?P<episode>\d{1,3})(?=[\s._\-\]\)]|$)"
 )
 
-# Quality/codec/audio tokens that would otherwise be mistaken for loose episode numbers.
-_JUNK_PATTERN = re.compile(
-    r"(?<![a-z0-9])(?:"
+# Quality/codec/audio/source tokens that follow the title in a release name.
+_RELEASE_TAGS = (
     r"\d{3,4}[pi]"
     r"|\d{3,4}x\d{3,4}"
     r"|[xh][\s._-]?26[45]"
     r"|hevc|avc|xvid|divx|10bit|8bit|hdr10?|dv|sdr"
-    r"|(?:19|20)\d{2}"
     r"|(?:dd\+?|ddp|ac3|eac3|aac|dts(?:[\s._-]?hd)?|truehd|atmos|flac|mp3|opus)"
     r"(?:[\s._-]?\d(?:[\s._-]?\d)?)?"
     r"|[257][\s._-]?1(?:ch)?"
@@ -79,17 +77,84 @@ _JUNK_PATTERN = re.compile(
     r"|hdtv|dvdrip|dvd|hdrip|amzn|nf|dsnp|hmax|atvp"
     r"|repack|proper|extended|uncut|complete|multi|dual|dubbed|subbed"
     r"|v\d"
-    r")(?![a-z0-9])",
+)
+
+_TAG_PATTERN = re.compile(rf"(?<![a-z0-9])(?:{_RELEASE_TAGS})(?![a-z0-9])", re.I)
+
+# Everything above plus years, which would otherwise read as loose episode numbers.
+_JUNK_PATTERN = re.compile(
+    rf"(?<![a-z0-9])(?:{_RELEASE_TAGS}|(?:19|20)\d{{2}})(?![a-z0-9])",
     re.I,
 )
 
 _NATURAL_SPLIT_PATTERN = re.compile(r"(\d+)")
+
+_YEAR_PATTERN = re.compile(r"(?<!\d)(?P<year>(?:19|20)\d{2})(?!\d)")
 
 
 def is_video_file(name: str) -> bool:
     """Return True when the file extension looks like playable video."""
 
     return os.path.splitext(name)[1].lower() in VIDEO_EXTENSIONS
+
+
+def normalize_title(value: str) -> str:
+    """Reduce a title to the comparable form Radarr calls a clean title.
+
+    Punctuation, separators and case carry no meaning when comparing a release
+    name against a request, so only alphanumerics survive. ``str.isalnum`` rather
+    than an ASCII character class, because a request's title may be localized and
+    the release named to match.
+    """
+
+    return "".join(character for character in value.lower() if character.isalnum())
+
+
+def movie_titles(name: str, path: str | None = None) -> list[str]:
+    """Normalized titles a movie file may be named after, most specific first.
+
+    A release name is its title followed by tags, so the title is whatever
+    precedes them. Where the year sits is ambiguous - a title may end in one
+    ("Blade Runner 2049") - so both readings are offered and the caller takes
+    whichever one it recognises. Enclosing folders come last, for the layouts
+    that name the movie there and leave the file itself unhelpful.
+    """
+
+    segments = _segments(path or name)
+    if not segments:
+        return []
+
+    sources = [os.path.splitext(segments[-1])[0], *reversed(segments[:-1])]
+    titles: list[str] = []
+    for source in sources:
+        for candidate in _title_candidates(source):
+            title = normalize_title(candidate)
+            if title and title not in titles:
+                titles.append(title)
+    return titles
+
+
+def parse_year(name: str, path: str | None = None) -> int | None:
+    """Recover the release year from a file name, falling back to its folders.
+
+    The common movie layout puts the year on the folder rather than every file
+    inside it (``Movie (2019)/movie.mkv``).
+    """
+
+    segments = _segments(name)
+    if not segments:
+        return None
+
+    year = _match_year(os.path.splitext(segments[-1])[0])
+    if year is not None:
+        return year
+
+    directories = _segments(path)[:-1] if path else segments[:-1]
+    for directory in reversed(directories):
+        year = _match_year(directory)
+        if year is not None:
+            return year
+    return None
 
 
 def natural_sort_key(value: str) -> tuple[str | int, ...]:
@@ -193,6 +258,28 @@ def _match_loose_episode(stem: str) -> int | None:
     return episode if episode > 0 else None
 
 
+def _title_candidates(text: str) -> list[str]:
+    candidates: list[str] = []
+
+    years = list(_YEAR_PATTERN.finditer(text))
+    if years:
+        # The release year is the last one, so anything before it is the title.
+        candidates.append(text[: years[-1].start()])
+
+    # And the reading where the trailing year belongs to the title instead.
+    tag = _TAG_PATTERN.search(text)
+    candidates.append(text[: tag.start()] if tag else text)
+
+    return candidates
+
+
+def _match_year(text: str) -> int | None:
+    # Last wins: a title may itself carry a year ("Blade Runner 2049"), and the
+    # release year is appended after it.
+    matches = _YEAR_PATTERN.findall(text)
+    return int(matches[-1]) if matches else None
+
+
 def _validated(season: int | None, episode: int | None) -> ParsedEpisode:
     if season is not None and not 0 <= season <= MAX_SEASON:
         season = None
@@ -205,7 +292,10 @@ __all__ = [
     "VIDEO_EXTENSIONS",
     "ParsedEpisode",
     "is_video_file",
+    "movie_titles",
     "natural_sort_key",
+    "normalize_title",
     "parse_episode",
     "parse_seasons",
+    "parse_year",
 ]

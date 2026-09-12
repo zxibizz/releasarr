@@ -91,6 +91,7 @@ async def test_sync_all_queues_every_task_in_order(api_client: AsyncClient) -> N
         (
             (
                 SyncJobKind.SONARR_SYNC,
+                SyncJobKind.RADARR_SYNC,
                 SyncJobKind.RELEASE_SYNC,
                 SyncJobKind.EXPORT,
                 SyncJobKind.REGRAB,
@@ -104,18 +105,19 @@ async def test_sync_all_queues_every_task_in_order(api_client: AsyncClient) -> N
     assert body["status"] == "queued"
     assert body["details"]["tasks"] == [
         "sonarr_sync",
+        "radarr_sync",
         "release_sync",
         "export",
         "regrab",
     ]
     # The last job finishing means the whole sequence is done.
-    assert body["operation_id"] == "job-4"
-    assert response.headers["Location"] == "/tasks/jobs/job-4"
+    assert body["operation_id"] == "job-5"
+    assert response.headers["Location"] == "/tasks/jobs/job-5"
 
 
 @pytest.mark.asyncio
 async def test_sync_downloads_queues_only_the_download_tasks(api_client: AsyncClient) -> None:
-    """The download client hook skips the slow Sonarr and indexer tasks."""
+    """The download client hook skips the slow library and indexer tasks."""
 
     fake = FakeEnqueue()
 

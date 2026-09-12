@@ -6,9 +6,12 @@ import pytest
 
 from src.application.utility.release_parsing import (
     is_video_file,
+    movie_titles,
     natural_sort_key,
+    normalize_title,
     parse_episode,
     parse_seasons,
+    parse_year,
 )
 
 
@@ -80,6 +83,61 @@ def test_parse_seasons_collects_every_mentioned_season() -> None:
 )
 def test_is_video_file(name: str, expected: bool) -> None:
     assert is_video_file(name) is expected
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("Spider-Man: No Way Home", "spidermannowayhome"),
+        ("Ocean's 8", "oceans8"),
+        # Non-ASCII survives, so a localized title can still be matched.
+        ("Прибытие", "прибытие"),
+    ],
+)
+def test_normalize_title_keeps_only_alphanumerics(title: str, expected: str) -> None:
+    assert normalize_title(title) == expected
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("Arrival.2016.1080p.BluRay.x264.mkv", "arrival"),
+        ("Iron.Man.2.2010.1080p.mkv", "ironman2"),
+        ("Ocean's 8 (2018) [1080p].mkv", "oceans8"),
+        # No release year, so the title is whatever precedes the first tag.
+        ("The.Matrix.1080p.BluRay.mkv", "thematrix"),
+        ("Прибытие.2016.1080p.mkv", "прибытие"),
+    ],
+)
+def test_movie_titles_lead_with_the_title_without_its_tags(path: str, expected: str) -> None:
+    assert movie_titles(path)[0] == expected
+
+
+def test_movie_titles_fall_back_to_the_enclosing_folder() -> None:
+    """Some layouts name the movie on the folder and leave the file generic."""
+
+    assert movie_titles("Arrival (2016)/movie.mkv") == ["movie", "arrival", "arrival2016"]
+
+
+def test_movie_titles_offer_both_readings_of_a_trailing_year() -> None:
+    """A title may end in a year, and only the request can settle which it is."""
+
+    assert movie_titles("Blade.Runner.2049.1080p.BluRay.mkv") == ["bladerunner", "bladerunner2049"]
+    assert movie_titles("Blade.Runner.2049.2017.1080p.mkv")[0] == "bladerunner2049"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("Arrival.2016.1080p.mkv", 2016),
+        # The release year comes after a title that carries one of its own.
+        ("Blade.Runner.2049.2017.1080p.mkv", 2017),
+        ("Arrival (2016)/movie.mkv", 2016),
+        ("Arrival.1080p.mkv", None),
+    ],
+)
+def test_parse_year_reads_the_release_year(path: str, expected: int | None) -> None:
+    assert parse_year(path) == expected
 
 
 def test_natural_sort_key_orders_episode_nine_before_ten() -> None:

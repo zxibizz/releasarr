@@ -10,15 +10,18 @@ from src.domain.enums import SyncJobKind
 
 DEFAULT_INTERVALS: dict[SyncJobKind, int] = {
     SyncJobKind.SONARR_SYNC: 60 * 60,
+    SyncJobKind.RADARR_SYNC: 60 * 60,
     SyncJobKind.RELEASE_SYNC: 30,
     SyncJobKind.EXPORT: 5 * 60,
     SyncJobKind.REGRAB: 60 * 60,
 }
 
 # Ordered because later tasks consume what earlier ones produce: the export can
-# only import releases the download sync has already marked completed.
+# only import releases the download sync has already marked completed. The two
+# library syncs are independent of each other and only need to precede the rest.
 TASK_ORDER: tuple[SyncJobKind, ...] = (
     SyncJobKind.SONARR_SYNC,
+    SyncJobKind.RADARR_SYNC,
     SyncJobKind.RELEASE_SYNC,
     SyncJobKind.EXPORT,
     SyncJobKind.REGRAB,
@@ -27,7 +30,7 @@ TASK_ORDER: tuple[SyncJobKind, ...] = (
 SYNC_ALL_SEQUENCE = TASK_ORDER
 
 # A finished download only needs its state refreshed and then imported; the
-# Sonarr and indexer tasks are far too slow to run per torrent.
+# library and indexer tasks are far too slow to run per torrent.
 SYNC_DOWNLOADS_SEQUENCE: tuple[SyncJobKind, ...] = (
     SyncJobKind.RELEASE_SYNC,
     SyncJobKind.EXPORT,

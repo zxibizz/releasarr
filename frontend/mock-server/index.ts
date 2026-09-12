@@ -88,7 +88,7 @@ app.get('/__health', (_req, res) => {
 
 const api = express.Router();
 
-const TASK_KINDS = ['sonarr_sync', 'release_sync', 'export', 'regrab'] as const;
+const TASK_KINDS = ['sonarr_sync', 'radarr_sync', 'release_sync', 'export', 'regrab'] as const;
 type TaskKind = (typeof TASK_KINDS)[number];
 
 api.get('/requests', async (req, res) => {

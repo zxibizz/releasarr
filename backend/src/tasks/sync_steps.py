@@ -63,6 +63,16 @@ class SyncSteps:
             "completed": result.completed,
         }
 
+    async def radarr_sync(self) -> StepSummary:
+        """Import Radarr's missing movies into media requests."""
+
+        result = await self.container.use_cases.media_requests.sync_radarr.execute()
+        return {
+            "created": result.created,
+            "updated": result.updated,
+            "completed": result.completed,
+        }
+
     async def release_sync(self) -> StepSummary:
         """Refresh download state for every tracked release from qBittorrent."""
 
@@ -84,7 +94,7 @@ class SyncSteps:
         }
 
     async def export(self) -> StepSummary:
-        """Import finished releases into Sonarr."""
+        """Import finished releases into Sonarr and Radarr."""
 
         result = await self.container.use_cases.releases.export_finished.execute()
         return {"succeeded": result.succeeded, "failed": result.failed}
@@ -98,6 +108,7 @@ class SyncSteps:
 
 _STEP_METHODS: dict[SyncJobKind, str] = {
     SyncJobKind.SONARR_SYNC: "sonarr_sync",
+    SyncJobKind.RADARR_SYNC: "radarr_sync",
     SyncJobKind.RELEASE_SYNC: "release_sync",
     SyncJobKind.EXPORT: "export",
     SyncJobKind.REGRAB: "regrab",

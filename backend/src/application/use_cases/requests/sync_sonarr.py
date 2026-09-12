@@ -17,6 +17,10 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.sonarr import SeriesDetails, SonarrService
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
+from src.application.utility.localization import (
+    LocalizationPicker,
+    merge_default_localization,
+)
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -46,7 +50,8 @@ class SyncSonarrMediaRequestsUseCase:
         self._repository = repository
         self._sonarr = sonarr_service
         self._tvdb = tvdb_service
-        self._metadata_languages = tuple(language.lower() for language in metadata_languages or ())
+        self._localization = LocalizationPicker(metadata_languages)
+        self._metadata_languages = self._localization.languages
         self._logger = logger or get_logger(component="sync_sonarr_requests")
         self._metadata_cache: dict[int, TvdbSeriesMetadata | None] = {}
 
@@ -95,13 +100,13 @@ class SyncSonarrMediaRequestsUseCase:
 
         season_info = details.seasons.get(season_number)
         total_episodes = season_info.total_episode_count if season_info else 0
-        localized_series_title = self._select_localized_value(localizations, "title", details.title)
+        localized_series_title = self._localization.select(localizations, "title", details.title)
         title = self._build_request_title(localized_series_title, season_number)
         year = details.year or 0
         series_year = details.year or year
         genres = list(details.genres)
         imdb_id = details.imdb_id
-        overview_value = self._select_localized_value(localizations, "overview", details.overview)
+        overview_value = self._localization.select(localizations, "overview", details.overview)
         overview = overview_value or None
         poster_url = details.poster_url or (metadata.image_url if metadata else None)
 
@@ -230,65 +235,12 @@ class SyncSonarrMediaRequestsUseCase:
                     title=translation.title,
                     overview=season_overview or translation.overview,
                 )
-        self._merge_default_localization(localizations, details)
+        merge_default_localization(
+            localizations,
+            title=details.title,
+            overview=details.overview,
+        )
         return localizations
-
-    def _merge_default_localization(
-        self,
-        localizations: dict[str, MediaLocalization],
-        details: SeriesDetails,
-    ) -> None:
-        english_key = "eng"
-        localization = localizations.get(english_key)
-        if localization is None:
-            localizations[english_key] = MediaLocalization(
-                title=details.title,
-                overview=details.overview,
-            )
-            return
-        if not localization.title:
-            localization.title = details.title
-        if not localization.overview:
-            localization.overview = details.overview
-
-    def _select_localized_value(
-        self,
-        localizations: dict[str, MediaLocalization],
-        attribute: str,
-        fallback: str | None,
-    ) -> str:
-        preferred = self._pick_preferred_localization(localizations, attribute)
-        if preferred:
-            return preferred
-        any_value = self._pick_any_localization(localizations, attribute)
-        if any_value:
-            return any_value
-        return fallback or ""
-
-    def _pick_preferred_localization(
-        self,
-        localizations: dict[str, MediaLocalization],
-        attribute: str,
-    ) -> str | None:
-        for language in self._metadata_languages:
-            localization = localizations.get(language)
-            if not localization:
-                continue
-            value = getattr(localization, attribute, None)
-            if value:
-                return value
-        return None
-
-    def _pick_any_localization(
-        self,
-        localizations: dict[str, MediaLocalization],
-        attribute: str,
-    ) -> str | None:
-        for localization in localizations.values():
-            value = getattr(localization, attribute, None)
-            if value:
-                return value
-        return None
 
 
 __all__ = ["SyncSonarrMediaRequestsUseCase", "SyncSonarrResult"]

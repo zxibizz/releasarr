@@ -30,8 +30,15 @@ class AppSettings(BaseSettings):
     sonarr_url: str = Field(default="http://localhost:8989/api/v3")
     sonarr_api_key: SecretStr = Field(default=SecretStr(""))
 
+    radarr_url: str = Field(default="http://localhost:7878/api/v3")
+    radarr_api_key: SecretStr = Field(default=SecretStr(""))
+
     tvdb_base_url: str = Field(default="https://api4.thetvdb.com/v4")
     tvdb_api_key: SecretStr = Field(default=SecretStr(""))
+
+    tmdb_base_url: str = Field(default="https://api.themoviedb.org/3")
+    tmdb_api_key: SecretStr = Field(default=SecretStr(""))
+
     metadata_languages: tuple[str, ...] = Field(default=("eng", "rus"))
 
     prowlarr_url: str = Field(default="")

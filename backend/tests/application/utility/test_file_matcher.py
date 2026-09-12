@@ -187,6 +187,141 @@ def test_movie_requests_are_never_used_for_series_files() -> None:
     assert ReleaseFileMatcher().autocomplete(files, [movie]) == []
 
 
+def make_movie_request(
+    request_id: str,
+    title: str,
+    *,
+    year: int | None = None,
+    alternate_titles: list[str] | None = None,
+) -> ReleaseRequestSnapshot:
+    return ReleaseRequestSnapshot(
+        id=request_id,
+        sonarr_series_id=None,
+        title=title,
+        media_type=MediaType.MOVIE,
+        season_number=None,
+        radarr_movie_id=hash(request_id) % 1000,
+        year=year,
+        alternate_titles=alternate_titles or [],
+    )
+
+
+def sized_file(file_id: str, path: str, size_bytes: int) -> ReleaseFileRecord:
+    file = make_file(file_id, path)
+    file.size_bytes = size_bytes
+    return file
+
+
+def test_the_feature_of_a_single_movie_release_is_its_largest_file() -> None:
+    """Importing a sample or a featurette would replace the movie in Radarr."""
+
+    files = [
+        sized_file("sample", "Arrival.2016.1080p/Sample/sample.mkv", 30_000_000),
+        sized_file("feature", "Arrival.2016.1080p/arrival.2016.1080p.mkv", 8_000_000_000),
+        sized_file("extra", "Arrival.2016.1080p/Extras/behind-the-scenes.mkv", 400_000_000),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, [make_movie_request("req-movie", "Arrival")])
+
+    assert [file.id for file in files if file.mapping is not None] == ["feature"]
+    assert mapping_of(files[1]).mapping_type is MediaType.MOVIE
+    assert mapping_of(files[1]).request_id == "req-movie"
+
+
+def test_a_hand_picked_movie_file_survives_the_next_run() -> None:
+    """Picking the largest file is a guess, so a correction has to outrank it."""
+
+    request = make_movie_request("req-movie", "Arrival")
+    files = [
+        sized_file("chosen", "Arrival.2016/part-one.mkv", 4_000_000_000),
+        sized_file("largest", "Arrival.2016/part-two.mkv", 5_000_000_000),
+    ]
+    files[0].mapping = ReleaseFileMapping(
+        mapping_type=MediaType.MOVIE,
+        request_id="req-movie",
+        request_title="Arrival",
+        season=None,
+        episode=None,
+    )
+
+    assert ReleaseFileMatcher().autocomplete(files, [request]) == []
+    assert files[1].mapping is None
+
+
+def test_a_collection_pack_is_split_across_its_movies_by_title() -> None:
+    files = [
+        sized_file("a", "Nolan/The.Dark.Knight.2008.1080p.mkv", 8_000_000_000),
+        sized_file("b", "Nolan/Inception.2010.1080p.mkv", 9_000_000_000),
+    ]
+    requests = [
+        make_movie_request("req-tdk", "The Dark Knight", year=2008),
+        make_movie_request("req-inception", "Inception", year=2010),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, requests)
+
+    assert [mapping_of(file).request_id for file in files] == ["req-tdk", "req-inception"]
+
+
+def test_a_sequel_wins_over_the_title_contained_in_its_name() -> None:
+    files = [
+        sized_file("a", "Marvel/Iron.Man.2008.1080p.mkv", 8_000_000_000),
+        sized_file("b", "Marvel/Iron.Man.2.2010.1080p.mkv", 8_000_000_000),
+    ]
+    requests = [
+        make_movie_request("req-im1", "Iron Man", year=2008),
+        make_movie_request("req-im2", "Iron Man 2", year=2010),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, requests)
+
+    assert [mapping_of(file).request_id for file in files] == ["req-im1", "req-im2"]
+
+
+def test_a_release_named_in_another_language_matches_a_localized_request() -> None:
+    """A movie's own title is whichever language won, so the others must match too."""
+
+    files = [
+        sized_file("a", "Кино/Прибытие.2016.1080p.mkv", 8_000_000_000),
+        sized_file("b", "Кино/Дюна.2021.1080p.mkv", 9_000_000_000),
+    ]
+    requests = [
+        make_movie_request("req-arrival", "Arrival", alternate_titles=["Прибытие"]),
+        make_movie_request("req-dune", "Dune", alternate_titles=["Дюна"]),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, requests)
+
+    assert [mapping_of(file).request_id for file in files] == ["req-arrival", "req-dune"]
+
+
+def test_an_unmatched_file_in_a_collection_pack_is_left_for_manual_mapping() -> None:
+    files = [
+        sized_file("a", "Nolan/Inception.2010.1080p.mkv", 9_000_000_000),
+        sized_file("b", "Nolan/Tenet.2020.1080p.mkv", 9_000_000_000),
+    ]
+    requests = [
+        make_movie_request("req-inception", "Inception", year=2010),
+        make_movie_request("req-tdk", "The Dark Knight", year=2008),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, requests)
+
+    assert mapping_of(files[0]).request_id == "req-inception"
+    assert files[1].mapping is None
+
+
+def test_a_movie_whose_title_reads_as_a_season_still_matches() -> None:
+    """``Ocean's 8`` parses as season 8, which must not make it an episode."""
+
+    files = [sized_file("a", "Oceans.8.2018.1080p.BluRay.x264.mkv", 8_000_000_000)]
+
+    ReleaseFileMatcher().autocomplete(files, [make_movie_request("req-movie", "Ocean's 8")])
+
+    assert mapping_of(files[0]).request_id == "req-movie"
+    assert mapping_of(files[0]).mapping_type is MediaType.MOVIE
+
+
 def test_seasons_in_reports_only_video_files() -> None:
     files = [
         make_file("a", "Avatar/Avatar.S01E01.mkv"),

@@ -2,7 +2,13 @@ import type { SyncJobKind } from '@/types';
 import { formatDuration } from '@/utils/formatters';
 
 /** Task order used by every list in the UI, matching the backend's run order. */
-export const TASK_KINDS: SyncJobKind[] = ['sonarr_sync', 'release_sync', 'export', 'regrab'];
+export const TASK_KINDS: SyncJobKind[] = [
+  'sonarr_sync',
+  'radarr_sync',
+  'release_sync',
+  'export',
+  'regrab',
+];
 
 /** Narrows values that arrive untyped, such as a log record's bound fields. */
 export const isTaskKind = (value: unknown): value is SyncJobKind =>
