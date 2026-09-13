@@ -7,6 +7,7 @@ import asyncio
 import typer
 
 from src.core.container import get_container
+from src.domain.enums import LogService
 from src.tasks import release_summary
 
 app = typer.Typer(help="Operational task runner")
@@ -33,7 +34,7 @@ def sync_sonarr_requests_command() -> None:
 
     async def _run():
         container = get_container()
-        container.startup()
+        container.startup(service=LogService.SCHEDULER)
         try:
             use_case = container.use_cases.media_requests.sync_sonarr
             return await use_case.execute()
@@ -54,7 +55,7 @@ def sync_radarr_requests_command() -> None:
 
     async def _run():
         container = get_container()
-        container.startup()
+        container.startup(service=LogService.SCHEDULER)
         try:
             use_case = container.use_cases.media_requests.sync_radarr
             return await use_case.execute()
@@ -76,7 +77,7 @@ def sync_releases_command() -> None:
 
     async def _run():
         container = get_container()
-        container.startup()
+        container.startup(service=LogService.SCHEDULER)
         client = container.services.qbittorrent_client
         if client is None:
             typer.echo("qBittorrent not configured. Set RELEASARR_QBITTORRENT_* env vars.")

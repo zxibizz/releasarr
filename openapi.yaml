@@ -1008,13 +1008,15 @@ paths:
         Application log entries, newest first. Filters match fields the log
         producer bound onto the record, so `task` returns everything logged
         while that background task was running, including lines emitted deeper
-        in the call stack.
+        in the call stack, and `service` splits the API's records from the
+        scheduler's.
       operationId: listRequestLogs
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PerPage'
         - $ref: '#/components/parameters/RequestIdFilter'
         - $ref: '#/components/parameters/TaskFilter'
+        - $ref: '#/components/parameters/ServiceFilter'
       responses:
         '200':
           description: Request logs matching the supplied filters.
@@ -1502,6 +1504,12 @@ components:
       schema:
         $ref: '#/components/schemas/SyncJobKind'
       description: Optional background task to filter results.
+    ServiceFilter:
+      in: query
+      name: service
+      schema:
+        $ref: '#/components/schemas/LogService'
+      description: Optional process to filter results by.
     IndexerIdFilter:
       in: query
       name: indexer_id
@@ -1535,6 +1543,12 @@ components:
     RequestLogLevel:
       type: string
       enum: [info, warning, error]
+    LogService:
+      type: string
+      enum: [api, scheduler]
+      description: |
+        The process that wrote a record. The API and the scheduler run as
+        separate processes and share one log file.
     IndexerHealth:
       type: string
       enum: [healthy, degraded, blocked, disabled]

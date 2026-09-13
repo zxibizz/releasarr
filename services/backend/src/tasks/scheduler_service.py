@@ -22,7 +22,7 @@ from loguru import logger
 
 from src.application.use_cases.tasks.definitions import DEFAULT_INTERVALS, TASK_ORDER
 from src.core.container import AppContainer, get_container
-from src.domain.enums import SyncJobKind, SyncJobStatus
+from src.domain.enums import LogService, SyncJobKind, SyncJobStatus
 from src.tasks.sync_jobs import SyncJobRunner
 from src.tasks.sync_steps import SyncSteps
 
@@ -37,8 +37,8 @@ class SchedulerService:
     def __init__(self, container: AppContainer | None = None) -> None:
         self._shutdown = False
         self.container = container or get_container()
-        self.container.startup()
-        self.logger = logger.bind(service="Scheduler")
+        self.container.startup(service=LogService.SCHEDULER)
+        self.logger = logger
         self.steps = SyncSteps(container=self.container)
 
     async def start(self) -> None:

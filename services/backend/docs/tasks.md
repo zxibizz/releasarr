@@ -144,6 +144,38 @@ Two things are tagged in addition to the step itself:
 The endpoint reads and parses whole log files per call, so prefer a task filter
 over paging through everything.
 
+### Which process logged a line
+
+The API and the scheduler are separate processes sharing one file, so every
+record names the one that produced it: `configure_logging` binds `service` once
+per process rather than making each call site remember, and
+`GET /logs?service={api|scheduler}` splits them. The CLI task commands count as
+the scheduler — they run the same work the loops do, without the loop.
+
+A `task` filter already implies the scheduler, because only work done inside a
+task binds `task` and all of it runs in the worker. The logs page leans on that:
+it offers the task filter on the scheduler tab only, and drops it when the reader
+switches process rather than leaving a filter that could only match nothing.
+
+Records written before the processes tagged themselves carry no `service` at all.
+The reader falls back to the presence of `task` for those, so upgrading does not
+blank out the history already on disk.
+
+### The API's own request lines
+
+uvicorn has access logging, but its loggers are configured with
+`propagate: false` and a handler of their own, so nothing it writes reaches
+Loguru and the file this endpoint reads never saw a request line.
+`register_request_logging` logs them instead, through the same sink and the same
+file: one record per request with `status_code` and `duration_ms` on it.
+
+Only the path is recorded, never the query string: the redaction patcher rewrites
+the message and not the metadata, and this file is served to the browser by the
+endpoint itself.
+
+One consequence of logging every request: the logs page's own polling shows up
+in it, on the tab that is doing the polling.
+
 ### How far back the logs view reaches
 
 The file sink rotates at 10 MB, which moves history into a timestamped sibling

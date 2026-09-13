@@ -103,8 +103,8 @@ before the page can start fetching.
 Where a route has a loader it calls `queryClient.ensureQueryData` with the same keys the
 components use, so the loader warms the cache and the component reads it rather than
 refetching — and `prefetchQuery` for data the page wants but can render without. Routes
-whose first paint needs no data (`add`, `system/tasks`, `system/indexers`) have no loader at
-all.
+whose first paint needs no data (`add`, `system/tasks`, `system/indexers`, `system/logs`) have no
+loader at all.
 
 ## Internationalisation
 

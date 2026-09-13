@@ -79,6 +79,14 @@ export const router = createBrowserRouter([
         },
         errorElement: <RouteErrorBoundary />,
       },
+      {
+        path: 'system/logs',
+        lazy: async () => {
+          const { LogsPage } = await import('@/features/logs/pages/LogsPage');
+          return { Component: LogsPage };
+        },
+        errorElement: <RouteErrorBoundary />,
+      },
       { path: '*', element: <NotFound /> },
     ],
   },

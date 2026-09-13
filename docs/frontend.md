@@ -112,7 +112,9 @@ queued an export. On removal, `removeQueries` the detail key and invalidate the 
 
 `staleTime` defaults to 30s globally in `src/lib/queryClient.ts`. Override only with a reason —
 `useSuggestedFileMappings` sets `staleTime: 0` because a cached mapping suggestion is worse than
-none. Polling belongs in `features/tasks/queries.ts` and nowhere else.
+none. Polling is the exception and each instance carries its own reason: the job queue while
+work is running, Prowlarr's indexer list, and the newest page of the log. The logs page follows
+only page 1, because every call makes the server re-read and parse each log file it can reach.
 
 ## Types and codegen
 
@@ -135,7 +137,7 @@ file.
 
 ## Routing
 
-`src/router.tsx` defines five routes plus a catch-all, all nested under `AppLayout` with
+`src/router.tsx` defines six routes plus a catch-all, all nested under `AppLayout` with
 `RouteErrorBoundary`:
 
 | Path | Component | Loading |
@@ -145,6 +147,7 @@ file.
 | `/add` | `AddRequestPage` | lazy |
 | `/system/tasks` | `TasksPage` | lazy |
 | `/system/indexers` | `IndexersPage` | lazy |
+| `/system/logs` | `LogsPage` | lazy |
 | `*` | `NotFound` | eager |
 
 Loaders warm the cache with `ensureQueryData` so pages paint with data. Note the deliberate

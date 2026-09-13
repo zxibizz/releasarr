@@ -12,8 +12,10 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.errors import register_exception_handlers
+from src.api.request_logging import register_request_logging
 from src.api.routes import register_routes
 from src.core.container import get_container
+from src.domain.enums import LogService
 
 
 @asynccontextmanager
@@ -23,7 +25,7 @@ async def lifespan(_: FastAPI):
     from sqlalchemy import text
 
     container = get_container()
-    container.startup()
+    container.startup(service=LogService.API)
 
     try:
         async with container.db_manager.session() as session:
@@ -63,6 +65,7 @@ app.add_middleware(
 )
 
 register_routes(app)
+register_request_logging(app)
 register_exception_handlers(app)
 
 

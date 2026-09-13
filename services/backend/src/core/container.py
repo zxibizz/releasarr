@@ -72,6 +72,7 @@ from src.application.use_cases.tasks.get_sync_job import (
 )
 from src.core.logging import configure_logging, logger
 from src.db.session import DBManager, get_db_manager
+from src.domain.enums import LogService
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
 from src.infrastructure.prowlarr import ProwlarrIndexerDirectory, ProwlarrReleaseSearchService
@@ -584,10 +585,14 @@ class InfrastructureContainer:
 class AppContainer:
     settings: AppSettings
 
-    def startup(self) -> None:
-        """Hook for initializing resources (e.g. db engine, http clients)."""
+    def startup(self, *, service: LogService) -> None:
+        """Hook for initializing resources (e.g. db engine, http clients).
 
-        configure_logging(self.settings)
+        ``service`` is passed through to logging, which stamps every record with
+        the process that wrote it.
+        """
+
+        configure_logging(self.settings, service=service)
         return None
 
     async def shutdown(self) -> None:

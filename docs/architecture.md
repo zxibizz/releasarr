@@ -57,6 +57,10 @@ independent rotation state, so records occasionally land in a rotated sibling. T
 follows siblings to compensate. See
 [`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md).
 
+The API also logs its own requests rather than leaving that to uvicorn, whose loggers do not
+propagate into Loguru. Each request therefore lands in the same file as the work it went on to
+trigger, tagged with the process that wrote it.
+
 ## The contract
 
 `openapi.yaml` at the repo root is the single source of truth for the HTTP surface. Three
@@ -120,7 +124,8 @@ src/
     releases/    api.ts, queries.ts, components/, fileMapping/
     discover/    api.ts, queries.ts, keys.ts, pages/, components/
     tasks/       api.ts, queries.ts, pages/  (also hosts useSyncWatcher)
-    logs/        api.ts, queries.ts, LogsModal.tsx
+    logs/        api.ts, queries.ts, services.ts, useLogFilters.ts,
+                 pages/ (tabbed by process), components/, LogsModal.tsx
   components/    Shared presentational pieces (StatusBadge, Panel, ResponsiveModal, …)
   lib/           api/client.ts (the only fetch wrapper), api/generated/, i18n.ts, queryClient.ts
   utils/         formatters, files, errors, status (the one place status colors live)

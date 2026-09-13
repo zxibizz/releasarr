@@ -52,6 +52,19 @@ class RequestLogLevel(StrEnum):
     ERROR = "error"
 
 
+class LogService(StrEnum):
+    """Which process wrote a log record.
+
+    The API and the scheduler run as separate processes that share one log file,
+    so every record names the process that produced it. An ad-hoc CLI task run
+    counts as the scheduler: it executes the same work the loop does, without
+    the loop.
+    """
+
+    API = "api"
+    SCHEDULER = "scheduler"
+
+
 class IndexerHealth(StrEnum):
     """How usable an indexer is right now.
 
@@ -136,6 +149,7 @@ __all__ = [
     "IndexerEventType",
     "IndexerHealth",
     "IndexerLogLevel",
+    "LogService",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",

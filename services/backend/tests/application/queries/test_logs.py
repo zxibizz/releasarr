@@ -17,14 +17,17 @@ class MockLogFileReader(LogFileReader):
         self.entries = entries
         self.last_filter_request_id: str | None = None
         self.last_filter_task: str | None = None
+        self.last_filter_service: str | None = None
 
     def read_entries(
         self,
         request_id: str | None = None,
         task: str | None = None,
+        service: str | None = None,
     ) -> list[LogEntry]:
         self.last_filter_request_id = request_id
         self.last_filter_task = task
+        self.last_filter_service = service
 
         entries = self.entries
         if request_id:

@@ -18,6 +18,7 @@ import type {
   IndexerEventType,
   IndexerHistoryEntry,
   IndexerTestResult,
+  LogService,
   MediaSearchResult,
   MediaRequest,
   MediaType,
@@ -348,13 +349,13 @@ export class MockStore {
   }
 
   async listRequestLogs(
-    filters: { requestId?: string; task?: SyncJobKind } = {},
+    filters: { requestId?: string; task?: SyncJobKind; service?: LogService } = {},
   ): Promise<RequestLogEntry[]> {
-    const { requestId, task } = filters;
+    const { requestId, task, service } = filters;
 
     if (requestId) {
       const logs = await this.ensureRequestLogs(requestId);
-      return this.sortedCopy(logs);
+      return this.sortedCopy(this.selectService(logs, service));
     }
 
     if (!this.taskLogsCache) {
@@ -362,7 +363,11 @@ export class MockStore {
     }
 
     if (task) {
-      return this.sortedCopy(this.taskLogsCache.filter((log) => log.metadata?.task === task));
+      return this.sortedCopy(
+        this.taskLogsCache.filter(
+          (log) => log.metadata?.task === task && (!service || log.metadata?.service === service),
+        ),
+      );
     }
 
     const requests = await this.ensureRequests();
@@ -371,7 +376,15 @@ export class MockStore {
       aggregated.push(...(await this.ensureRequestLogs(req.id)));
     }
 
-    return this.sortedCopy(aggregated);
+    return this.sortedCopy(this.selectService(aggregated, service));
+  }
+
+  private selectService(
+    logs: RequestLogEntry[],
+    service: LogService | undefined,
+  ): RequestLogEntry[] {
+    if (!service) return logs;
+    return logs.filter((log) => log.metadata?.service === service);
   }
 
   private sortedCopy(logs: RequestLogEntry[]): RequestLogEntry[] {

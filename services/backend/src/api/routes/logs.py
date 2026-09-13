@@ -9,7 +9,7 @@ from src.api.errors import api_error
 from src.api.responses import error_responses
 from src.application.queries.logs import LogsPageResult
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
-from src.schemas.enums import RequestLogLevel, SyncJobKind
+from src.schemas.enums import LogService, RequestLogLevel, SyncJobKind
 from src.schemas.logs import LogsResponse, RequestLogEntry
 
 router = APIRouter(prefix="/logs", tags=["Logs"], dependencies=[Depends(require_api_key)])
@@ -60,6 +60,10 @@ async def list_logs(
         default=None,
         description="Only entries logged while this background task was running.",
     ),
+    service: LogService | None = Query(
+        default=None,
+        description="Only entries written by this process.",
+    ),
     use_case: ListLogsUseCase = Depends(_get_use_case),
 ) -> LogsResponse:
     try:
@@ -68,6 +72,7 @@ async def list_logs(
             per_page=per_page,
             request_id=request_id,
             task=task.value if task else None,
+            service=service.value if service else None,
         )
     except ValueError as exc:  # pragma: no cover - defensive whilst query validates internally
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_logs_query", str(exc)) from exc

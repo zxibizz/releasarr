@@ -21,8 +21,8 @@ import type { RequestLogEntry } from '@/types';
 import { formatDateTime } from '@/utils/formatters';
 import { LOG_LEVEL_COLOR } from '@/utils/status';
 
-/** The task is its own column, so repeating it in the context line adds nothing. */
-const HIDDEN_METADATA_KEYS = ['task'];
+/** The tab already answers `service`, and the task has its own column. */
+const HIDDEN_METADATA_KEYS = ['task', 'service'];
 
 const COLUMN_COUNT = 5;
 
@@ -42,13 +42,13 @@ const describe = (entry: RequestLogEntry): EntryView => {
   };
 };
 
-export function TaskLogsTable({ entries }: { entries: RequestLogEntry[] }) {
+export function LogsTable({ entries }: { entries: RequestLogEntry[] }) {
   const isMobile = useIsMobile();
 
-  return isMobile ? <TaskLogsCards entries={entries} /> : <TaskLogsGrid entries={entries} />;
+  return isMobile ? <LogsCards entries={entries} /> : <LogsGrid entries={entries} />;
 }
 
-function TaskLogsGrid({ entries }: { entries: RequestLogEntry[] }) {
+function LogsGrid({ entries }: { entries: RequestLogEntry[] }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -121,7 +121,7 @@ function TaskLogsGrid({ entries }: { entries: RequestLogEntry[] }) {
   );
 }
 
-function TaskLogsCards({ entries }: { entries: RequestLogEntry[] }) {
+function LogsCards({ entries }: { entries: RequestLogEntry[] }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -215,7 +215,7 @@ function EntryDetails({ entry, context }: { entry: RequestLogEntry; context: str
       )}
       {context && (
         <Text size="xs" c="dimmed" className="break-anywhere">
-          {t('requestLogsModal.context')}: {context}
+          {t('taskLogs.context')}: {context}
         </Text>
       )}
       {entry.stackTrace && (

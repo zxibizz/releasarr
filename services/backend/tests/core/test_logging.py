@@ -17,6 +17,7 @@ import pytest
 from loguru import logger
 
 from src.core.logging import configure_logging, redact_secrets
+from src.domain.enums import LogService
 from src.settings.config import AppSettings
 
 
@@ -49,7 +50,7 @@ def written_records(log_file: Path) -> list[dict[str, Any]]:
 
 def configure(tmp_path: Path, **overrides: Any) -> Path:
     log_file = tmp_path / "backend.log"
-    configure_logging(AppSettings(log_file=str(log_file), **overrides))
+    configure_logging(AppSettings(log_file=str(log_file), **overrides), service=LogService.API)
     return log_file
 
 
@@ -82,7 +83,6 @@ def test_redacts_every_credential_spelling(message: str) -> None:
 
 def test_the_log_file_never_receives_a_credential(tmp_path: Path) -> None:
     """A leaked key would be readable through /logs, not just on disk."""
-
     log_file = configure(tmp_path)
 
     logger.info("Calling https://api.themoviedb.org/3/movie/1?api_key=SUPERSECRET")
@@ -131,6 +131,16 @@ def test_an_unknown_level_falls_back_instead_of_failing(tmp_path: Path) -> None:
     logger.info("still recorded")
 
     assert [record["message"] for record in written_records(log_file)] == ["still recorded"]
+
+
+def test_records_name_the_process_that_wrote_them(tmp_path: Path) -> None:
+    """Both processes write to one file, so the /logs view splits them by this."""
+
+    log_file = configure(tmp_path)
+
+    logger.info("Served request")
+
+    assert written_records(log_file)[0]["extra"]["service"] == "api"
 
 
 def test_intercepted_records_are_attributed_to_their_caller(tmp_path: Path) -> None:
