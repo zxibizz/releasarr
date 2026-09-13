@@ -55,7 +55,7 @@ from src.application.use_cases.tasks.get_sync_job import (
     ListScheduledTasksUseCase,
     ListSyncJobsUseCase,
 )
-from src.core.logging import configure_logging
+from src.core.logging import configure_logging, logger
 from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
@@ -470,7 +470,10 @@ class InfrastructureContainer:
 
     @cached_property
     def log_reader(self) -> LogFileReader:
-        return LogFileReader(self._container.settings.log_file)
+        return LogFileReader(
+            self._container.settings.log_file,
+            history_files=self._container.settings.log_history_files,
+        )
 
 
 @dataclass
@@ -486,21 +489,23 @@ class AppContainer:
     async def shutdown(self) -> None:
         """Hook for disposing resources during application shutdown."""
 
-        if "services" not in self.__dict__:
-            return
+        services = self.__dict__.get("services")
+        if services is not None:
+            # A single shared qBittorrent client backs both lifecycle and download.
+            client = services.__dict__.get("qbittorrent_client")
+            if client is not None:
+                await client.close()
 
-        services = self.__dict__["services"]
+            # Close any resolved HTTP-backed services exposing an async close hook.
+            for key in ("tvdb", "tmdb", "sonarr", "radarr", "release_search"):
+                service = services.__dict__.get(key)
+                if service is not None and hasattr(service, "aclose"):
+                    await service.aclose()
 
-        # A single shared qBittorrent client backs both lifecycle and download.
-        client = services.__dict__.get("qbittorrent_client")
-        if client is not None:
-            await client.close()
-
-        # Close any resolved HTTP-backed services exposing an async close hook.
-        for key in ("tvdb", "tmdb", "sonarr", "radarr", "release_search"):
-            service = services.__dict__.get(key)
-            if service is not None and hasattr(service, "aclose"):
-                await service.aclose()
+        # Both sinks are enqueued, so records still in the queue are lost unless
+        # the writer thread is given the chance to drain. The scheduler reaches
+        # this through its own shutdown, so one flush covers both processes.
+        await logger.complete()
 
     @cached_property
     def db_manager(self) -> DBManager:

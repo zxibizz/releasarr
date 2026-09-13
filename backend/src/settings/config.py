@@ -22,6 +22,10 @@ class AppSettings(BaseSettings):
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)
     log_file: str = Field(default=".logs/backend.log")
+    # How many log files the /logs endpoint reaches back through, counting the
+    # active one. Rotation would otherwise hide a request's history the moment the
+    # log grew past its size limit.
+    log_history_files: int = Field(default=3, ge=1)
 
     default_page: int = Field(default=1)
     default_page_size: int = Field(default=20)

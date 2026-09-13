@@ -134,8 +134,34 @@ Two things are tagged in addition to the step itself:
   Those runs write no job history, so those lines are all the logs view has for
   them.
 
-The endpoint reads and parses the whole log file per call, so prefer a task
-filter over paging through everything.
+The endpoint reads and parses whole log files per call, so prefer a task filter
+over paging through everything.
+
+### How far back the logs view reaches
+
+The file sink rotates at 10 MB, which moves history into a timestamped sibling
+(`backend.log` becomes `backend.2026-09-13_04-54-26_300466.log`). The reader
+follows those siblings so a rotation no longer empties the view, but only as far
+back as `RELEASARR_LOG_HISTORY_FILES` allows (default 3, counting the active
+file). Raising it widens the window at the cost of a slower read, since every
+call scans each file it is allowed to reach.
+
+The sink also records at INFO even when `RELEASARR_LOG_LEVEL` is higher, because
+a request's activity view is built from these records and should not go quiet
+when an operator turns the console down. A lower setting still applies, so
+`DEBUG` reaches the file too.
+
+### The scheduler and the API share one file
+
+`entrypoint.sh` runs the scheduler and uvicorn as separate processes, and both
+configure logging against the same path with their own independent rotation
+state. When one of them rotates, the other keeps writing to the file it already
+holds open, which is now the renamed sibling. Records therefore land outside the
+active file at unpredictable moments.
+
+Reading rotated siblings hides most of the effect, so this is a known wart
+rather than a bug being worked around. Giving each process its own log file would
+remove the race, at the cost of the reader having to merge two timelines.
 
 ### Hooking up qBittorrent
 

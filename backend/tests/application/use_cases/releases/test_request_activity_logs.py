@@ -6,12 +6,10 @@ activity view stays empty no matter what happened to it.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from loguru import logger
 
 from src.application.interfaces.releases import (
     ReleaseFileRecord,
@@ -29,26 +27,6 @@ from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
 from src.domain.enums import ReleaseStatus
-
-
-@pytest.fixture()
-def captured_records() -> Iterator[list[dict[str, Any]]]:
-    """Collect the ``extra`` payload Loguru would serialise to the log file."""
-
-    records: list[dict[str, Any]] = []
-    sink_id = logger.add(
-        lambda message: records.append(
-            {
-                "message": message.record["message"],
-                **message.record["extra"],
-            }
-        ),
-        level="INFO",
-    )
-    try:
-        yield records
-    finally:
-        logger.remove(sink_id)
 
 
 class StubReleaseRepository:

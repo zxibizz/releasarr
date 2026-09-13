@@ -230,6 +230,53 @@ async def test_sync_radarr_creates_updates_and_completes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_radarr_logs_a_completion_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """Completing a movie is activity a user should see on the request.
+
+    The /logs endpoint filters on request_id and the log file records at INFO, so
+    a debug-level entry here would never reach the request's activity view.
+    """
+
+    repository = FakeMediaRequestRepository(
+        records={"req-1": make_record("req-1", 999, MediaRequestStatus.PENDING)}
+    )
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([]),
+        tmdb_service=None,
+    )
+    await use_case.execute()
+
+    completed = [record for record in captured_records if record.get("request_id") == "req-1"]
+    assert completed, "completing a movie produced no log entry bound to the request"
+    assert completed[0]["level"] == "INFO"
+    assert completed[0]["radarr_movie_id"] == 999
+
+
+@pytest.mark.asyncio
+async def test_sync_radarr_keeps_routine_refreshes_out_of_the_activity_view(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """A metadata refresh runs for every request on every sync, so it stays at debug."""
+
+    repository = FakeMediaRequestRepository(
+        records={"req-1": make_record("req-1", 156, MediaRequestStatus.PENDING)}
+    )
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([make_movie()]),
+        tmdb_service=None,
+    )
+    await use_case.execute()
+
+    assert [record for record in captured_records if record.get("request_id") == "req-1"] == []
+
+
+@pytest.mark.asyncio
 async def test_sync_radarr_preserves_in_flight_status() -> None:
     """A metadata refresh must not knock a downloading movie back to pending."""
 

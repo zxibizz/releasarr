@@ -304,6 +304,32 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_sonarr_logs_a_completion_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """Completing a season is activity a user should see on the request.
+
+    The /logs endpoint filters on request_id and the log file records at INFO, so
+    a debug-level entry here would never reach the request's activity view.
+    """
+
+    records = make_existing_records()
+    repository = FakeMediaRequestRepository(records={"req-2": records["req-2"]})
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([], {}),
+        tvdb_service=None,
+    )
+    await use_case.execute()
+
+    completed = [record for record in captured_records if record.get("request_id") == "req-2"]
+    assert completed, "completing a season produced no log entry bound to the request"
+    assert completed[0]["level"] == "INFO"
+    assert completed[0]["season_number"] == 2
+
+
+@pytest.mark.asyncio
 async def test_sync_sonarr_preserves_in_flight_status() -> None:
     """A metadata refresh must not knock a downloading season back to pending."""
 

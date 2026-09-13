@@ -211,7 +211,9 @@ class SyncSonarrMediaRequestsUseCase:
             update = UpdateMediaRequestData(status=MediaRequestStatus.COMPLETED)
             await self._repository.update_request(record.id, update)
             transitioned += 1
-            self._logger.debug(
+            # A status transition belongs in the request's activity view, unlike
+            # the metadata refresh above that runs on every sync.
+            self._logger.info(
                 "Marked Sonarr season as completed",
                 request_id=record.id,
                 sonarr_series_id=record.sonarr_series_id,
