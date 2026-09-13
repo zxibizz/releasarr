@@ -357,7 +357,8 @@ only place HTTP happens. Route loaders warm the query cache so pages have data o
 
 ## Further reading
 
+- [`docs/`](docs/README.md) — developer documentation: architecture, backend and frontend conventions, data model, testing
+- [`AGENTS.md`](AGENTS.md) — the short orientation, and the rules that matter most when changing this code
 - [`openapi.yaml`](openapi.yaml) — the API contract
 - [`backend/docs/tasks.md`](backend/docs/tasks.md) — background tasks, the scheduler, job queueing, and log filtering in detail
-- [`backend/IMPLEMENTATION_PLAN.md`](backend/IMPLEMENTATION_PLAN.md) — the architecture the backend was built to
 - [`frontend/README.md`](frontend/README.md) — frontend conventions and the file mapping internals
