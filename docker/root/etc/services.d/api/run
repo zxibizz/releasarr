@@ -1,0 +1,4 @@
+#!/command/with-contenv sh
+# Port 8000 is what the nginx site proxies /api/ to.
+cd /app
+exec /app/.venv/bin/uvicorn src.api.app:app --host 0.0.0.0 --port 8000

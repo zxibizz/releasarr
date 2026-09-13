@@ -160,7 +160,7 @@ when an operator turns the console down. A lower setting still applies, so
 
 ### The scheduler and the API share one file
 
-`entrypoint.sh` runs the scheduler and uvicorn as separate processes, and both
+s6-overlay supervises the scheduler and uvicorn as separate processes, and both
 configure logging against the same path with their own independent rotation
 state. When one of them rotates, the other keeps writing to the file it already
 holds open, which is now the renamed sibling. Records therefore land outside the
