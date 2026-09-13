@@ -193,8 +193,9 @@ file. The defaults below are what you get if you set nothing.
 | `RELEASARR_API_PORT` | `8001` | Uvicorn bind port when run directly (the image uses 8000 behind nginx) |
 | `RELEASARR_LOG_LEVEL` | `INFO` | Console log level; the file sink always keeps at least INFO |
 | `RELEASARR_LOG_JSON` | `false` | Emit JSON logs |
-| `RELEASARR_LOG_FILE` | `.logs/backend.log` | Log file path, rotated at 10 MB |
-| `RELEASARR_LOG_HISTORY_FILES` | `3` | How many rotated files the logs view reaches back through |
+| `RELEASARR_LOG_FILE` | `.logs/backend.log` | The API process's log file, rotated at 10 MB |
+| `RELEASARR_SCHEDULER_LOG_FILE` | `.logs/scheduler.log` | The scheduler's own log file, rotated the same way |
+| `RELEASARR_LOG_HISTORY_FILES` | `3` | How many rotated files the logs view reaches back through in each file |
 | `RELEASARR_DEFAULT_PAGE_SIZE` | `20` | Default page size |
 | `RELEASARR_MAX_PAGE_SIZE` | `100` | Largest page size a client may ask for |
 

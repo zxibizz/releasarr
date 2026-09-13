@@ -575,9 +575,13 @@ class InfrastructureContainer:
 
     @cached_property
     def log_reader(self) -> LogFileReader:
+        settings = self._container.settings
         return LogFileReader(
-            self._container.settings.log_file,
-            history_files=self._container.settings.log_history_files,
+            {
+                LogService.API.value: settings.log_file,
+                LogService.SCHEDULER.value: settings.scheduler_log_file,
+            },
+            history_files=settings.log_history_files,
         )
 
 
