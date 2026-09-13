@@ -60,7 +60,6 @@ class ListSeasonOptionsUseCase:
             tvdb_id=tvdb_id,
             in_library=True,
             library_id=series_id,
-            monitored=details.monitored,
             monitor_new_seasons=details.monitor_new_seasons,
             seasons=[
                 SeasonOptionDTO(

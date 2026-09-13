@@ -39,7 +39,6 @@ export function ManageSeasonsModal({
   const updateSeasons = useUpdateRequestSeasons(request.id);
 
   const [picked, setPicked] = useState<number[] | null>(null);
-  const [pickedMonitored, setPickedMonitored] = useState<boolean | null>(null);
   const [pickedNewSeasons, setPickedNewSeasons] = useState<boolean | null>(null);
 
   const monitoredSeasons = useMemo(
@@ -53,7 +52,6 @@ export function ManageSeasonsModal({
   // Derived rather than stored, so the selection shows what Sonarr monitors
   // today the moment the seasons arrive, without an effect to copy it across.
   const selected = picked ?? monitoredSeasons;
-  const monitored = pickedMonitored ?? seasons.data?.monitored ?? false;
   const monitorNewSeasons = pickedNewSeasons ?? seasons.data?.monitor_new_seasons ?? false;
 
   const removing = monitoredSeasons.filter((season) => !selected.includes(season));
@@ -62,7 +60,7 @@ export function ManageSeasonsModal({
 
   const save = () => {
     updateSeasons.mutate(
-      { season_numbers: selected, monitored, monitor_new_seasons: monitorNewSeasons },
+      { season_numbers: selected, monitor_new_seasons: monitorNewSeasons },
       {
         onSuccess: () => {
           onClose();
@@ -119,8 +117,6 @@ export function ManageSeasonsModal({
             isLoading={seasons.isLoading}
             error={seasons.error}
             allowRemoving
-            monitored={monitored}
-            onMonitoredChange={setPickedMonitored}
             monitorNewSeasons={monitorNewSeasons}
             onMonitorNewSeasonsChange={setPickedNewSeasons}
           />

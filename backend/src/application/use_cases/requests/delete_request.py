@@ -55,6 +55,10 @@ class DeleteMediaRequestUseCase:
 
         A request that never reached either app - the ones created straight
         through the API carry no library id - has no monitoring to withdraw.
+
+        Only the season is withdrawn. The series stays monitored even once it is
+        the last one to go, which leaves Sonarr holding a series that wants none
+        of itself and so searches for nothing.
         """
 
         if record.sonarr_series_id is not None and record.season_number is not None:

@@ -22,14 +22,9 @@ from src.domain.enums import MediaType
 
 @dataclass(slots=True)
 class UpdateRequestSeasonsCommand:
-    """The seasons Sonarr should monitor for a series, as the user left them.
-
-    ``monitored`` is the series flag. Left unset it is worked out from what the
-    seasons are left wanting, which is what removing a single request relies on.
-    """
+    """The seasons Sonarr should monitor for a series, as the user left them."""
 
     season_numbers: list[int] = field(default_factory=list)
-    monitored: bool | None = None
     monitor_new_seasons: bool = False
 
 
@@ -65,7 +60,6 @@ async def _describe_seasons(
         tvdb_id=details.tvdb_id,
         in_library=True,
         library_id=series_id,
-        monitored=details.monitored,
         monitor_new_seasons=details.monitor_new_seasons,
         seasons=[
             SeasonOptionDTO(
@@ -163,7 +157,6 @@ class UpdateRequestSeasonsUseCase:
             series_id,
             monitor=added,
             unmonitor=removed,
-            monitored=command.monitored,
             monitor_new_seasons=command.monitor_new_seasons,
         )
 
@@ -186,7 +179,6 @@ class UpdateRequestSeasonsUseCase:
             added=added,
             removed=removed,
             deleted_requests=dropped,
-            monitored=command.monitored,
             monitor_new_seasons=command.monitor_new_seasons,
         )
         return await _describe_seasons(self._repository, self._sonarr, series_id)

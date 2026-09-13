@@ -196,7 +196,6 @@ def seasons_to_schema(dto: SeriesSeasonsDTO) -> SeriesSeasonsResponse:
         tvdb_id=dto.tvdb_id,
         in_library=dto.in_library,
         library_id=dto.library_id,
-        monitored=dto.monitored,
         monitor_new_seasons=dto.monitor_new_seasons,
         seasons=[
             SeasonOption(

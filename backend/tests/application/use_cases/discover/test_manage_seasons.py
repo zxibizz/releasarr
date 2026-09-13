@@ -73,12 +73,11 @@ async def test_the_seasons_of_a_request_report_sonarrs_own_monitoring() -> None:
 
     result = await build_list_use_case(
         repository=repository,
-        sonarr=series_sonarr(monitored=True, monitor_new_seasons=True),
+        sonarr=series_sonarr(monitor_new_seasons=True),
     ).execute("req-1")
 
     assert result.in_library is True
     assert result.library_id == 12
-    assert result.monitored is True
     assert result.monitor_new_seasons is True
     assert [(season.season_number, season.monitored) for season in result.seasons] == [
         (1, True),
@@ -162,7 +161,6 @@ async def test_a_newly_picked_season_is_monitored_and_becomes_a_request() -> Non
             "series_id": 12,
             "monitor": [2],
             "unmonitor": [],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -192,7 +190,6 @@ async def test_a_dropped_season_is_unmonitored_and_its_request_deleted() -> None
             "series_id": 12,
             "monitor": [],
             "unmonitor": [2],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -223,7 +220,6 @@ async def test_a_season_monitored_without_a_request_is_left_where_it_is() -> Non
             "series_id": 12,
             "monitor": [],
             "unmonitor": [],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -248,27 +244,10 @@ async def test_dropping_a_season_that_never_had_a_request_just_unmonitors_it() -
             "series_id": 12,
             "monitor": [],
             "unmonitor": [2],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
     assert list(repository.records) == ["req-1"]
-
-
-@pytest.mark.asyncio
-async def test_the_series_flag_is_saved_to_sonarr_as_it_was_left() -> None:
-    repository = FakeMediaRequestRepository(
-        {"req-1": make_record("req-1", season_number=1, sonarr_series_id=12)}
-    )
-    sonarr = series_sonarr(monitored=True)
-
-    result = await build_update_use_case(repository=repository, sonarr=sonarr).execute(
-        "req-1",
-        UpdateRequestSeasonsCommand(season_numbers=[1], monitored=False),
-    )
-
-    assert sonarr.monitored[0]["monitored"] is False
-    assert result.monitored is False
 
 
 @pytest.mark.asyncio
@@ -290,7 +269,6 @@ async def test_adding_and_dropping_seasons_takes_one_sonarr_write() -> None:
             "series_id": 12,
             "monitor": [2, 3],
             "unmonitor": [1],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -314,7 +292,6 @@ async def test_an_empty_selection_withdraws_every_season_request() -> None:
             "series_id": 12,
             "monitor": [],
             "unmonitor": [1],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -340,7 +317,6 @@ async def test_specials_are_left_alone_by_a_selection_that_cannot_mention_them()
             "series_id": 12,
             "monitor": [1],
             "unmonitor": [],
-            "monitored": None,
             "monitor_new_seasons": False,
         }
     ]
@@ -364,7 +340,6 @@ async def test_future_seasons_can_be_asked_for_without_changing_the_selection() 
             "series_id": 12,
             "monitor": [],
             "unmonitor": [],
-            "monitored": None,
             "monitor_new_seasons": True,
         }
     ]

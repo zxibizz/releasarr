@@ -28,12 +28,6 @@ interface SeasonPickerProps {
    * monitor rather than what to add to the series.
    */
   allowRemoving?: boolean;
-  /**
-   * Sonarr's series-wide monitored flag, offered only where there is a series
-   * to hold it — the add form has none until it has added one.
-   */
-  monitored?: boolean;
-  onMonitoredChange?: (monitored: boolean) => void;
   monitorNewSeasons?: boolean;
   onMonitorNewSeasonsChange?: (monitor: boolean) => void;
 }
@@ -56,8 +50,6 @@ export function SeasonPicker({
   isLoading,
   error,
   allowRemoving = false,
-  monitored,
-  onMonitoredChange,
   monitorNewSeasons,
   onMonitorNewSeasonsChange,
 }: SeasonPickerProps) {
@@ -149,25 +141,19 @@ export function SeasonPicker({
       </SimpleGrid>
 
       {/*
-        Whole-series monitoring and future seasons belong to the series rather
-        than to any numbered season, so they sit below the grid instead of in it.
+        Future seasons are a property of the series rather than one of the
+        numbered seasons, so they sit below the grid instead of in it.
       */}
-      {(onMonitoredChange || onMonitorNewSeasonsChange) && <Divider my={4} />}
-      {onMonitoredChange && (
-        <Checkbox
-          checked={monitored ?? false}
-          label={t('discover.seasons.monitored')}
-          description={t('discover.seasons.monitoredHint')}
-          onChange={(event) => onMonitoredChange(event.currentTarget.checked)}
-        />
-      )}
       {onMonitorNewSeasonsChange && (
-        <Checkbox
-          checked={monitorNewSeasons ?? false}
-          label={t('discover.seasons.newSeasons')}
-          description={t('discover.seasons.newSeasonsHint')}
-          onChange={(event) => onMonitorNewSeasonsChange(event.currentTarget.checked)}
-        />
+        <>
+          <Divider my={4} />
+          <Checkbox
+            checked={monitorNewSeasons ?? false}
+            label={t('discover.seasons.newSeasons')}
+            description={t('discover.seasons.newSeasonsHint')}
+            onChange={(event) => onMonitorNewSeasonsChange(event.currentTarget.checked)}
+          />
+        </>
       )}
     </Stack>
   );

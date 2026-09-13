@@ -714,11 +714,7 @@ export class MockStore {
    */
   async updateRequestSeasons(
     requestId: string,
-    payload: {
-      season_numbers: number[];
-      monitored?: boolean | null;
-      monitor_new_seasons?: boolean;
-    },
+    payload: { season_numbers: number[]; monitor_new_seasons?: boolean },
   ): Promise<SeriesSeasonsResponse | null> {
     const entry = await this.entryForRequest(requestId);
     if (!entry) {
@@ -764,11 +760,7 @@ export class MockStore {
       });
     }
 
-    const newSeasons = payload.monitor_new_seasons ?? false;
-    entry.monitor_new_seasons = newSeasons;
-    entry.monitored =
-      payload.monitored ??
-      (newSeasons || (entry.monitored_seasons ?? []).some((season) => season > 0));
+    entry.monitor_new_seasons = payload.monitor_new_seasons ?? false;
     // Described from the series rather than the request, which may be one of
     // the rows just deleted - as it is whenever its own season was dropped.
     return await this.describeRequestSeasons(entry);
@@ -793,7 +785,6 @@ export class MockStore {
       tvdb_id: entry.provider_id,
       in_library: entry.library_id !== undefined,
       library_id: entry.library_id ?? null,
-      monitored: entry.monitored ?? false,
       monitor_new_seasons: entry.monitor_new_seasons ?? false,
       seasons: (entry.seasons ?? []).map(
         (seasonNumber) =>

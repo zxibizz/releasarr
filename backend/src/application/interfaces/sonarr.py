@@ -44,9 +44,6 @@ class SeriesDetails:
     tvdb_id: int | None
     genres: list[str]
     seasons: dict[int, SeriesSeasonDetails]
-    # Sonarr's own monitoring flags, which releasarr shows and writes as they
-    # stand rather than keeping a second opinion of its own.
-    monitored: bool = False
     # Whether Sonarr monitors seasons that appear after the series was added.
     monitor_new_seasons: bool = False
 
@@ -131,15 +128,13 @@ class SonarrService(Protocol):
         *,
         monitor: Sequence[int] = (),
         unmonitor: Sequence[int] = (),
-        monitored: bool | None = None,
         monitor_new_seasons: bool | None = None,
     ) -> None:
         """Change the monitoring of the named seasons of a series in the library.
 
         Only the seasons named are touched, so a season monitored outside
-        releasarr keeps whatever the user chose for it. ``monitored`` sets the
-        series flag verbatim; left out, it is worked out from what the seasons
-        are left wanting.
+        releasarr keeps whatever the user chose for it. The series itself is
+        always left monitored, releasarr keeping no switch of its own for it.
         """
 
     async def wait_for_series_episodes(
