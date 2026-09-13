@@ -315,6 +315,25 @@ uv run python -m src.tasks.cli release-summary --json
 | `uv run ruff format ./src` | Format |
 | `uv run mypy src` | Type check |
 
+### Both halves in Docker
+
+If you would rather not install Python and Node locally, there is a development stack that
+reloads on edit:
+
+```bash
+docker compose -f docker-compose.dev.yaml up --build
+```
+
+The UI is on **http://localhost:3000** and the API on **http://localhost:8000**, with the
+scheduler in its own container as in production. Source is bind-mounted, so host edits reload in
+place — uvicorn's `--reload` for the API, watchfiles for the scheduler, Vite's HMR for the UI.
+Only a dependency change needs `--build` again. Vite proxies `/api` to the backend, the same
+prefix nginx serves it under in production, so the browser stays on a single origin.
+
+Two things it shares with the production stack: the same `.env`, and the same
+`backend/releasarr.db`. Bringing it up starts syncing against whichever Sonarr, Radarr, and
+Prowlarr that file points at.
+
 ## Architecture
 
 [`openapi.yaml`](openapi.yaml) is the contract, and both sides are generated from or checked

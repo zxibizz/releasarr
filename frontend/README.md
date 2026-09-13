@@ -19,7 +19,9 @@ npm run dev:mock
 
 Open http://localhost:3000 once both are up.
 
-To run the app against a real backend instead, set `VITE_API_URL` and use `npm run dev`.
+To run the app against a real backend instead, set `VITE_API_URL` and use `npm run dev`. For the
+dev server and a real backend both in containers, see `docker-compose.dev.yaml` in the repository
+root.
 
 ## Scripts
 
@@ -46,6 +48,11 @@ VITE_API_KEY=dev-secret
 
 `VITE_API_KEY` is sent as the `X-API-Key` header on every request. Use `.env.local`
 (git-ignored) for real credentials.
+
+Two more variables are read by `vite.config.ts` rather than the app, and only the containerised
+dev stack sets them: `VITE_API_PROXY_TARGET` makes the dev server proxy `/api` to that backend
+with the prefix stripped, as nginx does in production, and `VITE_WATCH_POLLING=true` switches the
+file watcher to polling, which bind-mounted source requires.
 
 ## Architecture
 
@@ -96,7 +103,8 @@ before the page can start fetching.
 Where a route has a loader it calls `queryClient.ensureQueryData` with the same keys the
 components use, so the loader warms the cache and the component reads it rather than
 refetching — and `prefetchQuery` for data the page wants but can render without. Routes
-whose first paint needs no data (`add`, `system/tasks`) have no loader at all.
+whose first paint needs no data (`add`, `system/tasks`, `system/indexers`) have no loader at
+all.
 
 ## Internationalisation
 

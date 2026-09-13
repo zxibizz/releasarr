@@ -100,7 +100,9 @@ npm run build                    # tsc --noEmit && vite build
 npm run codegen                  # regenerate types from ../openapi.yaml
 ```
 
-Whole stack: `docker compose up -d --build`, served on `:8050`.
+Whole stack: `docker compose up -d --build`, served on `:8050`. For a containerised stack that
+reloads on edit instead, `docker compose -f docker-compose.dev.yaml up --build` — UI on `:3000`,
+API on `:8000`, scheduler in its own container.
 
 ## Code style
 
