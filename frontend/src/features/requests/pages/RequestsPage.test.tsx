@@ -99,11 +99,28 @@ describe('RequestsPage', () => {
 
     expect(await screen.findByText('Severance')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Series' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Series' }));
 
     // Narrowing to series must not widen the status back to everything.
     expect(screen.getByText('Severance')).toBeInTheDocument();
     expect(screen.queryByText('The Dark Knight')).not.toBeInTheDocument();
+  });
+
+  it('keeps the filter controls behind the toggle, list first', async () => {
+    renderWithProviders(<RequestsPage />, { route: '/?status=all' });
+
+    await screen.findByText('The Dark Knight');
+    expect(screen.queryByRole('button', { name: 'Movies' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /sort requests/i })).not.toBeInTheDocument();
+
+    // Search is the one control that stays out in the open.
+    expect(screen.getByRole('searchbox', { name: /search requests/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+
+    expect(await screen.findByRole('button', { name: 'Movies' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /sort requests/i })).toBeInTheDocument();
   });
 
   it('shows an empty state when the API returns no requests', async () => {

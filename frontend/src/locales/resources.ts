@@ -75,12 +75,6 @@ export const resources = {
           title_asc: 'Title A → Z',
           title_desc: 'Title Z → A',
         },
-        stats: {
-          total: 'Total Requests',
-          movies: 'Movies',
-          series: 'Series',
-          completed: 'Completed',
-        },
         headings: {
           all: 'All Requests',
           active: 'In Progress',
@@ -641,12 +635,6 @@ export const resources = {
           created_asc: 'Сначала старые',
           title_asc: 'Название A → Z',
           title_desc: 'Название Z → A',
-        },
-        stats: {
-          total: 'Всего запросов',
-          movies: 'Фильмы',
-          series: 'Сериалы',
-          completed: 'Завершено',
         },
         headings: {
           all: 'Все запросы',
