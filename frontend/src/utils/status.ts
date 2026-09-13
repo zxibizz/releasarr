@@ -15,6 +15,10 @@ const STATUS_PRESENTATION = {
   failed: { color: 'red', icon: '❌' },
   queued: { color: 'gray', icon: '🕒' },
   running: { color: 'blue', icon: '⚙️' },
+  healthy: { color: 'teal', icon: '✅' },
+  degraded: { color: 'yellow', icon: '⚠️' },
+  blocked: { color: 'red', icon: '⛔' },
+  disabled: { color: 'gray', icon: '🚫' },
 } as const satisfies Record<string, StatusPresentation>;
 
 const UNKNOWN_STATUS: StatusPresentation = { color: 'gray', icon: '❓' };

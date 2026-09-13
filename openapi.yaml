@@ -1213,6 +1213,112 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /indexers:
+    get:
+      tags: [Indexers]
+      summary: List Prowlarr indexers
+      description: |
+        Every indexer Prowlarr knows about, with the health releasarr derives
+        from it. Prowlarr backs off an indexer after repeated failures, which is
+        reported separately from an indexer somebody switched off by hand.
+      operationId: listIndexers
+      responses:
+        '200':
+          description: The configured indexers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexersResponse'
+        '502':
+          description: Prowlarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /indexers/test:
+    post:
+      tags: [Indexers]
+      summary: Test every enabled indexer
+      description: |
+        Asks Prowlarr to query each enabled indexer. A passing test clears the
+        back-off Prowlarr applied after earlier failures, so this doubles as the
+        way to bring a blocked indexer back.
+      operationId: testIndexers
+      responses:
+        '200':
+          description: The outcome of each test.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerTestResults'
+        '502':
+          description: Prowlarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /indexers/{indexerId}/test:
+    post:
+      tags: [Indexers]
+      summary: Test a single indexer
+      operationId: testIndexer
+      parameters:
+        - $ref: '#/components/parameters/IndexerId'
+      responses:
+        '200':
+          description: The outcome of the test.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerTestResult'
+        '404':
+          description: Indexer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Prowlarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -1242,6 +1348,13 @@ components:
       schema:
         type: string
       description: Unique identifier for a sync job.
+    IndexerId:
+      in: path
+      name: indexerId
+      required: true
+      schema:
+        type: integer
+      description: Prowlarr identifier of an indexer.
     TvdbId:
       in: path
       name: tvdbId
@@ -1308,6 +1421,13 @@ components:
     RequestLogLevel:
       type: string
       enum: [info, warning, error]
+    IndexerHealth:
+      type: string
+      enum: [healthy, degraded, blocked, disabled]
+      description: |
+        How usable an indexer is right now. `disabled` was switched off by hand
+        and stays that way; `blocked` is Prowlarr's own back-off after repeated
+        failures and lifts on its own, or on a passing test.
     ErrorResponse:
       type: object
       required: [code, message]
@@ -1980,6 +2100,83 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduledTask'
+    Indexer:
+      type: object
+      required: [id, name, health, enabled, supports_search, supports_rss, indexer_urls]
+      properties:
+        id:
+          type: integer
+          description: Prowlarr's own identifier for the indexer.
+        name:
+          type: string
+        health:
+          $ref: '#/components/schemas/IndexerHealth'
+        enabled:
+          type: boolean
+          description: Whether the indexer is switched on in Prowlarr.
+        protocol:
+          type: string
+          nullable: true
+          description: Transport Prowlarr grabs from, typically torrent or usenet.
+        privacy:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+          nullable: true
+        supports_search:
+          type: boolean
+        supports_rss:
+          type: boolean
+        indexer_urls:
+          type: array
+          items:
+            type: string
+        disabled_till:
+          type: string
+          format: date-time
+          nullable: true
+          description: When Prowlarr will query the indexer again after failures.
+        most_recent_failure:
+          type: string
+          format: date-time
+          nullable: true
+        initial_failure:
+          type: string
+          format: date-time
+          nullable: true
+          description: Start of the current run of failures, absent once one succeeds.
+    IndexersResponse:
+      type: object
+      required: [indexers]
+      properties:
+        indexers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Indexer'
+    IndexerTestResult:
+      type: object
+      required: [indexer_id, success, errors]
+      properties:
+        indexer_id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+        success:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+    IndexerTestResults:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexerTestResult'
     AddReleaseRequest:
       type: object
       required: [magnet_link, request_ids]

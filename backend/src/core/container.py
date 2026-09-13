@@ -26,6 +26,11 @@ from src.application.use_cases.discover.manage_seasons import (
     UpdateRequestSeasonsUseCase,
 )
 from src.application.use_cases.discover.search_media import SearchMediaUseCase
+from src.application.use_cases.indexers.list_indexers import ListIndexersUseCase
+from src.application.use_cases.indexers.run_indexer_tests import (
+    RunAllIndexerTestsUseCase,
+    RunIndexerTestUseCase,
+)
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
@@ -67,7 +72,7 @@ from src.core.logging import configure_logging, logger
 from src.db.session import DBManager, get_db_manager
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
-from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
+from src.infrastructure.prowlarr import ProwlarrIndexerDirectory, ProwlarrReleaseSearchService
 from src.infrastructure.qbittorrent import (
     QbittorrentClient,
     QbittorrentReleaseDownloadService,
@@ -137,6 +142,24 @@ class ServiceContainer:
                 categories=settings.prowlarr_categories,
             )
         return InMemoryReleaseSearchService()
+
+    @cached_property
+    def indexer_directory(self) -> ProwlarrIndexerDirectory | None:
+        """Prowlarr's indexer view, or None when Prowlarr is not configured.
+
+        Unlike release search there is no in-memory stand-in: the endpoints that
+        use this report the missing configuration instead of pretending there
+        are no indexers.
+        """
+
+        settings = self._container.settings
+        if not (settings.prowlarr_url and settings.prowlarr_api_key.get_secret_value()):
+            return None
+        return ProwlarrIndexerDirectory(
+            base_url=settings.prowlarr_url,
+            api_key=settings.prowlarr_api_key.get_secret_value(),
+            timeout_seconds=settings.prowlarr_timeout,
+        )
 
     @cached_property
     def release_download(self) -> ReleaseDownloadService:
@@ -231,6 +254,10 @@ class UseCaseContainer:
         return DiscoverUseCases(self._container)
 
     @cached_property
+    def indexers(self) -> IndexerUseCases:
+        return IndexerUseCases(self._container)
+
+    @cached_property
     def logs(self) -> LogUseCases:
         return LogUseCases(self._container)
 
@@ -245,6 +272,23 @@ class UseCaseContainer:
     @cached_property
     def tasks(self) -> TaskUseCases:
         return TaskUseCases(self._container)
+
+
+@dataclass
+class IndexerUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def list(self) -> ListIndexersUseCase:
+        return ListIndexersUseCase(directory=self._container.services.indexer_directory)
+
+    @cached_property
+    def run_test(self) -> RunIndexerTestUseCase:
+        return RunIndexerTestUseCase(directory=self._container.services.indexer_directory)
+
+    @cached_property
+    def run_all_tests(self) -> RunAllIndexerTestsUseCase:
+        return RunAllIndexerTestsUseCase(directory=self._container.services.indexer_directory)
 
 
 @dataclass
@@ -541,7 +585,14 @@ class AppContainer:
                 await client.close()
 
             # Close any resolved HTTP-backed services exposing an async close hook.
-            for key in ("tvdb", "tmdb", "sonarr", "radarr", "release_search"):
+            for key in (
+                "tvdb",
+                "tmdb",
+                "sonarr",
+                "radarr",
+                "release_search",
+                "indexer_directory",
+            ):
                 service = services.__dict__.get(key)
                 if service is not None and hasattr(service, "aclose"):
                     await service.aclose()

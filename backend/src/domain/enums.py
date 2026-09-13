@@ -52,6 +52,20 @@ class RequestLogLevel(StrEnum):
     ERROR = "error"
 
 
+class IndexerHealth(StrEnum):
+    """How usable an indexer is right now.
+
+    Prowlarr distinguishes a user switching an indexer off from its own
+    escalating back-off after repeated failures. Only the latter resolves on its
+    own, and only the latter is worth alerting about.
+    """
+
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    BLOCKED = "blocked"
+    DISABLED = "disabled"
+
+
 class AsyncJobStatus(StrEnum):
     QUEUED = "queued"
     PENDING = "pending"
@@ -88,6 +102,7 @@ class SyncJobTrigger(StrEnum):
 __all__ = [
     "AsyncJobStatus",
     "EpisodeStatus",
+    "IndexerHealth",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",

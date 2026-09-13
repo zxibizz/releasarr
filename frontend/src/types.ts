@@ -52,3 +52,9 @@ export type SyncJob = Schemas['SyncJob'];
 export type SyncJobsResponse = Schemas['SyncJobsResponse'];
 export type ScheduledTask = Schemas['ScheduledTask'];
 export type ScheduledTasksResponse = Schemas['ScheduledTasksResponse'];
+
+export type IndexerHealth = Schemas['IndexerHealth'];
+export type Indexer = Schemas['Indexer'];
+export type IndexersResponse = Schemas['IndexersResponse'];
+export type IndexerTestResult = Schemas['IndexerTestResult'];
+export type IndexerTestResults = Schemas['IndexerTestResults'];

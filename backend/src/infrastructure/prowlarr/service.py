@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 
 import httpx
 
@@ -14,6 +13,12 @@ from src.application.interfaces.releases import (
     ReleaseSearchService,
 )
 from src.infrastructure.http import BaseHttpClient
+from src.infrastructure.prowlarr.parsing import (
+    safe_datetime,
+    safe_int,
+    safe_json,
+    safe_str,
+)
 
 
 @dataclass(slots=True)
@@ -47,7 +52,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
         response = await self._http.request("GET", "/search", params=params)
 
         if response.status_code == httpx.codes.BAD_REQUEST:
-            payload = self._safe_json(response)
+            payload = safe_json(response)
             if self._all_indexers_unavailable(payload):
                 return ReleaseSearchResults(results=[], query=query, total_results=0)
             response.raise_for_status()
@@ -76,15 +81,15 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
         query: str,
         request_id: str | None,
     ) -> ReleaseSearchResultRecord | None:
-        title = self._safe_str(item.get("title"))
-        guid = self._safe_str(item.get("guid"))
+        title = safe_str(item.get("title"))
+        guid = safe_str(item.get("guid"))
         if not title or not guid:
             return None
 
-        size_bytes = self._safe_int(item.get("size"))
+        size_bytes = safe_int(item.get("size"))
         size_text = self._format_size(size_bytes) if size_bytes is not None else "Unknown"
-        magnet_url = self._safe_str(item.get("magnetUrl"))
-        download_url = self._safe_str(item.get("downloadUrl"))
+        magnet_url = safe_str(item.get("magnetUrl"))
+        download_url = safe_str(item.get("downloadUrl"))
         if not magnet_url and not download_url:
             # Without either link we cannot offer a useful result.
             return None
@@ -95,40 +100,14 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
             size=size_text,
             magnet_link=magnet_url,
             torrent_file_url=download_url,
-            info_url=self._safe_str(item.get("infoUrl")),
-            seeders=self._safe_int(item.get("seeders")),
-            leechers=self._safe_int(item.get("leechers")),
-            quality=self._safe_str(item.get("quality")),
-            source=self._safe_str(item.get("indexer")),
+            info_url=safe_str(item.get("infoUrl")),
+            seeders=safe_int(item.get("seeders")),
+            leechers=safe_int(item.get("leechers")),
+            quality=safe_str(item.get("quality")),
+            source=safe_str(item.get("indexer")),
             request_id=request_id,
-            publish_date=self._safe_datetime(item.get("publishDate")),
+            publish_date=safe_datetime(item.get("publishDate")),
         )
-
-    def _safe_str(self, value: object) -> str | None:
-        if value is None:
-            return None
-        result = str(value).strip()
-        return result or None
-
-    def _safe_datetime(self, value: object) -> datetime | None:
-        text = self._safe_str(value)
-        if text is None:
-            return None
-        # Prowlarr sends ISO-8601, commonly with a trailing "Z" that
-        # fromisoformat only accepts from Python 3.11 onwards.
-        try:
-            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
-
-    def _safe_int(self, value: object) -> int | None:
-        if not isinstance(value, int | float | str):
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
 
     def _format_size(self, size_bytes: int) -> str:
         if size_bytes < 0:
@@ -141,19 +120,10 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
             size /= 1024.0
         return f"{size_bytes} B"
 
-    def _safe_json(self, response: httpx.Response) -> dict[str, object] | None:
-        try:
-            payload = response.json()
-        except ValueError:
-            return None
-        if isinstance(payload, dict):
-            return payload
-        return None
-
     def _all_indexers_unavailable(self, payload: dict[str, object] | None) -> bool:
         if not payload:
             return False
-        message = self._safe_str(payload.get("message"))
+        message = safe_str(payload.get("message"))
         unavailable = "all selected indexers" in message.lower() if message else False
         return unavailable
 

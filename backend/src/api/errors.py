@@ -16,6 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from src.application.interfaces.indexers import IndexerNotFoundError
 from src.application.use_cases.discover.exceptions import (
     InvalidRootFolderError,
     MediaNotFoundError,
@@ -24,6 +25,7 @@ from src.application.use_cases.discover.exceptions import (
     SeasonSelectionError,
     SeasonsUnmanageableError,
 )
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
@@ -62,6 +64,11 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     InvalidRootFolderError: (status.HTTP_400_BAD_REQUEST, "invalid_root_folder"),
     SeasonSelectionError: (status.HTTP_400_BAD_REQUEST, "invalid_season_selection"),
     SeasonsUnmanageableError: (status.HTTP_409_CONFLICT, "seasons_unmanageable"),
+    IndexerNotFoundError: (status.HTTP_404_NOT_FOUND, "indexer_not_found"),
+    ProwlarrNotConfiguredError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "prowlarr_not_configured",
+    ),
     # Sonarr, Radarr and the metadata providers all report through this one, so a
     # failure of theirs surfaces as a bad gateway rather than our own crash.
     HttpClientError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),

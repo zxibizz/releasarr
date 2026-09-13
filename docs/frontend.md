@@ -134,7 +134,7 @@ file.
 
 ## Routing
 
-`src/router.tsx` defines four routes plus a catch-all, all nested under `AppLayout` with
+`src/router.tsx` defines five routes plus a catch-all, all nested under `AppLayout` with
 `RouteErrorBoundary`:
 
 | Path | Component | Loading |
@@ -143,6 +143,7 @@ file.
 | `/request/:id` | `RequestDetailPage` | lazy |
 | `/add` | `AddRequestPage` | lazy |
 | `/system/tasks` | `TasksPage` | lazy |
+| `/system/indexers` | `IndexersPage` | lazy |
 | `*` | `NotFound` | eager |
 
 Loaders warm the cache with `ensureQueryData` so pages paint with data. Note the deliberate
@@ -159,6 +160,12 @@ const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
 `src/App.tsx` holds the AppShell: fixed header, `NAV_ITEMS` with per-item `isActive` predicates,
 desktop links (`visibleFrom="sm"`) and a mobile `Drawer` (`hiddenFrom="sm"`). It also mounts
 `useSyncWatcher()` exactly once — see [`architecture.md`](architecture.md).
+
+A nav item may carry a `badge`, rendered beside its label in both the header and the drawer.
+`IndexerAlertBadge` uses this to surface a failing indexer from any page. It calls the same
+`useIndexers()` hook as the indexers page, so the shared query key means one poll rather than
+two, and it renders nothing on error — an unconfigured Prowlarr must not leave a standing
+warning in the header.
 
 Filter state on `/` is URL-synced via `features/requests/useRequestFilters.ts`
 (`?type=&status=&sort=&q=`). Keep new filters in the URL rather than component state.
