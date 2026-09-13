@@ -1,4 +1,5 @@
 import { MantineProvider } from '@mantine/core';
+import { ModalsProvider } from '@mantine/modals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
@@ -58,10 +59,14 @@ export function renderWithProviders(
 ) {
   const queryClient = createTestQueryClient();
 
+  // Mirrors the providers main.tsx mounts, so a component that opens a confirm
+  // dialog through the modals manager has somewhere to render it.
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <MantineProvider theme={theme} forceColorScheme="dark" env="test">
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+        <ModalsProvider>
+          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+        </ModalsProvider>
       </QueryClientProvider>
     </MantineProvider>
   );

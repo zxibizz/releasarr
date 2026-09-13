@@ -153,6 +153,15 @@ paths:
       tags: [Requests]
       summary: Delete a media request
       operationId: deleteRequest
+      description: |
+        Removes the request and unmonitors what produced it: the season in Sonarr
+        or the movie in Radarr. Dropping the row alone would not last, because the
+        recurring sync rebuilds a request for every monitored season Sonarr still
+        reports as missing.
+
+        The series or movie itself stays in the library, as do any files already
+        imported. A series left with no monitored season and no interest in future
+        ones is unmonitored as a whole.
       parameters:
         - $ref: '#/components/parameters/RequestId'
       responses:
@@ -160,6 +169,120 @@ paths:
           description: Request removed.
         '404':
           description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or Radarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/seasons:
+    get:
+      tags: [Requests]
+      summary: List the seasons of the series a request belongs to
+      operationId: listRequestSeasons
+      description: |
+        The seasons of the series behind a series request, with the request state
+        of each, for managing the selection from the request itself. Sonarr is
+        asked by the series id the sync stamped on the request, which is the only
+        handle a request page has - it knows nothing about TVDB.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The seasons of the request's series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesSeasonsResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request has no series in Sonarr whose seasons can be managed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Requests]
+      summary: Set which seasons of a series hold requests
+      operationId: updateRequestSeasons
+      description: |
+        Brings the season requests of a series in line with the given selection.
+        Newly picked seasons are monitored in Sonarr and synced into requests;
+        seasons dropped from the selection are unmonitored and their requests
+        removed, which includes the request in the path if its own season is left
+        out.
+
+        Both halves go through a single Sonarr write, so the series never passes
+        through a state where every season has been dropped and is about to be
+        added back.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeasonsPayload'
+      responses:
+        '200':
+          description: The seasons of the request's series, as they now stand.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesSeasonsResponse'
+        '400':
+          description: The series has no such season.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request has no series in Sonarr whose seasons can be managed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr could not be reached.
           content:
             application/json:
               schema:
@@ -1872,16 +1995,27 @@ components:
           nullable: true
     SeriesSeasonsResponse:
       type: object
-      required: [tvdb_id, seasons]
+      required: [seasons]
       properties:
         tvdb_id:
           type: integer
+          nullable: true
+          description: >-
+            Absent when the seasons were read from a series in the library rather
+            than looked up by TVDB id, which is how managing a request arrives.
         in_library:
           type: boolean
           default: false
         library_id:
           type: integer
           nullable: true
+        monitor_new_seasons:
+          type: boolean
+          default: false
+          description: >-
+            Whether Sonarr monitors seasons announced after the series was added.
+            Only meaningful in the library; Sonarr has nowhere to record it until
+            then.
         seasons:
           type: array
           items:
@@ -1922,6 +2056,27 @@ components:
           description: Seasons to request. Required for series, rejected for movies.
           items:
             type: integer
+        monitor_new_seasons:
+          type: boolean
+          default: false
+          description: >-
+            Ask Sonarr to monitor seasons announced later, which the sync then
+            turns into requests of their own. Series only.
+    UpdateSeasonsPayload:
+      type: object
+      required: [season_numbers]
+      properties:
+        season_numbers:
+          type: array
+          description: >-
+            The seasons the series should hold requests for afterwards. Absolute
+            rather than a delta: a season left out is unmonitored in Sonarr and
+            its request removed. Specials are out of scope and keep what they had.
+          items:
+            type: integer
+        monitor_new_seasons:
+          type: boolean
+          default: false
     AddRequestResponse:
       type: object
       required: [requests]

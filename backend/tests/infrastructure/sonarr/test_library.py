@@ -161,6 +161,28 @@ async def test_add_series_monitors_only_the_requested_seasons() -> None:
         "searchForMissingEpisodes": False,
         "searchForCutoffUnmetEpisodes": False,
     }
+    assert payload["monitorNewItems"] == "none"
+
+
+async def test_add_series_can_ask_sonarr_for_future_seasons() -> None:
+    calls: list[tuple[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read()
+        calls.append((request.url.path, json.loads(body) if body else None))
+        if request.url.path.endswith("/series/lookup"):
+            return httpx.Response(200, json=[LOOKUP_PAYLOAD])
+        return httpx.Response(201, json={"id": 12})
+
+    await build_client(handler).add_series(
+        tvdb_id=555,
+        root_folder_path="/tv",
+        quality_profile_id=4,
+        monitored_seasons=[2],
+        monitor_new_seasons=True,
+    )
+
+    assert calls[1][1]["monitorNewItems"] == "all"
 
 
 async def test_add_series_rejects_a_tvdb_id_sonarr_cannot_resolve() -> None:
@@ -180,31 +202,39 @@ async def test_add_series_rejects_a_tvdb_id_sonarr_cannot_resolve() -> None:
         raise AssertionError("expected an HttpClientError")
 
 
-async def test_set_season_monitoring_keeps_seasons_already_monitored() -> None:
-    """Widening the selection must not silently drop what the user had."""
-
-    calls: list[tuple[str, str, Any]] = []
-
+def build_monitoring_handler(
+    calls: list[tuple[str, Any]],
+    series: dict[str, Any],
+) -> Handler:
     async def handler(request: httpx.Request) -> httpx.Response:
         body = request.read()
-        calls.append((request.method, request.url.path, json.loads(body) if body else None))
-        return httpx.Response(
-            200,
-            json={
-                "id": 12,
-                "monitored": False,
-                "seasons": [
-                    {"seasonNumber": 1, "monitored": True},
-                    {"seasonNumber": 2, "monitored": False},
-                    {"seasonNumber": 3, "monitored": False},
-                ],
-            },
-        )
+        calls.append((request.method, json.loads(body) if body else None))
+        return httpx.Response(200, json=series)
 
-    await build_client(handler).set_season_monitoring(12, [3])
+    return handler
 
-    assert [method for method, _, _ in calls] == ["GET", "PUT"]
-    payload = calls[1][2]
+
+async def test_apply_season_monitoring_leaves_unnamed_seasons_alone() -> None:
+    """A season monitored outside releasarr keeps whatever the user chose."""
+
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": False,
+            "seasons": [
+                {"seasonNumber": 1, "monitored": True},
+                {"seasonNumber": 2, "monitored": False},
+                {"seasonNumber": 3, "monitored": False},
+            ],
+        },
+    )
+
+    await build_client(handler).apply_season_monitoring(12, monitor=[3])
+
+    assert [method for method, _ in calls] == ["GET", "PUT"]
+    payload = calls[1][1]
     assert payload["monitored"] is True
     assert [(season["seasonNumber"], season["monitored"]) for season in payload["seasons"]] == [
         (1, True),
@@ -213,16 +243,102 @@ async def test_set_season_monitoring_keeps_seasons_already_monitored() -> None:
     ]
 
 
-async def test_set_season_monitoring_skips_the_update_for_unknown_seasons() -> None:
-    calls: list[str] = []
+async def test_apply_season_monitoring_unmonitors_only_the_named_seasons() -> None:
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": True,
+            "seasons": [
+                {"seasonNumber": 1, "monitored": True},
+                {"seasonNumber": 2, "monitored": True},
+            ],
+        },
+    )
 
-    async def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(request.method)
-        return httpx.Response(200, json={"id": 12, "seasons": [{"seasonNumber": 1}]})
+    await build_client(handler).apply_season_monitoring(12, unmonitor=[2])
 
-    await build_client(handler).set_season_monitoring(12, [9])
+    payload = calls[1][1]
+    assert payload["monitored"] is True
+    assert [(season["seasonNumber"], season["monitored"]) for season in payload["seasons"]] == [
+        (1, True),
+        (2, False),
+    ]
 
-    assert calls == ["GET"]
+
+async def test_apply_season_monitoring_unmonitors_a_series_with_nothing_left() -> None:
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": True,
+            "seasons": [
+                {"seasonNumber": 0, "monitored": True},
+                {"seasonNumber": 1, "monitored": True},
+            ],
+        },
+    )
+
+    await build_client(handler).apply_season_monitoring(12, unmonitor=[1])
+
+    # Specials do not count as something the series is still wanted for.
+    assert calls[1][1]["monitored"] is False
+
+
+async def test_apply_season_monitoring_keeps_a_series_wanted_for_future_seasons() -> None:
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {"id": 12, "monitored": True, "seasons": [{"seasonNumber": 1, "monitored": True}]},
+    )
+
+    await build_client(handler).apply_season_monitoring(
+        12,
+        unmonitor=[1],
+        monitor_new_seasons=True,
+    )
+
+    payload = calls[1][1]
+    assert payload["monitored"] is True
+    assert payload["monitorNewItems"] == "all"
+
+
+async def test_apply_season_monitoring_can_turn_future_seasons_off_on_its_own() -> None:
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": True,
+            "monitorNewItems": "all",
+            "seasons": [{"seasonNumber": 1, "monitored": True}],
+        },
+    )
+
+    await build_client(handler).apply_season_monitoring(12, monitor_new_seasons=False)
+
+    payload = calls[1][1]
+    assert payload["monitorNewItems"] == "none"
+    assert payload["monitored"] is True
+
+
+async def test_apply_season_monitoring_skips_the_update_when_nothing_changes() -> None:
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": True,
+            "monitorNewItems": "none",
+            "seasons": [{"seasonNumber": 1, "monitored": True}],
+        },
+    )
+
+    await build_client(handler).apply_season_monitoring(12, monitor=[1], unmonitor=[9])
+
+    assert [method for method, _ in calls] == ["GET"]
 
 
 async def test_wait_for_series_episodes_polls_until_sonarr_has_refreshed() -> None:

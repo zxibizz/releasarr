@@ -26,6 +26,7 @@ export type RootFolder = Schemas['RootFolder'];
 export type RootFoldersResponse = Schemas['RootFoldersResponse'];
 export type AddRequestPayload = Schemas['AddRequestPayload'];
 export type AddRequestResponse = Schemas['AddRequestResponse'];
+export type UpdateSeasonsPayload = Schemas['UpdateSeasonsPayload'];
 
 export type FileRequestMapping = Schemas['FileRequestMapping'];
 export type MovieFileRequestMapping = Schemas['MovieFileRequestMapping'];

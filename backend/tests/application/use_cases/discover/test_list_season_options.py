@@ -8,7 +8,7 @@ from src.application.interfaces.sonarr import SeriesLookup
 from src.application.interfaces.tvdb import TvdbSeriesMetadata
 from src.application.use_cases.discover.exceptions import MediaNotFoundError
 from src.application.use_cases.discover.list_season_options import ListSeasonOptionsUseCase
-from tests.application.use_cases.discover.conftest import (
+from tests.fakes import (
     FakeMediaRequestRepository,
     FakeSonarrService,
     FakeTvdbService,

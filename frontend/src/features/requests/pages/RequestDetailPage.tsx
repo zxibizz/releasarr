@@ -1,10 +1,11 @@
-import { Button, Card, Select, Skeleton, Stack } from '@mantine/core';
+import { Button, Card, Select, Skeleton, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
 import { LogsModal } from '@/features/logs/LogsModal';
@@ -12,10 +13,11 @@ import { ReleaseFilesModal } from '@/features/releases/components/ReleaseFilesMo
 import { ReleaseList } from '@/features/releases/components/ReleaseList';
 import { ReleaseSearch } from '@/features/releases/components/ReleaseSearch';
 import { releaseKeys } from '@/features/releases/queries';
+import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { localizeRequest } from '@/features/requests/localization';
-import { requestKeys, useRequest } from '@/features/requests/queries';
+import { requestKeys, useRemoveRequest, useRequest } from '@/features/requests/queries';
 import type { Release } from '@/types';
 
 function DetailSkeleton() {
@@ -37,8 +39,10 @@ export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: request, isLoading, error } = useRequest(id);
+  const removeRequest = useRemoveRequest();
 
   const [language, setLanguage] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
@@ -48,6 +52,7 @@ export function RequestDetailPage() {
 
   const [filesOpened, filesModal] = useDisclosure(false);
   const [logsOpened, logsModal] = useDisclosure(false);
+  const [seasonsOpened, seasonsModal] = useDisclosure(false);
   const [isRefreshing, setRefreshing] = useState(false);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
@@ -113,6 +118,27 @@ export function RequestDetailPage() {
     [filesModal],
   );
 
+  const backToRequests = useCallback(() => void navigate('/'), [navigate]);
+
+  const confirmRemove = useCallback(() => {
+    if (!request) return;
+    modals.openConfirmModal({
+      title: t('requestPage.remove.dialogTitle'),
+      children: (
+        <Text size="sm">
+          {t(
+            request.type === 'movie'
+              ? 'requestPage.remove.dialogBodyMovie'
+              : 'requestPage.remove.dialogBodySeries',
+          )}
+        </Text>
+      ),
+      labels: { confirm: t('requestPage.remove.confirm'), cancel: t('common.cancel') },
+      confirmProps: { color: 'red' },
+      onConfirm: () => removeRequest.mutate(request.id, { onSuccess: backToRequests }),
+    });
+  }, [backToRequests, removeRequest, request, t]);
+
   if (isLoading && !request) {
     return <DetailSkeleton />;
   }
@@ -138,6 +164,7 @@ export function RequestDetailPage() {
     <Stack gap="xl">
       <MediaInfo
         request={localizedRequest}
+        onSeriesClick={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
         languageSelector={
           availableLanguages.length > 0 ? (
             <Select
@@ -203,6 +230,15 @@ export function RequestDetailPage() {
             description: t('requestPage.actions.logs.description'),
             onClick: logsModal.open,
           },
+          {
+            key: 'remove',
+            icon: '🗑️',
+            title: t('requestPage.actions.remove.title'),
+            description: t('requestPage.actions.remove.description'),
+            onClick: confirmRemove,
+            loading: removeRequest.isPending,
+            danger: true,
+          },
         ]}
       />
 
@@ -219,6 +255,15 @@ export function RequestDetailPage() {
         opened={logsOpened}
         onClose={logsModal.close}
       />
+
+      {localizedRequest.type === 'series' && (
+        <ManageSeasonsModal
+          request={localizedRequest}
+          opened={seasonsOpened}
+          onClose={seasonsModal.close}
+          onRequestRemoved={backToRequests}
+        />
+      )}
     </Stack>
   );
 }

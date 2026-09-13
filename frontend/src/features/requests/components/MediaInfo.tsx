@@ -1,4 +1,15 @@
-import { Badge, Card, Group, Image, Paper, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import {
+  Anchor,
+  Badge,
+  Card,
+  Group,
+  Image,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +21,8 @@ import { formatDate, formatRuntime } from '@/utils/formatters';
 interface MediaInfoProps {
   request: MediaRequest;
   languageSelector?: ReactNode;
+  /** Turns the series name into the way in to managing its seasons. */
+  onSeriesClick?: () => void;
 }
 
 function InfoItem({ label, children }: { label: string; children: ReactNode }) {
@@ -25,7 +38,7 @@ function InfoItem({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
+export function MediaInfo({ request, languageSelector, onSeriesClick }: MediaInfoProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
@@ -83,7 +96,20 @@ export function MediaInfo({ request, languageSelector }: MediaInfoProps) {
         <InfoItem label={t('mediaInfo.labels.updated')}>{formatDate(request.updated_at)}</InfoItem>
         {!isMovie && (
           <InfoItem label={t('mediaInfo.labels.series')}>
-            {request.series_title} ({request.series_year})
+            {onSeriesClick ? (
+              <Anchor
+                component="button"
+                type="button"
+                inherit
+                title={t('requestPage.seasons.manage')}
+                onClick={onSeriesClick}
+                className="break-anywhere"
+              >
+                {request.series_title} ({request.series_year})
+              </Anchor>
+            ) : (
+              `${request.series_title} (${request.series_year})`
+            )}
           </InfoItem>
         )}
         {!isMovie && (

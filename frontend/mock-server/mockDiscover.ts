@@ -17,6 +17,8 @@ export interface DiscoverCatalogueEntry {
   seasons?: number[];
   /** Seasons Sonarr monitors, for media already in the library. */
   monitored_seasons?: number[];
+  /** Whether Sonarr monitors seasons announced after the series was added. */
+  monitor_new_seasons?: boolean;
   /**
    * Translated titles and overviews keyed by 3-letter language code, as TVDB
    * reports them. Entries without one stand in for media the provider has no
@@ -53,6 +55,7 @@ export const DISCOVER_CATALOGUE: DiscoverCatalogueEntry[] = [
     library_id: 12,
     seasons: [0, 1, 2, 3, 4, 5],
     monitored_seasons: [1, 2],
+    monitor_new_seasons: true,
     translations: {
       rus: {
         title: 'Во все тяжкие',

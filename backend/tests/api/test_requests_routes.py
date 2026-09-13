@@ -17,7 +17,17 @@ from src.api.routes.requests import (
     _get_delete_use_case,
     _get_get_use_case,
     _get_list_use_case,
+    _get_seasons_use_case,
+    _get_update_seasons_use_case,
     _get_update_use_case,
+)
+from src.application.use_cases.discover import (
+    ListRequestSeasonsUseCase,
+    SeasonOptionDTO,
+    SeasonsUnmanageableError,
+    SeriesSeasonsDTO,
+    UpdateRequestSeasonsCommand,
+    UpdateRequestSeasonsUseCase,
 )
 from src.application.use_cases.requests import (
     CreateMediaRequestUseCase,
@@ -86,6 +96,43 @@ class FakeDeleteUseCase(DeleteMediaRequestUseCase):
     async def execute(self, request_id: str) -> None:
         if not self._deleted:
             raise MediaRequestNotFoundError(request_id)
+
+
+class FakeSeasonsUseCase(ListRequestSeasonsUseCase):
+    def __init__(self, dto: SeriesSeasonsDTO | None) -> None:
+        self._dto = dto
+
+    async def execute(self, request_id: str) -> SeriesSeasonsDTO:
+        if self._dto is None:
+            raise SeasonsUnmanageableError(f"Request '{request_id}' has no seasons")
+        return self._dto
+
+
+class FakeUpdateSeasonsUseCase(UpdateRequestSeasonsUseCase):
+    def __init__(self, dto: SeriesSeasonsDTO) -> None:
+        self._dto = dto
+        self.commands: list[UpdateRequestSeasonsCommand] = []
+
+    async def execute(
+        self,
+        request_id: str,
+        command: UpdateRequestSeasonsCommand,
+    ) -> SeriesSeasonsDTO:
+        self.commands.append(command)
+        return self._dto
+
+
+def make_seasons_dto() -> SeriesSeasonsDTO:
+    return SeriesSeasonsDTO(
+        tvdb_id=555,
+        in_library=True,
+        library_id=12,
+        monitor_new_seasons=True,
+        seasons=[
+            SeasonOptionDTO(season_number=1, monitored=True, requested=True, request_id="req-1"),
+            SeasonOptionDTO(season_number=2),
+        ],
+    )
 
 
 def make_movie_dto() -> MovieRequestDTO:
@@ -183,6 +230,63 @@ async def test_delete_request_not_found_returns_404(api_client: AsyncClient) -> 
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["code"] == "request_not_found"
+
+
+@pytest.mark.asyncio
+async def test_request_seasons_report_the_series_state(api_client: AsyncClient) -> None:
+    with override_dependency(_get_seasons_use_case, FakeSeasonsUseCase(make_seasons_dto())):
+        response = await api_client.get("/requests/req-1/seasons", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert payload["monitor_new_seasons"] is True
+    assert [(season["season_number"], season["requested"]) for season in payload["seasons"]] == [
+        (1, True),
+        (2, False),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_request_seasons_report_a_request_with_none_as_a_conflict(
+    api_client: AsyncClient,
+) -> None:
+    with override_dependency(_get_seasons_use_case, FakeSeasonsUseCase(None)):
+        response = await api_client.get("/requests/req-1/seasons", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == "seasons_unmanageable"
+
+
+@pytest.mark.asyncio
+async def test_updating_seasons_passes_the_selection_through(api_client: AsyncClient) -> None:
+    use_case = FakeUpdateSeasonsUseCase(make_seasons_dto())
+    with override_dependency(_get_update_seasons_use_case, use_case):
+        response = await api_client.put(
+            "/requests/req-1/seasons",
+            headers=API_KEY_HEADER,
+            json={"season_numbers": [2, 1], "monitor_new_seasons": True},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.commands == [
+        UpdateRequestSeasonsCommand(season_numbers=[2, 1], monitor_new_seasons=True)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_updating_seasons_accepts_an_empty_selection(api_client: AsyncClient) -> None:
+    """Withdrawing every season is a removal, not a malformed request."""
+
+    use_case = FakeUpdateSeasonsUseCase(make_seasons_dto())
+    with override_dependency(_get_update_seasons_use_case, use_case):
+        response = await api_client.put(
+            "/requests/req-1/seasons",
+            headers=API_KEY_HEADER,
+            json={"season_numbers": []},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.commands == [UpdateRequestSeasonsCommand()]
 
 
 @pytest.mark.asyncio

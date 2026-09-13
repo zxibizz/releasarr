@@ -31,6 +31,7 @@ class AddMediaRequestCommand:
     provider_id: int
     root_folder_path: str
     season_numbers: list[int] = field(default_factory=list)
+    monitor_new_seasons: bool = False
 
 
 class AddMediaRequestUseCase:
@@ -90,11 +91,16 @@ class AddMediaRequestUseCase:
                 root_folder_path=command.root_folder_path,
                 quality_profile_id=await self._resolve_quality_profile(MediaType.SERIES),
                 monitored_seasons=seasons,
+                monitor_new_seasons=command.monitor_new_seasons,
             )
         else:
             # Already in the library, so the root folder is Sonarr's to keep and
             # only the season monitoring needs widening.
-            await self._sonarr.set_season_monitoring(series_id, seasons)
+            await self._sonarr.apply_season_monitoring(
+                series_id,
+                monitor=seasons,
+                monitor_new_seasons=command.monitor_new_seasons,
+            )
 
         # A series added a moment ago has no episodes yet, and a request built
         # now would record every one of its seasons as empty.
@@ -111,7 +117,7 @@ class AddMediaRequestUseCase:
         return await self._load_requests(request_ids)
 
     async def _add_movie(self, command: AddMediaRequestCommand) -> list[MediaRequestDTO]:
-        if command.season_numbers:
+        if command.season_numbers or command.monitor_new_seasons:
             raise SeasonSelectionError("Movies have no seasons to select")
 
         lookup = await self._radarr.lookup_movie(command.provider_id)

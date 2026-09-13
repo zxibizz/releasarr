@@ -41,9 +41,14 @@ class SeasonOption(APIModel):
 
 
 class SeriesSeasonsResponse(APIModel):
-    tvdb_id: int
+    # Absent when the seasons were read from a series in the library rather than
+    # looked up by TVDB id, which is how managing an existing request arrives.
+    tvdb_id: int | None = None
     in_library: bool = False
     library_id: int | None = None
+    # Whether Sonarr should monitor seasons announced after the series was added.
+    # Only meaningful in the library; Sonarr has nowhere to record it until then.
+    monitor_new_seasons: bool = False
     seasons: list[SeasonOption]
 
 
@@ -65,12 +70,27 @@ class AddRequestPayload(APIModel):
     # Required for series and rejected for movies; the route enforces both, so the
     # message names the media type rather than the field.
     season_numbers: list[int] | None = None
+    # Series only, for the same reason.
+    monitor_new_seasons: bool = False
 
 
 class AddRequestResponse(APIModel):
     """The requests created for the added media, one per season for a series."""
 
     requests: list[MediaRequest]
+
+
+class UpdateSeasonsPayload(APIModel):
+    """The seasons a series should hold requests for, as the user left them.
+
+    The selection is absolute rather than a delta: seasons named here are
+    requested afterwards and seasons left out are not, so dropping one both
+    unmonitors it in Sonarr and removes its request. Specials are out of scope
+    and keep whatever they had.
+    """
+
+    season_numbers: list[int] = Field(default_factory=list)
+    monitor_new_seasons: bool = False
 
 
 __all__ = [
@@ -82,4 +102,5 @@ __all__ = [
     "RootFoldersResponse",
     "SeasonOption",
     "SeriesSeasonsResponse",
+    "UpdateSeasonsPayload",
 ]

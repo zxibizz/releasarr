@@ -287,13 +287,29 @@ export class MockStore {
     return clone(request);
   }
 
+  /**
+   * Removing a request also unmonitors what produced it, as the real endpoint
+   * does. Without that the season stays wanted and the request would be rebuilt
+   * the moment the catalogue was read again.
+   */
   async deleteRequest(id: string): Promise<boolean> {
     const requests = await this.ensureRequests();
     const index = requests.findIndex((item) => item.id === id);
     if (index === -1) {
       return false;
     }
-    requests.splice(index, 1);
+
+    const [removed] = requests.splice(index, 1);
+    if (removed.type === 'series') {
+      const entry = this.discoverCatalogue.find(
+        (candidate) => candidate.type === 'series' && candidate.title === removed.series_title,
+      );
+      if (entry) {
+        entry.monitored_seasons = (entry.monitored_seasons ?? []).filter(
+          (season) => season !== removed.season_number,
+        );
+      }
+    }
     return true;
   }
 
@@ -680,10 +696,72 @@ export class MockStore {
     const entry = this.discoverCatalogue.find(
       (candidate) => candidate.type === 'series' && candidate.provider_id === tvdbId,
     );
+    return entry ? await this.describeSeasons(entry) : null;
+  }
+
+  /** The seasons of the series a request belongs to, for managing the selection. */
+  async listRequestSeasons(requestId: string): Promise<SeriesSeasonsResponse | null> {
+    const entry = await this.entryForRequest(requestId);
+    return entry ? await this.describeRequestSeasons(entry) : null;
+  }
+
+  /**
+   * Brings the season requests of a series in line with the selection: seasons
+   * left out are unmonitored and their requests removed, exactly as dropping
+   * them one at a time would.
+   */
+  async updateRequestSeasons(
+    requestId: string,
+    payload: { season_numbers: number[]; monitor_new_seasons?: boolean },
+  ): Promise<SeriesSeasonsResponse | null> {
+    const entry = await this.entryForRequest(requestId);
     if (!entry) {
       return null;
     }
 
+    const desired = [...new Set(payload.season_numbers)].filter((season) => season > 0);
+    const known = entry.seasons ?? [];
+    if (known.length > 0 && desired.some((season) => !known.includes(season))) {
+      throw new Error('invalid_season_selection');
+    }
+
+    const requests = await this.ensureRequests();
+    const related = this.requestsForEntry(requests, entry).filter(
+      (request) => request.type === 'series',
+    );
+
+    for (const request of related) {
+      const season = (request as { season_number: number }).season_number;
+      if (season > 0 && !desired.includes(season)) {
+        await this.deleteRequest(request.id);
+      }
+    }
+
+    for (const season of desired) {
+      await this.addDiscoverRequest({
+        type: 'series',
+        provider_id: entry.provider_id,
+        // A series being managed is in the library already, so Sonarr owns its
+        // path; the add ignores the one sent for it and only needs it valid.
+        root_folder_path: DISCOVER_ROOT_FOLDERS.series[0]?.path ?? '',
+        season_numbers: [season],
+      });
+    }
+
+    entry.monitor_new_seasons = payload.monitor_new_seasons ?? false;
+    // Described from the series rather than the request, which may be one of
+    // the rows just deleted - as it is whenever its own season was dropped.
+    return await this.describeRequestSeasons(entry);
+  }
+
+  /** The seasons as the request-scoped endpoint reports them, without a TVDB id. */
+  private async describeRequestSeasons(
+    entry: DiscoverCatalogueEntry,
+  ): Promise<SeriesSeasonsResponse> {
+    return { ...(await this.describeSeasons(entry)), tvdb_id: null };
+  }
+
+  private async describeSeasons(entry: DiscoverCatalogueEntry): Promise<SeriesSeasonsResponse> {
     const requests = await this.ensureRequests();
     const requestBySeason = new Map(
       this.requestsForEntry(requests, entry)
@@ -695,6 +773,7 @@ export class MockStore {
       tvdb_id: entry.provider_id,
       in_library: entry.library_id !== undefined,
       library_id: entry.library_id ?? null,
+      monitor_new_seasons: entry.monitor_new_seasons ?? false,
       seasons: (entry.seasons ?? []).map(
         (seasonNumber) =>
           ({
@@ -705,6 +784,23 @@ export class MockStore {
           }) satisfies SeasonOption,
       ),
     };
+  }
+
+  /**
+   * The series a request belongs to, or nothing when the request is a movie or
+   * the catalogue has no series under that title.
+   */
+  private async entryForRequest(requestId: string): Promise<DiscoverCatalogueEntry | null> {
+    const requests = await this.ensureRequests();
+    const request = requests.find((candidate) => candidate.id === requestId);
+    if (!request || request.type !== 'series') {
+      return null;
+    }
+    return (
+      this.discoverCatalogue.find(
+        (candidate) => candidate.type === 'series' && candidate.title === request.series_title,
+      ) ?? null
+    );
   }
 
   async listDiscoverRootFolders(type: MediaType): Promise<RootFolder[]> {
@@ -721,6 +817,7 @@ export class MockStore {
     provider_id: number;
     root_folder_path: string;
     season_numbers?: number[];
+    monitor_new_seasons?: boolean;
   }): Promise<MediaRequest[]> {
     const entry = this.discoverCatalogue.find(
       (candidate) =>
@@ -770,6 +867,9 @@ export class MockStore {
     }
 
     entry.monitored_seasons = [...new Set([...(entry.monitored_seasons ?? []), ...seasons])];
+    if (payload.monitor_new_seasons !== undefined) {
+      entry.monitor_new_seasons = payload.monitor_new_seasons;
+    }
 
     const created: MediaRequest[] = [];
     for (const seasonNumber of seasons) {

@@ -3,17 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { discoverApi } from '@/features/discover/api';
+import { discoverKeys } from '@/features/discover/keys';
 import { requestKeys } from '@/features/requests/queries';
 import type { AddRequestPayload, MediaType } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
-export const discoverKeys = {
-  all: ['discover'] as const,
-  search: (query: string, language: string) =>
-    [...discoverKeys.all, 'search', language, query] as const,
-  seasons: (tvdbId: number) => [...discoverKeys.all, 'seasons', tvdbId] as const,
-  rootFolders: (type: MediaType) => [...discoverKeys.all, 'root-folders', type] as const,
-};
+export { discoverKeys };
 
 /**
  * Searching hits TVDB/TMDB and both *arr apps, so results are held longer than

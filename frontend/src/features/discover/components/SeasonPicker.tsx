@@ -1,4 +1,14 @@
-import { Alert, Anchor, Checkbox, Group, Skeleton, SimpleGrid, Stack, Text } from '@mantine/core';
+import {
+  Alert,
+  Anchor,
+  Checkbox,
+  Divider,
+  Group,
+  Skeleton,
+  SimpleGrid,
+  Stack,
+  Text,
+} from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import { seasonLabelKey } from '@/features/discover/seasons';
@@ -12,17 +22,35 @@ interface SeasonPickerProps {
   onChange: (seasons: number[]) => void;
   isLoading: boolean;
   error: unknown;
+  /**
+   * Lets a season that already has a request be unticked, which is what turns
+   * the picker into a manager: the selection then describes what the series
+   * should hold requests for rather than what to add to it.
+   */
+  allowRemoving?: boolean;
+  monitorNewSeasons?: boolean;
+  onMonitorNewSeasonsChange?: (monitor: boolean) => void;
 }
 
 /**
- * Seasons that already have a request show as ticked but locked. Requesting one
- * again is harmless — the backend refreshes the existing row — but offering it as
- * a choice invites the user to look for a difference that isn't there.
+ * Seasons that already have a request show as ticked. Where they cannot be
+ * removed they are locked too: requesting one again is harmless — the backend
+ * refreshes the existing row — but offering it as a choice invites the user to
+ * look for a difference that isn't there.
  *
  * Specials are left out entirely: they are rarely what someone means by "the
  * next season", and TVDB files anything without a home there.
  */
-export function SeasonPicker({ seasons, selected, onChange, isLoading, error }: SeasonPickerProps) {
+export function SeasonPicker({
+  seasons,
+  selected,
+  onChange,
+  isLoading,
+  error,
+  allowRemoving = false,
+  monitorNewSeasons,
+  onMonitorNewSeasonsChange,
+}: SeasonPickerProps) {
   const { t } = useTranslation();
   // The same breakpoint the grid's own columns switch at, so the column count
   // driving the layout below and the one the CSS uses cannot disagree.
@@ -55,7 +83,8 @@ export function SeasonPicker({ seasons, selected, onChange, isLoading, error }: 
     );
   }
 
-  const selectable = offered.filter((season) => !season.requested);
+  const isLocked = (season: SeasonOption) => season.requested && !allowRemoving;
+  const selectable = offered.filter((season) => !isLocked(season));
   const selectableNumbers = selectable.map((season) => season.season_number);
   const allSelected =
     selectable.length > 0 && selectableNumbers.every((number) => selected.includes(number));
@@ -94,10 +123,10 @@ export function SeasonPicker({ seasons, selected, onChange, isLoading, error }: 
           <Checkbox
             key={season.season_number}
             // A season already requested reads as chosen, because it is.
-            checked={season.requested || selected.includes(season.season_number)}
-            disabled={season.requested}
+            checked={isLocked(season) || selected.includes(season.season_number)}
+            disabled={isLocked(season)}
             label={t(seasonLabelKey(season.season_number), { season: season.season_number })}
-            description={season.requested ? t('discover.seasons.alreadyRequested') : undefined}
+            description={isLocked(season) ? t('discover.seasons.alreadyRequested') : undefined}
             onChange={(event) =>
               onChange(
                 event.currentTarget.checked
@@ -108,6 +137,22 @@ export function SeasonPicker({ seasons, selected, onChange, isLoading, error }: 
           />
         ))}
       </SimpleGrid>
+
+      {/*
+        Future seasons are a property of the series rather than one of the
+        numbered seasons, so they sit below the grid instead of in it.
+      */}
+      {onMonitorNewSeasonsChange && (
+        <>
+          <Divider my={4} />
+          <Checkbox
+            checked={monitorNewSeasons ?? false}
+            label={t('discover.seasons.newSeasons')}
+            description={t('discover.seasons.newSeasonsHint')}
+            onChange={(event) => onMonitorNewSeasonsChange(event.currentTarget.checked)}
+          />
+        </>
+      )}
     </Stack>
   );
 }

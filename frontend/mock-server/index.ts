@@ -149,6 +149,45 @@ api.delete('/requests/:requestId', async (req, res) => {
   res.status(204).send();
 });
 
+api.get('/requests/:requestId/seasons', async (req, res) => {
+  const seasons = await mockStore.listRequestSeasons(req.params.requestId);
+  if (!seasons) {
+    // The real backend separates "no such request" from "nothing to manage";
+    // the mock cannot tell them apart, and the UI treats both the same way.
+    return res
+      .status(409)
+      .json({ code: 'seasons_unmanageable', message: 'This request has no seasons to manage' });
+  }
+  res.json(seasons);
+});
+
+api.put('/requests/:requestId/seasons', async (req, res) => {
+  const payload = req.body ?? {};
+  if (!Array.isArray(payload.season_numbers)) {
+    return res.status(422).json({ message: 'season_numbers is required' });
+  }
+
+  try {
+    const seasons = await mockStore.updateRequestSeasons(req.params.requestId, {
+      season_numbers: payload.season_numbers,
+      monitor_new_seasons: Boolean(payload.monitor_new_seasons),
+    });
+    if (!seasons) {
+      return res
+        .status(409)
+        .json({ code: 'seasons_unmanageable', message: 'This request has no seasons to manage' });
+    }
+    res.json(seasons);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'unknown';
+    if (code === 'invalid_season_selection') {
+      return res.status(400).json({ code, message: `Update rejected: ${code}` });
+    }
+    console.error('Failed to update request seasons', error);
+    return res.status(500).json({ message: 'Failed to update seasons' });
+  }
+});
+
 api.get('/requests/:requestId/releases', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
   const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));
@@ -261,6 +300,7 @@ api.post('/discover/requests', async (req, res) => {
       provider_id: providerId,
       root_folder_path: String(payload.root_folder_path ?? ''),
       season_numbers: Array.isArray(payload.season_numbers) ? payload.season_numbers : undefined,
+      monitor_new_seasons: Boolean(payload.monitor_new_seasons),
     });
     res.status(201).json({ requests });
   } catch (error) {

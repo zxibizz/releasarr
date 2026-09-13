@@ -21,6 +21,10 @@ from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.discover.add_request import AddMediaRequestUseCase
 from src.application.use_cases.discover.list_root_folders import ListRootFoldersUseCase
 from src.application.use_cases.discover.list_season_options import ListSeasonOptionsUseCase
+from src.application.use_cases.discover.manage_seasons import (
+    ListRequestSeasonsUseCase,
+    UpdateRequestSeasonsUseCase,
+)
 from src.application.use_cases.discover.search_media import SearchMediaUseCase
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
@@ -273,7 +277,11 @@ class MediaRequestUseCases:
 
     @cached_property
     def delete(self) -> DeleteMediaRequestUseCase:
-        return DeleteMediaRequestUseCase(repository=self._container.repositories.media_requests)
+        return DeleteMediaRequestUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+        )
 
     @cached_property
     def sync_sonarr(self) -> SyncSonarrMediaRequestsUseCase:
@@ -323,6 +331,21 @@ class DiscoverUseCases:
         return ListRootFoldersUseCase(
             sonarr_service=self._container.services.sonarr,
             radarr_service=self._container.services.radarr,
+        )
+
+    @cached_property
+    def request_seasons(self) -> ListRequestSeasonsUseCase:
+        return ListRequestSeasonsUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+        )
+
+    @cached_property
+    def update_request_seasons(self) -> UpdateRequestSeasonsUseCase:
+        return UpdateRequestSeasonsUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            sync_sonarr=self._container.use_cases.media_requests.sync_sonarr,
         )
 
     @cached_property

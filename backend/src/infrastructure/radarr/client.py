@@ -176,20 +176,22 @@ class RadarrHttpClient(RadarrService):
             raise HttpClientError(f"Radarr did not return an id for the added movie {tmdb_id}")
         return movie_id
 
-    async def set_movie_monitored(self, movie_id: int) -> None:
-        """Monitor a movie already in the library.
+    async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
+        """Set whether Radarr monitors a movie already in the library.
 
         An unmonitored movie stays out of Radarr's wanted list, and so out of our
-        own sync, which would leave the request stuck as completed.
+        own sync: monitoring it is what stops a request sitting at completed
+        forever, and unmonitoring it is what stops a removed request coming back
+        on the next sync.
         """
 
         payload = await self._request("GET", f"/movie/{movie_id}")
         if not isinstance(payload, dict):
             raise HttpClientError(f"Radarr returned no movie for id {movie_id}")
-        if payload.get("monitored"):
+        if bool(payload.get("monitored")) == monitored:
             return
 
-        payload["monitored"] = True
+        payload["monitored"] = monitored
         await self._request("PUT", f"/movie/{movie_id}", json=payload)
 
     async def _reprocess(self, files: list[MovieImportFile]) -> dict[str, dict[str, Any]]:

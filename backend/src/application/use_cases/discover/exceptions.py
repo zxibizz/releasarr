@@ -63,10 +63,15 @@ class SeasonSelectionError(ValueError):
     """Raised when the requested seasons do not fit the picked media."""
 
 
+class SeasonsUnmanageableError(ValueError):
+    """Raised when a request has no series in Sonarr whose seasons we could manage."""
+
+
 __all__ = [
     "InvalidRootFolderError",
     "MediaNotFoundError",
     "MetadataProviderUnavailableError",
     "NoQualityProfileError",
     "SeasonSelectionError",
+    "SeasonsUnmanageableError",
 ]

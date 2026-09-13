@@ -74,6 +74,7 @@ interface RouteStubs {
   folders?: RootFolder[];
   seasons?: SeasonOption[];
   inLibrary?: boolean;
+  monitorNewSeasons?: boolean;
   searchError?: Error;
 }
 
@@ -84,6 +85,7 @@ const stubRoutes = ({
   folders,
   seasons: seasonOptions = [],
   inLibrary = false,
+  monitorNewSeasons = false,
   searchError,
 }: RouteStubs) => {
   vi.mocked(apiRequest).mockImplementation((path: string, options = {}) => {
@@ -106,6 +108,7 @@ const stubRoutes = ({
         tvdb_id: 1,
         in_library: inLibrary,
         library_id: inLibrary ? 12 : null,
+        monitor_new_seasons: monitorNewSeasons,
         seasons: seasonOptions,
       } as never);
     }
@@ -232,6 +235,47 @@ describe('AddRequestPage', () => {
     expect(available).toBeEnabled();
   });
 
+  it('asks Sonarr for future seasons when the box is ticked', async () => {
+    stubRoutes({
+      results: [seriesResult],
+      seasons: seasons({ season_number: 1 }),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Season 1/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /New seasons/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add request' }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith(
+        '/discover/requests',
+        expect.objectContaining({
+          body: expect.objectContaining({ monitor_new_seasons: true }),
+        }),
+      ),
+    );
+  });
+
+  it('keeps the future seasons a library series is already set to take', async () => {
+    /* Starting the box unticked would switch them off as a side effect. */
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      monitorNewSeasons: true,
+      seasons: seasons({ season_number: 1 }, { season_number: 2 }),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+
+    expect(await screen.findByRole('checkbox', { name: /New seasons/ })).toBeChecked();
+  });
+
   it('will not submit a series until a season is picked', async () => {
     stubRoutes({
       results: [seriesResult],
@@ -274,6 +318,7 @@ describe('AddRequestPage', () => {
           // The first folder is offered as the default, so it needs no click.
           root_folder_path: '/media/tv',
           season_numbers: [1, 3],
+          monitor_new_seasons: false,
         },
       }),
     );
@@ -359,6 +404,7 @@ describe('AddRequestPage', () => {
           provider_id: 329865,
           root_folder_path: '/media/movies',
           season_numbers: undefined,
+          monitor_new_seasons: false,
         },
       }),
     );

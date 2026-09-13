@@ -38,6 +38,7 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
 
   const [pickedFolder, setPickedFolder] = useState<string | null>(null);
   const [seasons, setSeasons] = useState<number[]>([]);
+  const [pickedNewSeasons, setPickedNewSeasons] = useState<boolean | null>(null);
 
   const rootFolders = useRootFolders(media.type);
   const seasonOptions = useSeriesSeasons(isSeries ? media.provider_id : undefined);
@@ -57,6 +58,10 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
   const inLibrary = isSeries
     ? (seasonOptions.data?.in_library ?? media.in_library)
     : media.in_library;
+  // A series in the library may already be set to take future seasons, and the
+  // add sends the flag either way: starting the box unticked would switch that
+  // off as a side effect of asking for one more season.
+  const monitorNewSeasons = pickedNewSeasons ?? seasonOptions.data?.monitor_new_seasons ?? false;
   const canSubmit = (isSeries ? seasons.length > 0 : true) && (inLibrary || Boolean(rootFolder));
 
   const handleSubmit = () => {
@@ -66,6 +71,7 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
         provider_id: media.provider_id,
         root_folder_path: rootFolder ?? '',
         season_numbers: isSeries ? seasons : undefined,
+        monitor_new_seasons: isSeries && monitorNewSeasons,
       },
       { onSuccess: onClose },
     );
@@ -109,6 +115,8 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
           onChange={setSeasons}
           isLoading={seasonOptions.isLoading}
           error={seasonOptions.error}
+          monitorNewSeasons={monitorNewSeasons}
+          onMonitorNewSeasonsChange={setPickedNewSeasons}
         />
       )}
 

@@ -13,15 +13,22 @@ from .exceptions import (
     MetadataProviderUnavailableError,
     NoQualityProfileError,
     SeasonSelectionError,
+    SeasonsUnmanageableError,
 )
 from .list_root_folders import ListRootFoldersUseCase
 from .list_season_options import ListSeasonOptionsUseCase
+from .manage_seasons import (
+    ListRequestSeasonsUseCase,
+    UpdateRequestSeasonsCommand,
+    UpdateRequestSeasonsUseCase,
+)
 from .search_media import SearchMediaUseCase
 
 __all__ = [
     "AddMediaRequestCommand",
     "AddMediaRequestUseCase",
     "InvalidRootFolderError",
+    "ListRequestSeasonsUseCase",
     "ListRootFoldersUseCase",
     "ListSeasonOptionsUseCase",
     "MediaNotFoundError",
@@ -32,5 +39,8 @@ __all__ = [
     "SearchMediaUseCase",
     "SeasonOptionDTO",
     "SeasonSelectionError",
+    "SeasonsUnmanageableError",
     "SeriesSeasonsDTO",
+    "UpdateRequestSeasonsCommand",
+    "UpdateRequestSeasonsUseCase",
 ]
