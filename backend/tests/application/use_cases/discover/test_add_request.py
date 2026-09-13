@@ -25,7 +25,7 @@ from src.application.use_cases.requests.dto import (
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.domain.enums import MediaRequestStatus, MediaType
-from tests.application.use_cases.discover.conftest import (
+from tests.fakes import (
     FakeMediaRequestRepository,
     FakeRadarrService,
     FakeSonarrService,
@@ -119,6 +119,7 @@ async def test_adding_a_new_series_creates_a_request_per_season() -> None:
             "root_folder_path": "/tv",
             "quality_profile_id": 4,
             "monitored_seasons": [1, 2],
+            "monitor_new_seasons": False,
         }
     ]
     # The requests must exist by the time the call returns, not after a poll.
@@ -150,7 +151,9 @@ async def test_a_series_already_in_the_library_is_monitored_rather_than_added() 
     )
 
     assert sonarr.added == []
-    assert sonarr.monitored == [(12, [2])]
+    assert sonarr.monitored == [
+        {"series_id": 12, "monitor": [2], "unmonitor": [], "monitor_new_seasons": False}
+    ]
     assert [request.season_number for request in as_series(requests)] == [2]
 
 
@@ -438,7 +441,7 @@ async def test_a_movie_already_in_the_library_is_monitored_rather_than_added() -
     )
 
     assert radarr.added == []
-    assert radarr.monitored == [31]
+    assert radarr.monitored == [(31, True)]
     assert len(requests) == 1
 
 

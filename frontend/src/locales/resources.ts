@@ -138,6 +138,8 @@ export const resources = {
           selectAll: 'Select all',
           clearAll: 'Clear all',
           alreadyRequested: 'Already requested',
+          newSeasons: 'New seasons',
+          newSeasonsHint: 'Request future seasons of this series as they are announced.',
           none: 'No seasons are available for this series yet.',
           loadFailed: 'We could not load the seasons for this series.',
         },
@@ -383,6 +385,34 @@ export const resources = {
             title: 'View Logs',
             description: 'Check processing logs for this request',
           },
+          remove: {
+            title: 'Remove Request',
+            description: 'Stop wanting this and unmonitor it',
+          },
+        },
+        seasons: {
+          manage: 'Manage seasons',
+          modalTitle: 'Seasons of {{title}}',
+          confirm: 'Save seasons',
+          saved: 'Seasons updated',
+          saveFailed: 'Could not update the seasons',
+          unavailable:
+            'Sonarr has not linked this request to a series yet, so its seasons cannot be managed.',
+          removeDialog: {
+            title: 'Remove seasons',
+            body: 'The requests for {{seasons}} will be removed and Sonarr will stop monitoring them. Files already downloaded are left alone.',
+            confirm: 'Remove and save',
+          },
+        },
+        remove: {
+          dialogTitle: 'Remove request',
+          dialogBodySeries:
+            'The request will be removed and Sonarr will stop monitoring this season. The series stays in your library, as do any files already downloaded.',
+          dialogBodyMovie:
+            'The request will be removed and Radarr will stop monitoring this movie. It stays in your library, as do any files already downloaded.',
+          confirm: 'Remove request',
+          removed: 'Request removed',
+          failed: 'Could not remove the request',
         },
       },
       requestLogsModal: {
@@ -663,6 +693,8 @@ export const resources = {
           selectAll: 'Выбрать все',
           clearAll: 'Снять все',
           alreadyRequested: 'Уже запрошен',
+          newSeasons: 'Новые сезоны',
+          newSeasonsHint: 'Запрашивать будущие сезоны этого сериала по мере их анонса.',
           none: 'У этого сериала пока нет доступных сезонов.',
           loadFailed: 'Не удалось загрузить сезоны этого сериала.',
         },
@@ -907,6 +939,34 @@ export const resources = {
             title: 'Просмотреть логи',
             description: 'Открыть журналы обработки по запросу',
           },
+          remove: {
+            title: 'Удалить запрос',
+            description: 'Больше не отслеживать и снять мониторинг',
+          },
+        },
+        seasons: {
+          manage: 'Управление сезонами',
+          modalTitle: 'Сезоны «{{title}}»',
+          confirm: 'Сохранить сезоны',
+          saved: 'Сезоны обновлены',
+          saveFailed: 'Не удалось обновить сезоны',
+          unavailable:
+            'Sonarr ещё не связал этот запрос с сериалом, поэтому управлять его сезонами нельзя.',
+          removeDialog: {
+            title: 'Удалить сезоны',
+            body: 'Запросы на {{seasons}} будут удалены, а Sonarr перестанет их отслеживать. Уже скачанные файлы останутся на месте.',
+            confirm: 'Удалить и сохранить',
+          },
+        },
+        remove: {
+          dialogTitle: 'Удалить запрос',
+          dialogBodySeries:
+            'Запрос будет удалён, а Sonarr перестанет отслеживать этот сезон. Сериал останется в библиотеке, как и уже скачанные файлы.',
+          dialogBodyMovie:
+            'Запрос будет удалён, а Radarr перестанет отслеживать этот фильм. Он останется в библиотеке, как и уже скачанные файлы.',
+          confirm: 'Удалить запрос',
+          removed: 'Запрос удалён',
+          failed: 'Не удалось удалить запрос',
         },
       },
       requestLogsModal: {

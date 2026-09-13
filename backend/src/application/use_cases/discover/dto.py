@@ -41,9 +41,14 @@ class SeasonOptionDTO:
 class SeriesSeasonsDTO:
     """The seasons a series offers, and whether Sonarr already holds it."""
 
-    tvdb_id: int
+    # Absent when the seasons were read from a series in the library rather than
+    # looked up by TVDB id, which is how the manage-seasons view arrives at them.
+    tvdb_id: int | None = None
     in_library: bool = False
     library_id: int | None = None
+    # Only meaningful for a series in the library; Sonarr has nowhere to record
+    # the choice until then.
+    monitor_new_seasons: bool = False
     seasons: list[SeasonOptionDTO] = field(default_factory=list)
 
 

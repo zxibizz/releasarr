@@ -22,6 +22,7 @@ from src.application.use_cases.discover.exceptions import (
     MetadataProviderUnavailableError,
     NoQualityProfileError,
     SeasonSelectionError,
+    SeasonsUnmanageableError,
 )
 from src.application.use_cases.releases.exceptions import (
     ReleaseActionNotAllowedError,
@@ -60,6 +61,7 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     NoQualityProfileError: (status.HTTP_400_BAD_REQUEST, "no_quality_profile"),
     InvalidRootFolderError: (status.HTTP_400_BAD_REQUEST, "invalid_root_folder"),
     SeasonSelectionError: (status.HTTP_400_BAD_REQUEST, "invalid_season_selection"),
+    SeasonsUnmanageableError: (status.HTTP_409_CONFLICT, "seasons_unmanageable"),
     # Sonarr, Radarr and the metadata providers all report through this one, so a
     # failure of theirs surfaces as a bad gateway rather than our own crash.
     HttpClientError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),

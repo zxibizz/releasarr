@@ -1,5 +1,12 @@
 import { apiRequest } from '@/lib/api/client';
-import type { MediaRequest, MediaRequestStatus, MediaType, RequestsResponse } from '@/types';
+import type {
+  MediaRequest,
+  MediaRequestStatus,
+  MediaType,
+  RequestsResponse,
+  SeriesSeasonsResponse,
+  UpdateSeasonsPayload,
+} from '@/types';
 
 export interface RequestListFilters {
   page?: number;
@@ -22,4 +29,16 @@ export const requestsApi = {
 
   detail: (id: string, signal?: AbortSignal) =>
     apiRequest<MediaRequest>(`/requests/${encodeURIComponent(id)}`, { signal }),
+
+  remove: (id: string) =>
+    apiRequest<void>(`/requests/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  seasons: (id: string, signal?: AbortSignal) =>
+    apiRequest<SeriesSeasonsResponse>(`/requests/${encodeURIComponent(id)}/seasons`, { signal }),
+
+  updateSeasons: (id: string, payload: UpdateSeasonsPayload) =>
+    apiRequest<SeriesSeasonsResponse>(`/requests/${encodeURIComponent(id)}/seasons`, {
+      method: 'PUT',
+      body: payload,
+    }),
 };

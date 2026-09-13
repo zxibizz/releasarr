@@ -44,6 +44,8 @@ class SeriesDetails:
     tvdb_id: int | None
     genres: list[str]
     seasons: dict[int, SeriesSeasonDetails]
+    # Whether Sonarr monitors seasons that appear after the series was added.
+    monitor_new_seasons: bool = False
 
 
 @dataclass(slots=True)
@@ -116,15 +118,23 @@ class SonarrService(Protocol):
         root_folder_path: str,
         quality_profile_id: int,
         monitored_seasons: Sequence[int],
+        monitor_new_seasons: bool = False,
     ) -> int:
         """Add a series to the library and return its Sonarr id."""
 
-    async def set_season_monitoring(
+    async def apply_season_monitoring(
         self,
         series_id: int,
-        monitored_seasons: Sequence[int],
+        *,
+        monitor: Sequence[int] = (),
+        unmonitor: Sequence[int] = (),
+        monitor_new_seasons: bool | None = None,
     ) -> None:
-        """Start monitoring the given seasons of a series already in the library."""
+        """Change the monitoring of the named seasons of a series in the library.
+
+        Only the seasons named are touched, so a season monitored outside
+        releasarr keeps whatever the user chose for it.
+        """
 
     async def wait_for_series_episodes(
         self,

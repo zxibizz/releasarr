@@ -1,6 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
+import { discoverKeys } from '@/features/discover/keys';
 import { requestsApi, type RequestListFilters } from '@/features/requests/api';
+import type { UpdateSeasonsPayload } from '@/types';
+import { getErrorMessage } from '@/utils/errors';
 
 const serializeFilters = (filters?: RequestListFilters) =>
   Object.entries(filters ?? {})
@@ -17,6 +22,7 @@ export const requestKeys = {
       : ([...requestKeys.lists(), serialized] as const);
   },
   detail: (id: string) => [...requestKeys.all, 'detail', id] as const,
+  seasons: (id: string) => [...requestKeys.all, 'seasons', id] as const,
 };
 
 export const requestsListQuery = (filters?: RequestListFilters) => ({
@@ -43,5 +49,69 @@ export function useRequest(id: string | undefined) {
   return useQuery({
     ...requestDetailQuery(id ?? ''),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * The seasons of the series a request belongs to. Kept out of the detail query
+ * because it costs a call to Sonarr, and only the season manager needs it.
+ */
+export function useRequestSeasons(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: requestKeys.seasons(id ?? ''),
+    queryFn: ({ signal }) => requestsApi.seasons(id ?? '', signal),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useUpdateRequestSeasons(id: string | undefined) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (payload: UpdateSeasonsPayload) => requestsApi.updateSeasons(id ?? '', payload),
+    onSuccess: (seasons) => {
+      queryClient.setQueryData(requestKeys.seasons(id ?? ''), seasons);
+      notifications.show({
+        message: t('requestPage.seasons.saved'),
+        color: 'teal',
+      });
+      // Seasons may have been added or withdrawn, so the request list and the
+      // search results that report their state are both out of date.
+      void queryClient.invalidateQueries({ queryKey: requestKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: discoverKeys.all });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('requestPage.seasons.saveFailed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}
+
+export function useRemoveRequest() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (id: string) => requestsApi.remove(id),
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: requestKeys.detail(id) });
+      notifications.show({
+        message: t('requestPage.remove.removed'),
+        color: 'teal',
+      });
+      void queryClient.invalidateQueries({ queryKey: requestKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: discoverKeys.all });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('requestPage.remove.failed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
   });
 }

@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from src.api.dependencies import require_api_key
 from src.api.errors import api_error
 from src.api.responses import error_responses
+from src.api.routes.discover import seasons_to_schema
 from src.application.interfaces.media_requests import MediaLocalization as MediaLocalizationData
+from src.application.use_cases.discover import (
+    ListRequestSeasonsUseCase,
+    UpdateRequestSeasonsCommand,
+    UpdateRequestSeasonsUseCase,
+)
 from src.application.use_cases.requests import (
     CreateMediaRequestUseCase,
     CreateMovieRequestCommand,
@@ -27,6 +33,7 @@ from src.application.use_cases.requests import (
 )
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaRequestStatus, MediaType
+from src.schemas.discover import SeriesSeasonsResponse, UpdateSeasonsPayload
 from src.schemas.requests import (
     CreateMovieRequest,
     CreateSeriesRequest,
@@ -76,7 +83,21 @@ def _get_delete_use_case(
     return container.use_cases.media_requests.delete
 
 
+def _get_seasons_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListRequestSeasonsUseCase:
+    return container.use_cases.discover.request_seasons
+
+
+def _get_update_seasons_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> UpdateRequestSeasonsUseCase:
+    return container.use_cases.discover.update_request_seasons
+
+
 _SERVER_ERROR = "Unexpected server error."
+_UPSTREAM_ERROR = "Sonarr or Radarr could not be reached."
+_UNMANAGEABLE_SEASONS = "The request has no series in Sonarr whose seasons can be managed."
 
 LIST_REQUESTS_RESPONSES = error_responses(
     {
@@ -112,6 +133,27 @@ UPDATE_REQUEST_RESPONSES = error_responses(
 DELETE_REQUEST_RESPONSES = error_responses(
     {
         status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+SEASONS_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_409_CONFLICT: _UNMANAGEABLE_SEASONS,
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+UPDATE_SEASONS_RESPONSES = error_responses(
+    {
+        status.HTTP_400_BAD_REQUEST: "The series has no such season.",
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_409_CONFLICT: _UNMANAGEABLE_SEASONS,
+        status.HTTP_422_UNPROCESSABLE_CONTENT: "Validation failed for the provided fields.",
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -221,6 +263,37 @@ async def delete_request(
 ) -> Response:
     await delete_use_case.execute(request_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{requestId}/seasons",
+    response_model=SeriesSeasonsResponse,
+    responses=SEASONS_RESPONSES,
+)
+async def list_request_seasons(
+    request_id: RequestIdParam,
+    seasons_use_case: ListRequestSeasonsUseCase = Depends(_get_seasons_use_case),
+) -> SeriesSeasonsResponse:
+    seasons = await seasons_use_case.execute(request_id)
+    return seasons_to_schema(seasons)
+
+
+@router.put(
+    "/{requestId}/seasons",
+    response_model=SeriesSeasonsResponse,
+    responses=UPDATE_SEASONS_RESPONSES,
+)
+async def update_request_seasons(
+    request_id: RequestIdParam,
+    payload: UpdateSeasonsPayload,
+    update_seasons_use_case: UpdateRequestSeasonsUseCase = Depends(_get_update_seasons_use_case),
+) -> SeriesSeasonsResponse:
+    command = UpdateRequestSeasonsCommand(
+        season_numbers=list(payload.season_numbers),
+        monitor_new_seasons=payload.monitor_new_seasons,
+    )
+    seasons = await update_seasons_use_case.execute(request_id, command)
+    return seasons_to_schema(seasons)
 
 
 def _build_create_command(

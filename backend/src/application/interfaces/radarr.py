@@ -81,8 +81,8 @@ class RadarrService(Protocol):
     ) -> int:
         """Add a movie to the library and return its Radarr id."""
 
-    async def set_movie_monitored(self, movie_id: int) -> None:
-        """Start monitoring a movie already in the library."""
+    async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
+        """Set whether Radarr monitors a movie already in the library."""
 
 
 __all__ = [

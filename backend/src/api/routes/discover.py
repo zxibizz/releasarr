@@ -140,7 +140,7 @@ async def list_series_seasons(
     season_options_use_case: ListSeasonOptionsUseCase = Depends(_season_options_use_case),
 ) -> SeriesSeasonsResponse:
     seasons = await season_options_use_case.execute(tvdb_id)
-    return _seasons_to_schema(seasons)
+    return seasons_to_schema(seasons)
 
 
 @router.get("/root-folders", response_model=RootFoldersResponse, responses=ROOT_FOLDERS_RESPONSES)
@@ -169,6 +169,7 @@ async def add_request(
         provider_id=payload.provider_id,
         root_folder_path=payload.root_folder_path,
         season_numbers=list(payload.season_numbers or []),
+        monitor_new_seasons=payload.monitor_new_seasons,
     )
     requests = await add_request_use_case.execute(command)
     return AddRequestResponse(requests=[_dto_to_schema(dto) for dto in requests])
@@ -190,11 +191,12 @@ def _search_result_to_schema(dto: MediaSearchResultDTO) -> MediaSearchResult:
     )
 
 
-def _seasons_to_schema(dto: SeriesSeasonsDTO) -> SeriesSeasonsResponse:
+def seasons_to_schema(dto: SeriesSeasonsDTO) -> SeriesSeasonsResponse:
     return SeriesSeasonsResponse(
         tvdb_id=dto.tvdb_id,
         in_library=dto.in_library,
         library_id=dto.library_id,
+        monitor_new_seasons=dto.monitor_new_seasons,
         seasons=[
             SeasonOption(
                 season_number=season.season_number,

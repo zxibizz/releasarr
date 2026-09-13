@@ -11,7 +11,7 @@ from src.application.interfaces.tvdb import TvdbSearchResult
 from src.application.use_cases.discover.exceptions import MetadataProviderUnavailableError
 from src.application.use_cases.discover.search_media import SearchMediaUseCase
 from src.domain.enums import MediaRequestStatus, MediaType
-from tests.application.use_cases.discover.conftest import (
+from tests.fakes import (
     FakeMediaRequestRepository,
     FakeRadarrService,
     FakeSonarrService,

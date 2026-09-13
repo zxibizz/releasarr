@@ -22,6 +22,10 @@ from src.application.interfaces.sonarr import (
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 
 UNKNOWN_QUALITY_ID = 0
+# How Sonarr spells "monitor seasons added after this series was", on the series
+# itself rather than in the one-off add options.
+MONITOR_NEW_ITEMS_ALL = "all"
+MONITOR_NEW_ITEMS_NONE = "none"
 COMMAND_POLL_INTERVAL_SECONDS = 1.0
 COMMAND_TIMEOUT_SECONDS = 300.0
 COMMAND_SUCCESS_STATUS = "completed"
@@ -160,6 +164,7 @@ class SonarrHttpClient(SonarrService):
         root_folder_path: str,
         quality_profile_id: int,
         monitored_seasons: Sequence[int],
+        monitor_new_seasons: bool = False,
     ) -> int:
         """Add a series to the library, monitoring only the requested seasons.
 
@@ -178,6 +183,7 @@ class SonarrHttpClient(SonarrService):
         payload["qualityProfileId"] = quality_profile_id
         payload["monitored"] = True
         payload["seasonFolder"] = True
+        payload["monitorNewItems"] = self._monitor_new_items(monitor_new_seasons)
         payload["seasons"] = [
             {**season, "monitored": self._season_number(season) in wanted}
             for season in payload.get("seasons") or []
@@ -199,32 +205,55 @@ class SonarrHttpClient(SonarrService):
             raise HttpClientError(f"Sonarr did not return an id for the added series {tvdb_id}")
         return series_id
 
-    async def set_season_monitoring(
+    async def apply_season_monitoring(
         self,
         series_id: int,
-        monitored_seasons: Sequence[int],
+        *,
+        monitor: Sequence[int] = (),
+        unmonitor: Sequence[int] = (),
+        monitor_new_seasons: bool | None = None,
     ) -> None:
-        """Add the given seasons to what Sonarr already monitors for a series.
+        """Monitor and unmonitor the named seasons of a series in the library.
 
-        Seasons the user monitors today are left alone: this is only ever called
-        to widen the selection, and silently unmonitoring the rest would drop
-        episodes out of Sonarr's wanted list behind their back.
+        Seasons nobody named are left exactly as they are. A user may monitor a
+        season outside releasarr, and rewriting the whole selection from the
+        seasons we happen to hold requests for would drop those episodes out of
+        Sonarr's wanted list behind their back.
         """
 
         payload = await self._request("GET", f"/series/{series_id}")
         if not isinstance(payload, dict):
             raise HttpClientError(f"Sonarr returned no series for id {series_id}")
 
-        wanted = set(monitored_seasons)
+        # Monitoring wins over unmonitoring, so a season named in both is kept
+        # rather than silently dropped.
+        wanted = set(monitor)
+        unwanted = set(unmonitor) - wanted
         seasons = [season for season in payload.get("seasons") or [] if isinstance(season, dict)]
-        if not any(self._season_number(season) in wanted for season in seasons):
+        updated = [self._with_monitoring(season, wanted, unwanted) for season in seasons]
+
+        wants_new_seasons = (
+            self._reads_monitor_new_items(payload)
+            if monitor_new_seasons is None
+            else monitor_new_seasons
+        )
+        # Sonarr treats an unmonitored series as wanting nothing at all, so it is
+        # only switched off once no season is left and future ones are unwanted
+        # too - otherwise the new-season flag would have nothing to act on.
+        monitored = wants_new_seasons or any(
+            season.get("monitored") and (self._season_number(season) or 0) > 0 for season in updated
+        )
+
+        if (
+            updated == seasons
+            and monitored == bool(payload.get("monitored"))
+            and wants_new_seasons == self._reads_monitor_new_items(payload)
+        ):
             return
 
-        payload["monitored"] = True
-        payload["seasons"] = [
-            {**season, "monitored": True} if self._season_number(season) in wanted else season
-            for season in seasons
-        ]
+        payload["seasons"] = updated
+        payload["monitored"] = monitored
+        payload["monitorNewItems"] = self._monitor_new_items(wants_new_seasons)
         await self._request("PUT", f"/series/{series_id}", json=payload)
 
     async def wait_for_series_episodes(
@@ -455,10 +484,30 @@ class SonarrHttpClient(SonarrService):
             tvdb_id=self._safe_int(data.get("tvdbId")),
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             seasons=seasons,
+            monitor_new_seasons=self._reads_monitor_new_items(data),
         )
 
     def _season_number(self, season: dict[str, Any]) -> int | None:
         return self._safe_int(season.get("seasonNumber"))
+
+    def _with_monitoring(
+        self,
+        season: dict[str, Any],
+        wanted: set[int],
+        unwanted: set[int],
+    ) -> dict[str, Any]:
+        season_number = self._season_number(season)
+        if season_number in wanted:
+            return {**season, "monitored": True}
+        if season_number in unwanted:
+            return {**season, "monitored": False}
+        return season
+
+    def _monitor_new_items(self, monitor_new_seasons: bool) -> str:
+        return MONITOR_NEW_ITEMS_ALL if monitor_new_seasons else MONITOR_NEW_ITEMS_NONE
+
+    def _reads_monitor_new_items(self, data: dict[str, Any]) -> bool:
+        return str(data.get("monitorNewItems") or "").lower() == MONITOR_NEW_ITEMS_ALL
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Checked per request rather than in __init__ so that movie-only

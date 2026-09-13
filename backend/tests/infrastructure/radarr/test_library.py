@@ -158,3 +158,19 @@ async def test_set_movie_monitored_skips_the_update_when_already_monitored() -> 
     await build_client(handler).set_movie_monitored(31)
 
     assert calls == ["GET"]
+
+
+async def test_set_movie_monitored_can_unmonitor_a_movie() -> None:
+    """Unmonitoring is what keeps a removed request from coming back on sync."""
+
+    calls: list[tuple[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read()
+        calls.append((request.method, json.loads(body) if body else None))
+        return httpx.Response(200, json={"id": 31, "monitored": True})
+
+    await build_client(handler).set_movie_monitored(31, monitored=False)
+
+    assert [method for method, _ in calls] == ["GET", "PUT"]
+    assert calls[1][1]["monitored"] is False

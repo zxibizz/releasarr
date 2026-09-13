@@ -33,12 +33,57 @@ export interface paths {
         get: operations["getRequest"];
         put?: never;
         post?: never;
-        /** Delete a media request */
+        /**
+         * Delete a media request
+         * @description Removes the request and unmonitors what produced it: the season in Sonarr
+         *     or the movie in Radarr. Dropping the row alone would not last, because the
+         *     recurring sync rebuilds a request for every monitored season Sonarr still
+         *     reports as missing.
+         *
+         *     The series or movie itself stays in the library, as do any files already
+         *     imported. A series left with no monitored season and no interest in future
+         *     ones is unmonitored as a whole.
+         */
         delete: operations["deleteRequest"];
         options?: never;
         head?: never;
         /** Partially update a media request */
         patch: operations["updateRequest"];
+        trace?: never;
+    };
+    "/requests/{requestId}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seasons of the series a request belongs to
+         * @description The seasons of the series behind a series request, with the request state
+         *     of each, for managing the selection from the request itself. Sonarr is
+         *     asked by the series id the sync stamped on the request, which is the only
+         *     handle a request page has - it knows nothing about TVDB.
+         */
+        get: operations["listRequestSeasons"];
+        /**
+         * Set which seasons of a series hold requests
+         * @description Brings the season requests of a series in line with the given selection.
+         *     Newly picked seasons are monitored in Sonarr and synced into requests;
+         *     seasons dropped from the selection are unmonitored and their requests
+         *     removed, which includes the request in the path if its own season is left
+         *     out.
+         *
+         *     Both halves go through a single Sonarr write, so the series never passes
+         *     through a state where every season has been dropped and is about to be
+         *     added back.
+         */
+        put: operations["updateRequestSeasons"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/requests/{requestId}/releases": {
@@ -863,10 +908,16 @@ export interface components {
             request_id?: string | null;
         };
         SeriesSeasonsResponse: {
-            tvdb_id: number;
+            /** @description Absent when the seasons were read from a series in the library rather than looked up by TVDB id, which is how managing a request arrives. */
+            tvdb_id?: number | null;
             /** @default false */
             in_library: boolean;
             library_id?: number | null;
+            /**
+             * @description Whether Sonarr monitors seasons announced after the series was added. Only meaningful in the library; Sonarr has nowhere to record it until then.
+             * @default false
+             */
+            monitor_new_seasons: boolean;
             seasons: components["schemas"]["SeasonOption"][];
         };
         RootFolder: {
@@ -884,6 +935,17 @@ export interface components {
             root_folder_path: string;
             /** @description Seasons to request. Required for series, rejected for movies. */
             season_numbers?: number[] | null;
+            /**
+             * @description Ask Sonarr to monitor seasons announced later, which the sync then turns into requests of their own. Series only.
+             * @default false
+             */
+            monitor_new_seasons: boolean;
+        };
+        UpdateSeasonsPayload: {
+            /** @description The seasons the series should hold requests for afterwards. Absolute rather than a delta: a season left out is unmonitored in Sonarr and its request removed. Specials are out of scope and keep what they had. */
+            season_numbers: number[];
+            /** @default false */
+            monitor_new_seasons: boolean;
         };
         AddRequestResponse: {
             /** @description One request per requested season for a series, a single one for a movie. */
@@ -1097,6 +1159,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     updateRequest: {
@@ -1153,6 +1224,146 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRequestSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seasons of the request's series. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no series in Sonarr whose seasons can be managed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRequestSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeasonsPayload"];
+            };
+        };
+        responses: {
+            /** @description The seasons of the request's series, as they now stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description The series has no such season. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no series in Sonarr whose seasons can be managed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
