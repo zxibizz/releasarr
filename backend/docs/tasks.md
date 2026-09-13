@@ -94,7 +94,7 @@ scheduler claims them within a few seconds. Each endpoint returns `202` with a
 | Endpoint | Tasks queued | Intended caller |
 | --- | --- | --- |
 | `POST /tasks/run/{kind}` | The named task | Run button on the tasks page |
-| `POST /tasks/sync_all` | All four, in order | "Run all tasks" button, operators |
+| `POST /tasks/sync_all` | All five, in order | "Run all tasks" button, operators |
 | `POST /tasks/sync_downloads` | `release_sync`, `export` | Download client on torrent completion |
 
 Saving file mappings queues an `export` too, whenever the release they belong to
@@ -104,7 +104,7 @@ instead of waiting out the 5-minute interval. Failing to queue it is logged and
 otherwise ignored: the mappings are stored regardless, and the scheduled run is
 still coming.
 
-One job runs one task, so a `sync_all` queues four jobs. The response tracks the
+One job runs one task, so a `sync_all` queues five jobs. The response tracks the
 last of them, since that finishing means the whole sequence is done.
 
 Poll `GET /tasks/jobs/{jobId}` for a single job, or `GET /tasks/jobs?limit=n`
@@ -113,7 +113,7 @@ finished jobs). Each job records its summary in `result` and, on failure, the
 message in `error`. A failing job does not stop the ones behind it in the queue.
 
 `GET /tasks/scheduled` reports every task with its interval, last execution,
-last duration, and computed next execution. It lists all four tasks even before
+last duration, and computed next execution. It lists all five tasks even before
 the scheduler has registered them, so the UI works on a fresh install.
 
 Requests for a task that is already queued collapse onto the waiting job, so a
@@ -131,7 +131,7 @@ step, and every path that runs a task goes through it — no call site has to
 remember to pass the task along.
 
 The binding uses Loguru's `contextualize`, which is backed by a context
-variable, so the four task loops running side by side each keep their own value.
+variable, so the five task loops running side by side each keep their own value.
 
 Two things are tagged in addition to the step itself:
 
