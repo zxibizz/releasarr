@@ -44,6 +44,7 @@ Narrower docs live next to the code they describe:
 | [`frontend/README.md`](frontend/README.md) | Running the frontend; routing, i18n, mobile |
 | [`frontend/docs/file-mapping.md`](frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
 | [`frontend/docs/mock-server.md`](frontend/docs/mock-server.md) | Adding or changing a mock endpoint |
+| [`frontend/docs/screenshots.md`](frontend/docs/screenshots.md) | Regenerating or adding a README screenshot |
 
 ## Hard rules
 
