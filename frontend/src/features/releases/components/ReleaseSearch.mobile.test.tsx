@@ -74,6 +74,16 @@ describe('ReleaseSearch on a phone', () => {
     expect(screen.getByLabelText(FIELD_LABEL).tagName).toBe('TEXTAREA');
   });
 
+  it('opens on the search tab and swaps to the manual form on demand', async () => {
+    renderSearch();
+
+    expect(screen.getByRole('tab', { name: 'Search' })).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Add manually' }));
+
+    expect(await screen.findByLabelText('Magnet link')).toBeInTheDocument();
+  });
+
   it('sends a wrapped query as a single line', async () => {
     renderSearch();
 

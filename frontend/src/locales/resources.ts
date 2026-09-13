@@ -218,8 +218,8 @@ export const resources = {
         placeholder: 'Search release sources for "{{title}}"…',
         ariaLabel: 'Search releases for {{title}}',
         tabs: {
-          search: '🔍 Search indexers',
-          manual: '📎 Add manually',
+          search: 'Search',
+          manual: 'Add manually',
         },
         actions: {
           runSearch: 'Run release search',
@@ -735,8 +735,8 @@ export const resources = {
         placeholder: 'Поиск релизов для «{{title}}»…',
         ariaLabel: 'Поиск релизов для {{title}}',
         tabs: {
-          search: '🔍 Поиск по индексерам',
-          manual: '📎 Добавить вручную',
+          search: 'Поиск',
+          manual: 'Вручную',
         },
         actions: {
           runSearch: 'Запустить поиск релизов',

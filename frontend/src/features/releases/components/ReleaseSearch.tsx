@@ -308,7 +308,9 @@ export function ReleaseSearch({
   return (
     <Card withBorder radius="lg" padding={isMobile ? 'sm' : 'lg'}>
       <Tabs value={activeTab} onChange={(value) => setActiveTab(value ?? SEARCH_TAB)}>
-        <Tabs.List mb="lg">
+        {/* Long labels wrapped the list into two stacked rows on a phone,
+            which read as two links rather than one tab bar. */}
+        <Tabs.List grow mb="lg">
           <Tabs.Tab value={SEARCH_TAB}>{t('releaseSearch.tabs.search')}</Tabs.Tab>
           <Tabs.Tab value={MANUAL_TAB}>{t('releaseSearch.tabs.manual')}</Tabs.Tab>
         </Tabs.List>
