@@ -1,7 +1,9 @@
-import { Badge, Group, Paper, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Badge, Divider, Group, Paper, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useRequestEpisodes } from '@/features/requests/queries';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { EpisodeStatus, SeasonEpisode } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/formatters';
 
@@ -12,13 +14,6 @@ const STATUS_COLORS: Record<EpisodeStatus, string> = {
 };
 
 const NOWRAP = { whiteSpace: 'nowrap' } as const;
-
-// A badge hides its label's overflow, which as a grid item lets the label
-// shrink to nothing: the label stops asking for the width of its own text, the
-// column it sits in inherits that, and the label comes out as an ellipsis.
-// Showing the overflow restores the ask, so the badge can never be narrower
-// than what it says.
-const BADGE_STYLES = { label: { overflow: 'visible' } } as const;
 
 interface SeasonEpisodesProps {
   requestId: string;
@@ -35,6 +30,7 @@ interface SeasonEpisodesProps {
  */
 export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { data, isLoading, error } = useRequestEpisodes(requestId);
 
   const episodes = data?.episodes ?? [];
@@ -56,7 +52,7 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="baseline" wrap="nowrap" gap="sm">
+      <Group justify="space-between" align="baseline" gap="sm">
         <Title order={3}>{t('requestPage.episodes.title')}</Title>
         <Text size="sm" c="dimmed">
           {t('requestPage.episodes.summary', { downloaded, total: episodes.length })}
@@ -65,32 +61,38 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
       </Group>
 
       <Paper withBorder radius="lg" p={0}>
-        <Table.ScrollContainer minWidth={520}>
-          <Table verticalSpacing="xs" horizontalSpacing="md" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th w={56}>{t('requestPage.episodes.columns.number')}</Table.Th>
-                {/* The title takes what the others leave, so each of those sits
-                    at the width of its own content. Pinning them to a fixed
-                    width instead is what cuts a label short, and the longest of
-                    these labels is not the English one. */}
-                <Table.Th style={{ width: '100%' }}>
-                  {t('requestPage.episodes.columns.title')}
-                </Table.Th>
-                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.airDate')}</Table.Th>
-                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.status')}</Table.Th>
-                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.size')}</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {episodes.map((episode) => (
-                <EpisodeRow key={episode.episode_number} episode={episode} />
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+        {isMobile ? <EpisodeList episodes={episodes} /> : <EpisodeTable episodes={episodes} />}
       </Paper>
     </Stack>
+  );
+}
+
+function EpisodeTable({ episodes }: { episodes: SeasonEpisode[] }) {
+  const { t } = useTranslation();
+
+  return (
+    <Table.ScrollContainer minWidth={520}>
+      <Table verticalSpacing="xs" horizontalSpacing="md" highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th w={56}>{t('requestPage.episodes.columns.number')}</Table.Th>
+            {/* The title takes what the others leave, so each of those sits at
+                the width of its own content. Pinning them to a fixed width
+                instead is what cuts a label short, and the longest of these
+                labels is not the English one. */}
+            <Table.Th style={{ width: '100%' }}>{t('requestPage.episodes.columns.title')}</Table.Th>
+            <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.airDate')}</Table.Th>
+            <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.status')}</Table.Th>
+            <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.size')}</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {episodes.map((episode) => (
+            <EpisodeRow key={episode.episode_number} episode={episode} />
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
   );
 }
 
@@ -113,14 +115,7 @@ function EpisodeRow({ episode }: { episode: SeasonEpisode }) {
         </Text>
       </Table.Td>
       <Table.Td style={NOWRAP}>
-        <Badge
-          color={STATUS_COLORS[episode.status]}
-          variant="light"
-          radius="sm"
-          styles={BADGE_STYLES}
-        >
-          {t(`requestPage.episodes.status.${episode.status}`)}
-        </Badge>
+        <StatusBadge status={episode.status} />
       </Table.Td>
       <Table.Td style={NOWRAP}>
         <Text size="sm" c="dimmed">
@@ -128,5 +123,71 @@ function EpisodeRow({ episode }: { episode: SeasonEpisode }) {
         </Text>
       </Table.Td>
     </Table.Tr>
+  );
+}
+
+/**
+ * The same episodes two lines to a row, for a phone.
+ *
+ * Five columns have no chance of fitting one: the cell padding alone claims
+ * most of the width, and what is left has to cover a date, a size and a status
+ * badge before the title gets any. Folding the date and size onto a second line
+ * hands the title the whole of the first, and costs only height.
+ */
+function EpisodeList({ episodes }: { episodes: SeasonEpisode[] }) {
+  return (
+    <Stack gap={0}>
+      {episodes.map((episode, index) => (
+        <Fragment key={episode.episode_number}>
+          {index > 0 && <Divider />}
+          <EpisodeListRow episode={episode} />
+        </Fragment>
+      ))}
+    </Stack>
+  );
+}
+
+function EpisodeListRow({ episode }: { episode: SeasonEpisode }) {
+  const { t } = useTranslation();
+
+  const meta = [
+    episode.air_date ? formatDate(episode.air_date) : t('requestPage.episodes.notScheduled'),
+    episode.file_size ? formatFileSize(episode.file_size) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm" px="md" py="sm">
+      <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+        <Text size="sm" className="break-anywhere">
+          {episode.episode_number}. {episode.title || t('requestPage.episodes.untitled')}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {meta}
+        </Text>
+      </Stack>
+      <StatusBadge status={episode.status} />
+    </Group>
+  );
+}
+
+function StatusBadge({ status }: { status: EpisodeStatus }) {
+  const { t } = useTranslation();
+
+  return (
+    <Badge
+      color={STATUS_COLORS[status]}
+      variant="light"
+      radius="sm"
+      // A badge hides its label's overflow, which as a grid item lets the label
+      // shrink to nothing: the label stops asking for the width of its own
+      // text, whatever holds it inherits that, and the label comes out as an
+      // ellipsis. Showing the overflow restores the ask, so the badge is never
+      // narrower than what it says.
+      styles={{ label: { overflow: 'visible' } }}
+    >
+      {t(`requestPage.episodes.status.${status}`)}
+    </Badge>
   );
 }
