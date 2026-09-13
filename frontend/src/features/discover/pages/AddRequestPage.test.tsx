@@ -64,6 +64,7 @@ const seasons = (...options: Partial<SeasonOption>[]): SeasonOption[] =>
     season_number: option.season_number ?? index + 1,
     monitored: option.monitored ?? false,
     requested: option.requested ?? false,
+    downloaded: option.downloaded ?? false,
     request_id: option.request_id ?? null,
   }));
 
@@ -245,7 +246,7 @@ describe('AddRequestPage', () => {
       results: [knownSeries],
       inLibrary: true,
       seasons: seasons(
-        { season_number: 1, monitored: true },
+        { season_number: 1, monitored: true, downloaded: true },
         { season_number: 2, monitored: false },
       ),
     });
@@ -258,11 +259,35 @@ describe('AddRequestPage', () => {
     const monitored = await screen.findByRole('checkbox', { name: /Season 1/ });
     expect(monitored).toBeChecked();
     expect(monitored).toBeDisabled();
-    expect(screen.getByText('Already monitored in Sonarr')).toBeInTheDocument();
+    expect(screen.getByText('Already downloaded in full')).toBeInTheDocument();
 
     const available = screen.getByRole('checkbox', { name: /Season 2/ });
     expect(available).not.toBeChecked();
     expect(available).toBeEnabled();
+  });
+
+  it('does not call a monitored season downloaded before it has aired', async () => {
+    /*
+     * A season Sonarr took on for a later date holds no episode and is missing
+     * none either, so it has no request of ours and is locked all the same.
+     * Saying it is downloaded would be a plain untruth.
+     */
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      seasons: seasons(
+        { season_number: 1, monitored: true, downloaded: true },
+        { season_number: 2, monitored: true, downloaded: false },
+      ),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+
+    expect(await screen.findByText('Sonarr will fetch this one as it airs')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Season 2/ })).toBeDisabled();
   });
 
   it('asks only for the seasons Sonarr does not already monitor', async () => {
@@ -293,7 +318,7 @@ describe('AddRequestPage', () => {
     );
   });
 
-  it('has nothing to add for a series Sonarr already covers entirely', async () => {
+  it('has no season to add for a series Sonarr already covers entirely', async () => {
     stubRoutes({
       results: [knownSeries],
       inLibrary: true,
@@ -308,10 +333,63 @@ describe('AddRequestPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
 
-    expect(
-      await screen.findByText('Sonarr already covers every season of this series.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Sonarr already covers every season/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add request' })).toBeDisabled();
+  });
+
+  it('still takes a new-seasons change for a series Sonarr already covers entirely', async () => {
+    /*
+     * Future seasons are the one thing left to say about such a series, and
+     * needing a season to submit made it impossible to say it from here.
+     */
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      seasons: seasons(
+        { season_number: 1, monitored: true },
+        { season_number: 2, monitored: true },
+      ),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /New seasons/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save monitoring' }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith(
+        '/discover/requests',
+        expect.objectContaining({
+          body: expect.objectContaining({ season_numbers: [], monitor_new_seasons: true }),
+        }),
+      ),
+    );
+  });
+
+  it('will not submit a library series whose new-seasons box is left as it was', async () => {
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      monitorNewSeasons: true,
+      seasons: seasons({ season_number: 1, monitored: true }),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+
+    const newSeasons = await screen.findByRole('checkbox', { name: /New seasons/ });
+    expect(screen.getByRole('button', { name: 'Add request' })).toBeDisabled();
+
+    // Off and back on again asks for nothing, so it is nothing to submit.
+    await userEvent.click(newSeasons);
+    expect(await screen.findByRole('button', { name: 'Save monitoring' })).toBeEnabled();
+
+    await userEvent.click(newSeasons);
+    expect(await screen.findByRole('button', { name: 'Add request' })).toBeDisabled();
   });
 
   it('asks Sonarr for future seasons when the box is ticked', async () => {

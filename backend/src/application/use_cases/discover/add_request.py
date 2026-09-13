@@ -71,8 +71,6 @@ class AddMediaRequestUseCase:
 
     async def _add_series(self, command: AddMediaRequestCommand) -> list[MediaRequestDTO]:
         seasons = sorted(set(command.season_numbers))
-        if not seasons:
-            raise SeasonSelectionError("At least one season must be selected")
 
         lookup = await self._sonarr.lookup_series(command.provider_id)
         if lookup is None:
@@ -85,6 +83,10 @@ class AddMediaRequestUseCase:
 
         series_id = lookup.existing_series_id
         if series_id is None:
+            # Sonarr wants to know what to monitor to add a series at all, and a
+            # series monitoring nothing is not something anyone asked for.
+            if not seasons:
+                raise SeasonSelectionError("At least one season must be selected")
             await self._validate_root_folder(MediaType.SERIES, command.root_folder_path)
             series_id = await self._sonarr.add_series(
                 tvdb_id=command.provider_id,
@@ -101,6 +103,17 @@ class AddMediaRequestUseCase:
                 monitor=seasons,
                 monitor_new_seasons=command.monitor_new_seasons,
             )
+            # Asking for no season is how a series whose every season Sonarr
+            # already covers still gets its future-seasons flag set: there is
+            # nothing left to request, and the flag is set above either way.
+            if not seasons:
+                self._logger.info(
+                    "Set series monitoring without adding requests",
+                    tvdb_id=command.provider_id,
+                    sonarr_series_id=series_id,
+                    monitor_new_seasons=command.monitor_new_seasons,
+                )
+                return []
 
         # A series added a moment ago has no episodes yet, and a request built
         # now would record every one of its seasons as empty.

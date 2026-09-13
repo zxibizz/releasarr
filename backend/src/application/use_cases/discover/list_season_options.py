@@ -66,6 +66,7 @@ class ListSeasonOptionsUseCase:
                     season_number=season_number,
                     monitored=self._is_monitored(details, season_number),
                     requested=season_number in requested,
+                    downloaded=self._is_downloaded(details, season_number),
                     request_id=requested.get(season_number),
                 )
                 for season_number in season_numbers
@@ -94,6 +95,21 @@ class ListSeasonOptionsUseCase:
     def _is_monitored(self, details: SeriesDetails, season_number: int) -> bool:
         season = details.seasons.get(season_number)
         return bool(season and season.monitored)
+
+    def _is_downloaded(self, details: SeriesDetails, season_number: int) -> bool:
+        """Whether Sonarr holds a file for every episode of the season that aired.
+
+        The same reading the export uses to complete a request, and it explains
+        the monitored season that has no request of ours: requests are created
+        from Sonarr's missing list, which a season missing nothing is absent
+        from. A season yet to air is absent from it too, which is what the
+        episode count rules out - it is monitored but downloaded it is not.
+        """
+
+        season = details.seasons.get(season_number)
+        if season is None or not season.episode_count:
+            return False
+        return season.episode_file_count >= season.episode_count
 
 
 __all__ = ["ListSeasonOptionsUseCase"]

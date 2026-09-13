@@ -138,8 +138,10 @@ export const resources = {
           selectAll: 'Select all',
           clearAll: 'Clear all',
           alreadyRequested: 'Already requested',
-          alreadyMonitored: 'Already monitored in Sonarr',
-          allCovered: 'Sonarr already covers every season of this series.',
+          alreadyDownloaded: 'Already downloaded in full',
+          sonarrWillFetch: 'Sonarr will fetch this one as it airs',
+          allCovered:
+            'Sonarr already covers every season of this series, so only future seasons are left to choose.',
           newSeasons: 'New seasons',
           newSeasonsHint: 'Request future seasons of this series as they are announced.',
           none: 'No seasons are available for this series yet.',
@@ -156,9 +158,11 @@ export const resources = {
           inLibrarySeries:
             'This series is already in Sonarr. Picking a season adds it to what Sonarr monitors; the seasons you leave alone keep the monitoring they have.',
           confirm: 'Add request',
+          confirmMonitoring: 'Save monitoring',
         },
         added_one: 'Added {{count}} request',
         added_other: 'Added {{count}} requests',
+        monitoringUpdated: 'Monitoring updated',
         addFailed: 'Failed to add request',
         empty: {
           title: 'No matches found',
@@ -695,8 +699,10 @@ export const resources = {
           selectAll: 'Выбрать все',
           clearAll: 'Снять все',
           alreadyRequested: 'Уже запрошен',
-          alreadyMonitored: 'Уже отслеживается в Sonarr',
-          allCovered: 'Sonarr уже охватывает все сезоны этого сериала.',
+          alreadyDownloaded: 'Уже скачан полностью',
+          sonarrWillFetch: 'Sonarr скачает его по мере выхода',
+          allCovered:
+            'Sonarr уже охватывает все сезоны этого сериала, поэтому выбрать можно только будущие сезоны.',
           newSeasons: 'Новые сезоны',
           newSeasonsHint: 'Запрашивать будущие сезоны этого сериала по мере их анонса.',
           none: 'У этого сериала пока нет доступных сезонов.',
@@ -713,11 +719,13 @@ export const resources = {
           inLibrarySeries:
             'Сериал уже есть в Sonarr. Выбранный сезон добавится к тому, что отслеживает Sonarr; у остальных сезонов отслеживание не изменится.',
           confirm: 'Добавить запрос',
+          confirmMonitoring: 'Сохранить отслеживание',
         },
         added_one: 'Добавлен {{count}} запрос',
         added_few: 'Добавлено {{count}} запроса',
         added_many: 'Добавлено {{count}} запросов',
         added_other: 'Добавлено {{count}} запросов',
+        monitoringUpdated: 'Отслеживание обновлено',
         addFailed: 'Не удалось добавить запрос',
         empty: {
           title: 'Ничего не найдено',

@@ -60,6 +60,7 @@ const seasons = (...options: Partial<SeasonOption>[]): SeasonOption[] =>
     season_number: option.season_number ?? index + 1,
     monitored: option.monitored ?? false,
     requested: option.requested ?? false,
+    downloaded: option.downloaded ?? false,
     request_id: option.request_id ?? null,
   }));
 

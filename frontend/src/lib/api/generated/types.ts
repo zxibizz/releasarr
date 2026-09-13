@@ -940,6 +940,11 @@ export interface components {
             monitored: boolean;
             /** @default false */
             requested: boolean;
+            /**
+             * @description Whether Sonarr holds a file for every episode of the season that has aired. False for a season yet to air, which has nothing to hold.
+             * @default false
+             */
+            downloaded: boolean;
             request_id?: string | null;
         };
         SeriesSeasonsResponse: {
@@ -968,7 +973,7 @@ export interface components {
             /** @description TVDB id for a series, TMDB id for a movie. */
             provider_id: number;
             root_folder_path: string;
-            /** @description Seasons to request. Required for series, rejected for movies. */
+            /** @description Seasons to request. Required to add a series Sonarr does not hold yet, and rejected for movies. Empty for a series already in the library requests nothing and sets only monitor_new_seasons. */
             season_numbers?: number[] | null;
             /**
              * @description Ask Sonarr to monitor seasons announced later, which the sync then turns into requests of their own. Series only.

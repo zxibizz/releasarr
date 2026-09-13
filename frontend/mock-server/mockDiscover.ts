@@ -17,6 +17,8 @@ export interface DiscoverCatalogueEntry {
   seasons?: number[];
   /** Seasons Sonarr monitors, for media already in the library. */
   monitored_seasons?: number[];
+  /** Seasons Sonarr holds every aired episode of, which need asking for nothing. */
+  downloaded_seasons?: number[];
   /** Whether Sonarr monitors seasons announced after the series was added. */
   monitor_new_seasons?: boolean;
   /**
@@ -58,6 +60,7 @@ export const DISCOVER_CATALOGUE: DiscoverCatalogueEntry[] = [
     // season Sonarr already holds in full looks like: the season manager reads
     // Sonarr's flags, so it shows ticked all the same.
     monitored_seasons: [1, 2, 3],
+    downloaded_seasons: [3],
     monitor_new_seasons: true,
     translations: {
       rus: {

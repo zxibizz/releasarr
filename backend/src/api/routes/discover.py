@@ -202,6 +202,7 @@ def seasons_to_schema(dto: SeriesSeasonsDTO) -> SeriesSeasonsResponse:
                 season_number=season.season_number,
                 monitored=season.monitored,
                 requested=season.requested,
+                downloaded=season.downloaded,
                 request_id=season.request_id,
             )
             for season in dto.seasons

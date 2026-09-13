@@ -289,6 +289,7 @@ async def test_series_seasons_returns_the_option_list(api_client: AsyncClient) -
                     season_number=1,
                     monitored=True,
                     requested=True,
+                    downloaded=True,
                     request_id="req-1",
                 ),
                 SeasonOptionDTO(season_number=2),
@@ -307,6 +308,7 @@ async def test_series_seasons_returns_the_option_list(api_client: AsyncClient) -
         "season_number": 1,
         "monitored": True,
         "requested": True,
+        "downloaded": True,
         "request_id": "req-1",
     }
     assert body["seasons"][1]["requested"] is False

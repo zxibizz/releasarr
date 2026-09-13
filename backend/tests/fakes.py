@@ -494,11 +494,17 @@ def make_series_details(
     series_id: int = 12,
     *,
     seasons: dict[int, tuple[int, bool]] | None = None,
+    downloaded_seasons: Sequence[int] | None = None,
     monitor_new_seasons: bool = False,
 ) -> SeriesDetails:
-    """Build Sonarr series details from ``{season: (episode_count, monitored)}``."""
+    """Build Sonarr series details from ``{season: (episode_count, monitored)}``.
+
+    Seasons named in ``downloaded_seasons`` hold a file per episode; the rest
+    hold none, which is the more useful default for a request to be made of.
+    """
 
     resolved = seasons or {1: (10, True), 2: (8, False)}
+    downloaded = set(downloaded_seasons or ())
     return SeriesDetails(
         id=series_id,
         title="Example Show",
@@ -513,7 +519,7 @@ def make_series_details(
                 season_number=season_number,
                 episode_count=episode_count,
                 total_episode_count=episode_count,
-                episode_file_count=0,
+                episode_file_count=episode_count if season_number in downloaded else 0,
                 monitored=season_monitored,
             )
             for season_number, (episode_count, season_monitored) in resolved.items()
