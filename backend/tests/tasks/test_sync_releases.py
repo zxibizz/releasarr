@@ -190,3 +190,42 @@ async def test_missing_files_outranks_completion(db_manager: DBManager) -> None:
 
     release = await release_record(db_manager)
     assert release.status == ReleaseStatus.FAILED
+
+
+async def test_standing_still_is_not_counted_as_synced(db_manager: DBManager) -> None:
+    """A seeding torrent reports the same numbers for days; don't rewrite the row."""
+
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    task = make_task(db_manager, [finished_torrent("uploading")])
+
+    first = await task.execute()
+    second = await task.execute()
+
+    assert (first.synced, first.unchanged) == (1, 0)
+    assert (second.synced, second.unchanged) == (0, 1)
+
+
+async def test_moving_torrent_is_written_again(db_manager: DBManager) -> None:
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await make_task(db_manager, [torrent("downloading")]).execute()
+
+    advanced = torrent("downloading") | {"progress": 0.75}
+    result = await make_task(db_manager, [advanced]).execute()
+
+    assert (result.synced, result.unchanged) == (1, 0)
+    assert (await release_record(db_manager)).progress == 75.0
+
+
+async def test_completion_time_survives_later_cycles(db_manager: DBManager) -> None:
+    """The stamp records when the download finished, not when we last looked."""
+
+    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    task = make_task(db_manager, [finished_torrent("uploading")])
+    await task.execute()
+    stamped = (await release_record(db_manager)).completed_at
+
+    later = finished_torrent("uploading") | {"completion_on": 1_800_000_000, "upspeed": 99}
+    result = await make_task(db_manager, [later]).execute()
+
+    assert result.synced == 1
+    assert (await release_record(db_manager)).completed_at == stamped
