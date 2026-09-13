@@ -1,3 +1,5 @@
 #!/command/with-contenv sh
+# Loguru's console sink writes to stderr, but s6 only pipes fd 1 to the logger.
+exec 2>&1
 cd /app
 exec /app/.venv/bin/python -m src.tasks.scheduler_service

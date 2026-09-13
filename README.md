@@ -163,6 +163,8 @@ Releasarr is on **http://localhost:8050**. One container runs the whole thing: n
 frontend and proxies the API under `/api/`, Alembic migrates on boot, and the scheduler worker
 runs alongside uvicorn. All three are supervised by s6-overlay, so a process that dies is
 restarted on its own, and a failed migration stops the container instead of leaving it half up.
+Every line in `docker compose logs` is tagged with the service that wrote it — `[api]`,
+`[scheduler]`, or `[nginx]`.
 
 A few things worth knowing before you point it at real data:
 

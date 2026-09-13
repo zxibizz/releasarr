@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tags every line this service writes, so one container's stdout can be read
+# per-process: `docker compose logs | grep '\[api\]'`. s6-log adds the space.
+exec /command/s6-log p'[api]' 1
