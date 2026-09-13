@@ -2,6 +2,7 @@ import { Badge, Divider, Group, Paper, Skeleton, Stack, Table, Text, Title } fro
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { seasonLabelKey } from '@/features/discover/seasons';
 import { useRequestEpisodes } from '@/features/requests/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { EpisodeStatus, SeasonEpisode } from '@/types';
@@ -34,6 +35,7 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
   const { data, isLoading, error } = useRequestEpisodes(requestId);
 
   const episodes = data?.episodes ?? [];
+  const seasonNumber = data?.season_number ?? 0;
   const downloaded = episodes.filter((episode) => episode.status === 'downloaded').length;
   const onDisk = episodes.reduce((total, episode) => total + (episode.file_size ?? 0), 0);
 
@@ -53,7 +55,16 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="baseline" gap="sm">
-        <Title order={3}>{t('requestPage.episodes.title')}</Title>
+        {/* Which season these are: the page heading names the series, and a
+            series can have a request open for several of its seasons. Beside
+            the heading rather than inside it, which read as a sentence about
+            the season instead of a name for the section. */}
+        <Group gap="sm" align="center" wrap="nowrap">
+          <Title order={3}>{t('requestPage.episodes.title')}</Title>
+          <Badge variant="default" radius="sm">
+            {t(seasonLabelKey(seasonNumber), { season: seasonNumber })}
+          </Badge>
+        </Group>
         <Text size="sm" c="dimmed">
           {t('requestPage.episodes.summary', { downloaded, total: episodes.length })}
           {onDisk > 0 && ` · ${t('requestPage.episodes.onDisk', { size: formatFileSize(onDisk) })}`}

@@ -17,7 +17,8 @@ export const formatFileSize = (rawBytes: number): string => {
   return `${Number.parseFloat(size.toFixed(precision))} ${FILE_SIZE_UNITS[unitIndex]}`;
 };
 
-export const formatSpeed = (bytesPerSecond: number): string => `${formatFileSize(bytesPerSecond)}/s`;
+export const formatSpeed = (bytesPerSecond: number): string =>
+  `${formatFileSize(bytesPerSecond)}/s`;
 
 export const formatProgress = (progress: number): string => `${progress.toFixed(1)}%`;
 

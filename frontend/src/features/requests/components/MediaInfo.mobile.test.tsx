@@ -68,12 +68,12 @@ describe('MediaInfo on a phone', () => {
     expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
   });
 
-  it('names the series in the meta line while the heading shows a translation', () => {
+  it('names the series below the meta line while the heading shows a translation', () => {
     renderMediaInfo();
 
+    expect(screen.getByText('📺 Series · 2026 · Season 2 · 13 episodes')).toBeInTheDocument();
     // Sonarr's own title, which the translated heading is not saying.
-    expect(
-      screen.getByText('📺 Series · You and I Are Polar Opposites · 2026 · Season 2 · 13 episodes'),
-    ).toBeInTheDocument();
+    const original = screen.getByText('You and I Are Polar Opposites');
+    expect(original).toHaveClass('break-anywhere');
   });
 });

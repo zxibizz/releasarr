@@ -221,6 +221,10 @@ export const resources = {
           clear: 'Clear',
           queueDownload: 'Queue download for {{name}}',
         },
+        fill: {
+          label: 'Search by title in:',
+          appendSeason: 'Add {{season}} to the query',
+        },
         links: {
           magnet: 'Magnet link ↗',
           info: 'View info ↗',
@@ -788,6 +792,10 @@ export const resources = {
           searching: 'Идёт поиск…',
           clear: 'Очистить',
           queueDownload: 'Поставить в очередь «{{name}}»',
+        },
+        fill: {
+          label: 'Искать по названию на:',
+          appendSeason: 'Добавить {{season}} к запросу',
         },
         links: {
           magnet: 'Magnet-ссылка ↗',

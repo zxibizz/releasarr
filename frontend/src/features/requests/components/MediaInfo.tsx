@@ -40,9 +40,6 @@ export function MediaInfo({ request, onManageSeasons }: MediaInfoProps) {
    */
   const meta = [
     isMovie ? `🎬 ${t('mediaType.movie')}` : `📺 ${t('mediaType.series')}`,
-    // Sonarr's own name for the series, which the heading is only missing when
-    // it is showing a translation of it instead.
-    !isMovie && !request.title.includes(request.series_title) ? request.series_title : null,
     String(request.year),
     isMovie
       ? formatRuntime(request.runtime)
@@ -53,21 +50,39 @@ export function MediaInfo({ request, onManageSeasons }: MediaInfoProps) {
     .join(' · ');
 
   /*
+   * Sonarr's own name for the series, which the heading is only missing when it
+   * is showing a translation of it instead. A line of its own rather than a
+   * segment of the meta line: it is a name among counts, and long enough to
+   * wrap on its own terms.
+   */
+  const originalTitle =
+    !isMovie && !request.title.includes(request.series_title) ? request.series_title : null;
+
+  /*
    * Beside the poster the title gets barely half the screen, and a localised
    * title is often one unbreakable word longer than that — at `h2` it ran past
    * the card edge. A step down in size plus a mid-word wrap keeps every title
    * whole, whatever language it came back in.
    */
   const titleBlock = (
-    <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+    <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
       <Title order={isMobile ? 3 : 2} className="break-anywhere">
         {request.title}
       </Title>
-      {/* One wrapping line rather than a row of separate values, so the narrow
-          column beside the poster reflows it instead of overflowing. */}
-      <Text size="sm" c="dimmed">
+      {/*
+        One wrapping line rather than a row of separate values, so the narrow
+        column beside the poster reflows it instead of overflowing. Kept close
+        to body text in size and brightness: this is what the card is for, and
+        at the dimmed `sm` a subtitle would take it read as a caption.
+      */}
+      <Text fz={{ base: 'sm', md: 'md' }} fw={500} c="gray.3">
         {meta}
       </Text>
+      {originalTitle && (
+        <Text size="sm" c="dimmed" className="break-anywhere">
+          {originalTitle}
+        </Text>
+      )}
     </Stack>
   );
 

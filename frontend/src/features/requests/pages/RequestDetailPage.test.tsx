@@ -158,6 +158,10 @@ describe('RequestDetailPage', () => {
 
     renderWithProviders(<RequestDetailPage />);
 
+    // Which season's episodes these are, since a series can have several open.
+    expect(await screen.findByRole('heading', { name: 'Episodes' })).toBeInTheDocument();
+    expect(screen.getByText('Season 2')).toBeInTheDocument();
+
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(3);
@@ -228,9 +232,48 @@ describe('RequestDetailPage', () => {
     renderWithProviders(<RequestDetailPage />);
 
     expect(await screen.findByRole('heading', { name: 'Разделение' })).toBeInTheDocument();
-    // The heading has stopped saying Sonarr's own name for the series, so the
-    // meta line picks it up.
-    expect(screen.getByText(/· Severance ·/)).toBeInTheDocument();
+    // The heading has stopped saying Sonarr's own name for the series, so a
+    // line of its own picks it up.
+    expect(screen.getByText('Severance')).toBeInTheDocument();
+  });
+
+  it('offers either title to search under, and marks the one in the field', async () => {
+    stubRoutes();
+    await act(async () => {
+      await i18n.changeLanguage('ru');
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    // Prefilled with the title the page is reading the request under.
+    const field = await screen.findByRole('searchbox');
+    expect(field).toHaveValue('Разделение');
+    expect(screen.getByRole('button', { name: 'Русский' })).toBeDisabled();
+
+    // A release indexed under the original name needs that name searched for.
+    await userEvent.click(screen.getByRole('button', { name: 'English' }));
+
+    expect(field).toHaveValue('Severance - Season 2');
+    expect(screen.getByRole('button', { name: 'Русский' })).toBeEnabled();
+  });
+
+  it('narrows the query to the season on request, and only once', async () => {
+    stubRoutes();
+
+    renderWithProviders(<RequestDetailPage />);
+
+    const field = await screen.findByRole('searchbox');
+    const addSeason = screen.getByRole('button', { name: 'Add 2 to the query' });
+
+    // The prefilled title ends in the season already, so there is nothing to add.
+    expect(addSeason).toBeDisabled();
+
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Severance');
+    await userEvent.click(addSeason);
+
+    expect(field).toHaveValue('Severance 2');
+    expect(addSeason).toBeDisabled();
   });
 
   it('opens the season manager from the header', async () => {
