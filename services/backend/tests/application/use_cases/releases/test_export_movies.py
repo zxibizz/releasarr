@@ -230,9 +230,10 @@ async def test_a_movie_release_is_imported_into_radarr_and_closed() -> None:
         )
     ]
     assert repository.release_updates["last_exported_info_hash"] == "hash-1"
-    assert request_repository.updates == [
-        ("req-1", UpdateMediaRequestData(status=MediaRequestStatus.COMPLETED))
+    assert [(request_id, data.status) for request_id, data in request_repository.updates] == [
+        ("req-1", MediaRequestStatus.COMPLETED)
     ]
+    assert request_repository.updates[0][1].exported_at is not None
 
 
 async def test_only_the_feature_is_imported_not_the_extras() -> None:

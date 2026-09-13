@@ -121,10 +121,15 @@ class MediaRequest(Base):
     imdb_id: Mapped[str | None] = mapped_column(String(64))
     season_number: Mapped[int | None] = mapped_column(Integer)
     total_episodes: Mapped[int | None] = mapped_column(Integer)
+    aired_episodes: Mapped[int | None] = mapped_column(Integer)
+    downloaded_episodes: Mapped[int | None] = mapped_column(Integer)
     series_title: Mapped[str | None] = mapped_column(String(255))
     series_year: Mapped[int | None] = mapped_column(Integer)
     sonarr_series_id: Mapped[int | None] = mapped_column(Integer, index=True)
     radarr_movie_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    # Set when a release's files are accepted by Sonarr or Radarr. Left null when
+    # the arr filled the request by itself, which is not an export by releasarr.
+    exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

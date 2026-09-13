@@ -731,6 +731,14 @@ export interface components {
             season_number: number;
             episodes: components["schemas"]["SeasonEpisode"][];
         };
+        SeriesEpisodeCounts: {
+            /** @description Number of episodes with files present. */
+            downloaded: number;
+            /** @description Aired episodes that are missing files. */
+            pending: number;
+            /** @description Episodes not yet aired. */
+            unaired: number;
+        };
         ReleasesResponse: {
             releases: components["schemas"]["Release"][];
             total: number;
@@ -781,6 +789,11 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /**
+             * Format: date-time
+             * @description When a release for this request was last accepted by Sonarr or Radarr.
+             */
+            exported_at?: string | null;
             /** @description Localized titles and overviews keyed by 3-letter language codes. */
             localizations?: {
                 [key: string]: components["schemas"]["MediaLocalization"];
@@ -812,6 +825,8 @@ export interface components {
             imdb_id: string;
             /** @description Identifier of the linked Sonarr series when the request was auto-synchronised. */
             sonarr_series_id?: number | null;
+            /** @description Derived counts of downloaded, pending and unaired episodes for series requests. */
+            episode_counts?: components["schemas"]["SeriesEpisodeCounts"];
         } & {
             /**
              * @description discriminator enum property added by openapi-typescript

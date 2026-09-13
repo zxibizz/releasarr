@@ -25,10 +25,27 @@ One movie, or one season of one series. `id` is a 64-char string (application-ge
 sequence).
 
 Shared: `media_type`, `status`, `title`, `year`, `overview`, `poster_url`, `genres` (JSON list),
-`localizations` (JSON dict), `runtime_minutes`, `imdb_id`, `created_at`, `updated_at`.
+`localizations` (JSON dict), `runtime_minutes`, `imdb_id`, `created_at`, `updated_at`,
+`exported_at`.
 
-Series-only: `season_number`, `total_episodes`, `series_title`, `series_year`,
-`sonarr_series_id`. Movie-only: `radarr_movie_id`.
+Series-only: `season_number`, `total_episodes`, `aired_episodes`, `downloaded_episodes`,
+`series_title`, `series_year`, `sonarr_series_id`. Movie-only: `radarr_movie_id`.
+
+`aired_episodes` and `downloaded_episodes` are Sonarr's `episode_count` and
+`episode_file_count` for the season, written by every sync. They are stored rather than derived
+so the API never has to ask Sonarr for them, and nullable so rows that predate the columns
+report `episode_counts: null` instead of a misleading "nothing downloaded". The API derives the
+three numbers the UI shows from them — downloaded, pending (`aired − downloaded`, clamped at
+zero) and unaired (`total − aired`, clamped at zero) — in
+`application/use_cases/requests/mappers.py`. `downloaded_episodes` is also set to
+`aired_episodes` when a season stops being missing, since Sonarr only drops a season from that
+list once it has everything.
+
+`exported_at` is stamped by the `export` task at the moment Sonarr or Radarr accept a release's
+files for that request, and is what the request card shows on its left. It is deliberately set
+for partly-filled seasons too — the question it answers is "when did this last reach the arr",
+not "when did it finish" — and stays NULL when the arr filled the request by itself, which is
+not an export by releasarr.
 
 Constraints, and what they mean:
 

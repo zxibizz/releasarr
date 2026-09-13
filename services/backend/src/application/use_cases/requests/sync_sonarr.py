@@ -123,6 +123,8 @@ class SyncSonarrMediaRequestsUseCase:
 
         season_info = details.seasons.get(season_number)
         total_episodes = season_info.total_episode_count if season_info else 0
+        aired_episodes = season_info.episode_count if season_info else None
+        downloaded_episodes = season_info.episode_file_count if season_info else None
         localized_series_title = self._localization.select(localizations, "title", details.title)
         title = self._build_request_title(localized_series_title, season_number)
         year = details.year or 0
@@ -146,6 +148,8 @@ class SyncSonarrMediaRequestsUseCase:
                 imdb_id=imdb_id,
                 season_number=season_number,
                 total_episodes=total_episodes,
+                aired_episodes=aired_episodes,
+                downloaded_episodes=downloaded_episodes,
                 series_title=details.title,
                 series_year=series_year,
                 status=MediaRequestStatus.PENDING,
@@ -178,6 +182,8 @@ class SyncSonarrMediaRequestsUseCase:
             imdb_id=imdb_id,
             season_number=season_number,
             total_episodes=total_episodes,
+            aired_episodes=aired_episodes,
+            downloaded_episodes=downloaded_episodes,
             series_title=details.title,
             series_year=series_year,
             sonarr_series_id=details.id,
@@ -208,7 +214,10 @@ class SyncSonarrMediaRequestsUseCase:
                 continue
             if record.status == MediaRequestStatus.COMPLETED:
                 continue
-            update = UpdateMediaRequestData(status=MediaRequestStatus.COMPLETED)
+            update = UpdateMediaRequestData(
+                status=MediaRequestStatus.COMPLETED,
+                downloaded_episodes=record.aired_episodes,
+            )
             await self._repository.update_request(record.id, update)
             transitioned += 1
             # A status transition belongs in the request's activity view, unlike

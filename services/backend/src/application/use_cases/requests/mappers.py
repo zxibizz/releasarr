@@ -7,6 +7,7 @@ from src.application.use_cases.requests.dto import (
     MediaRequestDTO,
     MediaRequestsPageDTO,
     MovieRequestDTO,
+    SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
 from src.domain.enums import MediaType
@@ -32,9 +33,25 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
             created_at=record.created_at,
             updated_at=record.updated_at,
             localizations=_clone_localizations(record.localizations),
+            exported_at=record.exported_at,
             runtime=record.runtime_minutes or 0,
             imdb_id=imdb_id,
             radarr_movie_id=record.radarr_movie_id,
+        )
+
+    # Derive episode counts when Sonarr-provided aired/downloaded values exist.
+    if record.aired_episodes is None:
+        episode_counts = None
+    else:
+        downloaded = max(record.downloaded_episodes or 0, 0)
+        aired = max(record.aired_episodes or 0, 0)
+        total = record.total_episodes or 0
+        pending = max(aired - downloaded, 0)
+        unaired = max(total - aired, 0)
+        episode_counts = SeriesEpisodeCountsDTO(
+            downloaded=downloaded,
+            pending=pending,
+            unaired=unaired,
         )
 
     return SeriesRequestDTO(
@@ -48,12 +65,14 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
         created_at=record.created_at,
         updated_at=record.updated_at,
         localizations=_clone_localizations(record.localizations),
+        exported_at=record.exported_at,
         season_number=record.season_number or 0,
         total_episodes=record.total_episodes or 0,
         series_title=record.series_title or record.title,
         series_year=record.series_year or record.year,
         imdb_id=imdb_id,
         sonarr_series_id=record.sonarr_series_id,
+        episode_counts=episode_counts,
     )
 
 

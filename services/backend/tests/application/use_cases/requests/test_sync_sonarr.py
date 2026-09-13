@@ -55,6 +55,8 @@ class FakeMediaRequestRepository(MediaRequestRepository):
             imdb_id=data.imdb_id,
             season_number=data.season_number,
             total_episodes=data.total_episodes,
+            aired_episodes=data.aired_episodes,
+            downloaded_episodes=data.downloaded_episodes,
             series_title=data.series_title,
             series_year=data.series_year,
             sonarr_series_id=data.sonarr_series_id,
@@ -193,6 +195,7 @@ def make_existing_records() -> dict[str, MediaRequestRecord]:
             imdb_id=None,
             season_number=2,
             total_episodes=6,
+            aired_episodes=6,
             series_title="Legacy",
             series_year=2018,
             sonarr_series_id=10,
@@ -280,17 +283,23 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     assert season_one.localizations["eng"].title == "Example Show"
     assert season_one.localizations["rus"].overview == "Русский сезон один"
     assert season_one.localizations["eng"].overview == "English season one"
+    # Sonarr's season statistics, kept so the card can derive the counts without
+    # another round trip.
+    assert (season_one.aired_episodes, season_one.downloaded_episodes) == (10, 5)
 
     # Season 2 should now be marked as completed
     season_two = await repository.find_by_sonarr(sonarr_series_id=10, season_number=2)
     assert season_two is not None
     assert season_two.status == MediaRequestStatus.COMPLETED
+    # A season Sonarr no longer reports as missing has nothing left pending.
+    assert season_two.downloaded_episodes == season_two.aired_episodes == 6
 
     # Season 3 should exist as a new request
     season_three = await repository.find_by_sonarr(sonarr_series_id=10, season_number=3)
     assert season_three is not None
     assert season_three.status == MediaRequestStatus.PENDING
     assert season_three.title == "Пример шоу - Season 3"
+    assert (season_three.aired_episodes, season_three.downloaded_episodes) == (8, 0)
     assert season_three.series_title == "Example Show"
     assert season_three.series_year == 2020
     assert season_three.poster_url == "http://poster"

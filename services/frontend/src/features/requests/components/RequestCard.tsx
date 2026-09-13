@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
 import { formatDate, formatRuntime } from '@/utils/formatters';
+import { EPISODE_STATUS_COLOR } from '@/utils/status';
 
 interface RequestCardProps {
   request: MediaRequest;
@@ -19,6 +20,40 @@ export function RequestCard({ request }: RequestCardProps) {
   const subtitle = isMovie
     ? formatRuntime(request.runtime)
     : t('requestCard.season', { season: request.season_number });
+
+  /*
+    The card is a summary, so each bucket collapses to an emoji and a number;
+    the full breakdown lives on the detail page. Zero-count buckets are dropped
+    rather than rendered as "0", which is what made the row wide in the first
+    place. The localized label is carried as the accessible name, since neither
+    the emoji nor the bare number says anything on its own.
+  */
+  const episodeItems =
+    request.type === 'series' && request.episode_counts
+      ? (
+          [
+            ['downloaded', '✅', request.episode_counts.downloaded],
+            ['pending', '⏳', request.episode_counts.pending],
+            ['unaired', '◻️', request.episode_counts.unaired],
+          ] as const
+        )
+          .filter(([, , count]) => count > 0)
+          .map(([key, emoji, count]) => ({
+            key,
+            emoji,
+            count,
+            color: EPISODE_STATUS_COLOR[key],
+            label: t(`requestCard.episodes.${key}`, { count }),
+          }))
+      : [];
+  const episodeSummary = episodeItems.map((item) => item.label).join(', ');
+
+  /*
+    Null until something is exported, which is also when the line goes away.
+  */
+  const exportedLabel = request.exported_at
+    ? t('requestCard.exported', { date: formatDate(request.exported_at) })
+    : null;
 
   return (
     <Card
@@ -86,9 +121,66 @@ export function RequestCard({ request }: RequestCardProps) {
             </Text>
           )}
 
-          <Text size="xs" c="dimmed" mt="auto">
-            {t('requestCard.createdAt', { date: formatDate(request.created_at) })}
-          </Text>
+          {/*
+            The footer pairs the two facts that answer "where is this up to":
+            when it last reached the arr, and how much of the season came with
+            it. `mt="auto"` keeps it on the baseline so a row of cards lines up
+            whether or not either fact exists yet.
+          */}
+          {exportedLabel !== null || episodeItems.length > 0 ? (
+            <Group
+              justify={exportedLabel ? 'space-between' : 'flex-end'}
+              align="center"
+              gap="sm"
+              wrap="nowrap"
+              mt="auto"
+            >
+              {exportedLabel && (
+                // Yields space before the counts do, since the counts are the
+                // part that cannot be guessed from the rest of the card.
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  aria-label={exportedLabel}
+                  title={exportedLabel}
+                  style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {exportedLabel}
+                </Text>
+              )}
+              {episodeItems.length > 0 &&
+                (isMobile ? (
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    aria-label={episodeSummary}
+                    title={episodeSummary}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {episodeItems.map((item) => `${item.emoji} ${item.count}`).join(' · ')}
+                  </Text>
+                ) : (
+                  <Group gap={4} style={{ flexShrink: 0 }}>
+                    {episodeItems.map((item) => (
+                      <Badge
+                        key={item.key}
+                        size="xs"
+                        color={item.color}
+                        variant="light"
+                        radius="sm"
+                        px={6}
+                        aria-label={item.label}
+                        title={item.label}
+                      >
+                        {item.emoji} {item.count}
+                      </Badge>
+                    ))}
+                  </Group>
+                ))}
+            </Group>
+          ) : (
+            <div style={{ marginTop: 'auto' }} />
+          )}
         </Stack>
       </Group>
     </Card>

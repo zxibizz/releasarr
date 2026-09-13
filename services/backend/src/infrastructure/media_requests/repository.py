@@ -67,10 +67,13 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 imdb_id=data.imdb_id,
                 season_number=data.season_number,
                 total_episodes=data.total_episodes,
+                aired_episodes=data.aired_episodes,
+                downloaded_episodes=data.downloaded_episodes,
                 series_title=data.series_title,
                 series_year=data.series_year,
                 sonarr_series_id=data.sonarr_series_id,
                 radarr_movie_id=data.radarr_movie_id,
+                exported_at=data.exported_at,
             )
             session.add(request)
             await session.flush()
@@ -177,10 +180,13 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             imdb_id=request.imdb_id,
             season_number=request.season_number,
             total_episodes=request.total_episodes,
+            aired_episodes=request.aired_episodes,
+            downloaded_episodes=request.downloaded_episodes,
             series_title=request.series_title,
             series_year=request.series_year,
             sonarr_series_id=request.sonarr_series_id,
             radarr_movie_id=request.radarr_movie_id,
+            exported_at=request.exported_at,
             created_at=request.created_at,
             updated_at=request.updated_at,
         )
