@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from src.domain.enums import (
     AsyncJobStatus,
+    EpisodeStatus,
     MediaRequestStatus,
     MediaType,
     ReleaseStatus,
@@ -15,6 +16,7 @@ from src.domain.enums import (
 
 __all__ = [
     "AsyncJobStatus",
+    "EpisodeStatus",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",

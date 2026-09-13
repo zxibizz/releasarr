@@ -9,7 +9,7 @@ from pydantic import Field, field_serializer
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
-from src.schemas.enums import MediaRequestStatus
+from src.schemas.enums import EpisodeStatus, MediaRequestStatus
 
 
 class MediaLocalization(APIModel):
@@ -109,6 +109,28 @@ class RequestsResponse(PaginatedResponse):
     requests: list[MediaRequest]
 
 
+class SeasonEpisode(APIModel):
+    """One episode of a requested season, and what became of it."""
+
+    episode_number: int
+    title: str
+    status: EpisodeStatus
+    air_date: datetime | None = None
+
+    @field_serializer("air_date")
+    def _serialize_air_date(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=UTC)
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+class SeasonEpisodesResponse(APIModel):
+    season_number: int
+    episodes: list[SeasonEpisode]
+
+
 __all__ = [
     "BaseMediaRequest",
     "CreateMovieRequest",
@@ -119,5 +141,7 @@ __all__ = [
     "MediaRequestUpdate",
     "MovieRequest",
     "RequestsResponse",
+    "SeasonEpisode",
+    "SeasonEpisodesResponse",
     "SeriesRequest",
 ]

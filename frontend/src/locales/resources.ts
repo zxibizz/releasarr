@@ -396,6 +396,23 @@ export const resources = {
             description: 'Stop wanting this and unmonitor it',
           },
         },
+        episodes: {
+          title: 'Episodes',
+          summary: '{{downloaded}} of {{total}} downloaded',
+          untitled: 'Title to be announced',
+          notScheduled: 'Not scheduled',
+          columns: {
+            number: '#',
+            title: 'Episode',
+            airDate: 'Airs',
+            status: 'Status',
+          },
+          status: {
+            downloaded: 'Downloaded',
+            missing: 'Pending',
+            unaired: 'Not aired yet',
+          },
+        },
         seasons: {
           manage: 'Manage seasons',
           modalTitle: 'Seasons of {{title}}',
@@ -954,6 +971,23 @@ export const resources = {
           remove: {
             title: 'Удалить запрос',
             description: 'Больше не отслеживать и снять мониторинг',
+          },
+        },
+        episodes: {
+          title: 'Эпизоды',
+          summary: 'Скачано {{downloaded}} из {{total}}',
+          untitled: 'Название будет объявлено',
+          notScheduled: 'Дата неизвестна',
+          columns: {
+            number: '№',
+            title: 'Эпизод',
+            airDate: 'Выход',
+            status: 'Статус',
+          },
+          status: {
+            downloaded: 'Скачан',
+            missing: 'Ожидается',
+            unaired: 'Ещё не вышел',
           },
         },
         seasons: {

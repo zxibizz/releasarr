@@ -247,6 +247,7 @@ class FakeSonarrService:
         *,
         lookups: dict[int, SeriesLookup] | None = None,
         catalogue: dict[int, SeriesDetails] | None = None,
+        episodes: dict[int, list[SonarrEpisode]] | None = None,
         search_results: list[SeriesLookup] | None = None,
         root_folders: list[ArrRootFolder] | None = None,
         quality_profiles: list[ArrQualityProfile] | None = None,
@@ -254,6 +255,7 @@ class FakeSonarrService:
     ) -> None:
         self._lookups = lookups or {}
         self._catalogue = catalogue or {}
+        self._episodes = episodes or {}
         self._search_results = search_results or []
         # An empty list is a deliberate "Sonarr reports none", not "use the default".
         self._root_folders = (
@@ -274,7 +276,7 @@ class FakeSonarrService:
         return self._catalogue[series_id]
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
-        return []
+        return self._episodes.get(series_id, [])
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         return True

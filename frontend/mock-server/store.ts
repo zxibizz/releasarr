@@ -22,6 +22,7 @@ import type {
   RequestLogEntry,
   RootFolder,
   ScheduledTask,
+  SeasonEpisodesResponse,
   SeasonOption,
   SeriesSeasonsResponse,
   SyncJob,
@@ -718,6 +719,40 @@ export class MockStore {
       (candidate) => candidate.type === 'series' && candidate.provider_id === tvdbId,
     );
     return entry ? await this.describeSeasons(entry) : null;
+  }
+
+  /**
+   * The episodes of the season a request covers, made up from its episode count.
+   *
+   * Air dates are laid out weekly so that the last two of any season are still
+   * to come, and every fourth aired episode is left without a file: between
+   * them the three states a row can be in all show up on one page.
+   */
+  async listRequestEpisodes(requestId: string): Promise<SeasonEpisodesResponse | null> {
+    const request = await this.getRequest(requestId);
+    if (!request || request.type !== 'series') {
+      return null;
+    }
+
+    const total = Math.max(0, request.total_episodes);
+    const week = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    return {
+      season_number: request.season_number,
+      episodes: Array.from({ length: total }, (_, index) => {
+        const number = index + 1;
+        const airDate = new Date(now - (total - 2 - number) * week);
+        const aired = airDate.getTime() <= now;
+        const hasFile = aired && number % 4 !== 0;
+        return {
+          episode_number: number,
+          title: `Episode ${number}`,
+          status: hasFile ? 'downloaded' : aired ? 'missing' : 'unaired',
+          air_date: airDate.toISOString(),
+        };
+      }),
+    };
   }
 
   /** The seasons of the series a request belongs to, for managing the selection. */

@@ -16,6 +16,7 @@ import { releaseKeys } from '@/features/releases/queries';
 import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
+import { SeasonEpisodes } from '@/features/requests/components/SeasonEpisodes';
 import { localizeRequest } from '@/features/requests/localization';
 import { requestKeys, useRemoveRequest, useRequest } from '@/features/requests/queries';
 import type { Release } from '@/types';
@@ -90,6 +91,9 @@ export function RequestDetailPage() {
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: requestKeys.detail(id) }),
+        // An import that landed since the page opened shows up as episodes
+        // gained rather than anything the request row itself says.
+        queryClient.invalidateQueries({ queryKey: requestKeys.episodes(id) }),
         queryClient.invalidateQueries({ queryKey: releaseKeys.byRequest(id) }),
       ]);
       notifications.show({
@@ -187,6 +191,8 @@ export function RequestDetailPage() {
           ) : null
         }
       />
+
+      {localizedRequest.type === 'series' && <SeasonEpisodes requestId={localizedRequest.id} />}
 
       <ReleaseList
         requestId={localizedRequest.id}

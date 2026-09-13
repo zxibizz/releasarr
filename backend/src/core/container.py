@@ -52,6 +52,7 @@ from src.application.use_cases.releases.update_file_mappings import (
 from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
+from src.application.use_cases.requests.list_episodes import ListRequestEpisodesUseCase
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
@@ -284,6 +285,13 @@ class MediaRequestUseCases:
             repository=self._container.repositories.media_requests,
             sonarr_service=self._container.services.sonarr,
             radarr_service=self._container.services.radarr,
+        )
+
+    @cached_property
+    def episodes(self) -> ListRequestEpisodesUseCase:
+        return ListRequestEpisodesUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
         )
 
     @cached_property

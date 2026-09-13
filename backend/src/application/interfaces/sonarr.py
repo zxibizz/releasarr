@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Protocol
 
 from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
@@ -65,6 +66,11 @@ class SonarrEpisode:
     id: int
     season_number: int
     episode_number: int
+    title: str = ""
+    # Absent for an episode Sonarr has no date for, which is both an episode
+    # announced without one and one whose season is yet to be scheduled.
+    air_date: datetime | None = None
+    has_file: bool = False
 
 
 @dataclass(slots=True)
