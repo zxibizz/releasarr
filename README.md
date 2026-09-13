@@ -161,7 +161,8 @@ docker compose up -d --build
 
 Releasarr is on **http://localhost:8050**. One container runs the whole thing: nginx serves the
 frontend and proxies the API under `/api/`, Alembic migrates on boot, and the scheduler worker
-starts alongside uvicorn.
+runs alongside uvicorn. All three are supervised by s6-overlay, so a process that dies is
+restarted on its own, and a failed migration stops the container instead of leaving it half up.
 
 A few things worth knowing before you point it at real data:
 
@@ -372,7 +373,7 @@ only place HTTP happens. Route loaders warm the query cache so pages have data o
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic 2, httpx, Loguru, Typer, `uv` |
 | **Frontend** | React 19, Vite, TypeScript, Mantine 9, TanStack Query 5, React Router 7, i18next |
 | **Storage** | SQLite by default, PostgreSQL via `asyncpg` |
-| **Packaging** | One Docker image: nginx + uvicorn + scheduler worker |
+| **Packaging** | One Docker image: s6-overlay supervising nginx + uvicorn + scheduler worker |
 
 ## Further reading
 

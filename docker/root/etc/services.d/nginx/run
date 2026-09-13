@@ -1,0 +1,4 @@
+#!/command/with-contenv sh
+# `daemon off` is what makes nginx supervisable: forked into the background it
+# would exit immediately and s6 would restart it forever.
+exec nginx -g "daemon off;"

@@ -1,0 +1,6 @@
+#!/command/with-contenv sh
+# Runs before any service starts, so nothing serves a request or claims a job
+# against a stale schema. S6_BEHAVIOUR_IF_STAGE2_FAILS=2 takes the container
+# down if this fails, rather than leaving a half-started stack behind.
+cd /app
+exec /app/.venv/bin/alembic upgrade head

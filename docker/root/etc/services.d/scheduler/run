@@ -1,0 +1,3 @@
+#!/command/with-contenv sh
+cd /app
+exec /app/.venv/bin/python -m src.tasks.scheduler_service

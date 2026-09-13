@@ -24,8 +24,23 @@ FROM python:3.12-slim-bookworm
 
 # Install Nginx
 RUN apt-get -o Acquire::ForceIPv4=true update && \
-    apt-get -o Acquire::ForceIPv4=true install -y nginx curl && \
+    apt-get -o Acquire::ForceIPv4=true install -y nginx curl xz-utils && \
     rm -rf /var/lib/apt/lists/*
+
+# s6-overlay supervises the three processes this image runs. Extracted with
+# curl rather than ADD because the arch-specific tarball name is only known
+# after mapping TARGETARCH, which ADD cannot do.
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG TARGETARCH
+RUN set -eu; \
+    case "${TARGETARCH:-}" in \
+        amd64) s6_arch=x86_64 ;; \
+        arm64) s6_arch=aarch64 ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH:-unset}" >&2; exit 1 ;; \
+    esac; \
+    release="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}"; \
+    curl -fsSL "${release}/s6-overlay-noarch.tar.xz" | tar -C / -Jxpf -; \
+    curl -fsSL "${release}/s6-overlay-${s6_arch}.tar.xz" | tar -C / -Jxpf -
 
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"
@@ -41,13 +56,17 @@ COPY backend/src /app/src
 COPY backend/alembic /app/alembic
 COPY backend/alembic.ini /app
 
-# Configure Nginx
-COPY nginx.conf /etc/nginx/sites-available/default
+# The nginx site, the migration step, and the three supervised services, each
+# already at the path it occupies in the image
+COPY docker/root/ /
+RUN chmod +x /etc/cont-init.d/* /etc/services.d/*/run
 
-# Setup Entrypoint
-COPY entrypoint.sh /
-RUN chmod +x /entrypoint.sh
+# Abort the boot if migrations fail instead of serving against a stale schema.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+# Docker allows 10s before SIGKILL; leave uvicorn most of it to drain the
+# request it is holding, which for an indexer search can be seconds.
+ENV S6_SERVICES_GRACETIME=8000
 
 EXPOSE 80
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/init"]

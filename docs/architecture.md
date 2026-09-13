@@ -23,8 +23,17 @@ Three processes, one container image:
         └─────────────────────────────┘   └───────────────────────────┘
 ```
 
-`entrypoint.sh` runs `alembic upgrade head`, then nginx, then the scheduler in the background,
-then uvicorn in the foreground.
+[s6-overlay](https://github.com/just-containers/s6-overlay) is PID 1 and supervises all three.
+`/etc/cont-init.d/01-migrations` runs `alembic upgrade head` before anything starts — a failure
+there takes the container down rather than serving against a stale schema — and the three
+services in `/etc/services.d` come up afterwards, each restarted on its own if it dies. The tree
+lives in `docker/root/`, copied to `/` at build time.
+
+Two details of that arrangement look like faults and are not. s6 warns at boot that
+`/etc/s6-overlay/s6-rc.d` is empty, because the services use the older `services.d` layout — four
+shell scripts rather than the sixteen files the `s6-rc` format needs for the same three daemons
+and one init step. And `docker stop` reports exit code 137 even when shutdown was orderly, since
+s6 ends its own halt sequence with a kill.
 
 `docker-compose.dev.yaml` keeps the same split but gives each process its own container with the
 source bind-mounted and reload enabled, and lets the Vite dev server stand in for nginx and the
