@@ -171,8 +171,9 @@ A few things worth knowing before you point it at real data:
 - **Releasarr must see the same paths as Sonarr and Radarr.** Imports are handed over as
   absolute filesystem paths, so the download directory qBittorrent reports has to resolve
   identically inside the \*arr containers.
-- **The database is a bind-mounted SQLite file** (`backend/releasarr.db`). Create it before the
-  first run — `touch backend/releasarr.db` — or Docker will make a directory in its place. Set
+- **The database is a bind-mounted SQLite file** (`services/backend/releasarr.db`). Create it
+  before the first run — `touch services/backend/releasarr.db` — or Docker will make a
+  directory in its place. Set
   `RELEASARR_DATABASE_URL` to a `postgresql+asyncpg://` URL to use Postgres instead.
 - **Everything except the health probes needs `X-API-Key`.** The default is `dev-secret`; change
   it.
@@ -270,7 +271,7 @@ UI without a backend, a library, or a tracker.
 ### Frontend
 
 ```bash
-cd frontend
+cd services/frontend
 npm install
 npm run dev:mock
 ```
@@ -290,7 +291,7 @@ it.
 ### Backend
 
 ```bash
-cd backend
+cd services/backend
 uv sync
 uv run alembic upgrade head
 uv run fastapi dev src/api/app.py
@@ -334,7 +335,7 @@ Only a dependency change needs `--build` again. Vite proxies `/api` to the backe
 prefix nginx serves it under in production, so the browser stays on a single origin.
 
 Two things it shares with the production stack: the same `.env`, and the same
-`backend/releasarr.db`. Bringing it up starts syncing against whichever Sonarr, Radarr, and
+`services/backend/releasarr.db`. Bringing it up starts syncing against whichever Sonarr, Radarr, and
 Prowlarr that file points at.
 
 ## Architecture
@@ -382,5 +383,5 @@ only place HTTP happens. Route loaders warm the query cache so pages have data o
 - [`docs/`](docs/README.md) — developer documentation: architecture, backend and frontend conventions, data model, testing
 - [`AGENTS.md`](AGENTS.md) — the short orientation, and the rules that matter most when changing this code
 - [`openapi.yaml`](openapi.yaml) — the API contract
-- [`backend/docs/tasks.md`](backend/docs/tasks.md) — background tasks, the scheduler, job queueing, and log filtering in detail
-- [`frontend/README.md`](frontend/README.md) — frontend conventions and the file mapping internals
+- [`services/backend/docs/tasks.md`](services/backend/docs/tasks.md) — background tasks, the scheduler, job queueing, and log filtering in detail
+- [`services/frontend/README.md`](services/frontend/README.md) — frontend conventions and the file mapping internals

@@ -1,7 +1,7 @@
 # Releasarr backend
 
 FastAPI service plus a scheduler worker, built to the contract in
-[`../openapi.yaml`](../openapi.yaml). Python 3.12, SQLAlchemy 2.0 async, `uv`.
+[`../../openapi.yaml`](../../openapi.yaml). Python 3.12, SQLAlchemy 2.0 async, `uv`.
 
 ## Getting started
 
@@ -88,16 +88,16 @@ anything from `infrastructure/`.
 | [`docs/integrations.md`](docs/integrations.md) | Every external service: endpoints called, auth, base-URL requirements, retries, degradation |
 | [`docs/file-mapping.md`](docs/file-mapping.md) | How release files are listed, parsed, matched to episodes, and imported |
 
-Repo-wide docs live in [`../docs/`](../docs/README.md) — start with
-[`../AGENTS.md`](../AGENTS.md) for the conventions, [`../docs/backend.md`](../docs/backend.md)
+Repo-wide docs live in [`../../docs/`](../../docs/README.md) — start with
+[`../../AGENTS.md`](../../AGENTS.md) for the conventions, [`../../docs/backend.md`](../../docs/backend.md)
 for the patterns to follow when adding code, and
-[`../docs/data-model.md`](../docs/data-model.md) for the schema.
+[`../../docs/data-model.md`](../../docs/data-model.md) for the schema.
 
 ## Configuration
 
 Settings live in `src/settings/config.py`, read from the environment with a `RELEASARR_`
 prefix or from `.env`. The full table with defaults is in the
-[root README](../README.md#configuration). The ones that catch people out:
+[root README](../../README.md#configuration). The ones that catch people out:
 
 - **Base URLs are passed through verbatim** and must already include the provider's API path:
   Sonarr and Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`, TMDB `…/3`.

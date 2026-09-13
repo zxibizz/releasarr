@@ -26,7 +26,7 @@ import { shots, type Shot } from './shots';
 const DEFAULT_VIEWPORT = { width: 1500, height: 980 };
 /** Sharper than 1x without the file sizes a full 2x would put in the README. */
 const DEVICE_SCALE_FACTOR = 1.1;
-const DEFAULT_OUT_DIR = path.resolve(import.meta.dirname, '../../../docs/screenshots');
+const DEFAULT_OUT_DIR = path.resolve(import.meta.dirname, '../../../../docs/screenshots');
 
 interface Options {
   names: string[];

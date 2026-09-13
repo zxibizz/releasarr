@@ -26,9 +26,9 @@ services:
       # macOS or Windows hosts, so the reloader has to poll.
       WATCHFILES_FORCE_POLLING: "true"
     volumes:
-      - ./backend:/app
-      # The contract test resolves the spec relative to the repository root, one
-      # level above the code, so mounting ./backend alone hides it.
+      - ./services/backend:/app
+      # The contract test walks up from its own file looking for the spec, and
+      # mounting the service directory alone leaves nothing above /app to find.
       - ./openapi.yaml:/openapi.yaml:ro
     ports:
       - 8000:8000
@@ -55,7 +55,7 @@ services:
     environment:
       WATCHFILES_FORCE_POLLING: "true"
     volumes:
-      - ./backend:/app
+      - ./services/backend:/app
     depends_on:
       # Waiting for a healthy API means migrations have already run.
       backend:
@@ -76,7 +76,7 @@ services:
       VITE_API_KEY: ${RELEASARR_API_KEY:-dev-secret}
       VITE_WATCH_POLLING: "true"
     volumes:
-      - ./frontend:/app
+      - ./services/frontend:/app
       # Anonymous host node_modules would shadow the image's Linux binaries.
       - frontend-node-modules:/app/node_modules
     ports:

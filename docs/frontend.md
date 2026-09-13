@@ -1,8 +1,9 @@
 # Frontend guide
 
-Concrete patterns for `frontend/`. Paths are relative to `frontend/`. See
+Concrete patterns for `services/frontend/`. Paths are relative to `services/frontend/`. See
 [`architecture.md`](architecture.md) for how the slices fit together, and
-[`../frontend/README.md`](../frontend/README.md) for the file-mapping internals.
+[`../services/frontend/README.md`](../services/frontend/README.md) for the file-mapping
+internals.
 
 ## Stack
 
@@ -116,7 +117,7 @@ none. Polling belongs in `features/tasks/queries.ts` and nowhere else.
 ## Types and codegen
 
 ```
-../openapi.yaml  →  npm run codegen  →  src/lib/api/generated/types.ts  →  src/types.ts
+../../openapi.yaml  →  npm run codegen  →  src/lib/api/generated/types.ts  →  src/types.ts
 ```
 
 `src/lib/api/generated/types.ts` is **committed but generated** — never hand-edit it. It is in
@@ -128,7 +129,7 @@ type Schemas = components['schemas'];
 export type MediaRequest = Schemas['MediaRequest'];
 ```
 
-When the contract changes: edit `../openapi.yaml`, run `npm run codegen`, extend `src/types.ts`,
+When the contract changes: edit `../../openapi.yaml`, run `npm run codegen`, extend `src/types.ts`,
 update the affected `api.ts`/`queries.ts`, and update the mock server. Commit the regenerated
 file.
 
@@ -238,7 +239,7 @@ optional upkeep — UI work and every screenshot in the README run against it.
 
 | File | Role |
 | --- | --- |
-| `index.ts` | Express app; routes mount on an `api` router at `/api`; serves `../openapi.yaml` |
+| `index.ts` | Express app; routes mount on an `api` router at `/api`; serves `../../openapi.yaml` |
 | `store.ts` | `MockStore` — in-memory state, simulated latency, job lifecycle transitions |
 | `mockData.ts` | Seed requests, releases, search candidates, mapping suggestions |
 | `mockDiscover.ts` | Discover catalogue and root folders |
@@ -254,7 +255,7 @@ three candidates.
 
 ## Checklist for a feature change
 
-1. `../openapi.yaml` → `npm run codegen` → extend `src/types.ts` if needed.
+1. `../../openapi.yaml` → `npm run codegen` → extend `src/types.ts` if needed.
 2. Endpoints into `features/<name>/api.ts`.
 3. Keys and hooks into `features/<name>/queries.ts`.
 4. Strings into **both** locales in `src/locales/resources.ts`.

@@ -6,5 +6,5 @@
 **/.coverage
 **/.env
 **/.DS_Store
-frontend/dist
-backend/.mypy_cache
+services/frontend/dist
+services/backend/.mypy_cache

@@ -165,6 +165,6 @@ cython_debug/
 persistence_data
 .logs/
 # Allow React query helpers committed from frontend
-!frontend/src/lib/
-!frontend/src/lib/*
+!services/frontend/src/lib/
+!services/frontend/src/lib/*
 

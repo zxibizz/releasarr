@@ -1,6 +1,6 @@
 # Backend guide
 
-Concrete patterns for `backend/`. Paths are relative to `backend/`. Read
+Concrete patterns for `services/backend/`. Paths are relative to `services/backend/`. Read
 [`architecture.md`](architecture.md) first for the layering rationale.
 
 ## Adding an API endpoint
@@ -18,7 +18,7 @@ The full checklist, in dependency order. Skip the steps that do not apply.
 7. **Route** in `src/api/routes/<area>.py`, and `include_router` in
    `src/api/routes/__init__.py` if the router is new.
 8. **Domain exceptions** into `DOMAIN_ERROR_MAP` in `src/api/errors.py`.
-9. **Update `../openapi.yaml`** and confirm `uv run pytest tests/api/test_openapi_contract.py`.
+9. **Update `../../openapi.yaml`** and confirm `uv run pytest tests/api/test_openapi_contract.py`.
 
 ### Routers
 
@@ -323,7 +323,7 @@ in a use case and default to `get_settings()`. Document new variables in the `RE
 
 ## Migrations
 
-Run from `backend/`:
+Run from `services/backend/`:
 
 ```bash
 uv run alembic revision --autogenerate -m "add thing"
@@ -350,5 +350,5 @@ holds the step implementations; `src/tasks/cli.py` is a Typer app for one-shot r
 
 Adding a task means: a new `SyncJobKind` member (with a migration for the enum), a definition
 with its interval, a step in `SyncSteps`, and a CLI command if it is useful standalone. Read
-[`../backend/docs/tasks.md`](../backend/docs/tasks.md) — it covers job collapsing, ordering
+[`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md) — it covers job collapsing, ordering
 guarantees, and log binding in detail.
