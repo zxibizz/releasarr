@@ -32,7 +32,18 @@ with file paths and snippets.
 | [`docs/frontend.md`](docs/frontend.md) | Any frontend change: feature slices, queries, i18n, styling, mock server |
 | [`docs/data-model.md`](docs/data-model.md) | Schema, enums, constraints, and the invariants they encode |
 | [`docs/testing.md`](docs/testing.md) | Writing or fixing tests on either side |
+
+Narrower docs live next to the code they describe:
+
+| Doc | When to read it |
+| --- | --- |
+| [`backend/README.md`](backend/README.md) | Running the backend; what each directory is for |
 | [`backend/docs/tasks.md`](backend/docs/tasks.md) | Background tasks, the scheduler, job queueing, log filtering |
+| [`backend/docs/integrations.md`](backend/docs/integrations.md) | Touching any Sonarr / Radarr / Prowlarr / qBittorrent / TVDB / TMDB adapter |
+| [`backend/docs/file-mapping.md`](backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
+| [`frontend/README.md`](frontend/README.md) | Running the frontend; routing, i18n, mobile |
+| [`frontend/docs/file-mapping.md`](frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
+| [`frontend/docs/mock-server.md`](frontend/docs/mock-server.md) | Adding or changing a mock endpoint |
 
 ## Hard rules
 
