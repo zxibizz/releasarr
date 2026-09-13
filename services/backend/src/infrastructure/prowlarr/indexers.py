@@ -9,18 +9,57 @@ import httpx
 
 from src.application.interfaces.indexers import (
     IndexerDirectory,
+    IndexerEventPage,
+    IndexerEventRecord,
+    IndexerLogPage,
+    IndexerLogRecord,
     IndexerNotFoundError,
     IndexerRecord,
     IndexerTestResultRecord,
 )
+from src.domain.enums import IndexerEventType, IndexerLogLevel
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 from src.infrastructure.prowlarr.parsing import (
     safe_bool,
     safe_datetime,
     safe_int,
+    safe_json,
     safe_json_list,
     safe_str,
 )
+
+# Prowlarr names its history event types in camel case, and answers a filter on
+# either the name or the underlying number. Mapping both ways from one table
+# keeps the request and the response reading the same vocabulary.
+_EVENT_TYPES: dict[str, IndexerEventType] = {
+    "unknown": IndexerEventType.UNKNOWN,
+    "indexerQuery": IndexerEventType.INDEXER_QUERY,
+    "indexerRss": IndexerEventType.INDEXER_RSS,
+    "indexerAuth": IndexerEventType.INDEXER_AUTH,
+    "indexerInfo": IndexerEventType.INDEXER_INFO,
+    "releaseGrabbed": IndexerEventType.RELEASE_GRABBED,
+}
+
+_PROWLARR_EVENT_NAMES = {event: name for name, event in _EVENT_TYPES.items()}
+
+# Keys read onto the record itself, so the leftover data does not repeat them.
+_LIFTED_DATA_KEYS = frozenset(
+    {"query", "grabTitle", "title", "sourceTitle", "source", "elapsedTime"}
+)
+
+# Prowlarr lower-cases the level on the way out but compares the stored,
+# capitalised value when filtering, so the filter cannot reuse our own value.
+_PROWLARR_LEVEL_NAMES = {
+    IndexerLogLevel.TRACE: "Trace",
+    IndexerLogLevel.DEBUG: "Debug",
+    IndexerLogLevel.INFO: "Info",
+    IndexerLogLevel.WARN: "Warn",
+    IndexerLogLevel.ERROR: "Error",
+    IndexerLogLevel.FATAL: "Fatal",
+}
+
+# Prowlarr writes "warn", but has also written "warning" over the years.
+_LEVEL_ALIASES = {"warning": IndexerLogLevel.WARN, "critical": IndexerLogLevel.FATAL}
 
 
 @dataclass(slots=True)
@@ -66,6 +105,82 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
 
         records.sort(key=lambda record: record.name.lower())
         return records
+
+    async def list_history(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        indexer_id: int | None = None,
+        event_type: IndexerEventType | None = None,
+    ) -> IndexerEventPage:
+        """Read a page of Prowlarr's own indexer history.
+
+        Prowlarr paginates and sorts this server-side, so the page is asked for
+        rather than sliced out of a full list: the history runs to tens of
+        thousands of rows on a busy instance.
+        """
+
+        params: list[tuple[str, str]] = [
+            ("page", str(page)),
+            ("pageSize", str(per_page)),
+            ("sortKey", "date"),
+            ("sortDirection", "descending"),
+        ]
+        if indexer_id is not None:
+            params.append(("indexerIds", str(indexer_id)))
+        if event_type is not None:
+            params.append(("eventType", _PROWLARR_EVENT_NAMES[event_type]))
+
+        response = await self._http.request("GET", "/history", params=params)
+        self._raise_for_status(response)
+
+        payload = safe_json(response) or {}
+        records = payload.get("records")
+        events: list[IndexerEventRecord] = []
+        for item in records if isinstance(records, list) else []:
+            if not isinstance(item, dict):
+                continue
+            record = self._map_event(item)
+            if record is not None:
+                events.append(record)
+
+        total = safe_int(payload.get("totalRecords"))
+        return IndexerEventPage(events=tuple(events), total=total if total is not None else 0)
+
+    async def list_logs(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        min_level: IndexerLogLevel | None = None,
+    ) -> IndexerLogPage:
+        """Read a page of Prowlarr's own log, the one its UI shows as Events."""
+
+        params: list[tuple[str, str]] = [
+            ("page", str(page)),
+            ("pageSize", str(per_page)),
+            ("sortKey", "time"),
+            ("sortDirection", "descending"),
+        ]
+        if min_level is not None:
+            params.append(("level", _PROWLARR_LEVEL_NAMES[min_level]))
+
+        response = await self._http.request("GET", "/log", params=params)
+        self._raise_for_status(response)
+
+        payload = safe_json(response) or {}
+        records = payload.get("records")
+        logs: list[IndexerLogRecord] = []
+        for item in records if isinstance(records, list) else []:
+            if not isinstance(item, dict):
+                continue
+            record = self._map_log(item)
+            if record is not None:
+                logs.append(record)
+
+        total = safe_int(payload.get("totalRecords"))
+        return IndexerLogPage(logs=tuple(logs), total=total if total is not None else 0)
 
     async def test_indexer(self, indexer_id: int) -> IndexerTestResultRecord:
         """Round-trip the stored definition back through Prowlarr's test.
@@ -177,6 +292,88 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
             most_recent_failure=safe_datetime(status.get("mostRecentFailure")),
             initial_failure=safe_datetime(status.get("initialFailure")),
         )
+
+    def _map_event(self, item: dict[str, object]) -> IndexerEventRecord | None:
+        event_id = safe_int(item.get("id"))
+        indexer_id = safe_int(item.get("indexerId"))
+        occurred_at = safe_datetime(item.get("date"))
+        if event_id is None or indexer_id is None or occurred_at is None:
+            return None
+
+        data = self._event_data(item.get("data"))
+        return IndexerEventRecord(
+            event_id=event_id,
+            indexer_id=indexer_id,
+            occurred_at=occurred_at,
+            event_type=self._event_type(item.get("eventType")),
+            successful=safe_bool(item.get("successful"), default=True),
+            indexer_name=safe_str(item.get("indexerName")),
+            query=safe_str(data.get("query")),
+            title=safe_str(data.get("grabTitle") or data.get("title"))
+            or safe_str(item.get("sourceTitle")),
+            source=safe_str(data.get("source")),
+            elapsed_ms=safe_int(data.get("elapsedTime")),
+            data={
+                key: value
+                for key, raw in data.items()
+                if key not in _LIFTED_DATA_KEYS and (value := safe_str(raw)) is not None
+            },
+        )
+
+    def _event_type(self, value: object) -> IndexerEventType:
+        """Read Prowlarr's event type, falling back to unknown.
+
+        Prowlarr adds members to this enum between releases, and an event nobody
+        here has a name for is still worth listing.
+        """
+
+        name = safe_str(value)
+        if name is None:
+            return IndexerEventType.UNKNOWN
+        for candidate, event in _EVENT_TYPES.items():
+            if candidate.lower() == name.lower():
+                return event
+        return IndexerEventType.UNKNOWN
+
+    def _map_log(self, item: dict[str, object]) -> IndexerLogRecord | None:
+        log_id = safe_int(item.get("id"))
+        occurred_at = safe_datetime(item.get("time"))
+        if log_id is None or occurred_at is None:
+            return None
+
+        # An exception with no message of its own is the whole entry; dropping it
+        # would lose the failures worth reading this log for.
+        message = safe_str(item.get("message"))
+        exception = safe_str(item.get("exception"))
+        exception_type = safe_str(item.get("exceptionType"))
+        if message is None:
+            message = exception_type or ""
+
+        return IndexerLogRecord(
+            log_id=log_id,
+            occurred_at=occurred_at,
+            level=self._log_level(item.get("level")),
+            message=message,
+            component=safe_str(item.get("logger")),
+            method=safe_str(item.get("method")),
+            exception=exception,
+            exception_type=exception_type,
+        )
+
+    def _log_level(self, value: object) -> IndexerLogLevel:
+        name = safe_str(value)
+        if name is None:
+            return IndexerLogLevel.INFO
+        lowered = name.lower()
+        for level in IndexerLogLevel:
+            if level.value == lowered:
+                return level
+        return _LEVEL_ALIASES.get(lowered, IndexerLogLevel.INFO)
+
+    def _event_data(self, value: object) -> dict[str, object]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}
 
     def _urls(self, value: object) -> tuple[str, ...]:
         if not isinstance(value, list):

@@ -24,7 +24,7 @@ class DeleteReleaseUseCase:
                 await self._download_service.delete_download(release.info_hash)
             except Exception:
                 # Proceed with deletion even if removing from client fails
-                pass 
+                pass
 
         deleted = await self._repository.delete_release(release_id)
         if not deleted:

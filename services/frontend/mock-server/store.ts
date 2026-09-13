@@ -10,10 +10,13 @@ import {
   type DiscoverCatalogueEntry,
   localizeEntry,
 } from './mockDiscover';
+import { generateMockIndexerHistory } from './mockIndexerHistory';
 import { MOCK_FAILING_INDEXER_IDS, MOCK_INDEXERS } from './mockIndexers';
 import { generateMockRequestLogs, generateMockTaskLogs } from './mockLogs';
 import type {
   Indexer,
+  IndexerEventType,
+  IndexerHistoryEntry,
   IndexerTestResult,
   MediaSearchResult,
   MediaRequest,
@@ -141,6 +144,7 @@ export class MockStore {
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
   private indexersCache: Indexer[] | null = null;
+  private indexerHistoryCache: IndexerHistoryEntry[] | null = null;
   private syncJobs: SyncJob[] = [];
   // Cloned because adding media mutates it, standing in for the *arr library.
   private discoverCatalogue: DiscoverCatalogueEntry[] = DISCOVER_CATALOGUE.map((entry) =>
@@ -677,6 +681,30 @@ export class MockStore {
 
   async listIndexers(): Promise<Indexer[]> {
     return this.ensureIndexers().map((indexer) => clone(indexer));
+  }
+
+  /** Prowlarr paginates its history server-side, so the page is sliced here. */
+  async listIndexerHistory(filters: {
+    page: number;
+    perPage: number;
+    indexerId?: number;
+    eventType?: IndexerEventType;
+  }): Promise<{ history: IndexerHistoryEntry[]; total: number }> {
+    if (this.indexerHistoryCache === null) {
+      this.indexerHistoryCache = generateMockIndexerHistory();
+    }
+
+    const matches = this.indexerHistoryCache.filter(
+      (entry) =>
+        (filters.indexerId === undefined || entry.indexer_id === filters.indexerId) &&
+        (filters.eventType === undefined || entry.event_type === filters.eventType),
+    );
+
+    const start = (filters.page - 1) * filters.perPage;
+    return {
+      history: matches.slice(start, start + filters.perPage).map((entry) => clone(entry)),
+      total: matches.length,
+    };
   }
 
   /**

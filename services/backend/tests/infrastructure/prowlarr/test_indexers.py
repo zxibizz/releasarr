@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from src.application.interfaces.indexers import IndexerNotFoundError
+from src.domain.enums import IndexerEventType, IndexerLogLevel
 from src.infrastructure.http import HttpClientError
 from src.infrastructure.prowlarr import ProwlarrIndexerDirectory
 
@@ -126,6 +127,292 @@ async def test_list_indexers_reports_an_upstream_refusal_as_a_client_error() -> 
 
     with pytest.raises(HttpClientError):
         await directory.list_indexers()
+
+
+HISTORY_PAGE = {
+    "page": 1,
+    "pageSize": 2,
+    "totalRecords": 57,
+    "records": [
+        {
+            "id": 412,
+            "indexerId": 2,
+            "indexerName": "Zeta Tracker",
+            "date": "2026-03-04T11:59:00Z",
+            "successful": True,
+            "eventType": "indexerQuery",
+            "data": {
+                "query": "Severance S02",
+                "queryResults": "39",
+                "elapsedTime": "412",
+                "source": "Sonarr",
+                "host": "sonarr.example",
+            },
+        },
+        {
+            "id": 411,
+            "indexerId": 1,
+            "indexerName": "Alpha Tracker",
+            "date": "2026-03-04T11:40:00Z",
+            "successful": False,
+            "eventType": "releaseGrabbed",
+            "data": {"grabTitle": "Severance.S02E01.2160p", "source": "Prowlarr"},
+        },
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_list_history_asks_prowlarr_for_the_page_and_lifts_the_useful_data() -> None:
+    seen: list[httpx.URL] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(200, json=HISTORY_PAGE)
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_history(page=3, per_page=25)
+
+    params = seen[0].params
+    assert params["page"] == "3"
+    assert params["pageSize"] == "25"
+    # Prowlarr's default sort is not chronological, and the UI reads newest first.
+    assert params["sortKey"] == "date"
+    assert params["sortDirection"] == "descending"
+
+    assert result.total == 57
+
+    query, grab = result.events
+    assert query.event_id == 412
+    assert query.indexer_id == 2
+    assert query.indexer_name == "Zeta Tracker"
+    assert query.occurred_at == datetime(2026, 3, 4, 11, 59, tzinfo=UTC)
+    assert query.event_type is IndexerEventType.INDEXER_QUERY
+    assert query.successful is True
+    assert query.query == "Severance S02"
+    assert query.source == "Sonarr"
+    assert query.elapsed_ms == 412
+    # Lifted fields are not repeated in the leftover data.
+    assert query.data == {"queryResults": "39", "host": "sonarr.example"}
+
+    assert grab.event_type is IndexerEventType.RELEASE_GRABBED
+    assert grab.successful is False
+    assert grab.title == "Severance.S02E01.2160p"
+    assert grab.query is None
+
+
+@pytest.mark.asyncio
+async def test_list_history_passes_the_filters_in_prowlarrs_own_vocabulary() -> None:
+    seen: list[httpx.URL] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(200, json={"records": [], "totalRecords": 0})
+
+    directory = _directory(httpx.MockTransport(handler))
+    await directory.list_history(
+        page=1,
+        per_page=20,
+        indexer_id=2,
+        event_type=IndexerEventType.INDEXER_RSS,
+    )
+
+    params = seen[0].params
+    assert params["indexerIds"] == "2"
+    assert params["eventType"] == "indexerRss"
+
+
+@pytest.mark.asyncio
+async def test_list_history_keeps_an_event_type_it_does_not_recognise() -> None:
+    """A newer Prowlarr adding an event type should not drop the row."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "totalRecords": 1,
+                "records": [
+                    {
+                        "id": 5,
+                        "indexerId": 2,
+                        "date": "2026-03-04T11:00:00Z",
+                        "eventType": "indexerSomethingNew",
+                    }
+                ],
+            },
+        )
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_history(page=1, per_page=20)
+
+    assert result.events[0].event_type is IndexerEventType.UNKNOWN
+
+
+@pytest.mark.asyncio
+async def test_list_history_skips_records_missing_what_identifies_them() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "totalRecords": 3,
+                "records": [
+                    {"id": 1, "indexerId": 2, "date": "2026-03-04T11:00:00Z"},
+                    {"indexerId": 2, "date": "2026-03-04T11:00:00Z"},
+                    {"id": 3, "indexerId": 2, "date": "not a date"},
+                ],
+            },
+        )
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_history(page=1, per_page=20)
+
+    assert [event.event_id for event in result.events] == [1]
+
+
+@pytest.mark.asyncio
+async def test_list_history_reports_an_upstream_refusal_as_a_client_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"message": "Boom"})
+
+    directory = _directory(httpx.MockTransport(handler))
+
+    with pytest.raises(HttpClientError):
+        await directory.list_history(page=1, per_page=20)
+
+
+LOG_PAGE = {
+    "page": 1,
+    "pageSize": 2,
+    "totalRecords": 318,
+    "records": [
+        {
+            "id": 9001,
+            "time": "2026-03-04T11:59:00Z",
+            "level": "info",
+            "logger": "ReleaseSearchService",
+            "message": "Searching indexer(s): [RuTracker.org] for Term: [Chad Powers]",
+        },
+        {
+            "id": 9000,
+            "time": "2026-03-04T11:58:00Z",
+            "level": "warn",
+            "logger": "RuTracker",
+            "message": "Request for RuTracker.org failed with status 525.",
+            "method": "GET",
+            "exception": "System.Net.Http.HttpRequestException: boom",
+            "exceptionType": "System.Net.Http.HttpRequestException",
+        },
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_list_logs_asks_prowlarr_for_the_page_newest_first() -> None:
+    seen: list[httpx.URL] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(200, json=LOG_PAGE)
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_logs(page=2, per_page=50)
+
+    assert seen[0].path.endswith("/log")
+    params = seen[0].params
+    assert params["page"] == "2"
+    assert params["pageSize"] == "50"
+    assert params["sortKey"] == "time"
+    assert params["sortDirection"] == "descending"
+
+    assert result.total == 318
+
+    info, warning = result.logs
+    assert info.log_id == 9001
+    assert info.occurred_at == datetime(2026, 3, 4, 11, 59, tzinfo=UTC)
+    assert info.level is IndexerLogLevel.INFO
+    assert info.component == "ReleaseSearchService"
+    assert info.message.startswith("Searching indexer(s)")
+    assert info.exception is None
+
+    assert warning.level is IndexerLogLevel.WARN
+    assert warning.component == "RuTracker"
+    assert warning.method == "GET"
+    assert warning.exception == "System.Net.Http.HttpRequestException: boom"
+    assert warning.exception_type == "System.Net.Http.HttpRequestException"
+
+
+@pytest.mark.asyncio
+async def test_list_logs_sends_the_level_capitalised_as_prowlarr_stores_it() -> None:
+    """Prowlarr lower-cases the level it reports but compares the stored value."""
+
+    seen: list[httpx.URL] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(200, json={"records": [], "totalRecords": 0})
+
+    directory = _directory(httpx.MockTransport(handler))
+    await directory.list_logs(page=1, per_page=20, min_level=IndexerLogLevel.WARN)
+
+    assert seen[0].params["level"] == "Warn"
+
+
+@pytest.mark.asyncio
+async def test_list_logs_keeps_an_entry_whose_only_content_is_its_exception() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "totalRecords": 1,
+                "records": [
+                    {
+                        "id": 1,
+                        "time": "2026-03-04T11:00:00Z",
+                        "level": "error",
+                        "exception": "at Prowlarr.Core.Something()",
+                        "exceptionType": "System.InvalidOperationException",
+                    }
+                ],
+            },
+        )
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_logs(page=1, per_page=20)
+
+    entry = result.logs[0]
+    assert entry.message == "System.InvalidOperationException"
+    assert entry.exception == "at Prowlarr.Core.Something()"
+
+
+@pytest.mark.asyncio
+async def test_list_logs_reads_a_level_it_does_not_define_as_info() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "totalRecords": 2,
+                "records": [
+                    {"id": 1, "time": "2026-03-04T11:00:00Z", "level": "warning", "message": "a"},
+                    {"id": 2, "time": "2026-03-04T10:00:00Z", "level": "whatever", "message": "b"},
+                ],
+            },
+        )
+
+    directory = _directory(httpx.MockTransport(handler))
+    result = await directory.list_logs(page=1, per_page=20)
+
+    assert [entry.level for entry in result.logs] == [IndexerLogLevel.WARN, IndexerLogLevel.INFO]
+
+
+@pytest.mark.asyncio
+async def test_list_logs_reports_an_upstream_refusal_as_a_client_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"message": "Unauthorized"})
+
+    directory = _directory(httpx.MockTransport(handler))
+
+    with pytest.raises(HttpClientError):
+        await directory.list_logs(page=1, per_page=20)
 
 
 @pytest.mark.asyncio

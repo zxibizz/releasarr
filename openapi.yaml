@@ -1251,6 +1251,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /indexers/logs:
+    get:
+      tags: [Indexers]
+      summary: List Prowlarr's own log
+      description: |
+        Prowlarr's application log, newest first — what its own UI shows under
+        System → Events. This is Prowlarr's log rather than releasarr's, so it
+        is where an indexer's connection failures and captcha trouble surface.
+      operationId: listIndexerLogs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/IndexerLogLevelFilter'
+      responses:
+        '200':
+          description: Log entries matching the supplied filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerLogsResponse'
+        '422':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Prowlarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /indexers/history:
+    get:
+      tags: [Indexers]
+      summary: List Prowlarr indexer events
+      description: |
+        What Prowlarr's indexers have been doing, newest first: searches it ran,
+        RSS refreshes, logins, and releases it grabbed. This is Prowlarr's own
+        history rather than releasarr's log, so it also covers queries other
+        applications sent through the same indexers.
+      operationId: listIndexerHistory
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/IndexerIdFilter'
+        - $ref: '#/components/parameters/IndexerEventTypeFilter'
+      responses:
+        '200':
+          description: Indexer events matching the supplied filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerHistoryResponse'
+        '422':
+          description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Prowlarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /indexers/test:
     post:
       tags: [Indexers]
@@ -1412,6 +1502,26 @@ components:
       schema:
         $ref: '#/components/schemas/SyncJobKind'
       description: Optional background task to filter results.
+    IndexerIdFilter:
+      in: query
+      name: indexer_id
+      schema:
+        type: integer
+      description: Optional Prowlarr indexer to filter results.
+    IndexerEventTypeFilter:
+      in: query
+      name: event_type
+      schema:
+        $ref: '#/components/schemas/IndexerEventType'
+      description: Optional indexer event type to filter results.
+    IndexerLogLevelFilter:
+      in: query
+      name: min_level
+      schema:
+        $ref: '#/components/schemas/IndexerLogLevel'
+      description: |
+        Least severe level to return. Prowlarr treats this as a threshold rather
+        than an exact match, so `warn` also returns errors and fatals.
   schemas:
     MediaType:
       type: string
@@ -1432,6 +1542,21 @@ components:
         How usable an indexer is right now. `disabled` was switched off by hand
         and stays that way; `blocked` is Prowlarr's own back-off after repeated
         failures and lifts on its own, or on a passing test.
+    IndexerLogLevel:
+      type: string
+      enum: [trace, debug, info, warn, error, fatal]
+      description: |
+        Severity as Prowlarr records it, from least to most severe. Prowlarr's
+        own names, lower-cased.
+    IndexerEventType:
+      type: string
+      enum: [unknown, indexer_query, indexer_rss, indexer_auth, indexer_info, release_grabbed]
+      description: |
+        What Prowlarr did. `indexer_query` is a search somebody asked for,
+        `indexer_rss` is an unprompted feed refresh, `indexer_auth` is a login,
+        and `release_grabbed` is a torrent or nzb handed to a download client.
+        Prowlarr's own names are camel case; these are the same values renamed to
+        match the rest of this API.
     ErrorResponse:
       type: object
       required: [code, message]
@@ -2158,6 +2283,115 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Indexer'
+    IndexerLogEntry:
+      type: object
+      required: [id, occurred_at, level, message]
+      properties:
+        id:
+          type: integer
+          description: Prowlarr's own identifier for the log record.
+        occurred_at:
+          type: string
+          format: date-time
+        level:
+          $ref: '#/components/schemas/IndexerLogLevel'
+        message:
+          type: string
+        component:
+          type: string
+          nullable: true
+          description: |
+            What logged the line. Prowlarr calls this the logger, and names it
+            after the indexer for an indexer's own failures.
+        method:
+          type: string
+          nullable: true
+        exception:
+          type: string
+          nullable: true
+          description: Stack trace or provider response, when Prowlarr recorded one.
+        exception_type:
+          type: string
+          nullable: true
+    IndexerLogsResponse:
+      type: object
+      required: [logs, total, page, per_page]
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexerLogEntry'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+    IndexerEventData:
+      type: object
+      description: |
+        Whatever else Prowlarr recorded against the event. The keys differ per
+        event type and per indexer implementation, and the fields lifted onto
+        the entry itself are removed from here rather than repeated.
+      additionalProperties:
+        type: string
+    IndexerHistoryEntry:
+      type: object
+      required: [id, indexer_id, occurred_at, event_type, successful, data]
+      properties:
+        id:
+          type: integer
+          description: Prowlarr's own identifier for the history record.
+        indexer_id:
+          type: integer
+        indexer_name:
+          type: string
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+        event_type:
+          $ref: '#/components/schemas/IndexerEventType'
+        successful:
+          type: boolean
+        query:
+          type: string
+          nullable: true
+          description: Search term, for events that came from a search.
+        title:
+          type: string
+          nullable: true
+          description: Release name, for events that grabbed one.
+        source:
+          type: string
+          nullable: true
+          description: Application that asked, as Prowlarr recorded it.
+        elapsed_ms:
+          type: integer
+          nullable: true
+          description: How long the indexer took to answer.
+        data:
+          $ref: '#/components/schemas/IndexerEventData'
+    IndexerHistoryResponse:
+      type: object
+      required: [history, total, page, per_page]
+      properties:
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexerHistoryEntry'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
     IndexerTestResult:
       type: object
       required: [indexer_id, success, errors]

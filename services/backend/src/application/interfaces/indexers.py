@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
+
+from src.domain.enums import IndexerEventType, IndexerLogLevel
 
 
 class IndexerNotFoundError(LookupError):
@@ -43,11 +45,85 @@ class IndexerTestResultRecord:
     errors: tuple[str, ...] = field(default_factory=tuple)
 
 
+@dataclass(slots=True)
+class IndexerEventRecord:
+    """One thing a provider recorded an indexer doing.
+
+    The named fields are the handful worth showing in a column; ``data`` keeps
+    whatever else the provider attached, which varies by event type and by
+    indexer implementation.
+    """
+
+    event_id: int
+    indexer_id: int
+    occurred_at: datetime
+    event_type: IndexerEventType
+    successful: bool
+    indexer_name: str | None = None
+    query: str | None = None
+    title: str | None = None
+    source: str | None = None
+    elapsed_ms: int | None = None
+    data: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class IndexerEventPage:
+    """A page of indexer events, with the total the provider counted."""
+
+    events: tuple[IndexerEventRecord, ...]
+    total: int
+
+
+@dataclass(slots=True)
+class IndexerLogRecord:
+    """One line from a search provider's own application log."""
+
+    log_id: int
+    occurred_at: datetime
+    level: IndexerLogLevel
+    message: str
+    component: str | None = None
+    method: str | None = None
+    exception: str | None = None
+    exception_type: str | None = None
+
+
+@dataclass(slots=True)
+class IndexerLogPage:
+    """A page of provider log entries, with the total the provider counted."""
+
+    logs: tuple[IndexerLogRecord, ...]
+    total: int
+
+
 class IndexerDirectory(Protocol):
     """Read and test the indexers a search provider is configured with."""
 
     async def list_indexers(self) -> Sequence[IndexerRecord]:
         """Return every known indexer, including the ones switched off."""
+
+    async def list_history(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        indexer_id: int | None = None,
+        event_type: IndexerEventType | None = None,
+    ) -> IndexerEventPage:
+        """Return one page of indexer events, newest first."""
+
+    async def list_logs(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        min_level: IndexerLogLevel | None = None,
+    ) -> IndexerLogPage:
+        """Return one page of the provider's own log, newest first.
+
+        ``min_level`` is a threshold: asking for warnings includes errors.
+        """
 
     async def test_indexer(self, indexer_id: int) -> IndexerTestResultRecord:
         """Exercise a single indexer, clearing its failure back-off when it passes.
@@ -61,6 +137,10 @@ class IndexerDirectory(Protocol):
 
 __all__ = [
     "IndexerDirectory",
+    "IndexerEventPage",
+    "IndexerEventRecord",
+    "IndexerLogPage",
+    "IndexerLogRecord",
     "IndexerNotFoundError",
     "IndexerRecord",
     "IndexerTestResultRecord",

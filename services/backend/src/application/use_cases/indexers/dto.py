@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from src.domain.enums import IndexerHealth
+from src.domain.enums import IndexerEventType, IndexerHealth, IndexerLogLevel
 
 
 @dataclass(slots=True)
@@ -35,4 +36,58 @@ class IndexerTestResultDTO:
     errors: tuple[str, ...] = field(default_factory=tuple)
 
 
-__all__ = ["IndexerDTO", "IndexerTestResultDTO"]
+@dataclass(slots=True)
+class IndexerEventDTO:
+    """One entry from Prowlarr's indexer history."""
+
+    event_id: int
+    indexer_id: int
+    occurred_at: datetime
+    event_type: IndexerEventType
+    successful: bool
+    indexer_name: str | None
+    query: str | None
+    title: str | None
+    source: str | None
+    elapsed_ms: int | None
+    data: Mapping[str, str]
+
+
+@dataclass(slots=True)
+class IndexerHistoryPageDTO:
+    events: tuple[IndexerEventDTO, ...]
+    total: int
+    page: int
+    per_page: int
+
+
+@dataclass(slots=True)
+class IndexerLogDTO:
+    """One line from the search provider's own log."""
+
+    log_id: int
+    occurred_at: datetime
+    level: IndexerLogLevel
+    message: str
+    component: str | None
+    method: str | None
+    exception: str | None
+    exception_type: str | None
+
+
+@dataclass(slots=True)
+class IndexerLogsPageDTO:
+    logs: tuple[IndexerLogDTO, ...]
+    total: int
+    page: int
+    per_page: int
+
+
+__all__ = [
+    "IndexerDTO",
+    "IndexerEventDTO",
+    "IndexerHistoryPageDTO",
+    "IndexerLogDTO",
+    "IndexerLogsPageDTO",
+    "IndexerTestResultDTO",
+]

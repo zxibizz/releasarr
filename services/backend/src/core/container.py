@@ -26,7 +26,9 @@ from src.application.use_cases.discover.manage_seasons import (
     UpdateRequestSeasonsUseCase,
 )
 from src.application.use_cases.discover.search_media import SearchMediaUseCase
+from src.application.use_cases.indexers.list_history import ListIndexerHistoryUseCase
 from src.application.use_cases.indexers.list_indexers import ListIndexersUseCase
+from src.application.use_cases.indexers.list_logs import ListIndexerLogsUseCase
 from src.application.use_cases.indexers.run_indexer_tests import (
     RunAllIndexerTestsUseCase,
     RunIndexerTestUseCase,
@@ -281,6 +283,20 @@ class IndexerUseCases:
     @cached_property
     def list(self) -> ListIndexersUseCase:
         return ListIndexersUseCase(directory=self._container.services.indexer_directory)
+
+    @cached_property
+    def list_history(self) -> ListIndexerHistoryUseCase:
+        return ListIndexerHistoryUseCase(
+            directory=self._container.services.indexer_directory,
+            settings=self._container.settings,
+        )
+
+    @cached_property
+    def list_logs(self) -> ListIndexerLogsUseCase:
+        return ListIndexerLogsUseCase(
+            directory=self._container.services.indexer_directory,
+            settings=self._container.settings,
+        )
 
     @cached_property
     def run_test(self) -> RunIndexerTestUseCase:
