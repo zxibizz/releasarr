@@ -13,12 +13,21 @@ from src.application.interfaces.tvdb import (
     TvdbService,
     TvdbTranslation,
 )
+from src.core.logging import get_logger
 from src.infrastructure.http import build_async_client
 
 # TVDB models a season three times over - by broadcast order, by DVD order and
 # by absolute numbering - and only the broadcast ("official") one lines up with
 # the season numbers Sonarr works in.
 OFFICIAL_SEASON_TYPE = "official"
+
+# The one popularity figure TVDB will report for a search hit. /v4/search omits
+# it and the v4 API offers no way to sort or batch by it, so the only alternative
+# is a /series/{id} call per hit. This is the index behind thetvdb.com's own
+# search box: undocumented, unversioned and unauthenticated, so it is treated as
+# an enrichment that may vanish rather than as a source of results.
+WEB_SEARCH_PATH = "/web/search/queries"
+WEB_SEARCH_INDEX = "TVDB"
 
 
 class _TvdbAuth(httpx.Auth):
@@ -91,6 +100,13 @@ class TvdbHttpClient(TvdbService):
             transport=transport,
         )
         self._auth.client = self._client
+        # The web index sits beside the versioned API rather than under it.
+        self._web_search_url = httpx.URL(self._base_url).copy_with(
+            path=WEB_SEARCH_PATH,
+            query=None,
+            fragment=None,
+        )
+        self._logger = get_logger(component="tvdb")
 
     async def get_series(
         self,
@@ -126,9 +142,14 @@ class TvdbHttpClient(TvdbService):
         limit: int = 20,
         languages: Sequence[str] | None = None,
     ) -> list[TvdbSearchResult]:
-        response = await self._client.get(
-            "/search",
-            params={"query": query, "type": "series", "limit": limit},
+        # Concurrent, so the enrichment costs the difference between the two
+        # rather than the sum.
+        response, followers = await asyncio.gather(
+            self._client.get(
+                "/search",
+                params={"query": query, "type": "series", "limit": limit},
+            ),
+            self._follower_counts(query, limit),
         )
         response.raise_for_status()
         payload = response.json()
@@ -140,10 +161,63 @@ class TvdbHttpClient(TvdbService):
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            result = self._to_search_result(entry, languages)
+            result = self._to_search_result(entry, languages, followers)
             if result is not None:
                 results.append(result)
         return results
+
+    async def _follower_counts(self, query: str, limit: int) -> dict[int, int] | None:
+        """Follower counts for a search term, or ``None`` if the index will not say.
+
+        Returning ``None`` rather than an empty mapping matters: the caller has a
+        weaker popularity proxy to fall back on, and it must apply that proxy to
+        every hit or none of them. Mixing the two scales in one result set would
+        rank by which signal happened to be available.
+        """
+
+        try:
+            response = await self._client.post(
+                self._web_search_url,
+                json={
+                    "requests": [
+                        {
+                            "indexName": WEB_SEARCH_INDEX,
+                            "params": {
+                                "query": query,
+                                "filters": "type:series",
+                                "hitsPerPage": limit,
+                            },
+                        }
+                    ]
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            self._logger.debug(
+                "TVDB follower counts unavailable, ranking on translation breadth",
+                error=str(exc),
+                term=query,
+            )
+            return None
+
+        results = payload.get("results") if isinstance(payload, dict) else None
+        if not isinstance(results, list) or not results:
+            return None
+
+        counts: dict[int, int] = {}
+        for result in results:
+            hits = result.get("hits") if isinstance(result, dict) else None
+            if not isinstance(hits, list):
+                continue
+            for hit in hits:
+                if not isinstance(hit, dict):
+                    continue
+                tvdb_id = self._safe_int(hit.get("id"))
+                followers = self._safe_int(hit.get("follower_count"))
+                if tvdb_id is not None and followers is not None:
+                    counts[tvdb_id] = followers
+        return counts
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -152,15 +226,15 @@ class TvdbHttpClient(TvdbService):
         self,
         entry: dict[str, object],
         languages: Sequence[str] | None,
+        followers: dict[int, int] | None,
     ) -> TvdbSearchResult | None:
         # Search reports the id as a string, unlike every other TVDB endpoint.
         tvdb_id = self._safe_int(entry.get("tvdb_id") or entry.get("id"))
         if tvdb_id is None:
             return None
 
-        name = self._localized(entry.get("translations"), languages) or self._safe_str(
-            entry.get("name")
-        )
+        translations = entry.get("translations")
+        name = self._localized(translations, languages) or self._safe_str(entry.get("name"))
         if not name:
             return None
         overview = self._localized(entry.get("overviews"), languages) or self._safe_str(
@@ -173,7 +247,54 @@ class TvdbHttpClient(TvdbService):
             year=self._safe_int(entry.get("year")),
             overview=overview,
             image_url=self._safe_str(entry.get("image_url") or entry.get("thumbnail")),
+            match_titles=self._match_titles(name, entry, translations),
+            popularity=self._popularity(tvdb_id, translations, followers),
         )
+
+    def _match_titles(
+        self,
+        name: str,
+        entry: dict[str, object],
+        translations: object,
+    ) -> tuple[str, ...]:
+        """Every title this entry is known by, display title first.
+
+        Aliases are included even though they are the noisiest of the three: the
+        abbreviation a user types ("GoT") often lives nowhere else.
+        """
+
+        candidates: list[str | None] = [name, self._safe_str(entry.get("name"))]
+        if isinstance(translations, dict):
+            candidates.extend(self._safe_str(value) for value in translations.values())
+        aliases = entry.get("aliases")
+        if isinstance(aliases, list):
+            candidates.extend(self._safe_str(alias) for alias in aliases)
+
+        seen: dict[str, None] = {}
+        for candidate in candidates:
+            if candidate:
+                seen.setdefault(candidate, None)
+        return tuple(seen)
+
+    def _popularity(
+        self,
+        tvdb_id: int,
+        translations: object,
+        followers: dict[int, int] | None,
+    ) -> int:
+        """Followers where the index reported them, translation breadth otherwise.
+
+        How widely a series has been translated tracks its following closely
+        enough to order a result list by - a show translated into thirty
+        languages outdraws a fan parody translated into one - and it is the only
+        popularity signal /v4/search carries.
+        """
+
+        if followers is not None:
+            return followers.get(tvdb_id, 0)
+        if not isinstance(translations, dict):
+            return 0
+        return sum(1 for value in translations.values() if self._safe_str(value))
 
     def _localized(self, value: object, languages: Sequence[str] | None) -> str | None:
         """Pick the first configured language out of a search entry's translations.

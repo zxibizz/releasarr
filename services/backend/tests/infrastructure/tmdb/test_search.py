@@ -78,6 +78,50 @@ async def test_search_movies_omits_the_language_when_none_maps_to_tmdb() -> None
     await build_client(handler).search_movies("arrival", languages=("qqq",))
 
 
+async def test_search_movies_keeps_the_original_title_for_ranking() -> None:
+    """The localized title may share nothing with the term the user typed."""
+
+    payload = {
+        "results": [
+            {
+                "id": 546121,
+                "title": "Игра престолов: Последний дозор",
+                "original_title": "Game of Thrones: The Last Watch",
+            },
+            {"id": 2, "title": "Arrival", "original_title": "Arrival"},
+        ]
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    results = await build_client(handler).search_movies("game of thrones")
+
+    assert results[0].match_titles == (
+        "Игра престолов: Последний дозор",
+        "Game of Thrones: The Last Watch",
+    )
+    # An untranslated movie has one title, not the same one twice.
+    assert results[1].match_titles == ("Arrival",)
+
+
+async def test_search_movies_reports_the_vote_count_as_popularity() -> None:
+    payload = {
+        "results": [
+            {"id": 1, "title": "Widely rated", "vote_count": 354},
+            {"id": 2, "title": "Barely rated", "vote_count": 2},
+            {"id": 3, "title": "Unrated"},
+        ]
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    results = await build_client(handler).search_movies("rated")
+
+    assert [result.popularity for result in results] == [354, 2, 0]
+
+
 async def test_search_movies_honours_the_limit() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=SEARCH_RESULTS)

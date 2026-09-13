@@ -106,12 +106,16 @@ class TmdbHttpClient(TmdbService):
             return None
 
         poster_path = self._safe_str(entry.get("poster_path"))
+        original_title = self._safe_str(entry.get("original_title"))
+        match_titles = (title,) if original_title is None else (title, original_title)
         return TmdbSearchResult(
             tmdb_id=tmdb_id,
             title=title,
             year=self._release_year(entry.get("release_date")),
             overview=self._safe_str(entry.get("overview")),
             poster_url=f"{TMDB_IMAGE_BASE_URL}{poster_path}" if poster_path else None,
+            match_titles=tuple(dict.fromkeys(match_titles)),
+            popularity=self._safe_int(entry.get("vote_count")) or 0,
         )
 
     def _search_language(self, languages: Sequence[str] | None) -> str | None:

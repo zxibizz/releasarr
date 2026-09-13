@@ -322,10 +322,14 @@ export interface paths {
          *     Sonarr or Radarr that cannot be reached leaves the results unannotated
          *     rather than failing the search.
          *
-         *     Omitting `type` searches both providers and returns one mixed list,
-         *     ordered by how closely each title matches the term. Only one of the two
-         *     providers has to be configured, and a provider that cannot be reached is
-         *     left out rather than failing the search.
+         *     Results are ordered by how closely the term matches any title the
+         *     provider knows for an entry - not only the localized one shown - and
+         *     then by how widely known the entry is, so a series outranks the talk
+         *     shows, parodies and featurettes named after it.
+         *
+         *     Omitting `type` searches both providers and returns one mixed list. Only
+         *     one of the two providers has to be configured, and a provider that
+         *     cannot be reached is left out rather than failing the search.
          */
         get: operations["searchMedia"];
         put?: never;
