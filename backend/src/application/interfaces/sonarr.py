@@ -71,6 +71,8 @@ class SonarrEpisode:
     # announced without one and one whose season is yet to be scheduled.
     air_date: datetime | None = None
     has_file: bool = False
+    # Bytes on disk, for an episode Sonarr holds a file for.
+    file_size: int | None = None
 
 
 @dataclass(slots=True)

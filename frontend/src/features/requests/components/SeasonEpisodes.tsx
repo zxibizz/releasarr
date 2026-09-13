@@ -3,13 +3,22 @@ import { useTranslation } from 'react-i18next';
 
 import { useRequestEpisodes } from '@/features/requests/queries';
 import type { EpisodeStatus, SeasonEpisode } from '@/types';
-import { formatDate } from '@/utils/formatters';
+import { formatDate, formatFileSize } from '@/utils/formatters';
 
 const STATUS_COLORS: Record<EpisodeStatus, string> = {
   downloaded: 'teal',
   missing: 'yellow',
   unaired: 'gray',
 };
+
+const NOWRAP = { whiteSpace: 'nowrap' } as const;
+
+// A badge hides its label's overflow, which as a grid item lets the label
+// shrink to nothing: the label stops asking for the width of its own text, the
+// column it sits in inherits that, and the label comes out as an ellipsis.
+// Showing the overflow restores the ask, so the badge can never be narrower
+// than what it says.
+const BADGE_STYLES = { label: { overflow: 'visible' } } as const;
 
 interface SeasonEpisodesProps {
   requestId: string;
@@ -30,6 +39,7 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
 
   const episodes = data?.episodes ?? [];
   const downloaded = episodes.filter((episode) => episode.status === 'downloaded').length;
+  const onDisk = episodes.reduce((total, episode) => total + (episode.file_size ?? 0), 0);
 
   if (isLoading) {
     return (
@@ -50,20 +60,26 @@ export function SeasonEpisodes({ requestId }: SeasonEpisodesProps) {
         <Title order={3}>{t('requestPage.episodes.title')}</Title>
         <Text size="sm" c="dimmed">
           {t('requestPage.episodes.summary', { downloaded, total: episodes.length })}
+          {onDisk > 0 && ` · ${t('requestPage.episodes.onDisk', { size: formatFileSize(onDisk) })}`}
         </Text>
       </Group>
 
       <Paper withBorder radius="lg" p={0}>
-        {/* The title column is the one that needs room, so the scroll floor is
-            set wide enough for the other three to stay side by side. */}
-        <Table.ScrollContainer minWidth={420}>
+        <Table.ScrollContainer minWidth={520}>
           <Table verticalSpacing="xs" horizontalSpacing="md" highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th w={60}>{t('requestPage.episodes.columns.number')}</Table.Th>
-                <Table.Th>{t('requestPage.episodes.columns.title')}</Table.Th>
-                <Table.Th w={140}>{t('requestPage.episodes.columns.airDate')}</Table.Th>
-                <Table.Th w={140}>{t('requestPage.episodes.columns.status')}</Table.Th>
+                <Table.Th w={56}>{t('requestPage.episodes.columns.number')}</Table.Th>
+                {/* The title takes what the others leave, so each of those sits
+                    at the width of its own content. Pinning them to a fixed
+                    width instead is what cuts a label short, and the longest of
+                    these labels is not the English one. */}
+                <Table.Th style={{ width: '100%' }}>
+                  {t('requestPage.episodes.columns.title')}
+                </Table.Th>
+                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.airDate')}</Table.Th>
+                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.status')}</Table.Th>
+                <Table.Th style={NOWRAP}>{t('requestPage.episodes.columns.size')}</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -91,15 +107,25 @@ function EpisodeRow({ episode }: { episode: SeasonEpisode }) {
       <Table.Td>
         <Text size="sm">{episode.title || t('requestPage.episodes.untitled')}</Text>
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={NOWRAP}>
         <Text size="sm" c="dimmed">
           {episode.air_date ? formatDate(episode.air_date) : t('requestPage.episodes.notScheduled')}
         </Text>
       </Table.Td>
-      <Table.Td>
-        <Badge color={STATUS_COLORS[episode.status]} variant="light" radius="sm">
+      <Table.Td style={NOWRAP}>
+        <Badge
+          color={STATUS_COLORS[episode.status]}
+          variant="light"
+          radius="sm"
+          styles={BADGE_STYLES}
+        >
           {t(`requestPage.episodes.status.${episode.status}`)}
         </Badge>
+      </Table.Td>
+      <Table.Td style={NOWRAP}>
+        <Text size="sm" c="dimmed">
+          {episode.file_size ? formatFileSize(episode.file_size) : '—'}
+        </Text>
       </Table.Td>
     </Table.Tr>
   );

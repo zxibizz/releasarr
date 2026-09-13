@@ -61,7 +61,7 @@ export interface paths {
         /**
          * List the episodes of the season a request covers
          * @description Every episode of the one season a series request covers, with its air
-         *     date and whether Sonarr holds a file for it. Sonarr is asked directly
+         *     date and the file Sonarr holds for it, if any. Sonarr is asked directly
          *     rather than the answer being derived from the files of the releases
          *     grabbed here: a season is just as likely to have been filled from
          *     outside releasarr, and what Sonarr holds is the truth either way.
@@ -592,6 +592,8 @@ export interface components {
              * @description When the episode airs, in UTC. Null for an episode Sonarr has no date for, which also leaves it reported as unaired.
              */
             air_date?: string | null;
+            /** @description Bytes on disk. Null for an episode Sonarr holds no file for, and for one whose file it has yet to measure. */
+            file_size?: number | null;
         };
         SeasonEpisodesResponse: {
             season_number: number;

@@ -750,6 +750,9 @@ export class MockStore {
           title: `Episode ${number}`,
           status: hasFile ? 'downloaded' : aired ? 'missing' : 'unaired',
           air_date: airDate.toISOString(),
+          // Around 2 GB an episode, varied a little so the column is not a
+          // stack of identical numbers.
+          file_size: hasFile ? 1_900_000_000 + number * 37_000_000 : null,
         };
       }),
     };

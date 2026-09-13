@@ -71,6 +71,7 @@ const episodes = (...items: Partial<SeasonEpisode>[]): SeasonEpisode[] =>
     status: item.status ?? 'missing',
     // An explicit null is a date Sonarr does not have, not one left unsaid.
     air_date: item.air_date === undefined ? '2026-03-01T01:00:00Z' : item.air_date,
+    file_size: item.file_size ?? null,
   }));
 
 interface RouteStubs {
@@ -140,7 +141,7 @@ describe('RequestDetailPage', () => {
   it('lists the episodes of the season with what became of each', async () => {
     stubRoutes({
       episodes: episodes(
-        { title: 'Hello, Ms. Cobel', status: 'downloaded' },
+        { title: 'Hello, Ms. Cobel', status: 'downloaded', file_size: 2 * 1024 ** 3 },
         { title: 'Goodbye, Mrs. Selvig', status: 'missing' },
         { title: 'Sweet Vitriol', status: 'unaired', air_date: null },
       ),
@@ -153,12 +154,21 @@ describe('RequestDetailPage', () => {
     expect(rows).toHaveLength(3);
 
     expect(within(rows[0]).getByText('Downloaded')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('2 GB')).toBeInTheDocument();
     expect(within(rows[1]).getByText('Pending')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('Not aired yet')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Not aired')).toBeInTheDocument();
     // An episode with no date must still say something in its date column.
     expect(within(rows[2]).getByText('Not scheduled')).toBeInTheDocument();
 
-    expect(screen.getByText('1 of 3 downloaded')).toBeInTheDocument();
+    expect(screen.getByText('1 of 3 downloaded · 2 GB on disk')).toBeInTheDocument();
+  });
+
+  it('leaves the size out of the summary when nothing is on disk yet', async () => {
+    stubRoutes({ episodes: episodes({ status: 'missing' }, { status: 'missing' }) });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByText('0 of 2 downloaded')).toBeInTheDocument();
   });
 
   it('has no episode table for a movie request', async () => {
