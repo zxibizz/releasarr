@@ -26,6 +26,11 @@ Three processes, one container image:
 `entrypoint.sh` runs `alembic upgrade head`, then nginx, then the scheduler in the background,
 then uvicorn in the foreground.
 
+`docker-compose.dev.yaml` keeps the same split but gives each process its own container with the
+source bind-mounted and reload enabled, and lets the Vite dev server stand in for nginx and the
+built bundle — it proxies `/api` with the prefix stripped exactly as nginx does, so the two
+environments agree on URLs.
+
 **The API never executes background work.** `POST /tasks/…` writes `sync_jobs` rows and returns
 `202` with a `Location` header; the scheduler picks them up within seconds. This keeps the web
 process free of implicit schedulers, and means "run now" behaves identically whether it came

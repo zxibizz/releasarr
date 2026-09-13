@@ -1,0 +1,88 @@
+# Development stack. Three processes instead of the single production container:
+# uvicorn with --reload, the scheduler under watchfiles, and the Vite dev server.
+# Source is bind-mounted, so edits on the host reload in place — only a
+# dependency change needs a rebuild.
+#
+#   docker compose -f docker-compose.dev.yaml up --build
+#
+# Frontend on http://localhost:3000, backend on http://localhost:8000.
+
+name: releasarr-dev
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: backend
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
+    env_file:
+      - .env
+    environment:
+      # Bind mounts do not deliver filesystem events to Linux containers on
+      # macOS or Windows hosts, so the reloader has to poll.
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./backend:/app
+      # The contract test resolves the spec relative to the repository root, one
+      # level above the code, so mounting ./backend alone hides it.
+      - ./openapi.yaml:/openapi.yaml:ro
+    ports:
+      - 8000:8000
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8000/healthz")
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: backend
+    # The worker has no reloader of its own, so watchfiles restarts the process.
+    command: watchfiles --filter python "python -m src.tasks.scheduler_service" src
+    env_file:
+      - .env
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      # Waiting for a healthy API means migrations have already run.
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: frontend
+    # Re-running install picks up a package.json change without a rebuild; with
+    # the volume already warm from the image it is a no-op.
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    environment:
+      # Same-origin /api as in production, except Vite does the proxying.
+      VITE_API_URL: /api
+      VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_API_KEY: ${RELEASARR_API_KEY:-dev-secret}
+      VITE_WATCH_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      # Anonymous host node_modules would shadow the image's Linux binaries.
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+
+volumes:
+  frontend-node-modules:
