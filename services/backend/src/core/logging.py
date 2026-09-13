@@ -83,12 +83,24 @@ def _file_level(level: str) -> str:
     return level if logger.level(level).no < logger.level("INFO").no else "INFO"
 
 
+def _log_path(settings: AppSettings, service: LogService) -> Path:
+    """Return the file the process being configured writes.
+
+    Each process owns one, so a rotation in either can no longer move the other's
+    records into a sibling the other is not writing to.
+    """
+
+    if service is LogService.SCHEDULER:
+        return Path(settings.scheduler_log_file)
+    return Path(settings.log_file)
+
+
 def configure_logging(settings: AppSettings, *, service: LogService) -> None:
     """Configure Loguru sinks for console and file output.
 
     ``service`` names the process being configured. It is bound as a default
     extra, so every record this process writes can be told apart from the other
-    process's records in the log file they share.
+    process's records, and it selects the file this process writes to.
     """
 
     logger.remove()
@@ -105,7 +117,7 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
         diagnose=False,
     )
 
-    log_path = Path(settings.log_file)
+    log_path = _log_path(settings, service)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     logger.add(
         log_path,

@@ -1,9 +1,10 @@
-"""Reader for the structured (Loguru JSON) log file backing the /logs endpoint."""
+"""Reader for the structured (Loguru JSON) log files backing the /logs endpoint."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -36,12 +37,21 @@ class LogEntry:
 
 
 class LogFileReader:
-    """Parse Loguru's serialized JSON log file into :class:`LogEntry` records."""
+    """Parse the processes' serialized JSON log files into :class:`LogEntry` records.
 
-    def __init__(self, log_file: str | Path, history_files: int = 1) -> None:
-        self._path = Path(log_file)
+    Each process owns a file, and a record's own ``service`` — or, for records old
+    enough to predate that tag, the file it sits in — says which process wrote it.
+    Both files are read and merged in time order, because a request's activity
+    spans them: the API logs accepting the request, and the scheduler logs the work
+    that request went on to queue.
+    """
+
+    def __init__(self, sources: Mapping[str, str | Path], history_files: int = 1) -> None:
+        # Keyed by the service that writes each file, and ordered, so records that
+        # share a timestamp keep a stable order between files.
+        self._sources = {name: Path(path) for name, path in sources.items()}
         # Reading every surviving rotation would make each call scale with the
-        # retention window, so only the most recent few are in reach.
+        # retention window, so only the most recent few of each file are in reach.
         self._history_files = max(1, history_files)
 
     def read_entries(
@@ -57,35 +67,45 @@ class LogFileReader:
         """
 
         entries: list[LogEntry] = []
-        for path in self._log_files():
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    stripped = line.strip()
-                    if not stripped:
-                        continue
-                    entry = self._parse_line(stripped)
-                    if entry is None:
-                        continue
-                    if request_id is not None and not self._matches(
-                        entry, "request_id", request_id
-                    ):
-                        continue
-                    if task is not None and not self._matches(entry, "task", task):
-                        continue
-                    if service is not None and self._service_of(entry) != service.lower():
-                        continue
-                    entries.append(entry)
+        for source, base in self._sources.items():
+            for path in self._log_files(base):
+                with path.open("r", encoding="utf-8") as handle:
+                    for line in handle:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        entry = self._parse_line(stripped)
+                        if entry is None:
+                            continue
+                        if request_id is not None and not self._matches(
+                            entry, "request_id", request_id
+                        ):
+                            continue
+                        if task is not None and not self._matches(entry, "task", task):
+                            continue
+                        if (
+                            service is not None
+                            and self._service_of(entry, source) != service.lower()
+                        ):
+                            continue
+                        entries.append(entry)
+
+        # Each file is written in order, but the two processes interleave in time,
+        # so the merged list has to be sorted. Python's sort is stable, which
+        # leaves records that share a timestamp in the order they were read.
+        entries.sort(key=lambda entry: entry.occurred_at)
         return entries
 
     @staticmethod
-    def _service_of(entry: LogEntry) -> str:
+    def _service_of(entry: LogEntry, source: str) -> str:
         """Return the process that wrote a record, as ``LogService`` spells it.
 
-        The processes tag every record they write, but ones written before they
-        did would otherwise match neither service and vanish from the view. Work
-        done inside a background task always has ``task`` bound onto it by
-        ``SyncSteps.for_kind``, so that field is what separates the worker's
-        records from request handling.
+        A record names its own process. Records written before the processes
+        tagged themselves do not, and there the file is the next best answer —
+        except in the file the API has kept since before the split, which also
+        holds the scheduler's older records. Work done inside a background task
+        always has ``task`` bound onto it by ``SyncSteps.for_kind``, and the API
+        never runs one, so that field is what separates the rest.
         """
 
         metadata = entry.metadata
@@ -95,10 +115,10 @@ class LogFileReader:
                 return str(raw).lower()
             if "task" in metadata:
                 return LogService.SCHEDULER.value
-        return LogService.API.value
+        return source
 
-    def _log_files(self) -> list[Path]:
-        """Return the files to scan, oldest first.
+    def _log_files(self, base: Path) -> list[Path]:
+        """Return one process's files to scan, oldest first.
 
         Rotation moves history out of the configured path into a timestamped
         sibling (``backend.log`` becomes ``backend.2026-09-13_04-54-26_300466.log``),
@@ -107,15 +127,15 @@ class LogFileReader:
         """
         rotated = [
             path
-            for path in self._path.parent.glob(f"{self._path.stem}.*{self._path.suffix}")
-            if path != self._path and path.is_file()
+            for path in base.parent.glob(f"{base.stem}.*{base.suffix}")
+            if path != base and path.is_file()
         ]
         rotated.sort(key=lambda path: (path.stat().st_mtime, path.name))
 
         # The active file counts against the budget and is always the newest.
         keep = self._history_files - 1
         recent = rotated[-keep:] if keep > 0 else []
-        return [path for path in [*recent, self._path] if path.exists()]
+        return [path for path in [*recent, base] if path.exists()]
 
     @staticmethod
     def _matches(entry: LogEntry, key: str, value: str) -> bool:

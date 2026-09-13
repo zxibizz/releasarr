@@ -26,7 +26,8 @@ degrade to in-memory stubs or `None`, so the app starts and the API answers; onl
 talk to those services are inert. See [`docs/integrations.md`](docs/integrations.md) for exactly
 what happens per service.
 
-With no `.env`, the database is SQLite at `./releasarr.db` and logs go to `.logs/backend.log`.
+With no `.env`, the database is SQLite at `./releasarr.db`, the API logs to
+`.logs/backend.log` and the scheduler to `.logs/scheduler.log`.
 
 ## Commands
 

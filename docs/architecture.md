@@ -52,14 +52,14 @@ environments agree on URLs.
 process free of implicit schedulers, and means "run now" behaves identically whether it came
 from the UI, an operator, or qBittorrent's completion hook.
 
-Consequence worth knowing: the two processes configure Loguru against the same file with
-independent rotation state, so records occasionally land in a rotated sibling. The log reader
-follows siblings to compensate. See
-[`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md).
+Because the two processes write one file each, records never interleave on disk and a rotation in
+one cannot move the other's history. The reader merges the two files by time, which is what makes a
+request's activity view complete: the API logs accepting the request and the scheduler logs the work
+it queued. See [`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md).
 
 The API also logs its own requests rather than leaving that to uvicorn, whose loggers do not
-propagate into Loguru. Each request therefore lands in the same file as the work it went on to
-trigger, tagged with the process that wrote it.
+propagate into Loguru — so a request and the work it went on to trigger are both on disk, each
+tagged with the process that wrote it.
 
 ## The contract
 

@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from src.core.logging import configure_logging, redact_secrets
+from src.core.logging import InterceptHandler, configure_logging, redact_secrets
 from src.domain.enums import LogService
 from src.settings.config import AppSettings
 
@@ -35,6 +35,14 @@ def restore_logging() -> Iterator[None]:
         logger.remove()
         logger.configure(extra={}, patcher=lambda record: None)
         logging.getLogger("httpx").setLevel(logging.NOTSET)
+        # configure_logging also puts an InterceptHandler on the root logger. Left
+        # there, every library's records keep being funnelled into Loguru for the
+        # rest of the suite and land in other tests' sinks. Only ours is dropped;
+        # what pytest installed for its own capture stays.
+        root = logging.getLogger()
+        root.handlers = [
+            handler for handler in root.handlers if not isinstance(handler, InterceptHandler)
+        ]
 
 
 def written_records(log_file: Path) -> list[dict[str, Any]]:
@@ -49,9 +57,17 @@ def written_records(log_file: Path) -> list[dict[str, Any]]:
 
 
 def configure(tmp_path: Path, **overrides: Any) -> Path:
-    log_file = tmp_path / "backend.log"
-    configure_logging(AppSettings(log_file=str(log_file), **overrides), service=LogService.API)
-    return log_file
+    """Configure the API's sinks against temporary files and return its file."""
+
+    configure_logging(AppSettings(**log_files(tmp_path), **overrides), service=LogService.API)
+    return tmp_path / "backend.log"
+
+
+def log_files(tmp_path: Path) -> dict[str, str]:
+    return {
+        "log_file": str(tmp_path / "backend.log"),
+        "scheduler_log_file": str(tmp_path / "scheduler.log"),
+    }
 
 
 def test_redacts_credentials_from_a_query_string() -> None:
@@ -141,6 +157,20 @@ def test_records_name_the_process_that_wrote_them(tmp_path: Path) -> None:
     logger.info("Served request")
 
     assert written_records(log_file)[0]["extra"]["service"] == "api"
+
+
+def test_each_process_writes_its_own_file(tmp_path: Path) -> None:
+    """Sharing one file let either process rotate the other's history away."""
+
+    configure_logging(AppSettings(**log_files(tmp_path)), service=LogService.SCHEDULER)
+
+    logger.info("Running task")
+    logger.complete()
+
+    assert [record["message"] for record in written_records(tmp_path / "scheduler.log")] == [
+        "Running task"
+    ]
+    assert not (tmp_path / "backend.log").exists()
 
 
 def test_intercepted_records_are_attributed_to_their_caller(tmp_path: Path) -> None:

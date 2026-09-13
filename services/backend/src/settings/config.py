@@ -22,9 +22,13 @@ class AppSettings(BaseSettings):
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)
     log_file: str = Field(default=".logs/backend.log")
-    # How many log files the /logs endpoint reaches back through, counting the
-    # active one. Rotation would otherwise hide a request's history the moment the
-    # log grew past its size limit.
+    # The scheduler is a process of its own and keeps its own file. Sharing one
+    # meant that whenever either process rotated it, the other carried on writing
+    # to a file that was no longer the active one.
+    scheduler_log_file: str = Field(default=".logs/scheduler.log")
+    # How many log files the /logs endpoint reaches back through in each of those
+    # files, counting the active one. Rotation would otherwise hide a request's
+    # history the moment a log grew past its size limit.
     log_history_files: int = Field(default=3, ge=1)
 
     default_page: int = Field(default=1)

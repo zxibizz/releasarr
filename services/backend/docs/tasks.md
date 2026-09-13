@@ -178,29 +178,33 @@ in it, on the tab that is doing the polling.
 
 ### How far back the logs view reaches
 
-The file sink rotates at 10 MB, which moves history into a timestamped sibling
+Each file sink rotates at 10 MB, which moves history into a timestamped sibling
 (`backend.log` becomes `backend.2026-09-13_04-54-26_300466.log`). The reader
 follows those siblings so a rotation no longer empties the view, but only as far
 back as `RELEASARR_LOG_HISTORY_FILES` allows (default 3, counting the active
-file). Raising it widens the window at the cost of a slower read, since every
-call scans each file it is allowed to reach.
+file). The budget is per file, so it bounds what each process contributes.
+Raising it widens the window at the cost of a slower read, since every call scans
+each file it is allowed to reach.
 
 The sink also records at INFO even when `RELEASARR_LOG_LEVEL` is higher, because
 a request's activity view is built from these records and should not go quiet
 when an operator turns the console down. A lower setting still applies, so
 `DEBUG` reaches the file too.
 
-### The scheduler and the API share one file
+### Each process keeps its own file
 
-s6-overlay supervises the scheduler and uvicorn as separate processes, and both
-configure logging against the same path with their own independent rotation
-state. When one of them rotates, the other keeps writing to the file it already
-holds open, which is now the renamed sibling. Records therefore land outside the
-active file at unpredictable moments.
+s6-overlay supervises the scheduler and uvicorn as separate processes, and each
+writes its own file: `RELEASARR_LOG_FILE` for the API and
+`RELEASARR_SCHEDULER_LOG_FILE` for the scheduler. They used to share one, which
+meant that when either rotated it, the other carried on writing to the file it
+already held open — now a renamed sibling — so records landed outside the active
+file at unpredictable moments. Splitting them removes that race rather than
+working around it.
 
-Reading rotated siblings hides most of the effect, so this is a known wart
-rather than a bug being worked around. Giving each process its own log file would
-remove the race, at the cost of the reader having to merge two timelines.
+The cost is that the reader has to merge two timelines. It reads both files and
+sorts by time, which is what keeps `?request_id=` useful: the API logs accepting a
+request and the scheduler logs the work that request queued, so a single request's
+activity spans both files and neither alone would answer.
 
 ### Hooking up qBittorrent
 
