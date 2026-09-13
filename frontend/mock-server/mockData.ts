@@ -108,6 +108,18 @@ const mockSeriesRequests: SeriesRequest[] = [
     created_at: '2024-01-12T16:10:00Z',
     updated_at: '2024-01-12T19:25:00Z',
     imdb_id: 'tt0903747',
+    // One request with translations, so the pages that read metadata in the UI
+    // language have something to read.
+    localizations: {
+      eng: {
+        title: 'Breaking Bad',
+        overview: 'Walt and Jesse attempt to tie up loose ends.',
+      },
+      rus: {
+        title: 'Во все тяжкие',
+        overview: 'Уолт и Джесси пытаются замести следы.',
+      },
+    },
   },
   {
     id: '7',

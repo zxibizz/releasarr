@@ -20,13 +20,14 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconAdjustmentsHorizontal } from '@tabler/icons-react';
+import { IconAdjustmentsHorizontal, IconPlus } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
 import { ManualReleaseForm } from '@/features/releases/components/ManualReleaseForm';
+import type { RequestTitle } from '@/features/requests/localization';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
@@ -59,6 +60,13 @@ const NATURAL_SORT_ORDER: Record<SortField, SortOrder> = {
   leechers: 'desc',
   size: 'desc',
 };
+
+/*
+ * A step below Mantine's smallest preset, for the row of query hints under the
+ * field. They are shortcuts for filling it in, not actions in their own right,
+ * and at `compact-xs` they read as loud as the Search button beside them.
+ */
+const HINT_SIZE = { h: 20, px: 7, fz: 11 } as const;
 
 const DAY_IN_MS = 86_400_000;
 
@@ -104,6 +112,10 @@ interface ReleaseSearchProps {
   requestId: string;
   requestTitle: string;
   prefillQuery?: string;
+  /** The titles the query can be refilled from, once it has been edited away. */
+  titleOptions?: RequestTitle[];
+  /** The season a series request covers, which the query can be narrowed to. */
+  seasonNumber?: number;
   focusToken?: number;
   onDownloadQueued: () => void;
 }
@@ -112,6 +124,8 @@ export function ReleaseSearch({
   requestId,
   requestTitle,
   prefillQuery,
+  titleOptions = [],
+  seasonNumber,
   focusToken = 0,
   onDownloadQueued,
 }: ReleaseSearchProps) {
@@ -148,6 +162,16 @@ export function ReleaseSearch({
   // The field wraps over several lines on a phone, and an indexer has no use
   // for the line breaks that puts in the query.
   const normalizedQuery = query.replace(/\s+/g, ' ').trim();
+
+  /*
+   * Appended rather than prefilled, because a title on its own is the search
+   * worth running first: it finds the season packs and the whole-series packs
+   * together, and only then is there a reason to narrow.
+   */
+  const seasonToken = seasonNumber === undefined ? null : String(seasonNumber);
+  const seasonInQuery = Boolean(
+    seasonToken && new RegExp(`(^|\\s)${seasonToken}(\\s|$)`, 'i').test(normalizedQuery),
+  );
 
   const search = useMutation({
     mutationFn: (value: string) => releasesApi.search(value, requestId),
@@ -318,59 +342,110 @@ export function ReleaseSearch({
         <Tabs.Panel value={SEARCH_TAB}>
           <Stack gap="lg">
             <form onSubmit={handleSubmit}>
-              <Group align="flex-end" gap="sm" wrap="wrap">
-                {isMobile ? (
-                  /*
-                    Queries here are whole release titles — the prefilled
-                    request title alone outruns a phone-width field, and a
-                    single line hid everything but its first few words behind a
-                    horizontal scroll. The field grows to show the query
-                    instead, up to four lines.
-                  */
-                  <Textarea
-                    ref={assignInputRef}
-                    autosize
-                    minRows={1}
-                    maxRows={4}
-                    w="100%"
-                    value={query}
-                    onChange={(event) => setQuery(event.currentTarget.value)}
-                    placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
-                    aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
-                  />
-                ) : (
-                  <TextInput
-                    ref={assignInputRef}
-                    type="search"
-                    enterKeyHint="search"
-                    style={{ flex: '1 1 220px', minWidth: 0 }}
-                    value={query}
-                    onChange={(event) => setQuery(event.currentTarget.value)}
-                    placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
-                    aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
-                  />
-                )}
-                <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
-                  <Button
-                    type="submit"
-                    loading={search.isPending}
-                    disabled={!normalizedQuery}
-                    style={{ flex: actionFlex }}
-                  >
-                    {t('releaseSearch.actions.search')}
-                  </Button>
-                  {(query || results.length > 0) && (
+              <Stack gap="xs">
+                <Group align="flex-end" gap="sm" wrap="wrap">
+                  {isMobile ? (
+                    /*
+                      Queries here are whole release titles — the prefilled
+                      request title alone outruns a phone-width field, and a
+                      single line hid everything but its first few words behind
+                      a horizontal scroll. The field grows to show the query
+                      instead, up to four lines.
+                    */
+                    <Textarea
+                      ref={assignInputRef}
+                      autosize
+                      minRows={1}
+                      maxRows={4}
+                      w="100%"
+                      value={query}
+                      onChange={(event) => setQuery(event.currentTarget.value)}
+                      placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                      aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+                    />
+                  ) : (
+                    <TextInput
+                      ref={assignInputRef}
+                      type="search"
+                      enterKeyHint="search"
+                      style={{ flex: '1 1 220px', minWidth: 0 }}
+                      value={query}
+                      onChange={(event) => setQuery(event.currentTarget.value)}
+                      placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                      aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+                    />
+                  )}
+                  <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
                     <Button
-                      type="button"
-                      variant="default"
-                      onClick={handleClear}
+                      type="submit"
+                      loading={search.isPending}
+                      disabled={!normalizedQuery}
                       style={{ flex: actionFlex }}
                     >
-                      {t('releaseSearch.actions.clear')}
+                      {t('releaseSearch.actions.search')}
                     </Button>
-                  )}
+                    {(query || results.length > 0) && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={handleClear}
+                        style={{ flex: actionFlex }}
+                      >
+                        {t('releaseSearch.actions.clear')}
+                      </Button>
+                    )}
+                  </Group>
                 </Group>
-              </Group>
+
+                {/*
+                  A release is indexed under whichever title its group used, so
+                  a search that finds nothing under the translated name often
+                  finds plenty under the original. These put either back in the
+                  field after it has been cleared or typed over; the one already
+                  in the field is the one that cannot be filled again.
+                */}
+                {(titleOptions.length > 0 || seasonToken) && (
+                  <Group gap={6} wrap="wrap" align="center">
+                    {titleOptions.length > 0 && (
+                      <>
+                        <Text {...HINT_SIZE} c="dimmed">
+                          {t('releaseSearch.fill.label')}
+                        </Text>
+                        {titleOptions.map((option) => (
+                          <Button
+                            key={option.language}
+                            type="button"
+                            size="compact-xs"
+                            variant="default"
+                            {...HINT_SIZE}
+                            disabled={normalizedQuery === option.title}
+                            onClick={() => setQuery(option.title)}
+                          >
+                            {option.label}
+                          </Button>
+                        ))}
+                      </>
+                    )}
+                    {seasonToken && (
+                      <Button
+                        type="button"
+                        size="compact-xs"
+                        variant="default"
+                        {...HINT_SIZE}
+                        leftSection={<IconPlus size={10} />}
+                        // The plus sign is the only mark of it adding to the
+                        // query rather than replacing it, and that is not a
+                        // thing an icon can say on its own.
+                        aria-label={t('releaseSearch.fill.appendSeason', { season: seasonToken })}
+                        disabled={!normalizedQuery || seasonInQuery}
+                        onClick={() => setQuery(`${normalizedQuery} ${seasonToken}`)}
+                      >
+                        {seasonToken}
+                      </Button>
+                    )}
+                  </Group>
+                )}
+              </Stack>
             </form>
 
             {search.isPending && (

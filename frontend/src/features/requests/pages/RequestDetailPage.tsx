@@ -17,7 +17,11 @@ import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasons
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { SeasonEpisodes } from '@/features/requests/components/SeasonEpisodes';
-import { localizeRequest, useMetadataLanguage } from '@/features/requests/localization';
+import {
+  localizeRequest,
+  useMetadataLanguage,
+  useRequestTitles,
+} from '@/features/requests/localization';
 import { requestKeys, useRemoveRequest, useRequest } from '@/features/requests/queries';
 import type { Release } from '@/types';
 
@@ -58,6 +62,7 @@ export function RequestDetailPage() {
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
   const metadataLanguage = useMetadataLanguage();
+  const titleOptions = useRequestTitles(request);
 
   const localizedRequest = useMemo(
     () => (request ? localizeRequest(request, metadataLanguage) : null),
@@ -174,6 +179,10 @@ export function RequestDetailPage() {
             requestId={localizedRequest.id}
             requestTitle={localizedRequest.title}
             prefillQuery={localizedRequest.title}
+            titleOptions={titleOptions}
+            seasonNumber={
+              localizedRequest.type === 'series' ? localizedRequest.season_number : undefined
+            }
             focusToken={focusToken}
             onDownloadQueued={invalidateReleases}
           />
