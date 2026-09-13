@@ -61,6 +61,7 @@ class SeasonEpisodeDTO:
     title: str
     status: EpisodeStatus
     air_date: datetime | None = None
+    file_size: int | None = None
 
 
 @dataclass(slots=True)

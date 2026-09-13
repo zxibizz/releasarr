@@ -33,6 +33,7 @@ def episode(
     title: str = "An Episode",
     air_date: datetime | None = AIRED,
     has_file: bool = False,
+    file_size: int | None = None,
 ) -> SonarrEpisode:
     return SonarrEpisode(
         id=season * 100 + number,
@@ -41,6 +42,7 @@ def episode(
         title=title,
         air_date=air_date,
         has_file=has_file,
+        file_size=file_size,
     )
 
 
@@ -111,15 +113,25 @@ async def test_a_held_file_outranks_an_air_date_still_to_come() -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_title_and_air_date_come_through() -> None:
+async def test_the_title_air_date_and_size_come_through() -> None:
     repository = FakeMediaRequestRepository(
         records={"req-1": make_record("req-1", season_number=2, sonarr_series_id=12)}
     )
-    sonarr = FakeSonarrService(episodes={12: [episode(1, title="Pilot", air_date=AIRED)]})
+    sonarr = FakeSonarrService(
+        episodes={
+            12: [
+                episode(1, title="Pilot", air_date=AIRED, has_file=True, file_size=1_073_741_824),
+                episode(2),
+            ]
+        }
+    )
 
     result = await build_use_case(repository=repository, sonarr=sonarr).execute("req-1")
 
-    assert (result.episodes[0].title, result.episodes[0].air_date) == ("Pilot", AIRED)
+    first, second = result.episodes
+    assert (first.title, first.air_date, first.file_size) == ("Pilot", AIRED, 1_073_741_824)
+    # Nothing on disk to report for an episode with no file.
+    assert second.file_size is None
 
 
 @pytest.mark.asyncio

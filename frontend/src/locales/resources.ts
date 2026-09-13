@@ -399,18 +399,22 @@ export const resources = {
         episodes: {
           title: 'Episodes',
           summary: '{{downloaded}} of {{total}} downloaded',
+          onDisk: '{{size}} on disk',
           untitled: 'Title to be announced',
           notScheduled: 'Not scheduled',
           columns: {
             number: '#',
             title: 'Episode',
+            size: 'Size',
             airDate: 'Airs',
             status: 'Status',
           },
+          // Kept short on purpose: these sit in a badge, which cuts a long
+          // label off rather than growing to fit it.
           status: {
             downloaded: 'Downloaded',
             missing: 'Pending',
-            unaired: 'Not aired yet',
+            unaired: 'Not aired',
           },
         },
         seasons: {
@@ -976,18 +980,20 @@ export const resources = {
         episodes: {
           title: 'Эпизоды',
           summary: 'Скачано {{downloaded}} из {{total}}',
+          onDisk: '{{size}} на диске',
           untitled: 'Название будет объявлено',
           notScheduled: 'Дата неизвестна',
           columns: {
             number: '№',
             title: 'Эпизод',
+            size: 'Размер',
             airDate: 'Выход',
             status: 'Статус',
           },
           status: {
             downloaded: 'Скачан',
             missing: 'Ожидается',
-            unaired: 'Ещё не вышел',
+            unaired: 'Не вышел',
           },
         },
         seasons: {

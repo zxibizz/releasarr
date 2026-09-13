@@ -281,7 +281,14 @@ class SonarrHttpClient(SonarrService):
             await asyncio.sleep(REFRESH_POLL_INTERVAL_SECONDS)
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
-        data = await self._request("GET", "/episode", params={"seriesId": series_id})
+        # The file rides along rather than being fetched per episode: it is the
+        # only place Sonarr reports the size, and asking for it here costs the
+        # one call we were making anyway.
+        data = await self._request(
+            "GET",
+            "/episode",
+            params={"seriesId": series_id, "includeEpisodeFile": "true"},
+        )
         if not isinstance(data, list):
             return []
 
@@ -295,9 +302,27 @@ class SonarrHttpClient(SonarrService):
                     title=str(item.get("title") or ""),
                     air_date=self._air_date(item),
                     has_file=bool(item.get("hasFile")),
+                    file_size=self._file_size(item),
                 )
             )
         return episodes
+
+    def _file_size(self, item: dict[str, Any]) -> int | None:
+        """Bytes on disk, or nothing when Sonarr reports no file to measure.
+
+        A zero is discarded along with a missing file: Sonarr reports one for a
+        file it has yet to measure, and a size of nothing is not something worth
+        showing as though it were.
+        """
+
+        file = item.get("episodeFile")
+        if not isinstance(file, dict):
+            return None
+        try:
+            size = int(file.get("size") or 0)
+        except (TypeError, ValueError):
+            return None
+        return size or None
 
     def _air_date(self, item: dict[str, Any]) -> datetime | None:
         """Read an episode's broadcast time, preferring the one Sonarr zones.

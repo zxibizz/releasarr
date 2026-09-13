@@ -192,7 +192,7 @@ paths:
       operationId: listRequestEpisodes
       description: |
         Every episode of the one season a series request covers, with its air
-        date and whether Sonarr holds a file for it. Sonarr is asked directly
+        date and the file Sonarr holds for it, if any. Sonarr is asked directly
         rather than the answer being derived from the files of the releases
         grabbed here: a season is just as likely to have been filled from
         outside releasarr, and what Sonarr holds is the truth either way.
@@ -1370,6 +1370,12 @@ components:
           description: >-
             When the episode airs, in UTC. Null for an episode Sonarr has no
             date for, which also leaves it reported as unaired.
+        file_size:
+          type: integer
+          nullable: true
+          description: >-
+            Bytes on disk. Null for an episode Sonarr holds no file for, and
+            for one whose file it has yet to measure.
     SeasonEpisodesResponse:
       type: object
       required: [season_number, episodes]

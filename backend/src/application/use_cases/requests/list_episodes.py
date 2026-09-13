@@ -55,6 +55,7 @@ class ListRequestEpisodesUseCase:
                     title=episode.title,
                     status=self._status(episode, now),
                     air_date=episode.air_date,
+                    file_size=episode.file_size,
                 )
                 for episode in sorted(
                     (episode for episode in episodes if episode.season_number == season_number),

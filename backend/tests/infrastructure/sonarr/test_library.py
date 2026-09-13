@@ -405,7 +405,10 @@ async def test_wait_for_series_episodes_gives_up_without_failing() -> None:
 
 
 async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
+    queries: list[str] = []
+
     async def handler(request: httpx.Request) -> httpx.Response:
+        queries.append(str(request.url.query, "utf-8"))
         return httpx.Response(
             200,
             json=[
@@ -416,6 +419,7 @@ async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
                     "title": "Pilot",
                     "airDateUtc": "2020-03-01T01:00:00Z",
                     "hasFile": True,
+                    "episodeFile": {"id": 9, "size": 2_147_483_648},
                 },
                 # Only a calendar date, which is all Sonarr holds for some.
                 {
@@ -432,6 +436,8 @@ async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
 
     episodes = await build_client(handler).get_episodes(12)
 
+    # The file has to be asked for, or Sonarr reports no size to read.
+    assert "includeEpisodeFile=true" in queries[0]
     assert [(episode.episode_number, episode.title) for episode in episodes] == [
         (1, "Pilot"),
         (2, "The Next One"),
@@ -442,6 +448,30 @@ async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
     assert episodes[1].air_date == datetime(2020, 3, 8, tzinfo=UTC)
     assert episodes[2].air_date is None
     assert [episode.has_file for episode in episodes] == [True, False, False]
+    assert [episode.file_size for episode in episodes] == [2_147_483_648, None, None]
+
+
+async def test_get_episodes_treats_an_unmeasured_file_as_having_no_size() -> None:
+    """Sonarr reports a zero for a file it has not sized, which is not a size."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 201,
+                    "seasonNumber": 1,
+                    "episodeNumber": 1,
+                    "hasFile": True,
+                    "episodeFile": {"id": 9, "size": 0},
+                }
+            ],
+        )
+
+    episodes = await build_client(handler).get_episodes(12)
+
+    assert episodes[0].has_file is True
+    assert episodes[0].file_size is None
 
 
 async def test_get_episodes_survives_an_air_date_it_cannot_read() -> None:

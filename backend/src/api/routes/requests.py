@@ -200,6 +200,7 @@ def _episodes_to_schema(dto: SeasonEpisodesDTO) -> SeasonEpisodesResponse:
                 title=episode.title,
                 status=episode.status,
                 air_date=episode.air_date,
+                file_size=episode.file_size,
             )
             for episode in dto.episodes
         ],

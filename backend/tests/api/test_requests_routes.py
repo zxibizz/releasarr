@@ -145,6 +145,7 @@ def make_episodes_dto() -> SeasonEpisodesDTO:
                 title="Pilot",
                 status=EpisodeStatus.DOWNLOADED,
                 air_date=datetime(2020, 3, 1, 1, 0, tzinfo=UTC),
+                file_size=2_147_483_648,
             ),
             SeasonEpisodeDTO(
                 episode_number=2,
@@ -287,7 +288,9 @@ async def test_request_episodes_report_the_season_episode_by_episode(
         (3, "unaired"),
     ]
     assert payload["episodes"][0]["air_date"] == "2020-03-01T01:00:00Z"
+    assert payload["episodes"][0]["file_size"] == 2_147_483_648
     assert payload["episodes"][2]["air_date"] is None
+    assert payload["episodes"][2]["file_size"] is None
 
 
 @pytest.mark.asyncio

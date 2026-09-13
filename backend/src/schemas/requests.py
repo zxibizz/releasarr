@@ -116,6 +116,7 @@ class SeasonEpisode(APIModel):
     title: str
     status: EpisodeStatus
     air_date: datetime | None = None
+    file_size: int | None = None
 
     @field_serializer("air_date")
     def _serialize_air_date(self, value: datetime | None) -> str | None:
