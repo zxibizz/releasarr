@@ -34,6 +34,8 @@ class SeasonOptionDTO:
     season_number: int
     monitored: bool = False
     requested: bool = False
+    # Whether Sonarr holds a file for every episode of the season that has aired.
+    downloaded: bool = False
     request_id: str | None = None
 
 

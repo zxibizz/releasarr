@@ -55,11 +55,17 @@ export function useAddRequest() {
     mutationFn: (payload: AddRequestPayload) => discoverApi.addRequest(payload),
     onSuccess: (response) => {
       notifications.show({
-        message: t('discover.added', {
-          count: response.requests.length,
-          defaultValue: 'Added {{count}} request',
-          defaultValue_other: 'Added {{count}} requests',
-        }),
+        // A series whose every season is already covered is added for its
+        // future-seasons setting alone, and comes back with no request to
+        // announce. "Added 0 requests" would read as a failure.
+        message:
+          response.requests.length === 0
+            ? t('discover.monitoringUpdated', { defaultValue: 'Monitoring updated' })
+            : t('discover.added', {
+                count: response.requests.length,
+                defaultValue: 'Added {{count}} request',
+                defaultValue_other: 'Added {{count}} requests',
+              }),
         color: 'teal',
       });
       // The added media now has requests, so both the request list and the

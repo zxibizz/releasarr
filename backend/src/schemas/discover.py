@@ -37,6 +37,7 @@ class SeasonOption(APIModel):
     season_number: int
     monitored: bool = False
     requested: bool = False
+    downloaded: bool = False
     request_id: str | None = None
 
 
@@ -67,8 +68,10 @@ class AddRequestPayload(APIModel):
     type: MediaType
     provider_id: int
     root_folder_path: str = Field(min_length=1)
-    # Required for series and rejected for movies; the route enforces both, so the
-    # message names the media type rather than the field.
+    # Required to add a series Sonarr does not hold yet, and rejected for movies;
+    # the use case enforces both, so the message names the media type rather than
+    # the field. Empty for a series already in the library asks for no season and
+    # sets only `monitor_new_seasons`.
     season_numbers: list[int] | None = None
     # Series only, for the same reason.
     monitor_new_seasons: bool = False

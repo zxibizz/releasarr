@@ -813,6 +813,7 @@ export class MockStore {
             season_number: seasonNumber,
             monitored: (entry.monitored_seasons ?? []).includes(seasonNumber),
             requested: requestBySeason.has(seasonNumber),
+            downloaded: (entry.downloaded_seasons ?? []).includes(seasonNumber),
             request_id: requestBySeason.get(seasonNumber) ?? null,
           }) satisfies SeasonOption,
       ),
@@ -891,7 +892,10 @@ export class MockStore {
     }
 
     const seasons = [...new Set(payload.season_numbers ?? [])].sort((a, b) => a - b);
-    if (seasons.length === 0) {
+    // An added series takes an empty selection as a request for nothing, which
+    // is how one Sonarr already covers in full still gets its new-seasons flag
+    // set. Adding the series itself needs a season to monitor.
+    if (seasons.length === 0 && !alreadyInLibrary) {
       throw new Error('invalid_season_selection');
     }
     const known = entry.seasons ?? [];

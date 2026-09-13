@@ -232,7 +232,7 @@ async def test_episodes_are_awaited_before_the_request_records_their_count() -> 
 
 
 @pytest.mark.asyncio
-async def test_a_series_needs_at_least_one_season() -> None:
+async def test_a_series_sonarr_does_not_hold_yet_needs_at_least_one_season() -> None:
     with pytest.raises(SeasonSelectionError):
         await build_use_case(
             repository=FakeMediaRequestRepository(),
@@ -246,6 +246,35 @@ async def test_a_series_needs_at_least_one_season() -> None:
                 season_numbers=[],
             )
         )
+
+
+@pytest.mark.asyncio
+async def test_a_series_in_the_library_takes_no_season_as_a_new_seasons_change() -> None:
+    repository = FakeMediaRequestRepository()
+    sonarr = series_sonarr(existing_series_id=12)
+
+    requests = await build_use_case(
+        repository=repository,
+        sonarr=sonarr,
+        radarr=FakeRadarrService(),
+    ).execute(
+        AddMediaRequestCommand(
+            media_type=MediaType.SERIES,
+            provider_id=555,
+            root_folder_path="/tv",
+            season_numbers=[],
+            monitor_new_seasons=True,
+        )
+    )
+
+    assert requests == []
+    assert repository.created == []
+    assert sonarr.added == []
+    assert sonarr.monitored == [
+        {"series_id": 12, "monitor": [], "unmonitor": [], "monitor_new_seasons": True}
+    ]
+    # No season was asked for, so there are no episodes of one to wait on.
+    assert sonarr.waited == []
 
 
 @pytest.mark.asyncio

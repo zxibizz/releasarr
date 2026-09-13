@@ -2046,6 +2046,12 @@ components:
         requested:
           type: boolean
           default: false
+        downloaded:
+          type: boolean
+          default: false
+          description: >-
+            Whether Sonarr holds a file for every episode of the season that has
+            aired. False for a season yet to air, which has nothing to hold.
         request_id:
           type: string
           nullable: true
@@ -2109,7 +2115,10 @@ components:
         season_numbers:
           type: array
           nullable: true
-          description: Seasons to request. Required for series, rejected for movies.
+          description: >-
+            Seasons to request. Required to add a series Sonarr does not hold
+            yet, and rejected for movies. Empty for a series already in the
+            library requests nothing and sets only monitor_new_seasons.
           items:
             type: integer
         monitor_new_seasons:

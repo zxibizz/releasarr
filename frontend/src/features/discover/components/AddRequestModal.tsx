@@ -61,8 +61,19 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
   // A series in the library may already be set to take future seasons, and the
   // add sends the flag either way: starting the box unticked would switch that
   // off as a side effect of asking for one more season.
-  const monitorNewSeasons = pickedNewSeasons ?? seasonOptions.data?.monitor_new_seasons ?? false;
-  const canSubmit = (isSeries ? seasons.length > 0 : true) && (inLibrary || Boolean(rootFolder));
+  const storedNewSeasons = seasonOptions.data?.monitor_new_seasons ?? false;
+  const monitorNewSeasons = pickedNewSeasons ?? storedNewSeasons;
+
+  /*
+   * A series Sonarr already covers in full has no season left to tick, which
+   * leaves the future-seasons box as the only thing this form can still change.
+   * It is worth a submit of its own: the backend takes an empty selection from
+   * an added series as "set the flag and request nothing".
+   */
+  const onlyNewSeasonsChanged = isSeries && inLibrary && monitorNewSeasons !== storedNewSeasons;
+  const canSubmit =
+    (isSeries ? seasons.length > 0 || onlyNewSeasonsChanged : true) &&
+    (inLibrary || Boolean(rootFolder));
 
   const handleSubmit = () => {
     addRequest.mutate(
@@ -131,7 +142,11 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
           {t('common.cancel')}
         </Button>
         <Button loading={addRequest.isPending} disabled={!canSubmit} onClick={handleSubmit}>
-          {t('discover.modal.confirm')}
+          {t(
+            seasons.length === 0 && onlyNewSeasonsChanged
+              ? 'discover.modal.confirmMonitoring'
+              : 'discover.modal.confirm',
+          )}
         </Button>
       </Group>
     </Stack>

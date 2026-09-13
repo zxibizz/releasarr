@@ -74,6 +74,42 @@ async def test_an_added_series_reports_monitoring_and_existing_requests() -> Non
 
 
 @pytest.mark.asyncio
+async def test_a_season_counts_as_downloaded_once_every_aired_episode_is_held() -> None:
+    """The picker says a locked season is already there, so it must be true.
+
+    A monitored season with no request of ours is either complete or yet to air,
+    and the two must not read alike.
+    """
+
+    sonarr = FakeSonarrService(
+        lookups={
+            555: SeriesLookup(
+                tvdb_id=555,
+                title="Example Show",
+                existing_series_id=12,
+                season_numbers=[1, 2, 3],
+            )
+        },
+        catalogue={
+            12: make_series_details(
+                12,
+                # Season 3 is monitored but has yet to air an episode.
+                seasons={1: (10, True), 2: (8, True), 3: (0, True)},
+                downloaded_seasons=[1],
+            )
+        },
+    )
+
+    result = await build_use_case(sonarr=sonarr).execute(555)
+
+    assert [(season.season_number, season.downloaded) for season in result.seasons] == [
+        (1, True),
+        (2, False),
+        (3, False),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_seasons_known_only_to_the_lookup_are_still_offered() -> None:
     """A season Sonarr has not yet pulled in must remain requestable."""
 

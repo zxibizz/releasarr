@@ -99,10 +99,21 @@ export function SeasonPicker({
     selectable.length > 0 && selectableNumbers.every((number) => selected.includes(number));
   const rows = Math.ceil(offered.length / columns);
 
-  const coveredNote = (season: SeasonOption) =>
-    season.requested
-      ? t('discover.seasons.alreadyRequested')
-      : t('discover.seasons.alreadyMonitored');
+  /*
+   * Sonarr's monitoring is what locks a season we hold no request for, but
+   * naming it explains nothing the user can act on. What they want to know is
+   * whether the season is already there, which its files answer: every aired
+   * episode held means there is nothing to ask for, and a season yet to air
+   * means Sonarr is the one that will be asking.
+   */
+  const coveredNote = (season: SeasonOption) => {
+    if (season.requested) {
+      return t('discover.seasons.alreadyRequested');
+    }
+    return t(
+      season.downloaded ? 'discover.seasons.alreadyDownloaded' : 'discover.seasons.sonarrWillFetch',
+    );
+  };
 
   return (
     <Stack gap="xs">
@@ -153,8 +164,9 @@ export function SeasonPicker({
       </SimpleGrid>
 
       {/*
-        Every box ticked and none of them yours to change leaves the submit
-        button disabled, so say why rather than let it read as broken.
+        Every box ticked and none of them yours to change reads as broken unless
+        it is said out loud. It speaks for the grid alone: the future-seasons box
+        below stays live, and is the one thing such a series can still be told.
       */}
       {selectable.length === 0 && (
         <Text size="sm" c="dimmed">
