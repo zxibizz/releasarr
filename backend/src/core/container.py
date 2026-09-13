@@ -43,6 +43,9 @@ from src.application.use_cases.releases.resume_release import ResumeReleaseUseCa
 from src.application.use_cases.releases.search_release_sources import (
     SearchReleaseSourcesUseCase,
 )
+from src.application.use_cases.releases.suggest_file_mappings import (
+    SuggestReleaseFileMappingsUseCase,
+)
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
@@ -392,6 +395,13 @@ class ReleaseUseCases:
     @cached_property
     def update_mappings(self) -> UpdateReleaseFileMappingsUseCase:
         return UpdateReleaseFileMappingsUseCase(repository=self._container.repositories.releases)
+
+    @cached_property
+    def suggest_mappings(self) -> SuggestReleaseFileMappingsUseCase:
+        return SuggestReleaseFileMappingsUseCase(
+            repository=self._container.repositories.releases,
+            auto_mapper=self.auto_mapper,
+        )
 
     @cached_property
     def pause(self) -> PauseReleaseUseCase:

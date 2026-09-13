@@ -32,6 +32,8 @@ export type FileRequestMapping = Schemas['FileRequestMapping'];
 export type MovieFileRequestMapping = Schemas['MovieFileRequestMapping'];
 export type SeriesFileRequestMapping = Schemas['SeriesFileRequestMapping'];
 export type ReleaseFileMappingInput = Schemas['ReleaseFileMappingInput'];
+export type ReleaseFileMappingSuggestion = Schemas['ReleaseFileMappingSuggestion'];
+export type ReleaseFileMappingSuggestions = Schemas['ReleaseFileMappingSuggestions'];
 
 export type AsyncOperationResponse = Schemas['AsyncOperationResponse'];
 export type SuccessResponse = Schemas['SuccessResponse'];

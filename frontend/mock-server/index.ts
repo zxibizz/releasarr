@@ -339,6 +339,16 @@ api.get('/logs', async (req, res) => {
   });
 });
 
+// Declared before the release lookup below, which would otherwise treat the
+// whole path as an id.
+api.get('/releases/:releaseId/files/mapping/suggestions', async (req, res) => {
+  const files = await mockStore.suggestedFileMappings(req.params.releaseId);
+  if (!files) {
+    return res.status(404).json({ message: 'Release not found' });
+  }
+  res.json({ files });
+});
+
 api.get('/releases/:releaseId', async (req, res) => {
   const release = await mockStore.getRelease(req.params.releaseId);
   if (!release) {

@@ -6,6 +6,7 @@ from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import MediaRequestRecord, MediaRequestRepository
 from src.application.interfaces.releases import (
+    FileMappingUpdateData,
     ReleaseRecord,
     ReleaseRepository,
     ReleaseRequestSnapshot,
@@ -42,8 +43,7 @@ class ReleaseAutoMapper:
         repeatedly over the lifetime of a release.
         """
 
-        candidates = await self.candidate_requests(release)
-        updates = self._file_matcher.autocomplete(release.files, candidates)
+        updates, candidates = await self.suggest(release)
         if updates:
             await self._repository.update_file_mappings(release.id, updates)
             self._logger.info(
@@ -53,6 +53,21 @@ class ReleaseAutoMapper:
                 mapped_files=len(updates),
             )
         return candidates
+
+    async def suggest(
+        self,
+        release: ReleaseRecord,
+    ) -> tuple[list[FileMappingUpdateData], list[ReleaseRequestSnapshot]]:
+        """Work out the mappings and the requests considered, storing neither.
+
+        The matcher writes each mapping onto the file record as it goes, so the
+        records handed in come back carrying the proposals. Callers that only
+        want to offer them must pass records they own: the repository builds a
+        fresh set on every read, so anything loaded for this call qualifies.
+        """
+
+        candidates = await self.candidate_requests(release)
+        return self._file_matcher.autocomplete(release.files, candidates), candidates
 
     async def candidate_requests(self, release: ReleaseRecord) -> list[ReleaseRequestSnapshot]:
         """Return the requests a release's files may map to.

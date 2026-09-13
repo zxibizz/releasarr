@@ -7,11 +7,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { OtherFilesSection } from '@/features/releases/components/OtherFilesSection';
 import { FileMappingRow } from '@/features/releases/fileMapping/FileMappingRow';
 import { FileMappingToolbar } from '@/features/releases/fileMapping/FileMappingToolbar';
-import {
-  useFileMappingForm,
-  type DefaultRequest,
-} from '@/features/releases/fileMapping/useFileMappingForm';
-import { useUpdateFileMappings } from '@/features/releases/queries';
+import { useFileMappingForm } from '@/features/releases/fileMapping/useFileMappingForm';
+import { useSuggestedFileMappings, useUpdateFileMappings } from '@/features/releases/queries';
 import { useRequestsList } from '@/features/requests/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseFile } from '@/types';
@@ -22,15 +19,9 @@ interface FileMappingFormProps {
   releaseId: string;
   requestId: string;
   files: ReleaseFile[];
-  defaultRequest?: DefaultRequest;
 }
 
-export function FileMappingForm({
-  releaseId,
-  requestId,
-  files,
-  defaultRequest,
-}: FileMappingFormProps) {
+export function FileMappingForm({ releaseId, requestId, files }: FileMappingFormProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
 
@@ -44,7 +35,11 @@ export function FileMappingForm({
     [requests],
   );
 
-  const form = useFileMappingForm(files, defaultRequest, availableRequests);
+  // The proposals arrive after the first paint, so the rows start out as
+  // whatever is stored and fill in from there.
+  const { data: suggestions } = useSuggestedFileMappings(releaseId);
+
+  const form = useFileMappingForm(files, availableRequests, suggestions);
   const saveMappings = useUpdateFileMappings(releaseId, requestId);
 
   const { video, other } = useMemo(() => splitVideoFiles(files), [files]);
@@ -93,7 +88,7 @@ export function FileMappingForm({
       requests={availableRequests}
       requestsDisabled={requestsLoading || availableRequests.length === 0}
       isDirty={form.isDirty(file.id)}
-      onSelectRequest={(request) => form.selectRequest(file.id, request, file)}
+      onSelectRequest={(request) => form.selectRequest(file.id, request)}
       onChange={(changes) => form.updateDraft(file.id, changes)}
     />
   );
@@ -119,10 +114,12 @@ export function FileMappingForm({
       <FileMappingToolbar
         requests={availableRequests}
         requestsLoading={requestsLoading}
-        canAutoFill={form.canAutoFill}
+        canSuggest={(suggestions?.length ?? 0) > 0}
+        canNumberEpisodes={form.canNumberEpisodes}
         hasChanges={hasChanges}
         onApplyToAll={(request) => form.applyToAll(request, video)}
-        onAutoFill={() => form.autoFillEpisodes(video)}
+        onApplySuggestions={form.applySuggestions}
+        onNumberEpisodes={() => form.numberEpisodes(video)}
         onReset={form.reset}
       />
 

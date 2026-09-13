@@ -129,14 +129,19 @@ class ReleaseFileMatcher:
     ) -> ReleaseFileMapping | None:
         directory = os.path.dirname(file.path or file.name)
         mapping = file.mapping
-        parsed = parse_episode(file.name, file.path)
 
-        season = self._first_of(
+        # The season to assume when the name itself never states one. Handing it
+        # to the parser is what lets a bare number read as the episode: alone it
+        # is too ambiguous to trust, but against a known season it is the only
+        # thing such a name can be saying.
+        hint = self._first_of(
             mapping.season if mapping else None,
-            parsed.season,
             context.seasons.get(directory),
             sole_season,
         )
+        parsed = parse_episode(file.name, file.path, season_hint=hint)
+
+        season = self._first_of(mapping.season if mapping else None, parsed.season, hint)
         if season is None:
             return None
 

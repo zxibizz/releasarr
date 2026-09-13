@@ -73,6 +73,42 @@ def test_parse_episode_returns_nothing_for_unrelated_files() -> None:
     assert (parsed.season, parsed.episode) == (None, None)
 
 
+@pytest.mark.parametrize(
+    ("path", "episode"),
+    [
+        ("[Grp] Show Name - 01 [1080p].mkv", 1),
+        ("[Grp] Show Name/[Grp] Show Name - 137 [WEB].mkv", 137),
+        ("Show Name 07.mkv", 7),
+    ],
+)
+def test_parse_episode_reads_a_bare_number_once_the_season_is_known(
+    path: str, episode: int
+) -> None:
+    """Absolute-numbered releases name no season, so the caller has to supply it."""
+
+    assert parse_episode(path).episode is None
+    assert parse_episode(path, season_hint=1).episode == episode
+
+
+def test_a_hinted_season_is_not_reported_as_the_parsed_one() -> None:
+    """The hint only unlocks the loose read; precedence stays with the caller."""
+
+    assert parse_episode("[Grp] Show Name - 01.mkv", season_hint=4).season is None
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # Two bare numbers, so which one is the episode is anyone's guess.
+        "Show Name 2 - 01.mkv",
+        # Nothing to read at all.
+        "[Grp] Show Name - Finale.mkv",
+    ],
+)
+def test_a_hinted_season_does_not_make_an_ambiguous_name_readable(path: str) -> None:
+    assert parse_episode(path, season_hint=1).episode is None
+
+
 def test_parse_seasons_collects_every_mentioned_season() -> None:
     assert parse_seasons("Avatar.The.Last.Airbender.S01.S02.S03.COMPLETE") == {1, 2, 3}
 

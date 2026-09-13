@@ -5,9 +5,10 @@ import type {
   MediaRequest,
   ReleaseFile,
   ReleaseFileMappingInput,
+  ReleaseFileMappingSuggestion,
   SeriesRequest,
 } from '@/types';
-import { compareByFileName, parseEpisodeFromFile } from '@/utils/files';
+import { compareByFileName } from '@/utils/files';
 
 export type MappingType = 'movie' | 'series';
 
@@ -24,23 +25,15 @@ export interface MappingDraft {
   episode?: number;
 }
 
-export interface DefaultRequest {
-  id: string;
-  title: string;
-  type: MappingType;
-  seasonNumber?: number;
-  seriesTitle?: string;
-  sonarrSeriesId?: number | null;
-}
-
 type DraftMap = Record<string, MappingDraft>;
 
 /** Season number to the request tracking it, for one series. */
 type SeasonIndex = Map<number, MediaRequest>;
 
 const EMPTY_DRAFT: MappingDraft = { requestId: '', requestTitle: '', mappingType: 'movie' };
-/** Stable default so the draft memos don't invalidate on every render. */
+/** Stable defaults so the draft memos don't invalidate on every render. */
 const NO_REQUESTS: MediaRequest[] = [];
+const NO_SUGGESTIONS: ReleaseFileMappingSuggestion[] = [];
 
 const isSeriesRequest = (request: MediaRequest): request is SeriesRequest =>
   request.type === 'series';
@@ -54,11 +47,6 @@ const seriesKeyOf = (sonarrSeriesId: number | null | undefined, seriesTitle: str
 
 const seriesKeyOfRequest = (request: SeriesRequest): string =>
   seriesKeyOf(request.sonarr_series_id, request.series_title);
-
-const seriesKeyOfDefault = (defaultRequest: DefaultRequest): string | undefined =>
-  defaultRequest.type === 'series'
-    ? seriesKeyOf(defaultRequest.sonarrSeriesId, defaultRequest.seriesTitle ?? defaultRequest.title)
-    : undefined;
 
 /**
  * A complete-series pack holds several seasons, each tracked by its own request,
@@ -112,41 +100,18 @@ const seriesDraft = (
   };
 };
 
-const buildInitialDrafts = (
-  files: ReleaseFile[],
-  defaultRequest: DefaultRequest | undefined,
-  seasonIndexes: Map<string, SeasonIndex>,
-): DraftMap => {
+/**
+ * Only what is already stored. A file the server has not mapped starts blank,
+ * so the unsaved-changes count stays honest: anything the form fills in from
+ * here on is a proposal nobody has agreed to yet.
+ */
+const buildInitialDrafts = (files: ReleaseFile[]): DraftMap => {
   const drafts: DraftMap = {};
-  const seriesKey = defaultRequest ? seriesKeyOfDefault(defaultRequest) : undefined;
-  const seasonIndex = seriesKey ? seasonIndexes.get(seriesKey) : undefined;
 
   files.forEach((file) => {
-    if (file.request_mapping) {
-      drafts[file.id] = draftFromMapping(file.request_mapping);
-      return;
-    }
-
-    if (!defaultRequest) {
-      drafts[file.id] = { ...EMPTY_DRAFT };
-      return;
-    }
-
-    if (defaultRequest.type === 'series') {
-      const parsed = parseEpisodeFromFile(file);
-      drafts[file.id] = seriesDraft(
-        parsed.season ?? defaultRequest.seasonNumber,
-        parsed.episode,
-        defaultRequest,
-        seasonIndex,
-      );
-    } else {
-      drafts[file.id] = {
-        requestId: defaultRequest.id,
-        requestTitle: defaultRequest.title,
-        mappingType: 'movie',
-      };
-    }
+    drafts[file.id] = file.request_mapping
+      ? draftFromMapping(file.request_mapping)
+      : { ...EMPTY_DRAFT };
   });
 
   return drafts;
@@ -157,6 +122,43 @@ const isSameDraft = (a: MappingDraft, b: MappingDraft): boolean =>
   a.mappingType === b.mappingType &&
   a.season === b.season &&
   a.episode === b.episode;
+
+/**
+ * Identity of a batch of proposals by content. Comparing these rather than array
+ * references means a caller that rebuilds the list every render still only
+ * triggers one pass, instead of looping.
+ */
+const suggestionsFingerprint = (suggestions: ReleaseFileMappingSuggestion[]): string =>
+  suggestions
+    .map(({ file_id: fileId, request_mapping: mapping }) =>
+      mapping.mapping_type === 'series'
+        ? `${fileId}:${mapping.request_id}:${mapping.season}:${mapping.episode}`
+        : `${fileId}:${mapping.request_id}`,
+    )
+    .join('|');
+
+/**
+ * Lay the server's proposals over the rows nobody has touched. An edit made
+ * while the suggestions were still in flight outranks them.
+ */
+const withSuggestions = (
+  drafts: DraftMap,
+  initial: DraftMap,
+  suggestions: ReleaseFileMappingSuggestion[],
+): DraftMap => {
+  const next = { ...drafts };
+
+  suggestions.forEach((suggestion) => {
+    const current = next[suggestion.file_id];
+    const untouched = current && isSameDraft(current, initial[suggestion.file_id] ?? EMPTY_DRAFT);
+    if (current && !untouched) {
+      return;
+    }
+    next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
+  });
+
+  return next;
+};
 
 /** A mapping is only persistable once it points at a request. */
 const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput | null => {
@@ -194,8 +196,8 @@ const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput
 
 export function useFileMappingForm(
   files: ReleaseFile[],
-  defaultRequest?: DefaultRequest,
   availableRequests: MediaRequest[] = NO_REQUESTS,
+  suggestions: ReleaseFileMappingSuggestion[] = NO_SUGGESTIONS,
 ) {
   const seasonIndexes = useMemo(() => buildSeasonIndexes(availableRequests), [availableRequests]);
   const requestsById = useMemo(
@@ -203,12 +205,11 @@ export function useFileMappingForm(
     [availableRequests],
   );
 
-  const initialDrafts = useMemo(
-    () => buildInitialDrafts(files, defaultRequest, seasonIndexes),
-    [files, defaultRequest, seasonIndexes],
-  );
+  const initialDrafts = useMemo(() => buildInitialDrafts(files), [files]);
 
-  const [drafts, setDrafts] = useState<DraftMap>(initialDrafts);
+  const [drafts, setDrafts] = useState<DraftMap>(() =>
+    withSuggestions(initialDrafts, initialDrafts, suggestions),
+  );
   const [resetToken, setResetToken] = useState(0);
 
   // Rebuild drafts whenever the underlying files change (e.g. after a save).
@@ -216,6 +217,14 @@ export function useFileMappingForm(
   if (seenInitial !== initialDrafts) {
     setSeenInitial(initialDrafts);
     setDrafts(initialDrafts);
+  }
+
+  // And fold in each new batch of proposals as it arrives.
+  const suggestionsKey = useMemo(() => suggestionsFingerprint(suggestions), [suggestions]);
+  const [seenSuggestions, setSeenSuggestions] = useState(suggestionsKey);
+  if (seenSuggestions !== suggestionsKey) {
+    setSeenSuggestions(suggestionsKey);
+    setDrafts((current) => withSuggestions(current, initialDrafts, suggestions));
   }
 
   const getDraft = useCallback(
@@ -231,21 +240,20 @@ export function useFileMappingForm(
   }, []);
 
   const selectRequest = useCallback(
-    (fileId: string, request: MediaRequest | null, file: ReleaseFile) => {
+    (fileId: string, request: MediaRequest | null) => {
       if (!request) {
         updateDraft(fileId, { ...EMPTY_DRAFT });
         return;
       }
 
       if (isSeriesRequest(request)) {
-        const parsed = parseEpisodeFromFile(file);
         const existing = drafts[fileId];
         updateDraft(fileId, {
           requestId: request.id,
           requestTitle: request.title,
           mappingType: 'series',
-          season: existing?.season ?? parsed.season ?? request.season_number,
-          episode: existing?.episode ?? parsed.episode,
+          season: existing?.season ?? request.season_number,
+          episode: existing?.episode,
         });
       } else {
         updateDraft(fileId, {
@@ -283,10 +291,10 @@ export function useFileMappingForm(
             return;
           }
 
-          const parsed = parseEpisodeFromFile(file);
+          const draft = current[file.id];
           next[file.id] = seriesDraft(
-            parsed.season ?? request.season_number,
-            parsed.episode ?? current[file.id]?.episode,
+            draft?.season ?? request.season_number,
+            draft?.episode,
             request,
             seasonIndex,
           );
@@ -299,10 +307,12 @@ export function useFileMappingForm(
   );
 
   /**
-   * Fills season/episode for series mappings, preferring numbers parsed from the
-   * file and falling back to a counter kept per season.
+   * Numbers the series rows that have no episode yet, in name order, continuing
+   * from the highest already set for their season. The server deliberately will
+   * not guess at a file whose name carries no number, so this is how a release
+   * named that way gets mapped at all - by the person who can see the order.
    */
-  const autoFillEpisodes = useCallback(
+  const numberEpisodes = useCallback(
     (targetFiles: ReleaseFile[]) => {
       setDrafts((current) => {
         const next = { ...current };
@@ -314,13 +324,12 @@ export function useFileMappingForm(
             return;
           }
 
-          const parsed = parseEpisodeFromFile(file);
-          const season = parsed.season ?? draft.season;
+          const season = draft.season;
           if (season === undefined) {
             return;
           }
 
-          const episode = parsed.episode ?? (lastEpisode.get(season) ?? 0) + 1;
+          const episode = draft.episode ?? (lastEpisode.get(season) ?? 0) + 1;
           lastEpisode.set(season, Math.max(lastEpisode.get(season) ?? 0, episode));
 
           const request = requestsById.get(draft.requestId);
@@ -342,6 +351,17 @@ export function useFileMappingForm(
     },
     [requestsById, seasonIndexes],
   );
+
+  /** Put the server's proposals back over the rows, discarding edits to them. */
+  const applySuggestions = useCallback(() => {
+    setDrafts((current) => {
+      const next = { ...current };
+      suggestions.forEach((suggestion) => {
+        next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
+      });
+      return next;
+    });
+  }, [suggestions]);
 
   const reset = useCallback(() => {
     setDrafts(initialDrafts);
@@ -369,7 +389,7 @@ export function useFileMappingForm(
     [getDraft],
   );
 
-  const canAutoFill = useMemo(
+  const canNumberEpisodes = useMemo(
     () =>
       Object.values(drafts).some(
         (draft) => draft.mappingType === 'series' && Boolean(draft.requestId),
@@ -382,12 +402,13 @@ export function useFileMappingForm(
     updateDraft,
     selectRequest,
     applyToAll,
-    autoFillEpisodes,
+    applySuggestions,
+    numberEpisodes,
     reset,
     resetToken,
     isDirty,
     dirtyFileIds,
     buildPayload,
-    canAutoFill,
+    canNumberEpisodes,
   };
 }

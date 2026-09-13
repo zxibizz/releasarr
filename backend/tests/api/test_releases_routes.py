@@ -21,6 +21,7 @@ from src.api.routes.releases import (
     _queue_download_use_case,
     _queue_manual_use_case,
     _search_use_case,
+    _suggest_mappings_use_case,
     _update_mappings_use_case,
 )
 from src.application.use_cases.releases.dto import (
@@ -28,6 +29,7 @@ from src.application.use_cases.releases.dto import (
     ReleaseDTO,
     ReleaseFileDTO,
     ReleaseFileMappingDTO,
+    ReleaseFileMappingSuggestionDTO,
     ReleaseSearchResponseDTO,
     ReleaseSearchResultDTO,
     ReleasesPageDTO,
@@ -264,6 +266,62 @@ async def test_update_file_mappings_missing_file_returns_404(api_client: AsyncCl
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["code"] == "release_file_not_found"
+
+
+@pytest.mark.asyncio
+async def test_suggest_file_mappings_returns_proposals(api_client: AsyncClient) -> None:
+    suggestion = ReleaseFileMappingSuggestionDTO(
+        file_id="file-1",
+        request_mapping=ReleaseFileMappingDTO(
+            mapping_type="series",
+            request_id="req-1",
+            request_title="Avatar - Season 2",
+            season=2,
+            episode=7,
+        ),
+    )
+
+    class FakeSuggest:
+        async def execute(self, release_id):
+            return [suggestion]
+
+    with override_dependency(_suggest_mappings_use_case, FakeSuggest()):
+        response = await api_client.get(
+            "/releases/rel-1/files/mapping/suggestions",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "files": [
+            {
+                "file_id": "file-1",
+                "request_mapping": {
+                    "mapping_type": "series",
+                    "request_id": "req-1",
+                    "request_title": "Avatar - Season 2",
+                    "season": 2,
+                    "episode": 7,
+                },
+            }
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_suggest_file_mappings_unknown_release_returns_404(api_client: AsyncClient) -> None:
+    class FakeSuggest:
+        async def execute(self, release_id):
+            raise ReleaseNotFoundError("rel-1")
+
+    with override_dependency(_suggest_mappings_use_case, FakeSuggest()):
+        response = await api_client.get(
+            "/releases/rel-1/files/mapping/suggestions",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "release_not_found"
 
 
 @pytest.mark.asyncio

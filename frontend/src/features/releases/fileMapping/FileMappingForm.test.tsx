@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FileMappingForm } from '@/features/releases/fileMapping/FileMappingForm';
 import { apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
-import type { MediaRequest, ReleaseFile } from '@/types';
+import type { MediaRequest, ReleaseFile, ReleaseFileMappingSuggestion } from '@/types';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -36,32 +36,56 @@ const files: ReleaseFile[] = [
   { id: 'f1', name: 'Severance.S02E01.1080p.mkv', size: 100, path: '/d/f1.mkv' },
 ];
 
+const suggestion = (fileId: string, episode: number): ReleaseFileMappingSuggestion => ({
+  file_id: fileId,
+  request_mapping: {
+    request_id: 'req-1',
+    request_title: 'Severance',
+    mapping_type: 'series',
+    season: 2,
+    episode,
+  },
+});
+
+const MAPPING_PATH = '/releases/rel-1/files/mapping';
+
 const renderForm = () =>
-  renderWithProviders(
-    <FileMappingForm
-      releaseId="rel-1"
-      requestId="req-1"
-      files={files}
-      defaultRequest={{ id: 'req-1', title: 'Severance', type: 'series', seasonNumber: 2 }}
-    />,
-  );
+  renderWithProviders(<FileMappingForm releaseId="rel-1" requestId="req-1" files={files} />);
 
 describe('FileMappingForm', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
-    vi.mocked(apiRequest).mockResolvedValue({ requests: [seriesRequest], total: 1 });
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      if (path === `${MAPPING_PATH}/suggestions`) {
+        return { files: [suggestion('f1', 1), suggestion('f2', 2)] };
+      }
+      if (path === MAPPING_PATH) {
+        return { success: true };
+      }
+      return { requests: [seriesRequest], total: 1 };
+    });
   });
 
-  it('lists video files by name and seeds season/episode from filenames', async () => {
+  it("lists video files by name and seeds season/episode from the server's suggestions", async () => {
     renderForm();
 
     expect(await screen.findByText('Severance.S02E01.1080p.mkv')).toBeInTheDocument();
     expect(screen.getByText('Severance.S02E02.1080p.mkv')).toBeInTheDocument();
     expect(screen.queryByText('readme.txt')).not.toBeInTheDocument();
 
-    const episodeInputs = screen.getAllByLabelText('Episode');
+    const episodeInputs = await waitFor(() => {
+      const inputs = screen.getAllByLabelText('Episode');
+      expect(inputs).toHaveLength(2);
+      return inputs;
+    });
     expect(episodeInputs[0]).toHaveValue('1');
     expect(episodeInputs[1]).toHaveValue('2');
+  });
+
+  it('reports the suggestions as unsaved, since nothing has stored them', async () => {
+    renderForm();
+
+    expect(await screen.findByText(/2 unsaved change/)).toBeInTheDocument();
   });
 
   it('keeps non-video files behind a collapsed section', async () => {
@@ -79,20 +103,18 @@ describe('FileMappingForm', () => {
     renderForm();
 
     await screen.findByText('Severance.S02E01.1080p.mkv');
-    vi.mocked(apiRequest).mockResolvedValueOnce({ success: true });
+    await waitFor(() => expect(screen.getAllByLabelText('Episode')).toHaveLength(2));
 
     await user.click(screen.getByRole('button', { name: /save mappings/i }));
 
     await waitFor(() => {
       expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
-        '/releases/rel-1/files/mapping',
+        MAPPING_PATH,
         expect.objectContaining({ method: 'PUT' }),
       );
     });
 
-    const call = vi
-      .mocked(apiRequest)
-      .mock.calls.find(([path]) => path === '/releases/rel-1/files/mapping');
+    const call = vi.mocked(apiRequest).mock.calls.find(([path]) => path === MAPPING_PATH);
     const body = call?.[1]?.body as { files: unknown[] };
 
     expect(body.files).toEqual([

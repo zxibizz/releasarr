@@ -1,4 +1,9 @@
-import { getMockReleases, getMockRequests, searchMockReleaseSources } from './mockData';
+import {
+  getMockMappingSuggestions,
+  getMockReleases,
+  getMockRequests,
+  searchMockReleaseSources,
+} from './mockData';
 import {
   DISCOVER_CATALOGUE,
   DISCOVER_ROOT_FOLDERS,
@@ -12,6 +17,7 @@ import type {
   MediaType,
   Release,
   ReleaseFile,
+  ReleaseFileMappingSuggestion,
   ReleaseSearchResult,
   RequestLogEntry,
   RootFolder,
@@ -564,6 +570,21 @@ export class MockStore {
     });
 
     return success;
+  }
+
+  async suggestedFileMappings(releaseId: string): Promise<ReleaseFileMappingSuggestion[] | null> {
+    const releases = await this.ensureReleases();
+    if (!releases.some((item) => item.id === releaseId)) {
+      return null;
+    }
+
+    // Only offer what is not already settled, as the server does.
+    const release = releases.find((item) => item.id === releaseId);
+    const suggestions = (await getMockMappingSuggestions(releaseId)) ?? [];
+    return suggestions.filter(
+      (suggestion) =>
+        !release?.files.find((file) => file.id === suggestion.file_id)?.request_mapping,
+    );
   }
 
   async searchReleaseCandidates(query: string, requestId?: string): Promise<ReleaseSearchResult[]> {

@@ -18,6 +18,14 @@ class ReleaseFileMappingDTO:
 
 
 @dataclass(slots=True)
+class ReleaseFileMappingSuggestionDTO:
+    """A mapping automapping would make for a file, offered rather than stored."""
+
+    file_id: str
+    request_mapping: ReleaseFileMappingDTO
+
+
+@dataclass(slots=True)
 class ReleaseFileDTO:
     id: str
     name: str
@@ -94,6 +102,7 @@ __all__ = [
     "ReleaseDTO",
     "ReleaseFileDTO",
     "ReleaseFileMappingDTO",
+    "ReleaseFileMappingSuggestionDTO",
     "ReleaseSearchResponseDTO",
     "ReleaseSearchResultDTO",
     "ReleasesPageDTO",

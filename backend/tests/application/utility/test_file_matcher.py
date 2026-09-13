@@ -174,6 +174,29 @@ def test_a_single_request_absorbs_files_with_no_detectable_season() -> None:
     assert placements(files) == [("req-2", 2, 3)]
 
 
+def test_absolute_numbering_maps_against_the_only_season_requested() -> None:
+    """Nothing in these names states a season, which is the norm for anime."""
+
+    files = [
+        make_file("a", "[Grp] Show Name/[Grp] Show Name - 01 [1080p].mkv"),
+        make_file("b", "[Grp] Show Name/[Grp] Show Name - 02 [1080p].mkv"),
+        make_file("c", "[Grp] Show Name/[Grp] Show Name - 03 [1080p].mkv"),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, [make_request("req-2", 2)])
+
+    assert placements(files) == [("req-2", 2, 1), ("req-2", 2, 2), ("req-2", 2, 3)]
+
+
+def test_a_name_carrying_two_bare_numbers_is_left_for_manual_mapping() -> None:
+    """Which number is the episode is a guess, and guessing it imports the wrong file."""
+
+    files = [make_file("a", "Show Name 2 - 01.mkv")]
+
+    assert ReleaseFileMatcher().autocomplete(files, [make_request("req-1", 1)]) == []
+    assert files[0].mapping is None
+
+
 def test_movie_requests_are_never_used_for_series_files() -> None:
     movie = ReleaseRequestSnapshot(
         id="req-movie",

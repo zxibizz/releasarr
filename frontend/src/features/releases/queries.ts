@@ -9,6 +9,8 @@ import { getErrorMessage } from '@/utils/errors';
 export const releaseKeys = {
   all: ['releases'] as const,
   byRequest: (requestId: string) => [...releaseKeys.all, 'by-request', requestId] as const,
+  mappingSuggestions: (releaseId: string) =>
+    [...releaseKeys.all, 'mapping-suggestions', releaseId] as const,
 };
 
 export const releasesByRequestQuery = (requestId: string) => ({
@@ -92,6 +94,27 @@ export function useUpdateFileMappings(releaseId: string, requestId: string | und
       void queryClient.invalidateQueries({
         queryKey: requestId ? releaseKeys.byRequest(requestId) : releaseKeys.all,
       });
+      // Saving part of a release leaves the rest to propose again.
+      void queryClient.invalidateQueries({
+        queryKey: releaseKeys.mappingSuggestions(releaseId),
+      });
     },
+  });
+}
+
+/**
+ * The mappings the server would apply to a release's files, which it works out
+ * from the file names and the requests currently on the table. Nothing is
+ * stored until the form saves, so this is only ever a starting point.
+ */
+export function useSuggestedFileMappings(releaseId: string | undefined) {
+  return useQuery({
+    queryKey: releaseKeys.mappingSuggestions(releaseId ?? ''),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      releasesApi.suggestedFileMappings(releaseId ?? '', signal),
+    enabled: Boolean(releaseId),
+    // The requests a file may map to change as the library does, so a cached
+    // answer from an earlier visit is not one worth reusing.
+    staleTime: 0,
   });
 }
