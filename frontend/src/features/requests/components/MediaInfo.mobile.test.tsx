@@ -27,16 +27,7 @@ const series: MediaRequest = {
 };
 
 function renderMediaInfo() {
-  return renderWithProviders(
-    <MediaInfo
-      request={series}
-      languageSelector={
-        <button type="button" aria-label="Language">
-          Русский
-        </button>
-      }
-    />,
-  );
+  return renderWithProviders(<MediaInfo request={series} onManageSeasons={() => {}} />);
 }
 
 describe('MediaInfo on a phone', () => {
@@ -58,15 +49,15 @@ describe('MediaInfo on a phone', () => {
     expect(title).not.toHaveAttribute('data-line-clamp');
   });
 
-  it('gives the language picker and status a row of their own', () => {
+  it('gives the season button and status a row of their own', () => {
     renderMediaInfo();
 
     const posterRow = screen.getByRole('img').parentElement;
     expect(posterRow).toContainElement(screen.getByRole('heading', { level: 3 }));
-    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Language' }));
+    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
   });
 
-  it('keeps the larger title and the picker beside it on a desktop', () => {
+  it('keeps the larger title and the season button beside it on a desktop', () => {
     setViewportWidth(DESKTOP_WIDTH);
 
     renderMediaInfo();
@@ -74,6 +65,15 @@ describe('MediaInfo on a phone', () => {
     expect(screen.getByRole('heading', { level: 2, name: LONG_TITLE })).toBeInTheDocument();
 
     const posterRow = screen.getByRole('img').parentElement;
-    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Language' }));
+    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
+  });
+
+  it('names the series in the meta line while the heading shows a translation', () => {
+    renderMediaInfo();
+
+    // Sonarr's own title, which the translated heading is not saying.
+    expect(
+      screen.getByText('📺 Series · You and I Are Polar Opposites · 2026 · Season 2 · 13 episodes'),
+    ).toBeInTheDocument();
   });
 });

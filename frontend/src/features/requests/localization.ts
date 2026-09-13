@@ -1,21 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import type { AppLocale } from '@/locales/resources';
 import type { MediaRequest } from '@/types';
 
-/** Languages we prefer when the user has not picked one explicitly. */
-const PREFERRED_LANGUAGES = ['rus', 'eng'];
-
-export const collectLanguages = (requests: MediaRequest[]): string[] => {
-  const languages = new Set<string>();
-  requests.forEach((request) => {
-    Object.keys(request.localizations ?? {}).forEach((language) => {
-      if (language) {
-        languages.add(language);
-      }
-    });
-  });
-  return [...languages].sort();
-};
+/**
+ * The metadata language each UI language reads titles in. Requests key their
+ * translations by the three-letter codes the backend's `metadata_languages`
+ * setting names, which the two-letter UI locales have to be mapped onto.
+ */
+const METADATA_LANGUAGES: Record<AppLocale, string> = { en: 'eng', ru: 'rus' };
 
 export const localizeRequest = <T extends MediaRequest>(request: T, language: string | null): T => {
   const localization = language ? request.localizations?.[language] : undefined;
@@ -30,25 +23,15 @@ export const localizeRequest = <T extends MediaRequest>(request: T, language: st
   };
 };
 
-const pickDefaultLanguage = (available: string[]): string | null => {
-  if (available.length === 0) {
-    return null;
-  }
-  return PREFERRED_LANGUAGES.find((language) => available.includes(language)) ?? available[0];
-};
-
 /**
- * Tracks the selected localization language, falling back to a preferred
- * language whenever the current selection is no longer available.
+ * The metadata language to read requests in, taken from the UI language.
+ *
+ * A request without a translation in it keeps the title and overview the *arr
+ * app reported, rather than falling back to some other language: a Russian
+ * title on an English page is more surprising than an untranslated one.
  */
-export function useLanguageSelection(requests: MediaRequest[]) {
-  const availableLanguages = useMemo(() => collectLanguages(requests), [requests]);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const language =
-    selected && availableLanguages.includes(selected)
-      ? selected
-      : pickDefaultLanguage(availableLanguages);
-
-  return { availableLanguages, language, setLanguage: setSelected };
+export function useMetadataLanguage(): string | null {
+  const { i18n } = useTranslation();
+  const locale = i18n.language?.split('-')[0]?.toLowerCase() as AppLocale | undefined;
+  return (locale && METADATA_LANGUAGES[locale]) ?? null;
 }
