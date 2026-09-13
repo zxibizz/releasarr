@@ -14,10 +14,13 @@ from .dto import (
     MediaRequestDTO,
     MediaRequestsPageDTO,
     MovieRequestDTO,
+    SeasonEpisodeDTO,
+    SeasonEpisodesDTO,
     SeriesRequestDTO,
 )
 from .exceptions import EmptyUpdatePayloadError, MediaRequestNotFoundError
 from .get_request import GetMediaRequestUseCase
+from .list_episodes import ListRequestEpisodesUseCase
 from .list_requests import ListMediaRequestsUseCase
 from .sync_sonarr import SyncSonarrMediaRequestsUseCase, SyncSonarrResult
 from .update_request import UpdateMediaRequestUseCase
@@ -32,11 +35,14 @@ __all__ = [
     "EmptyUpdatePayloadError",
     "GetMediaRequestUseCase",
     "ListMediaRequestsUseCase",
+    "ListRequestEpisodesUseCase",
     "ListRequestsOptions",
     "MediaRequestDTO",
     "MediaRequestNotFoundError",
     "MediaRequestsPageDTO",
     "MovieRequestDTO",
+    "SeasonEpisodeDTO",
+    "SeasonEpisodesDTO",
     "SeriesRequestDTO",
     "SyncSonarrMediaRequestsUseCase",
     "SyncSonarrResult",

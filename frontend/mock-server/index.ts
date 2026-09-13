@@ -149,6 +149,18 @@ api.delete('/requests/:requestId', async (req, res) => {
   res.status(204).send();
 });
 
+api.get('/requests/:requestId/episodes', async (req, res) => {
+  const episodes = await mockStore.listRequestEpisodes(req.params.requestId);
+  if (!episodes) {
+    // As with the seasons below, the mock cannot tell "no such request" from
+    // "nothing to list", and the UI treats the two the same way.
+    return res
+      .status(409)
+      .json({ code: 'seasons_unmanageable', message: 'This request has no episodes to list' });
+  }
+  res.json(episodes);
+});
+
 api.get('/requests/:requestId/seasons', async (req, res) => {
   const seasons = await mockStore.listRequestSeasons(req.params.requestId);
   if (!seasons) {

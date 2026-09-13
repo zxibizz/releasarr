@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequestDetailPage } from '@/features/requests/pages/RequestDetailPage';
 import { ApiError, apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
-import type { MediaRequest, SeasonOption, SeriesSeasonsResponse } from '@/types';
+import type { MediaRequest, SeasonEpisode, SeasonOption, SeriesSeasonsResponse } from '@/types';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -64,11 +64,23 @@ const seasons = (...options: Partial<SeasonOption>[]): SeasonOption[] =>
     request_id: option.request_id ?? null,
   }));
 
+const episodes = (...items: Partial<SeasonEpisode>[]): SeasonEpisode[] =>
+  items.map((item, index) => ({
+    episode_number: item.episode_number ?? index + 1,
+    title: item.title ?? `Episode ${index + 1}`,
+    status: item.status ?? 'missing',
+    // An explicit null is a date Sonarr does not have, not one left unsaid.
+    air_date: item.air_date === undefined ? '2026-03-01T01:00:00Z' : item.air_date,
+  }));
+
 interface RouteStubs {
   request?: MediaRequest;
   seasons?: SeasonOption[];
+  /** Left empty by default, which keeps the episode table out of the way. */
+  episodes?: SeasonEpisode[];
   monitorNewSeasons?: boolean;
   seasonsError?: Error;
+  episodesError?: Error;
 }
 
 /** Answers each endpoint the page hits by path, as the real client does. */
@@ -78,8 +90,10 @@ const stubRoutes = ({
     { season_number: 1 },
     { season_number: 2, monitored: true, requested: true },
   ),
+  episodes: episodeList = [],
   monitorNewSeasons = false,
   seasonsError,
+  episodesError,
 }: RouteStubs = {}) => {
   const answer = (): SeriesSeasonsResponse => ({
     tvdb_id: null,
@@ -95,6 +109,12 @@ const stubRoutes = ({
         return Promise.reject(seasonsError);
       }
       return Promise.resolve(answer() as never);
+    }
+    if (path.endsWith('/episodes')) {
+      if (episodesError) {
+        return Promise.reject(episodesError);
+      }
+      return Promise.resolve({ season_number: 2, episodes: episodeList } as never);
     }
     if (path.endsWith('/releases')) {
       return Promise.resolve({ releases: [], total: 0 } as never);
@@ -115,6 +135,55 @@ describe('RequestDetailPage', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
     navigate.mockReset();
+  });
+
+  it('lists the episodes of the season with what became of each', async () => {
+    stubRoutes({
+      episodes: episodes(
+        { title: 'Hello, Ms. Cobel', status: 'downloaded' },
+        { title: 'Goodbye, Mrs. Selvig', status: 'missing' },
+        { title: 'Sweet Vitriol', status: 'unaired', air_date: null },
+      ),
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(3);
+
+    expect(within(rows[0]).getByText('Downloaded')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Pending')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Not aired yet')).toBeInTheDocument();
+    // An episode with no date must still say something in its date column.
+    expect(within(rows[2]).getByText('Not scheduled')).toBeInTheDocument();
+
+    expect(screen.getByText('1 of 3 downloaded')).toBeInTheDocument();
+  });
+
+  it('has no episode table for a movie request', async () => {
+    stubRoutes({ request: movie });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    // A movie has no season, so there is nothing to ask Sonarr for either.
+    expect(apiRequest).not.toHaveBeenCalledWith('/requests/req-2/episodes', expect.anything());
+  });
+
+  it('keeps quiet when the episodes cannot be listed', async () => {
+    /*
+     * Which is the ordinary state of a request the Sonarr sync has yet to link
+     * to a series, and no reason to alarm a page whose own content is fine.
+     */
+    stubRoutes({ episodesError: new ApiError('nothing to list', { status: 409 }) });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByRole('button', { name: /Severance \(2022\)/ })).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByText(/downloaded$/)).not.toBeInTheDocument();
   });
 
   it('opens the season manager from the series name', async () => {

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -401,3 +402,55 @@ async def test_wait_for_series_episodes_gives_up_without_failing() -> None:
     details = await build_client(handler).wait_for_series_episodes(12, [1], timeout_seconds=0.0)
 
     assert details.seasons[1].total_episode_count == 0
+
+
+async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 201,
+                    "seasonNumber": 2,
+                    "episodeNumber": 1,
+                    "title": "Pilot",
+                    "airDateUtc": "2020-03-01T01:00:00Z",
+                    "hasFile": True,
+                },
+                # Only a calendar date, which is all Sonarr holds for some.
+                {
+                    "id": 202,
+                    "seasonNumber": 2,
+                    "episodeNumber": 2,
+                    "title": "The Next One",
+                    "airDate": "2020-03-08",
+                },
+                # An episode announced with no date at all.
+                {"id": 203, "seasonNumber": 2, "episodeNumber": 3},
+            ],
+        )
+
+    episodes = await build_client(handler).get_episodes(12)
+
+    assert [(episode.episode_number, episode.title) for episode in episodes] == [
+        (1, "Pilot"),
+        (2, "The Next One"),
+        (3, ""),
+    ]
+    assert episodes[0].air_date == datetime(2020, 3, 1, 1, 0, tzinfo=UTC)
+    # A bare date is read as midnight UTC, which keeps the day it names.
+    assert episodes[1].air_date == datetime(2020, 3, 8, tzinfo=UTC)
+    assert episodes[2].air_date is None
+    assert [episode.has_file for episode in episodes] == [True, False, False]
+
+
+async def test_get_episodes_survives_an_air_date_it_cannot_read() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[{"id": 201, "seasonNumber": 1, "episodeNumber": 1, "airDateUtc": "soon"}],
+        )
+
+    episodes = await build_client(handler).get_episodes(12)
+
+    assert episodes[0].air_date is None

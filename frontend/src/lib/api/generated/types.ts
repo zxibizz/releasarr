@@ -51,6 +51,35 @@ export interface paths {
         patch: operations["updateRequest"];
         trace?: never;
     };
+    "/requests/{requestId}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the episodes of the season a request covers
+         * @description Every episode of the one season a series request covers, with its air
+         *     date and whether Sonarr holds a file for it. Sonarr is asked directly
+         *     rather than the answer being derived from the files of the releases
+         *     grabbed here: a season is just as likely to have been filled from
+         *     outside releasarr, and what Sonarr holds is the truth either way.
+         *
+         *     An episode counts as `downloaded` once Sonarr has a file for it,
+         *     whatever its air date says. Of the rest, one whose air date has passed
+         *     is `missing` - the only state that is anybody's to act on - and one
+         *     still to air, or that Sonarr has no date for at all, is `unaired`.
+         */
+        get: operations["listRequestEpisodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requests/{requestId}/seasons": {
         parameters: {
             query?: never;
@@ -548,6 +577,25 @@ export interface components {
             total: number;
             page: number;
             per_page: number;
+        };
+        /**
+         * @description Where an episode stands. `downloaded` whenever Sonarr holds a file for it, `missing` once its air date has passed with no file, and `unaired` while it is still to come or has no known date.
+         * @enum {string}
+         */
+        EpisodeStatus: "downloaded" | "missing" | "unaired";
+        SeasonEpisode: {
+            episode_number: number;
+            title: string;
+            status: components["schemas"]["EpisodeStatus"];
+            /**
+             * Format: date-time
+             * @description When the episode airs, in UTC. Null for an episode Sonarr has no date for, which also leaves it reported as unaired.
+             */
+            air_date?: string | null;
+        };
+        SeasonEpisodesResponse: {
+            season_number: number;
+            episodes: components["schemas"]["SeasonEpisode"][];
         };
         ReleasesResponse: {
             releases: components["schemas"]["Release"][];
@@ -1264,6 +1312,65 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRequestEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episodes of the request's season, in episode order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonEpisodesResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no season in Sonarr whose episodes can be listed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

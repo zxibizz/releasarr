@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -291,9 +292,29 @@ class SonarrHttpClient(SonarrService):
                     id=int(item.get("id") or 0),
                     season_number=int(item.get("seasonNumber") or 0),
                     episode_number=int(item.get("episodeNumber") or 0),
+                    title=str(item.get("title") or ""),
+                    air_date=self._air_date(item),
+                    has_file=bool(item.get("hasFile")),
                 )
             )
         return episodes
+
+    def _air_date(self, item: dict[str, Any]) -> datetime | None:
+        """Read an episode's broadcast time, preferring the one Sonarr zones.
+
+        ``airDateUtc`` is a timestamp and ``airDate`` a bare calendar date in the
+        series' own timezone; the latter is all Sonarr has for some episodes, and
+        reading it as midnight UTC is close enough for the day to come out right.
+        """
+
+        text = item.get("airDateUtc") or item.get("airDate")
+        if not isinstance(text, str) or not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         if not files:

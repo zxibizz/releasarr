@@ -8,6 +8,9 @@ export type MediaRequest = Schemas['MediaRequest'];
 export type MovieRequest = Schemas['MovieRequest'];
 export type SeriesRequest = Schemas['SeriesRequest'];
 export type RequestsResponse = Schemas['RequestsResponse'];
+export type EpisodeStatus = Schemas['EpisodeStatus'];
+export type SeasonEpisode = Schemas['SeasonEpisode'];
+export type SeasonEpisodesResponse = Schemas['SeasonEpisodesResponse'];
 
 export type ReleaseStatus = Schemas['ReleaseStatus'];
 export type Release = Schemas['Release'];

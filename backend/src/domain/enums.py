@@ -33,6 +33,19 @@ class ReleaseStatus(StrEnum):
     FAILED = "failed"
 
 
+class EpisodeStatus(StrEnum):
+    """Where a single episode of a requested season stands.
+
+    ``MISSING`` is the only one of the three that is anybody's to act on: it has
+    aired and Sonarr holds no file for it, which is precisely what a release is
+    grabbed to fix. An unaired episode is nothing to chase yet.
+    """
+
+    DOWNLOADED = "downloaded"
+    MISSING = "missing"
+    UNAIRED = "unaired"
+
+
 class RequestLogLevel(StrEnum):
     INFO = "info"
     WARNING = "warning"
@@ -74,6 +87,7 @@ class SyncJobTrigger(StrEnum):
 
 __all__ = [
     "AsyncJobStatus",
+    "EpisodeStatus",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",

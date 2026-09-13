@@ -35,6 +35,8 @@ from src.schemas.requests import (
     MediaRequestUpdate,
     MovieRequest,
     RequestsResponse,
+    SeasonEpisode,
+    SeasonEpisodesResponse,
     SeriesRequest,
 )
 
@@ -70,6 +72,8 @@ __all__ = [
     "RequestLogEntry",
     "RequestLogLevel",
     "RequestsResponse",
+    "SeasonEpisode",
+    "SeasonEpisodesResponse",
     "SeriesFileRequestMapping",
     "SeriesRequest",
     "SuccessResponse",

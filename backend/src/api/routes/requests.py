@@ -23,10 +23,12 @@ from src.application.use_cases.requests import (
     DeleteMediaRequestUseCase,
     GetMediaRequestUseCase,
     ListMediaRequestsUseCase,
+    ListRequestEpisodesUseCase,
     ListRequestsOptions,
     MediaRequestDTO,
     MediaRequestsPageDTO,
     MovieRequestDTO,
+    SeasonEpisodesDTO,
     SeriesRequestDTO,
     UpdateMediaRequestCommand,
     UpdateMediaRequestUseCase,
@@ -42,6 +44,8 @@ from src.schemas.requests import (
     MediaRequestUpdate,
     MovieRequest,
     RequestsResponse,
+    SeasonEpisode,
+    SeasonEpisodesResponse,
     SeriesRequest,
 )
 from src.schemas.requests import (
@@ -95,9 +99,16 @@ def _get_update_seasons_use_case(
     return container.use_cases.discover.update_request_seasons
 
 
+def _get_episodes_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListRequestEpisodesUseCase:
+    return container.use_cases.media_requests.episodes
+
+
 _SERVER_ERROR = "Unexpected server error."
 _UPSTREAM_ERROR = "Sonarr or Radarr could not be reached."
 _UNMANAGEABLE_SEASONS = "The request has no series in Sonarr whose seasons can be managed."
+_NO_EPISODES = "The request has no season in Sonarr whose episodes can be listed."
 
 LIST_REQUESTS_RESPONSES = error_responses(
     {
@@ -159,6 +170,16 @@ UPDATE_SEASONS_RESPONSES = error_responses(
 )
 
 
+EPISODES_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_409_CONFLICT: _NO_EPISODES,
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+
 RequestIdParam = Annotated[str, Path(..., alias="requestId")]
 
 
@@ -168,6 +189,21 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
     if isinstance(dto, SeriesRequestDTO):
         return SeriesRequest.model_validate(dto)
     raise TypeError("Unsupported DTO type")
+
+
+def _episodes_to_schema(dto: SeasonEpisodesDTO) -> SeasonEpisodesResponse:
+    return SeasonEpisodesResponse(
+        season_number=dto.season_number,
+        episodes=[
+            SeasonEpisode(
+                episode_number=episode.episode_number,
+                title=episode.title,
+                status=episode.status,
+                air_date=episode.air_date,
+            )
+            for episode in dto.episodes
+        ],
+    )
 
 
 def _page_to_response(page: MediaRequestsPageDTO) -> RequestsResponse:
@@ -276,6 +312,19 @@ async def list_request_seasons(
 ) -> SeriesSeasonsResponse:
     seasons = await seasons_use_case.execute(request_id)
     return seasons_to_schema(seasons)
+
+
+@router.get(
+    "/{requestId}/episodes",
+    response_model=SeasonEpisodesResponse,
+    responses=EPISODES_RESPONSES,
+)
+async def list_request_episodes(
+    request_id: RequestIdParam,
+    episodes_use_case: ListRequestEpisodesUseCase = Depends(_get_episodes_use_case),
+) -> SeasonEpisodesResponse:
+    episodes = await episodes_use_case.execute(request_id)
+    return _episodes_to_schema(episodes)
 
 
 @router.put(

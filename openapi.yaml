@@ -185,6 +185,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/episodes:
+    get:
+      tags: [Requests]
+      summary: List the episodes of the season a request covers
+      operationId: listRequestEpisodes
+      description: |
+        Every episode of the one season a series request covers, with its air
+        date and whether Sonarr holds a file for it. Sonarr is asked directly
+        rather than the answer being derived from the files of the releases
+        grabbed here: a season is just as likely to have been filled from
+        outside releasarr, and what Sonarr holds is the truth either way.
+
+        An episode counts as `downloaded` once Sonarr has a file for it,
+        whatever its air date says. Of the rest, one whose air date has passed
+        is `missing` - the only state that is anybody's to act on - and one
+        still to air, or that Sonarr has no date for at all, is `unaired`.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The episodes of the request's season, in episode order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonEpisodesResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request has no season in Sonarr whose episodes can be listed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /requests/{requestId}/seasons:
     get:
       tags: [Requests]
@@ -1297,6 +1346,40 @@ components:
         per_page:
           type: integer
           minimum: 1
+    EpisodeStatus:
+      type: string
+      enum: [downloaded, missing, unaired]
+      description: >-
+        Where an episode stands. `downloaded` whenever Sonarr holds a file for
+        it, `missing` once its air date has passed with no file, and `unaired`
+        while it is still to come or has no known date.
+    SeasonEpisode:
+      type: object
+      required: [episode_number, title, status]
+      properties:
+        episode_number:
+          type: integer
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/EpisodeStatus'
+        air_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the episode airs, in UTC. Null for an episode Sonarr has no
+            date for, which also leaves it reported as unaired.
+    SeasonEpisodesResponse:
+      type: object
+      required: [season_number, episodes]
+      properties:
+        season_number:
+          type: integer
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonEpisode'
     ReleasesResponse:
       type: object
       required: [releases, total, page, per_page]

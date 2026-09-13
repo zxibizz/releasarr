@@ -22,6 +22,7 @@ export const requestKeys = {
       : ([...requestKeys.lists(), serialized] as const);
   },
   detail: (id: string) => [...requestKeys.all, 'detail', id] as const,
+  episodes: (id: string) => [...requestKeys.all, 'episodes', id] as const,
   seasons: (id: string) => [...requestKeys.all, 'seasons', id] as const,
 };
 
@@ -49,6 +50,20 @@ export function useRequest(id: string | undefined) {
   return useQuery({
     ...requestDetailQuery(id ?? ''),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * The episodes of the season a request covers. Only a series has them, and a
+ * request Sonarr has not linked to a series yet has none to report, which the
+ * backend answers with a conflict rather than an empty list - so the caller
+ * decides whether to ask at all.
+ */
+export function useRequestEpisodes(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: requestKeys.episodes(id ?? ''),
+    queryFn: ({ signal }) => requestsApi.episodes(id ?? '', signal),
+    enabled: Boolean(id) && enabled,
   });
 }
 

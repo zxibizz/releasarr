@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from src.application.interfaces.media_requests import MediaLocalization
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import EpisodeStatus, MediaRequestStatus, MediaType
 
 
 @dataclass(slots=True)
@@ -53,10 +53,30 @@ class MediaRequestsPageDTO:
     per_page: int
 
 
+@dataclass(slots=True)
+class SeasonEpisodeDTO:
+    """One episode of a requested season, as Sonarr currently holds it."""
+
+    episode_number: int
+    title: str
+    status: EpisodeStatus
+    air_date: datetime | None = None
+
+
+@dataclass(slots=True)
+class SeasonEpisodesDTO:
+    """The episodes of the one season a request covers."""
+
+    season_number: int
+    episodes: list[SeasonEpisodeDTO] = field(default_factory=list)
+
+
 __all__ = [
     "BaseMediaRequestDTO",
     "MediaRequestDTO",
     "MediaRequestsPageDTO",
     "MovieRequestDTO",
+    "SeasonEpisodeDTO",
+    "SeasonEpisodesDTO",
     "SeriesRequestDTO",
 ]

@@ -15,6 +15,7 @@ from src.api.app import app
 from src.api.routes.requests import (
     _get_create_use_case,
     _get_delete_use_case,
+    _get_episodes_use_case,
     _get_get_use_case,
     _get_list_use_case,
     _get_seasons_use_case,
@@ -35,8 +36,11 @@ from src.application.use_cases.requests import (
     EmptyUpdatePayloadError,
     GetMediaRequestUseCase,
     ListMediaRequestsUseCase,
+    ListRequestEpisodesUseCase,
     MediaRequestNotFoundError,
     MovieRequestDTO,
+    SeasonEpisodeDTO,
+    SeasonEpisodesDTO,
     UpdateMediaRequestUseCase,
 )
 from src.application.use_cases.requests.commands import (
@@ -45,7 +49,7 @@ from src.application.use_cases.requests.commands import (
 )
 from src.application.use_cases.requests.dto import MediaRequestsPageDTO
 from src.core.container import get_container
-from src.domain.enums import MediaRequestStatus
+from src.domain.enums import EpisodeStatus, MediaRequestStatus
 
 API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
 
@@ -120,6 +124,41 @@ class FakeUpdateSeasonsUseCase(UpdateRequestSeasonsUseCase):
     ) -> SeriesSeasonsDTO:
         self.commands.append(command)
         return self._dto
+
+
+class FakeEpisodesUseCase(ListRequestEpisodesUseCase):
+    def __init__(self, dto: SeasonEpisodesDTO | None) -> None:
+        self._dto = dto
+
+    async def execute(self, request_id: str) -> SeasonEpisodesDTO:
+        if self._dto is None:
+            raise SeasonsUnmanageableError(f"Request '{request_id}' has no episodes")
+        return self._dto
+
+
+def make_episodes_dto() -> SeasonEpisodesDTO:
+    return SeasonEpisodesDTO(
+        season_number=2,
+        episodes=[
+            SeasonEpisodeDTO(
+                episode_number=1,
+                title="Pilot",
+                status=EpisodeStatus.DOWNLOADED,
+                air_date=datetime(2020, 3, 1, 1, 0, tzinfo=UTC),
+            ),
+            SeasonEpisodeDTO(
+                episode_number=2,
+                title="The Next One",
+                status=EpisodeStatus.MISSING,
+                air_date=datetime(2020, 3, 8, 1, 0, tzinfo=UTC),
+            ),
+            SeasonEpisodeDTO(
+                episode_number=3,
+                title="Unscheduled",
+                status=EpisodeStatus.UNAIRED,
+            ),
+        ],
+    )
 
 
 def make_seasons_dto() -> SeriesSeasonsDTO:
@@ -230,6 +269,36 @@ async def test_delete_request_not_found_returns_404(api_client: AsyncClient) -> 
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["code"] == "request_not_found"
+
+
+@pytest.mark.asyncio
+async def test_request_episodes_report_the_season_episode_by_episode(
+    api_client: AsyncClient,
+) -> None:
+    with override_dependency(_get_episodes_use_case, FakeEpisodesUseCase(make_episodes_dto())):
+        response = await api_client.get("/requests/req-1/episodes", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert payload["season_number"] == 2
+    assert [(episode["episode_number"], episode["status"]) for episode in payload["episodes"]] == [
+        (1, "downloaded"),
+        (2, "missing"),
+        (3, "unaired"),
+    ]
+    assert payload["episodes"][0]["air_date"] == "2020-03-01T01:00:00Z"
+    assert payload["episodes"][2]["air_date"] is None
+
+
+@pytest.mark.asyncio
+async def test_request_episodes_report_a_request_with_none_as_a_conflict(
+    api_client: AsyncClient,
+) -> None:
+    with override_dependency(_get_episodes_use_case, FakeEpisodesUseCase(None)):
+        response = await api_client.get("/requests/req-1/episodes", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == "seasons_unmanageable"
 
 
 @pytest.mark.asyncio

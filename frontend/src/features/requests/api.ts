@@ -4,6 +4,7 @@ import type {
   MediaRequestStatus,
   MediaType,
   RequestsResponse,
+  SeasonEpisodesResponse,
   SeriesSeasonsResponse,
   UpdateSeasonsPayload,
 } from '@/types';
@@ -32,6 +33,9 @@ export const requestsApi = {
 
   remove: (id: string) =>
     apiRequest<void>(`/requests/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  episodes: (id: string, signal?: AbortSignal) =>
+    apiRequest<SeasonEpisodesResponse>(`/requests/${encodeURIComponent(id)}/episodes`, { signal }),
 
   seasons: (id: string, signal?: AbortSignal) =>
     apiRequest<SeriesSeasonsResponse>(`/requests/${encodeURIComponent(id)}/seasons`, { signal }),
