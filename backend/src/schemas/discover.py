@@ -46,10 +46,8 @@ class SeriesSeasonsResponse(APIModel):
     tvdb_id: int | None = None
     in_library: bool = False
     library_id: int | None = None
-    # Sonarr's series-wide monitoring, and whether it takes seasons announced
-    # after the series was added. Both are only meaningful in the library;
-    # Sonarr has nowhere to record them until then.
-    monitored: bool = False
+    # Whether Sonarr should monitor seasons announced after the series was added.
+    # Only meaningful in the library; Sonarr has nowhere to record it until then.
     monitor_new_seasons: bool = False
     seasons: list[SeasonOption]
 
@@ -89,12 +87,11 @@ class UpdateSeasonsPayload(APIModel):
     season selection is absolute rather than a delta: seasons named here are
     monitored afterwards and seasons left out are not, so dropping one both
     unmonitors it in Sonarr and removes any request it had. Specials are out of
-    scope and keep whatever they had.
+    scope and keep whatever they had, and the series itself stays monitored
+    however few seasons are left.
     """
 
     season_numbers: list[int] = Field(default_factory=list)
-    # The series flag. Left out, it follows from what the seasons want.
-    monitored: bool | None = None
     monitor_new_seasons: bool = False
 
 

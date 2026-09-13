@@ -290,7 +290,6 @@ async def update_request_seasons(
 ) -> SeriesSeasonsResponse:
     command = UpdateRequestSeasonsCommand(
         season_numbers=list(payload.season_numbers),
-        monitored=payload.monitored,
         monitor_new_seasons=payload.monitor_new_seasons,
     )
     seasons = await update_seasons_use_case.execute(request_id, command)

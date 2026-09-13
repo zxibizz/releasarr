@@ -38,16 +38,10 @@ async def test_removing_a_season_request_unmonitors_it_in_sonarr() -> None:
 
     await build_use_case(repository=repository, sonarr=sonarr).execute("req-1")
 
-    # Neither series-wide flag is stated: removing one request is no verdict on
-    # the series, so Sonarr's client works those out from what is left wanting.
+    # The new-season flag is left unstated, removing one request being no
+    # verdict on whether future seasons are still wanted.
     assert sonarr.monitored == [
-        {
-            "series_id": 12,
-            "monitor": [],
-            "unmonitor": [2],
-            "monitored": None,
-            "monitor_new_seasons": None,
-        }
+        {"series_id": 12, "monitor": [], "unmonitor": [2], "monitor_new_seasons": None}
     ]
     assert repository.records == {}
 

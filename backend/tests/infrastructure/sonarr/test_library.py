@@ -267,24 +267,38 @@ async def test_apply_season_monitoring_unmonitors_only_the_named_seasons() -> No
     ]
 
 
-async def test_apply_season_monitoring_unmonitors_a_series_with_nothing_left() -> None:
+async def test_apply_season_monitoring_leaves_the_series_monitored_with_nothing_left() -> None:
+    """Releasarr keeps no series-level switch of its own.
+
+    A monitored series with no monitored season is read by Sonarr as wanting
+    nothing, so leaving the flag on costs nothing once the seasons have gone.
+    """
+
     calls: list[tuple[str, Any]] = []
     handler = build_monitoring_handler(
         calls,
-        {
-            "id": 12,
-            "monitored": True,
-            "seasons": [
-                {"seasonNumber": 0, "monitored": True},
-                {"seasonNumber": 1, "monitored": True},
-            ],
-        },
+        {"id": 12, "monitored": True, "seasons": [{"seasonNumber": 1, "monitored": True}]},
     )
 
     await build_client(handler).apply_season_monitoring(12, unmonitor=[1])
 
-    # Specials do not count as something the series is still wanted for.
-    assert calls[1][1]["monitored"] is False
+    payload = calls[1][1]
+    assert payload["monitored"] is True
+    assert payload["seasons"][0]["monitored"] is False
+
+
+async def test_apply_season_monitoring_monitors_a_series_that_was_switched_off() -> None:
+    """Monitoring a season is pointless while the series it belongs to is off."""
+
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {"id": 12, "monitored": False, "seasons": [{"seasonNumber": 1, "monitored": False}]},
+    )
+
+    await build_client(handler).apply_season_monitoring(12, monitor=[1])
+
+    assert calls[1][1]["monitored"] is True
 
 
 async def test_apply_season_monitoring_keeps_a_series_wanted_for_future_seasons() -> None:
@@ -341,42 +355,13 @@ async def test_apply_season_monitoring_skips_the_update_when_nothing_changes() -
     assert [method for method, _ in calls] == ["GET"]
 
 
-async def test_apply_season_monitoring_saves_a_stated_series_flag_as_given() -> None:
-    """A caller with the user's own choice overrules what the seasons imply."""
-
-    calls: list[tuple[str, Any]] = []
-    handler = build_monitoring_handler(
-        calls,
-        {"id": 12, "monitored": True, "seasons": [{"seasonNumber": 1, "monitored": True}]},
-    )
-
-    await build_client(handler).apply_season_monitoring(12, monitor=[1], monitored=False)
-
-    assert calls[1][1]["monitored"] is False
-
-
-async def test_apply_season_monitoring_can_monitor_a_series_with_no_seasons_left() -> None:
-    calls: list[tuple[str, Any]] = []
-    handler = build_monitoring_handler(
-        calls,
-        {"id": 12, "monitored": False, "seasons": [{"seasonNumber": 1, "monitored": True}]},
-    )
-
-    await build_client(handler).apply_season_monitoring(12, unmonitor=[1], monitored=True)
-
-    payload = calls[1][1]
-    assert payload["monitored"] is True
-    assert payload["seasons"][0]["monitored"] is False
-
-
-async def test_series_details_report_sonarrs_monitored_flag() -> None:
+async def test_series_details_report_whether_future_seasons_are_wanted() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={
                 "id": 12,
                 "title": "Example",
-                "monitored": True,
                 "monitorNewItems": "all",
                 "seasons": [{"seasonNumber": 1, "monitored": True}],
             },
@@ -384,7 +369,6 @@ async def test_series_details_report_sonarrs_monitored_flag() -> None:
 
     details = await build_client(handler).get_series(12)
 
-    assert details.monitored is True
     assert details.monitor_new_seasons is True
 
 

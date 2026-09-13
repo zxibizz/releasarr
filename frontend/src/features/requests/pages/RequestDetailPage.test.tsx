@@ -66,7 +66,6 @@ const seasons = (...options: Partial<SeasonOption>[]): SeasonOption[] =>
 interface RouteStubs {
   request?: MediaRequest;
   seasons?: SeasonOption[];
-  monitored?: boolean;
   monitorNewSeasons?: boolean;
   seasonsError?: Error;
 }
@@ -78,7 +77,6 @@ const stubRoutes = ({
     { season_number: 1 },
     { season_number: 2, monitored: true, requested: true },
   ),
-  monitored = true,
   monitorNewSeasons = false,
   seasonsError,
 }: RouteStubs = {}) => {
@@ -86,7 +84,6 @@ const stubRoutes = ({
     tvdb_id: null,
     in_library: true,
     library_id: 12,
-    monitored,
     monitor_new_seasons: monitorNewSeasons,
     seasons: seasonOptions,
   });
@@ -130,7 +127,6 @@ describe('RequestDetailPage', () => {
     expect(monitored).toBeChecked();
     expect(monitored).toBeEnabled();
     expect(within(dialog).getByRole('checkbox', { name: /Season 1/ })).not.toBeChecked();
-    expect(within(dialog).getByRole('checkbox', { name: /Monitored/ })).toBeChecked();
   });
 
   it('ticks a season Sonarr monitors even where no request exists for it', async () => {
@@ -154,7 +150,7 @@ describe('RequestDetailPage', () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
         method: 'PUT',
-        body: { season_numbers: [1, 2], monitored: true, monitor_new_seasons: false },
+        body: { season_numbers: [1, 2], monitor_new_seasons: false },
       }),
     );
   });
@@ -171,27 +167,10 @@ describe('RequestDetailPage', () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
         method: 'PUT',
-        body: { season_numbers: [2, 1], monitored: true, monitor_new_seasons: false },
+        body: { season_numbers: [2, 1], monitor_new_seasons: false },
       }),
     );
     expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it('saves the series monitored flag as the user left it', async () => {
-    stubRoutes();
-
-    renderWithProviders(<RequestDetailPage />);
-    const dialog = await openSeasonManager();
-
-    await userEvent.click(await within(dialog).findByRole('checkbox', { name: /Monitored/ }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Save seasons' }));
-
-    await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
-        method: 'PUT',
-        body: { season_numbers: [2], monitored: false, monitor_new_seasons: false },
-      }),
-    );
   });
 
   it('confirms before taking a season away, and leaves on removing this one', async () => {
@@ -214,7 +193,7 @@ describe('RequestDetailPage', () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
         method: 'PUT',
-        body: { season_numbers: [], monitored: true, monitor_new_seasons: false },
+        body: { season_numbers: [], monitor_new_seasons: false },
       }),
     );
     // The season being viewed is gone, so there is no page left to stay on.

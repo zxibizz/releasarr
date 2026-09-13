@@ -152,13 +152,7 @@ async def test_a_series_already_in_the_library_is_monitored_rather_than_added() 
 
     assert sonarr.added == []
     assert sonarr.monitored == [
-        {
-            "series_id": 12,
-            "monitor": [2],
-            "unmonitor": [],
-            "monitored": None,
-            "monitor_new_seasons": False,
-        }
+        {"series_id": 12, "monitor": [2], "unmonitor": [], "monitor_new_seasons": False}
     ]
     assert [request.season_number for request in as_series(requests)] == [2]
 

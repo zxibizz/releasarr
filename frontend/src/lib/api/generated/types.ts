@@ -41,8 +41,8 @@ export interface paths {
          *     reports as missing.
          *
          *     The series or movie itself stays in the library, as do any files already
-         *     imported. A series left with no monitored season and no interest in future
-         *     ones is unmonitored as a whole.
+         *     imported, and a series stays monitored even once its last season has
+         *     gone - Sonarr reads one with no monitored season as wanting nothing.
          */
         delete: operations["deleteRequest"];
         options?: never;
@@ -921,11 +921,6 @@ export interface components {
             in_library: boolean;
             library_id?: number | null;
             /**
-             * @description Sonarr's series-wide monitored flag. Only meaningful in the library; Sonarr has nowhere to record it until then.
-             * @default false
-             */
-            monitored: boolean;
-            /**
              * @description Whether Sonarr monitors seasons announced after the series was added. Only meaningful in the library; Sonarr has nowhere to record it until then.
              * @default false
              */
@@ -954,10 +949,8 @@ export interface components {
             monitor_new_seasons: boolean;
         };
         UpdateSeasonsPayload: {
-            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had. */
+            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had, and the series itself stays monitored however few seasons are left. */
             season_numbers: number[];
-            /** @description Sonarr's series-wide monitored flag. Left out, it follows from what the seasons are left wanting. */
-            monitored?: boolean | null;
             /** @default false */
             monitor_new_seasons: boolean;
         };
