@@ -33,6 +33,7 @@ To run the app against a real backend instead, set `VITE_API_URL` and use `npm r
 | `npm test`            | Run the Vitest suite once                                       |
 | `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config         |
 | `npm run codegen`     | Regenerate API types from `../openapi.yaml`                     |
+| `npm run screenshots` | Recapture the root README's screenshots against the mock API    |
 
 ## Environment
 
@@ -152,12 +153,33 @@ npm test
 Tests mock `apiRequest` rather than the network or the mock server. Conventions and
 examples are in [`../docs/testing.md`](../docs/testing.md).
 
+## Screenshots
+
+The images in the root README are generated, not taken by hand:
+
+```bash
+npm run screenshots                    # all of them
+npm run screenshots -- tasks requests  # just these
+npm run screenshots -- --list          # what is defined
+npm run screenshots -- --headed tasks  # watch it drive the UI
+```
+
+It starts the mock API and dev server itself, or reuses them if `dev:mock` is already
+running, and writes into `../docs/screenshots/`. Shots are declared in
+`scripts/screenshots/shots.ts`; see [`docs/screenshots.md`](docs/screenshots.md) before
+adding one, because the waiting rules are what keep the output stable.
+
+Browsers are not downloaded on install. The tool uses Playwright's pinned Chromium if you
+have it (`npx playwright install chromium`), otherwise your local Google Chrome, otherwise
+whatever `RELEASARR_CHROMIUM` points at.
+
 ## Docs
 
 | Doc | Covers |
 | --- | --- |
 | [`docs/file-mapping.md`](docs/file-mapping.md) | The mapping editor: draft state, season-pack routing, bulk actions, save, known gaps |
 | [`docs/mock-server.md`](docs/mock-server.md) | The mock API: layout, state, simulated jobs, adding endpoints |
+| [`docs/screenshots.md`](docs/screenshots.md) | Adding a shot, and the waiting rules that keep captures stable |
 
 Repo-wide docs are in [`../docs/`](../docs/README.md) —
 [`../docs/frontend.md`](../docs/frontend.md) for the patterns to follow when adding code,
