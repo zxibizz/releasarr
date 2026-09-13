@@ -212,6 +212,91 @@ async def test_a_combined_search_puts_the_closest_titles_first() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_localized_title_is_matched_by_the_language_it_was_typed_in() -> None:
+    """A Russian UI shows Russian titles, which a Latin term matches nowhere.
+
+    Scoring the display title alone sank the series a user was after below every
+    talk show and featurette that happened to keep its English name.
+    """
+
+    tvdb = FakeTvdbService(
+        search_results=[
+            TvdbSearchResult(
+                tvdb_id=1,
+                name="Игра престолов",
+                match_titles=("Игра престолов", "Game of Thrones", "GoT"),
+            ),
+            TvdbSearchResult(tvdb_id=2, name="Game of Thrones Talk"),
+        ]
+    )
+    tmdb = FakeTmdbService(
+        search_results=[
+            TmdbSearchResult(
+                tmdb_id=3,
+                title="Игра престолов: Последний дозор",
+                match_titles=(
+                    "Игра престолов: Последний дозор",
+                    "Game of Thrones: The Last Watch",
+                ),
+            ),
+        ]
+    )
+
+    results = await build_use_case(tvdb=tvdb, tmdb=tmdb).execute("game of thrones")
+
+    assert [result.title for result in results] == [
+        "Игра престолов",
+        "Игра престолов: Последний дозор",
+        "Game of Thrones Talk",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_popularity_separates_a_series_from_what_is_named_after_it() -> None:
+    """Title match alone cannot tell a show from its parodies and featurettes."""
+
+    tvdb = FakeTvdbService(
+        search_results=[
+            TvdbSearchResult(tvdb_id=1, name="Example Show Cartoon Parody", popularity=1767),
+            TvdbSearchResult(tvdb_id=2, name="Example Show", popularity=6631485),
+        ]
+    )
+
+    # Both titles open with the term, so the score alone leaves them tied.
+    results = await build_use_case(tvdb=tvdb).execute("example", MediaType.SERIES)
+
+    assert [result.title for result in results] == ["Example Show", "Example Show Cartoon Parody"]
+
+
+@pytest.mark.asyncio
+async def test_popularity_tiers_are_cut_from_each_provider_s_own_hits() -> None:
+    """TVDB counts followers in the millions where TMDB counts votes in the hundreds.
+
+    Comparing the two raw would bury every movie, so each provider's hits are
+    scaled against their own most popular before the lists are merged.
+    """
+
+    tvdb = FakeTvdbService(
+        search_results=[
+            TvdbSearchResult(tvdb_id=1, name="Example Featurette", popularity=3321),
+            TvdbSearchResult(tvdb_id=2, name="Example Show", popularity=6631485),
+        ]
+    )
+    tmdb = FakeTmdbService(
+        search_results=[
+            TmdbSearchResult(tmdb_id=3, title="Example Short", popularity=2),
+            TmdbSearchResult(tmdb_id=4, title="Example Movie", popularity=354),
+        ]
+    )
+
+    results = await build_use_case(tvdb=tvdb, tmdb=tmdb).execute("example")
+
+    # The top tier holds the pick of each provider, not the two biggest numbers.
+    assert [result.title for result in results][:2] == ["Example Show", "Example Movie"]
+    assert [result.title for result in results][2:] == ["Example Featurette", "Example Short"]
+
+
+@pytest.mark.asyncio
 async def test_a_combined_search_uses_whichever_provider_is_configured() -> None:
     use_case = SearchMediaUseCase(
         repository=FakeMediaRequestRepository(),

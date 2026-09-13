@@ -229,6 +229,7 @@ When the client is `None`, the scheduler skips release sync entirely and records
 | POST | `/login` | Token exchange, body `{"apiKey": …}` |
 | GET | `/series/{id}/extended` | Series metadata with `meta=translations` |
 | GET | `/search` | Series search (`type=series`) |
+| POST | `/web/search/queries` | `follower_count` for the search hits — see below |
 
 **The v4 token flow** lives in a private `_TvdbAuth(httpx.Auth)`: on the first authenticated
 request it posts the API key to `/login`, reads `data.token`, and sends
@@ -246,6 +247,28 @@ passing an empty language list yields no translations at all rather than everyth
 A TVDB failure during sync is logged, cached as `None` for that run, and the sync continues with
 Sonarr-only metadata. Discover search is stricter and raises
 `MetadataProviderUnavailableError` for series when TVDB is absent.
+
+**Follower counts come from an endpoint TVDB does not document.** Discover search ranks hits
+partly by popularity, and `/v4/search` carries none: the `score` field that holds it lives only
+on `/series/{id}`, and v4 offers no way to batch or sort by it, so reading it there would mean
+one request per hit. `POST /web/search/queries` is the Algolia index behind thetvdb.com's own
+search box, and it returns `follower_count` inline — the same number `/series/{id}` reports as
+`score`. It takes an object-valued `params` rather than Algolia's usual query string:
+
+```json
+{"requests": [{"indexName": "TVDB", "params": {"query": "…", "filters": "type:series", "hitsPerPage": 20}}]}
+```
+
+It sits outside `/v4`, takes no API key, and appears in no published schema, so it is wired up
+as an enrichment and never as a source of results. `search_series` issues it concurrently with
+`/v4/search` — about 45ms on top of a 260ms search rather than the sum — and `_follower_counts`
+returns `None` on any failure, whereupon `_popularity` falls back to counting how many languages
+the series has been translated into. That proxy is coarser but tracks a following closely enough
+to order a result list, and it comes free with the `/v4/search` response.
+
+The fallback is all-or-nothing by design: a result set must be scored on one scale, or hits end
+up ranked by which signal happened to be available for them. A hit the index simply does not
+know gets `0`, which is where an entry below the index's own cutoff belongs anyway.
 
 ## TMDB
 

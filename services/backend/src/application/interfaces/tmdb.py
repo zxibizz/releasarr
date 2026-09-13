@@ -33,6 +33,13 @@ class TmdbSearchResult:
     year: int | None = None
     overview: str | None = None
     poster_url: str | None = None
+    # ``title`` is localized, so a term typed in another language may match none
+    # of it. Ranking scores every title TMDB knows for the entry instead.
+    match_titles: tuple[str, ...] = ()
+    # How many ratings the movie accumulated on TMDB. Only ever compared against
+    # the other hits of the same search; TMDB counts votes in the hundreds where
+    # TVDB counts followers in the millions.
+    popularity: int = 0
 
 
 class TmdbService(Protocol):

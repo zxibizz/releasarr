@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine, Sequence
+from dataclasses import dataclass
+from math import log10
 
 from loguru._logger import Logger
 
@@ -26,13 +28,36 @@ from src.core.logging import get_logger
 from src.domain.enums import MediaType
 
 
+@dataclass(slots=True)
+class _Ranked:
+    """A result paired with the provider signals used to order it.
+
+    These never reach the caller, so they stay out of ``MediaSearchResultDTO``.
+    """
+
+    result: MediaSearchResultDTO
+    match_titles: tuple[str, ...]
+    popularity: int
+
+
+# Popularity tiers are cut from each provider's own hits rather than from fixed
+# numbers, because the two providers do not share a scale: TVDB counts followers
+# in the millions where TMDB counts votes in the hundreds. The cuts are taken on
+# a log scale, since within one search the gap between the series everyone wants
+# and the featurettes named after it spans three orders of magnitude, and a
+# linear cut would lump all of the latter together with the merely obscure.
+POPULARITY_TIER_CUTS = (0.75, 0.5)
+
+
 class SearchMediaUseCase:
     """Find media to request, and say what is already in the library.
 
-    The metadata provider owns the result list; Sonarr/Radarr and our own
-    requests only annotate it. The library annotation is best-effort - a search
-    that cannot reach Sonarr is still far more useful than no search at all - so
-    a failure there is logged and the results go out unannotated.
+    The metadata providers decide which titles appear; releasarr only reorders
+    them, since neither provider's ranking accounts for the other's and both
+    happily float a fan parody above the show it parodies. Sonarr/Radarr and our
+    own requests annotate the results. The library annotation is best-effort - a
+    search that cannot reach Sonarr is still far more useful than no search at
+    all - so a failure there is logged and the results go out unannotated.
     """
 
     def __init__(
@@ -68,9 +93,9 @@ class SearchMediaUseCase:
 
         languages = self._languages_for(language)
         if media_type == MediaType.SERIES:
-            return await self._search_series(term, languages)
+            return self._rank(term, [await self._search_series(term, languages)])
         if media_type == MediaType.MOVIE:
-            return await self._search_movies(term, languages)
+            return self._rank(term, [await self._search_movies(term, languages)])
         return await self._search_both(term, languages)
 
     def _languages_for(self, language: str | None) -> Sequence[str]:
@@ -97,7 +122,7 @@ class SearchMediaUseCase:
         term: str,
         languages: Sequence[str],
     ) -> list[MediaSearchResultDTO]:
-        searches: list[tuple[MediaType, Coroutine[None, None, list[MediaSearchResultDTO]]]] = []
+        searches: list[tuple[MediaType, Coroutine[None, None, list[_Ranked]]]] = []
         if self._tvdb is not None:
             searches.append((MediaType.SERIES, self._search_series(term, languages)))
         if self._tmdb is not None:
@@ -110,7 +135,7 @@ class SearchMediaUseCase:
             return_exceptions=True,
         )
 
-        groups: list[list[MediaSearchResultDTO]] = []
+        groups: list[list[_Ranked]] = []
         failures: list[BaseException] = []
         for (media_type, _), outcome in zip(searches, outcomes, strict=True):
             if isinstance(outcome, BaseException):
@@ -133,39 +158,59 @@ class SearchMediaUseCase:
     def _rank(
         self,
         term: str,
-        groups: Sequence[Sequence[MediaSearchResultDTO]],
+        groups: Sequence[Sequence[_Ranked]],
     ) -> list[MediaSearchResultDTO]:
-        """Order a mixed result list so the closest titles come first.
+        """Order a result list so the closest titles come first.
 
         Each provider ranks its own hits, but the two rankings say nothing about
-        each other, so titles are scored against the search term and a provider's
-        own order breaks the ties.
+        each other, so titles are scored against the search term first. Title
+        match alone leaves a tie between the show and the dozen talk shows,
+        parodies and featurettes named after it, which is what popularity
+        settles; a provider's own order breaks what is left.
         """
 
         ranked = [
-            (self._title_score(result.title, term), rank, result)
+            (self._title_score(entry.match_titles, term), -tier, rank, entry.result)
             for group in groups
-            for rank, result in enumerate(group)
+            for rank, (tier, entry) in enumerate(zip(self._tiers(group), group, strict=True))
         ]
-        ranked.sort(key=lambda entry: (entry[0], entry[1]))
-        return [result for _, _, result in ranked]
+        ranked.sort(key=lambda entry: entry[:3])
+        return [result for *_, result in ranked]
 
-    def _title_score(self, title: str, term: str) -> int:
-        candidate = title.casefold()
+    def _tiers(self, group: Sequence[_Ranked]) -> list[int]:
+        """Tier one provider's hits by popularity, in the order they arrived."""
+
+        ceiling = max((entry.popularity for entry in group), default=0)
+        if ceiling <= 0:
+            return [0] * len(group)
+
+        scale = log10(1 + ceiling)
+        tiers: list[int] = []
+        for entry in group:
+            share = log10(1 + max(entry.popularity, 0)) / scale
+            tiers.append(sum(1 for cut in POPULARITY_TIER_CUTS if share >= cut))
+        return tiers
+
+    def _title_score(self, titles: Sequence[str], term: str) -> int:
+        """Score the closest of an entry's titles, lower being closer."""
+
         wanted = term.casefold()
-        if candidate == wanted:
-            return 0
-        if candidate.startswith(wanted):
-            return 1
-        if wanted in candidate:
-            return 2
-        return 3
+        best = 3
+        for title in titles:
+            candidate = title.casefold()
+            if candidate == wanted:
+                return 0
+            if candidate.startswith(wanted):
+                best = min(best, 1)
+            elif wanted in candidate:
+                best = min(best, 2)
+        return best
 
     async def _search_series(
         self,
         term: str,
         languages: Sequence[str],
-    ) -> list[MediaSearchResultDTO]:
+    ) -> list[_Ranked]:
         if self._tvdb is None:
             raise MetadataProviderUnavailableError(MediaType.SERIES)
 
@@ -187,7 +232,7 @@ class SearchMediaUseCase:
         self,
         term: str,
         languages: Sequence[str],
-    ) -> list[MediaSearchResultDTO]:
+    ) -> list[_Ranked]:
         if self._tmdb is None:
             raise MetadataProviderUnavailableError(MediaType.MOVIE)
 
@@ -207,19 +252,23 @@ class SearchMediaUseCase:
         match: TvdbSearchResult,
         lookup: SeriesLookup | None,
         requested: dict[int, dict[int, str]],
-    ) -> MediaSearchResultDTO:
+    ) -> _Ranked:
         library_id = lookup.existing_series_id if lookup else None
         seasons = requested.get(library_id, {}) if library_id else {}
-        return MediaSearchResultDTO(
-            media_type=MediaType.SERIES,
-            provider_id=match.tvdb_id,
-            title=match.name,
-            year=match.year,
-            overview=match.overview,
-            poster_url=match.image_url,
-            in_library=library_id is not None,
-            library_id=library_id,
-            requested_seasons=sorted(seasons),
+        return _Ranked(
+            result=MediaSearchResultDTO(
+                media_type=MediaType.SERIES,
+                provider_id=match.tvdb_id,
+                title=match.name,
+                year=match.year,
+                overview=match.overview,
+                poster_url=match.image_url,
+                in_library=library_id is not None,
+                library_id=library_id,
+                requested_seasons=sorted(seasons),
+            ),
+            match_titles=match.match_titles or (match.name,),
+            popularity=match.popularity,
         )
 
     def _to_movie_result(
@@ -227,20 +276,24 @@ class SearchMediaUseCase:
         match: TmdbSearchResult,
         lookup: MovieLookup | None,
         requested: dict[int, MediaRequestRecord],
-    ) -> MediaSearchResultDTO:
+    ) -> _Ranked:
         library_id = lookup.existing_movie_id if lookup else None
         record = requested.get(library_id) if library_id else None
-        return MediaSearchResultDTO(
-            media_type=MediaType.MOVIE,
-            provider_id=match.tmdb_id,
-            title=match.title,
-            year=match.year,
-            overview=match.overview,
-            poster_url=match.poster_url,
-            in_library=library_id is not None,
-            library_id=library_id,
-            request_id=record.id if record else None,
-            request_status=record.status if record else None,
+        return _Ranked(
+            result=MediaSearchResultDTO(
+                media_type=MediaType.MOVIE,
+                provider_id=match.tmdb_id,
+                title=match.title,
+                year=match.year,
+                overview=match.overview,
+                poster_url=match.poster_url,
+                in_library=library_id is not None,
+                library_id=library_id,
+                request_id=record.id if record else None,
+                request_status=record.status if record else None,
+            ),
+            match_titles=match.match_titles or (match.title,),
+            popularity=match.popularity,
         )
 
     async def _safe_series_lookup(self, term: str) -> list[SeriesLookup]:

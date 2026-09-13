@@ -40,6 +40,14 @@ class TvdbSearchResult:
     year: int | None = None
     overview: str | None = None
     image_url: str | None = None
+    # ``name`` is whichever translation the caller's languages selected, so a
+    # term typed in another language may match none of it. Ranking scores every
+    # title TVDB knows for the entry instead.
+    match_titles: tuple[str, ...] = ()
+    # How many people follow the series on TVDB. Only ever compared against the
+    # other hits of the same search: the scale is the provider's own, and the
+    # adapter substitutes a weaker proxy when TVDB will not report followers.
+    popularity: int = 0
 
 
 class TvdbService(Protocol):
