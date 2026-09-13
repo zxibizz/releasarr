@@ -23,6 +23,7 @@ from src.application.interfaces.sonarr import (
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
+from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 
 SERIES_ID = 42
@@ -284,7 +285,11 @@ async def test_exported_seasons_are_marked_completed() -> None:
 
 
 async def test_a_season_sonarr_still_wants_more_of_stays_in_flight() -> None:
-    """A release carrying part of a season must not close the request."""
+    """A release carrying part of a season must not close the request.
+
+    It is still an export, though: Sonarr took the episode files, so the request
+    records when it last reached Sonarr even though it stays open.
+    """
 
     files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
     request_repository = FakeMediaRequestRepository([])
@@ -299,7 +304,10 @@ async def test_a_season_sonarr_still_wants_more_of_stays_in_flight() -> None:
     await use_case.execute()
 
     assert repository.release_updates["last_exported_info_hash"] == "hash-1"
-    assert request_repository.updates == []
+    assert [(request_id, data.status) for request_id, data in request_repository.updates] == [
+        ("req-1", UNSET),
+    ]
+    assert request_repository.updates[0][1].exported_at is not None
 
 
 async def test_only_seasons_present_in_the_release_are_looked_up() -> None:

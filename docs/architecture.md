@@ -156,7 +156,9 @@ import shows up in the UI without every page polling.
 5. **`export`** takes releases that are finished and not yet exported, resolves the download
    directory from qBittorrent, and calls Sonarr's and Radarr's manual import commands with
    absolute paths. It then asks both apps whether they now hold the request in full, and only
-   closes the request if they say yes.
+   closes the request if they say yes. Every request the import actually carried files for is
+   stamped with an `exported_at`, including the ones that stay open because the release only
+   covered part of a season.
 6. **`regrab`** re-searches Prowlarr for tracked releases, compares info hashes, and
    re-downloads when the indexer has replaced the torrent (repacks).
 

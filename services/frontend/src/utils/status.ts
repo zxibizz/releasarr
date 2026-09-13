@@ -1,4 +1,5 @@
 import type {
+  EpisodeStatus,
   IndexerEventType,
   IndexerLogLevel,
   MediaRequestStatus,
@@ -60,4 +61,16 @@ export const INDEXER_LOG_LEVEL_COLOR: Record<IndexerLogLevel, string> = {
   warn: 'yellow',
   error: 'red',
   fatal: 'red',
+};
+
+/*
+  Shared by the episode table and the request card. `pending` is not an
+  `EpisodeStatus` — it is the card's word for a missing episode — but both
+  readings of a yellow episode belong in the one map.
+*/
+export const EPISODE_STATUS_COLOR: Record<EpisodeStatus | 'pending', string> = {
+  downloaded: 'teal',
+  missing: 'yellow',
+  pending: 'yellow',
+  unaired: 'gray',
 };

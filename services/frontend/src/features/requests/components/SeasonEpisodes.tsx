@@ -7,12 +7,9 @@ import { useRequestEpisodes } from '@/features/requests/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { EpisodeStatus, SeasonEpisode } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/formatters';
+import { EPISODE_STATUS_COLOR } from '@/utils/status';
 
-const STATUS_COLORS: Record<EpisodeStatus, string> = {
-  downloaded: 'teal',
-  missing: 'yellow',
-  unaired: 'gray',
-};
+const STATUS_COLORS: Record<EpisodeStatus, string> = EPISODE_STATUS_COLOR;
 
 const NOWRAP = { whiteSpace: 'nowrap' } as const;
 

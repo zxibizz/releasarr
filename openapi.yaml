@@ -1635,6 +1635,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SeasonEpisode'
+    SeriesEpisodeCounts:
+      type: object
+      required: [downloaded, pending, unaired]
+      properties:
+        downloaded:
+          type: integer
+          description: Number of episodes with files present.
+        pending:
+          type: integer
+          description: Aired episodes that are missing files.
+        unaired:
+          type: integer
+          description: Episodes not yet aired.
     ReleasesResponse:
       type: object
       required: [releases, total, page, per_page]
@@ -1753,6 +1766,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        exported_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a release for this request was last accepted by Sonarr or Radarr.
         localizations:
           type: object
           description: Localized titles and overviews keyed by 3-letter language codes.
@@ -1806,6 +1824,10 @@ components:
               type: integer
               nullable: true
               description: Identifier of the linked Sonarr series when the request was auto-synchronised.
+            episode_counts:
+              $ref: '#/components/schemas/SeriesEpisodeCounts'
+              nullable: true
+              description: Derived counts of downloaded, pending and unaired episodes for series requests.
     MediaRequest:
       oneOf:
         - $ref: '#/components/schemas/MovieRequest'

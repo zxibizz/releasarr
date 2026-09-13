@@ -28,9 +28,12 @@ class BaseMediaRequest(APIModel):
     created_at: datetime
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = Field(default_factory=dict)
+    exported_at: datetime | None = None
 
-    @field_serializer("created_at", "updated_at")
-    def _serialize_datetime(self, value: datetime) -> str:
+    @field_serializer("created_at", "updated_at", "exported_at")
+    def _serialize_datetime(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
         if value.tzinfo is None:  # default to UTC when the database returns naive values
             value = value.replace(tzinfo=UTC)
         return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
@@ -43,6 +46,12 @@ class MovieRequest(BaseMediaRequest):
     radarr_movie_id: int | None = None
 
 
+class SeriesEpisodeCounts(APIModel):
+    downloaded: int
+    pending: int
+    unaired: int
+
+
 class SeriesRequest(BaseMediaRequest):
     type: Literal["series"]
     season_number: int
@@ -51,6 +60,7 @@ class SeriesRequest(BaseMediaRequest):
     series_year: int
     imdb_id: str
     sonarr_series_id: int | None = None
+    episode_counts: SeriesEpisodeCounts | None = None
 
 
 MediaRequest = Annotated[MovieRequest | SeriesRequest, Field(discriminator="type")]

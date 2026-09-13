@@ -47,7 +47,11 @@ from src.application.use_cases.requests.commands import (
     ListRequestsOptions,
     UpdateMediaRequestCommand,
 )
-from src.application.use_cases.requests.dto import MediaRequestsPageDTO
+from src.application.use_cases.requests.dto import (
+    MediaRequestsPageDTO,
+    SeriesEpisodeCountsDTO,
+    SeriesRequestDTO,
+)
 from src.core.container import get_container
 from src.domain.enums import EpisodeStatus, MediaRequestStatus
 
@@ -191,6 +195,29 @@ def make_movie_dto() -> MovieRequestDTO:
     )
 
 
+def make_series_dto(
+    counts: SeriesEpisodeCountsDTO | None = None,
+) -> SeriesRequestDTO:
+    return SeriesRequestDTO(
+        id="req-2",
+        title="Example Show - Season 2",
+        year=2024,
+        poster_url="",
+        overview="",
+        genres=["drama"],
+        status=MediaRequestStatus.PENDING,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        season_number=2,
+        total_episodes=10,
+        series_title="Example Show",
+        series_year=2024,
+        imdb_id="tt1234567",
+        sonarr_series_id=12,
+        episode_counts=counts,
+    )
+
+
 @contextmanager
 def override_dependency(dep: Callable[..., Any], value: Any):
     app.dependency_overrides[dep] = lambda: value
@@ -211,6 +238,67 @@ async def test_list_requests_returns_results(api_client: AsyncClient) -> None:
     payload = response.json()
     assert payload["total"] == 1
     assert payload["requests"][0]["id"] == dto.id
+
+
+@pytest.mark.asyncio
+async def test_list_requests_serialises_the_episode_counts(api_client: AsyncClient) -> None:
+    dto = make_series_dto(SeriesEpisodeCountsDTO(downloaded=3, pending=5, unaired=2))
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["requests"][0]["episode_counts"] == {
+        "downloaded": 3,
+        "pending": 5,
+        "unaired": 2,
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_requests_reports_no_counts_for_an_unsynced_season(
+    api_client: AsyncClient,
+) -> None:
+    """A season the sync has not filled in yet must stay distinguishable from
+    one that is genuinely fully downloaded."""
+
+    dto = make_series_dto()
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["requests"][0]["episode_counts"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_requests_serialises_the_last_export_as_utc(
+    api_client: AsyncClient,
+) -> None:
+    """The card renders this date, so it has to arrive in the same ISO-UTC shape
+    as `created_at`, not as a naive local timestamp."""
+
+    dto = make_series_dto()
+    dto.exported_at = datetime(2026, 3, 4, 5, 6, 7, tzinfo=UTC)
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["requests"][0]["exported_at"] == "2026-03-04T05:06:07Z"
+
+
+@pytest.mark.asyncio
+async def test_list_requests_reports_a_never_exported_request_as_null(
+    api_client: AsyncClient,
+) -> None:
+    dto = make_movie_dto()
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["requests"][0]["exported_at"] is None
 
 
 @pytest.mark.asyncio

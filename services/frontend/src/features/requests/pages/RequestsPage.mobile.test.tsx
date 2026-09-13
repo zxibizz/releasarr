@@ -6,6 +6,7 @@ import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { apiRequest } from '@/lib/api/client';
 import { DESKTOP_WIDTH, MOBILE_WIDTH, renderWithProviders, setViewportWidth } from '@/test/utils';
 import type { MediaRequest } from '@/types';
+import { formatDate } from '@/utils/formatters';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -35,6 +36,7 @@ const series: MediaRequest = {
   year: 2022,
   season_number: 2,
   total_episodes: 10,
+  episode_counts: { downloaded: 7, pending: 2, unaired: 1 },
   series_title: 'Severance',
   series_year: 2022,
   imdb_id: 'tt11280740',
@@ -44,6 +46,7 @@ const series: MediaRequest = {
   status: 'downloading',
   created_at: '2026-02-01T00:00:00.000Z',
   updated_at: '2026-02-02T00:00:00.000Z',
+  exported_at: '2026-03-04T12:00:00.000Z',
 };
 
 describe('RequestsPage on a phone', () => {
@@ -117,5 +120,60 @@ describe('RequestsPage on a phone', () => {
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
     expect(screen.getByText(/war on crime/i)).toBeInTheDocument();
+  });
+
+  it('folds the episode counts into one line so the card keeps its height', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ requests: [series], total: 1 });
+
+    renderWithProviders(<RequestsPage />);
+
+    await screen.findByText('Severance');
+
+    // One node holding the whole summary, rather than a badge per bucket: the
+    // badges wrapped onto a second line and pushed the list down the screen.
+    const summary = screen.getByLabelText('Downloaded 7, Pending 2, Unaired 1');
+    expect(summary).toHaveTextContent('✅ 7 · ⏳ 2 · ◻️ 1');
+  });
+
+  it('drops empty buckets from the summary instead of padding it with zeroes', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      requests: [{ ...series, episode_counts: { downloaded: 10, pending: 0, unaired: 0 } }],
+      total: 1,
+    });
+
+    renderWithProviders(<RequestsPage />);
+
+    await screen.findByText('Severance');
+    expect(screen.getByText('✅ 10')).toBeInTheDocument();
+  });
+
+  it('leaves the summary off a season the sync has not counted', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      requests: [{ ...series, episode_counts: null }],
+      total: 1,
+    });
+
+    renderWithProviders(<RequestsPage />);
+
+    await screen.findByText('Severance');
+    // Asserted on the accessible name, since the status badge shares the ✅ emoji.
+    expect(screen.queryByLabelText(/^(Downloaded|Pending|Unaired) \d+/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the export date and the counts on one line', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ requests: [series], total: 1 });
+
+    renderWithProviders(<RequestsPage />);
+
+    await screen.findByText('Severance');
+
+    const date = screen.getByLabelText(`Last exported at ${formatDate(series.exported_at!)}`);
+    const summary = screen.getByLabelText('Downloaded 7, Pending 2, Unaired 1');
+
+    // Both sit in the same footer row, date first, so the card gains no height
+    // from either fact.
+    const footer = date.parentElement;
+    expect(footer).toBe(summary.parentElement);
+    expect(date.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

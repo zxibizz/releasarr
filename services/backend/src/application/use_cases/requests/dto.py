@@ -21,6 +21,7 @@ class BaseMediaRequestDTO:
     created_at: datetime
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
+    exported_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -36,10 +37,20 @@ class SeriesRequestDTO(BaseMediaRequestDTO):
     type: MediaType = MediaType.SERIES
     season_number: int = 0
     total_episodes: int = 0
+    episode_counts: SeriesEpisodeCountsDTO | None = None
     series_title: str = ""
     series_year: int = 0
     imdb_id: str = ""
     sonarr_series_id: int | None = None
+
+
+@dataclass(slots=True)
+class SeriesEpisodeCountsDTO:
+    """Derived episode counts for a requested season."""
+
+    downloaded: int
+    pending: int
+    unaired: int
 
 
 MediaRequestDTO = MovieRequestDTO | SeriesRequestDTO

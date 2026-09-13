@@ -41,6 +41,9 @@ class MediaRequestRecord:
     sonarr_series_id: int | None = None
     radarr_movie_id: int | None = None
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
+    aired_episodes: int | None = None
+    downloaded_episodes: int | None = None
+    exported_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -64,6 +67,9 @@ class CreateMediaRequestData:
     sonarr_series_id: int | None = None
     radarr_movie_id: int | None = None
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
+    aired_episodes: int | None = None
+    downloaded_episodes: int | None = None
+    exported_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -84,11 +90,14 @@ class UpdateMediaRequestData:
     imdb_id: str | None | _Unset = UNSET
     season_number: int | None | _Unset = UNSET
     total_episodes: int | None | _Unset = UNSET
+    aired_episodes: int | None | _Unset = UNSET
+    downloaded_episodes: int | None | _Unset = UNSET
     series_title: str | None | _Unset = UNSET
     series_year: int | None | _Unset = UNSET
     sonarr_series_id: int | None | _Unset = UNSET
     radarr_movie_id: int | None | _Unset = UNSET
     localizations: dict[str, MediaLocalization] | _Unset = UNSET
+    exported_at: datetime | None | _Unset = UNSET
 
 
 class MediaRequestRepository(Protocol):

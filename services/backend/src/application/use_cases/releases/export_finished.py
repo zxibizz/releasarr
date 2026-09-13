@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import posixpath
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from loguru._logger import Logger
 
@@ -21,6 +22,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.interfaces.sonarr import ManualImportFile, SeriesDetails, SonarrService
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
+from src.application.utility.sentinels import UNSET
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
 
@@ -125,7 +127,7 @@ class ExportFinishedReleasesUseCase:
             last_exported_info_hash=release.info_hash,
             export_failures_count=0,
         )
-        await self._complete_requests(candidates, imported)
+        await self._record_exports(candidates, imported)
 
     def _has_exportable_files(
         self,
@@ -250,43 +252,57 @@ class ExportFinishedReleasesUseCase:
 
         return imported_movies
 
-    async def _complete_requests(
+    async def _record_exports(
         self,
         candidates: list[ReleaseRequestSnapshot],
         imported: _Imported,
     ) -> None:
-        """Close the requests Sonarr and Radarr now hold in full.
+        """Stamp what the export landed on each request, then close the finished ones.
 
-        The Sonarr and Radarr syncs own this transition everywhere else, but the
-        sequence a finished download runs deliberately leaves those tasks out, so
-        a request would otherwise stay in flight until the next hourly sync. Both
-        apps are still asked to confirm rather than assuming the import covered
-        the request, since a release may only carry part of it.
+        The Sonarr and Radarr syncs own the completion transition everywhere else,
+        but the sequence a finished download runs deliberately leaves those tasks
+        out, so a request would otherwise stay in flight until the next hourly
+        sync. Both apps are still asked to confirm rather than assuming the import
+        covered the request, since a release may only carry part of it.
+
+        The timestamp is recorded for every request the arr actually took files
+        for, not just the ones that finished: a season a release only partly
+        filled has still been exported. A movie has no partial state, so there
+        Radarr's confirmation answers both questions at once.
         """
 
         if self._request_repository is None:
             return
 
         details_by_series: dict[int, SeriesDetails] = {}
+        exported_at = datetime.now(UTC)
 
         for request in candidates:
             if request.radarr_movie_id is not None:
                 if not await self._movie_is_complete(request, imported):
                     continue
-            elif not await self._season_is_complete(request, imported, details_by_series):
-                continue
+                complete = True
+            else:
+                if not _season_was_imported(request, imported):
+                    continue
+                complete = await self._season_is_complete(request, imported, details_by_series)
 
             await self._request_repository.update_request(
                 request.id,
-                UpdateMediaRequestData(status=MediaRequestStatus.COMPLETED),
+                UpdateMediaRequestData(
+                    exported_at=exported_at,
+                    status=MediaRequestStatus.COMPLETED if complete else UNSET,
+                ),
             )
-            self._logger.info(
-                "Marked request as completed",
-                request_id=request.id,
-                sonarr_series_id=request.sonarr_series_id,
-                radarr_movie_id=request.radarr_movie_id,
-                season_number=request.season_number,
-            )
+
+            if complete:
+                self._logger.info(
+                    "Marked request as completed",
+                    request_id=request.id,
+                    sonarr_series_id=request.sonarr_series_id,
+                    radarr_movie_id=request.radarr_movie_id,
+                    season_number=request.season_number,
+                )
 
     async def _season_is_complete(
         self,
@@ -322,6 +338,17 @@ class ExportFinishedReleasesUseCase:
         if movie_id not in imported.movies:
             return False
         return (await self._radarr.get_movie(movie_id)).has_file
+
+
+def _season_was_imported(
+    request: ReleaseRequestSnapshot,
+    imported: _Imported,
+) -> bool:
+    """Whether Sonarr accepted any file for this request's season in this export."""
+
+    if request.sonarr_series_id is None or request.season_number is None:
+        return False
+    return (request.sonarr_series_id, request.season_number) in imported.seasons
 
 
 __all__ = ["ExportFinishedReleasesUseCase", "ExportFinishedResult"]

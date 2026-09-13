@@ -47,7 +47,15 @@ export const resources = {
         season: 'Season {{season}}',
         episodes_one: '{{count}} episode',
         episodes_other: '{{count}} episodes',
-        createdAt: 'Created {{date}}',
+        episodes: {
+          downloaded_one: 'Downloaded {{count}}',
+          downloaded_other: 'Downloaded {{count}}',
+          pending_one: 'Pending {{count}}',
+          pending_other: 'Pending {{count}}',
+          unaired_one: 'Unaired {{count}}',
+          unaired_other: 'Unaired {{count}}',
+        },
+        exported: 'Last exported at {{date}}',
       },
       mediaInfo: {
         sections: {
@@ -746,7 +754,21 @@ export const resources = {
         episodes_few: '{{count}} серии',
         episodes_many: '{{count}} серий',
         episodes_other: '{{count}} серий',
-        createdAt: 'Создано {{date}}',
+        episodes: {
+          downloaded_one: 'Загружено {{count}}',
+          downloaded_few: 'Загружено {{count}}',
+          downloaded_many: 'Загружено {{count}}',
+          downloaded_other: 'Загружено {{count}}',
+          pending_one: 'В ожидании {{count}}',
+          pending_few: 'В ожидании {{count}}',
+          pending_many: 'В ожидании {{count}}',
+          pending_other: 'В ожидании {{count}}',
+          unaired_one: 'Не вышло {{count}}',
+          unaired_few: 'Не вышло {{count}}',
+          unaired_many: 'Не вышло {{count}}',
+          unaired_other: 'Не вышло {{count}}',
+        },
+        exported: 'Последний экспорт: {{date}}',
       },
       mediaInfo: {
         sections: {
