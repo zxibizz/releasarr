@@ -66,6 +66,7 @@ const seasons = (...options: Partial<SeasonOption>[]): SeasonOption[] =>
 interface RouteStubs {
   request?: MediaRequest;
   seasons?: SeasonOption[];
+  monitored?: boolean;
   monitorNewSeasons?: boolean;
   seasonsError?: Error;
 }
@@ -73,7 +74,11 @@ interface RouteStubs {
 /** Answers each endpoint the page hits by path, as the real client does. */
 const stubRoutes = ({
   request = series,
-  seasons: seasonOptions = seasons({ season_number: 1 }, { season_number: 2, requested: true }),
+  seasons: seasonOptions = seasons(
+    { season_number: 1 },
+    { season_number: 2, monitored: true, requested: true },
+  ),
+  monitored = true,
   monitorNewSeasons = false,
   seasonsError,
 }: RouteStubs = {}) => {
@@ -81,6 +86,7 @@ const stubRoutes = ({
     tvdb_id: null,
     in_library: true,
     library_id: 12,
+    monitored,
     monitor_new_seasons: monitorNewSeasons,
     seasons: seasonOptions,
   });
@@ -119,11 +125,38 @@ describe('RequestDetailPage', () => {
     renderWithProviders(<RequestDetailPage />);
     const dialog = await openSeasonManager();
 
-    // Unlike the add form, the season that already has a request can be untaken.
-    const requested = await within(dialog).findByRole('checkbox', { name: /Season 2/ });
-    expect(requested).toBeChecked();
-    expect(requested).toBeEnabled();
+    // Unlike the add form, a season Sonarr monitors can be untaken here.
+    const monitored = await within(dialog).findByRole('checkbox', { name: /Season 2/ });
+    expect(monitored).toBeChecked();
+    expect(monitored).toBeEnabled();
     expect(within(dialog).getByRole('checkbox', { name: /Season 1/ })).not.toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: /Monitored/ })).toBeChecked();
+  });
+
+  it('ticks a season Sonarr monitors even where no request exists for it', async () => {
+    // Which is what a season Sonarr already holds in full looks like: nothing
+    // went missing, so the sync never raised a request for it.
+    stubRoutes({
+      seasons: seasons(
+        { season_number: 1, monitored: true },
+        { season_number: 2, monitored: true, requested: true },
+      ),
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+    const dialog = await openSeasonManager();
+
+    expect(await within(dialog).findByRole('checkbox', { name: /Season 1/ })).toBeChecked();
+
+    // Saving untouched must therefore leave Sonarr's monitoring as it found it.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save seasons' }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
+        method: 'PUT',
+        body: { season_numbers: [1, 2], monitored: true, monitor_new_seasons: false },
+      }),
+    );
   });
 
   it('sends a newly ticked season without asking twice', async () => {
@@ -138,10 +171,27 @@ describe('RequestDetailPage', () => {
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
         method: 'PUT',
-        body: { season_numbers: [2, 1], monitor_new_seasons: false },
+        body: { season_numbers: [2, 1], monitored: true, monitor_new_seasons: false },
       }),
     );
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('saves the series monitored flag as the user left it', async () => {
+    stubRoutes();
+
+    renderWithProviders(<RequestDetailPage />);
+    const dialog = await openSeasonManager();
+
+    await userEvent.click(await within(dialog).findByRole('checkbox', { name: /Monitored/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save seasons' }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
+        method: 'PUT',
+        body: { season_numbers: [2], monitored: false, monitor_new_seasons: false },
+      }),
+    );
   });
 
   it('confirms before taking a season away, and leaves on removing this one', async () => {
@@ -153,18 +203,18 @@ describe('RequestDetailPage', () => {
     await userEvent.click(await within(dialog).findByRole('checkbox', { name: /Season 2/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save seasons' }));
 
-    expect(await screen.findByText(/Season 2.*will be removed/)).toBeInTheDocument();
+    expect(await screen.findByText(/stop monitoring Season 2/)).toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith(
       '/requests/req-2/seasons',
       expect.objectContaining({ method: 'PUT' }),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Remove and save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Unmonitor and save' }));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/seasons', {
         method: 'PUT',
-        body: { season_numbers: [], monitor_new_seasons: false },
+        body: { season_numbers: [], monitored: true, monitor_new_seasons: false },
       }),
     );
     // The season being viewed is gone, so there is no page left to stay on.

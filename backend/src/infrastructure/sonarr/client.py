@@ -211,6 +211,7 @@ class SonarrHttpClient(SonarrService):
         *,
         monitor: Sequence[int] = (),
         unmonitor: Sequence[int] = (),
+        monitored: bool | None = None,
         monitor_new_seasons: bool | None = None,
     ) -> None:
         """Monitor and unmonitor the named seasons of a series in the library.
@@ -219,6 +220,10 @@ class SonarrHttpClient(SonarrService):
         season outside releasarr, and rewriting the whole selection from the
         seasons we happen to hold requests for would drop those episodes out of
         Sonarr's wanted list behind their back.
+
+        Sonarr's flags are the only copy of this state, so a caller that has one
+        to write - the season manager, where the user set it - passes it in and
+        it is stored as given.
         """
 
         payload = await self._request("GET", f"/series/{series_id}")
@@ -237,22 +242,21 @@ class SonarrHttpClient(SonarrService):
             if monitor_new_seasons is None
             else monitor_new_seasons
         )
-        # Sonarr treats an unmonitored series as wanting nothing at all, so it is
-        # only switched off once no season is left and future ones are unwanted
-        # too - otherwise the new-season flag would have nothing to act on.
-        monitored = wants_new_seasons or any(
-            season.get("monitored") and (self._season_number(season) or 0) > 0 for season in updated
+        wants_series = (
+            self._derive_series_monitored(updated, wants_new_seasons)
+            if monitored is None
+            else monitored
         )
 
         if (
             updated == seasons
-            and monitored == bool(payload.get("monitored"))
+            and wants_series == bool(payload.get("monitored"))
             and wants_new_seasons == self._reads_monitor_new_items(payload)
         ):
             return
 
         payload["seasons"] = updated
-        payload["monitored"] = monitored
+        payload["monitored"] = wants_series
         payload["monitorNewItems"] = self._monitor_new_items(wants_new_seasons)
         await self._request("PUT", f"/series/{series_id}", json=payload)
 
@@ -484,6 +488,7 @@ class SonarrHttpClient(SonarrService):
             tvdb_id=self._safe_int(data.get("tvdbId")),
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             seasons=seasons,
+            monitored=bool(data.get("monitored")),
             monitor_new_seasons=self._reads_monitor_new_items(data),
         )
 
@@ -502,6 +507,24 @@ class SonarrHttpClient(SonarrService):
         if season_number in unwanted:
             return {**season, "monitored": False}
         return season
+
+    def _derive_series_monitored(
+        self,
+        seasons: list[dict[str, Any]],
+        wants_new_seasons: bool,
+    ) -> bool:
+        """Work out the series flag for a caller that has no opinion on it.
+
+        Sonarr treats an unmonitored series as wanting nothing at all, so it is
+        only switched off once no season is left and future ones are unwanted
+        too - otherwise the new-season flag would have nothing to act on. This
+        is what removing a single request falls back on, having no user choice
+        to go by.
+        """
+
+        return wants_new_seasons or any(
+            season.get("monitored") and (self._season_number(season) or 0) > 0 for season in seasons
+        )
 
     def _monitor_new_items(self, monitor_new_seasons: bool) -> str:
         return MONITOR_NEW_ITEMS_ALL if monitor_new_seasons else MONITOR_NEW_ITEMS_NONE

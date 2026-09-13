@@ -17,6 +17,8 @@ export interface DiscoverCatalogueEntry {
   seasons?: number[];
   /** Seasons Sonarr monitors, for media already in the library. */
   monitored_seasons?: number[];
+  /** Sonarr's series-wide monitored flag, for media already in the library. */
+  monitored?: boolean;
   /** Whether Sonarr monitors seasons announced after the series was added. */
   monitor_new_seasons?: boolean;
   /**
@@ -54,7 +56,11 @@ export const DISCOVER_CATALOGUE: DiscoverCatalogueEntry[] = [
     poster_url: 'https://placehold.co/300x450?text=Breaking+Bad',
     library_id: 12,
     seasons: [0, 1, 2, 3, 4, 5],
-    monitored_seasons: [1, 2],
+    // Season 3 is monitored without a request of its own, which is what a
+    // season Sonarr already holds in full looks like: the season manager reads
+    // Sonarr's flags, so it shows ticked all the same.
+    monitored_seasons: [1, 2, 3],
+    monitored: true,
     monitor_new_seasons: true,
     translations: {
       rus: {

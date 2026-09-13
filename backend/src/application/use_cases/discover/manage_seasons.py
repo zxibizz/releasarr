@@ -22,9 +22,14 @@ from src.domain.enums import MediaType
 
 @dataclass(slots=True)
 class UpdateRequestSeasonsCommand:
-    """The seasons a series should hold requests for, as the user left them."""
+    """The seasons Sonarr should monitor for a series, as the user left them.
+
+    ``monitored`` is the series flag. Left unset it is worked out from what the
+    seasons are left wanting, which is what removing a single request relies on.
+    """
 
     season_numbers: list[int] = field(default_factory=list)
+    monitored: bool | None = None
     monitor_new_seasons: bool = False
 
 
@@ -60,6 +65,7 @@ async def _describe_seasons(
         tvdb_id=details.tvdb_id,
         in_library=True,
         library_id=series_id,
+        monitored=details.monitored,
         monitor_new_seasons=details.monitor_new_seasons,
         seasons=[
             SeasonOptionDTO(
@@ -74,7 +80,7 @@ async def _describe_seasons(
 
 
 class ListRequestSeasonsUseCase:
-    """Answer which seasons of a request's series are requested, and which could be.
+    """Answer which seasons of a request's series Sonarr monitors.
 
     Sonarr is asked by series id rather than through a TVDB lookup, which is both
     what the request knows and one round trip fewer: a request only carries a
@@ -97,13 +103,18 @@ class ListRequestSeasonsUseCase:
 
 
 class UpdateRequestSeasonsUseCase:
-    """Bring a series' season requests in line with the picked selection.
+    """Bring a series' monitoring in line with the picked selection.
 
-    Only the difference is acted on. Newly picked seasons are monitored and
-    synced into requests exactly as the add-request flow does them; seasons
-    dropped from the selection are unmonitored and their requests deleted,
-    because a request removed while Sonarr still wants its season comes back on
-    the next sync.
+    The selection is Sonarr's monitoring, so the difference is taken against
+    what Sonarr monitors now and not against the requests releasarr happens to
+    hold. Those two part company routinely: a monitored season that is already
+    complete never becomes a request, and diffing against requests would offer
+    it up as unticked and then unmonitor it on save.
+
+    Newly picked seasons are monitored and synced into requests exactly as the
+    add-request flow does them; seasons dropped from the selection are
+    unmonitored and any request of theirs deleted, because a request removed
+    while Sonarr still wants its season comes back on the next sync.
 
     Both halves go through a single Sonarr write, so the series never passes
     through a state where it has been emptied of seasons and is about to be
@@ -140,13 +151,19 @@ class UpdateRequestSeasonsUseCase:
             missing = ", ".join(str(season) for season in unknown)
             raise SeasonSelectionError(f"'{details.title}' has no season {missing}")
 
-        added = sorted(desired - set(requested))
-        removed = sorted({season for season in requested if season > 0} - desired)
+        monitored_now = {
+            season_number
+            for season_number, season in details.seasons.items()
+            if season.monitored and season_number > 0
+        }
+        added = sorted(desired - monitored_now)
+        removed = sorted(monitored_now - desired)
 
         await self._sonarr.apply_season_monitoring(
             series_id,
             monitor=added,
             unmonitor=removed,
+            monitored=command.monitored,
             monitor_new_seasons=command.monitor_new_seasons,
         )
 
@@ -156,15 +173,20 @@ class UpdateRequestSeasonsUseCase:
             await self._sonarr.wait_for_series_episodes(series_id, added)
             await self._sync_sonarr.sync_series(series_id, added)
 
-        for season_number in removed:
-            await self._repository.delete_request(requested[season_number])
+        # Only the seasons that had a request to begin with; the rest were
+        # monitored without ever going missing.
+        dropped = [requested[season] for season in removed if season in requested]
+        for dropped_request_id in dropped:
+            await self._repository.delete_request(dropped_request_id)
 
         self._logger.info(
-            "Updated season requests",
+            "Updated season monitoring",
             request_id=request_id,
             sonarr_series_id=series_id,
             added=added,
             removed=removed,
+            deleted_requests=dropped,
+            monitored=command.monitored,
             monitor_new_seasons=command.monitor_new_seasons,
         )
         return await _describe_seasons(self._repository, self._sonarr, series_id)

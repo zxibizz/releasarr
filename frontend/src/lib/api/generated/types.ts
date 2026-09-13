@@ -63,14 +63,21 @@ export interface paths {
          * @description The seasons of the series behind a series request, with the request state
          *     of each, for managing the selection from the request itself. Sonarr is
          *     asked by the series id the sync stamped on the request, which is the only
-         *     handle a request page has - it knows nothing about TVDB.
+         *     handle a request page has - it knows nothing about TVDB. The monitored
+         *     flags come from Sonarr itself, so a season monitored there without ever
+         *     going missing is reported as monitored here too.
          */
         get: operations["listRequestSeasons"];
         /**
-         * Set which seasons of a series hold requests
-         * @description Brings the season requests of a series in line with the given selection.
-         *     Newly picked seasons are monitored in Sonarr and synced into requests;
-         *     seasons dropped from the selection are unmonitored and their requests
+         * Set which seasons of a series Sonarr monitors
+         * @description Brings the monitoring of a series in line with the given selection,
+         *     writing the flags straight to Sonarr. The difference is taken against
+         *     what Sonarr monitors now rather than against the requests releasarr
+         *     holds, because a monitored season that is already complete never becomes
+         *     a request and would otherwise be unmonitored on save.
+         *
+         *     Newly picked seasons are monitored and synced into requests; seasons
+         *     dropped from the selection are unmonitored and any request of theirs
          *     removed, which includes the request in the path if its own season is left
          *     out.
          *
@@ -914,6 +921,11 @@ export interface components {
             in_library: boolean;
             library_id?: number | null;
             /**
+             * @description Sonarr's series-wide monitored flag. Only meaningful in the library; Sonarr has nowhere to record it until then.
+             * @default false
+             */
+            monitored: boolean;
+            /**
              * @description Whether Sonarr monitors seasons announced after the series was added. Only meaningful in the library; Sonarr has nowhere to record it until then.
              * @default false
              */
@@ -942,8 +954,10 @@ export interface components {
             monitor_new_seasons: boolean;
         };
         UpdateSeasonsPayload: {
-            /** @description The seasons the series should hold requests for afterwards. Absolute rather than a delta: a season left out is unmonitored in Sonarr and its request removed. Specials are out of scope and keep what they had. */
+            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had. */
             season_numbers: number[];
+            /** @description Sonarr's series-wide monitored flag. Left out, it follows from what the seasons are left wanting. */
+            monitored?: boolean | null;
             /** @default false */
             monitor_new_seasons: boolean;
         };
