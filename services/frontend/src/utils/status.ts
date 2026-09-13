@@ -1,4 +1,10 @@
-import type { MediaRequestStatus, ReleaseStatus, RequestLogLevel } from '@/types';
+import type {
+  IndexerEventType,
+  IndexerLogLevel,
+  MediaRequestStatus,
+  ReleaseStatus,
+  RequestLogLevel,
+} from '@/types';
 
 export type StatusPresentation = {
   /** Mantine theme color used for badges and accents. */
@@ -32,4 +38,26 @@ export const LOG_LEVEL_COLOR: Record<RequestLogLevel, string> = {
   info: 'blue',
   warning: 'yellow',
   error: 'red',
+};
+
+const INDEXER_EVENT_COLOR: Record<IndexerEventType, string> = {
+  indexer_query: 'blue',
+  indexer_rss: 'cyan',
+  indexer_auth: 'grape',
+  indexer_info: 'gray',
+  release_grabbed: 'teal',
+  unknown: 'gray',
+};
+
+/** A failed event reads as a failure first and as its kind second. */
+export const getIndexerEventColor = (eventType: IndexerEventType, successful: boolean): string =>
+  successful ? (INDEXER_EVENT_COLOR[eventType] ?? 'gray') : 'red';
+
+export const INDEXER_LOG_LEVEL_COLOR: Record<IndexerLogLevel, string> = {
+  trace: 'gray',
+  debug: 'gray',
+  info: 'blue',
+  warn: 'yellow',
+  error: 'red',
+  fatal: 'red',
 };

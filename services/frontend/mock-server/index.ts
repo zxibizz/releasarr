@@ -6,7 +6,7 @@ import express from 'express';
 import morgan from 'morgan';
 
 import { mockStore } from './store';
-import type { MediaRequest, MediaType, Release } from '../src/types';
+import type { IndexerEventType, MediaRequest, MediaType, Release } from '../src/types';
 
 const DEFAULT_PORT = 8001;
 const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 10);
@@ -90,6 +90,15 @@ const api = express.Router();
 
 const TASK_KINDS = ['sonarr_sync', 'radarr_sync', 'release_sync', 'export', 'regrab'] as const;
 type TaskKind = (typeof TASK_KINDS)[number];
+
+const INDEXER_EVENT_TYPES = [
+  'unknown',
+  'indexer_query',
+  'indexer_rss',
+  'indexer_auth',
+  'indexer_info',
+  'release_grabbed',
+] as const;
 
 api.get('/requests', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
@@ -575,6 +584,34 @@ api.get('/tasks/jobs/:jobId', async (req, res) => {
 api.get('/indexers', async (_req, res) => {
   const indexers = await mockStore.listIndexers();
   res.json({ indexers });
+});
+
+api.get('/indexers/history', async (req, res) => {
+  const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
+  const perPage = Math.min(
+    100,
+    Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10)),
+  );
+
+  const rawIndexerId = (req.query.indexer_id as string | undefined)?.trim();
+  const indexerId = rawIndexerId ? Number.parseInt(rawIndexerId, 10) : undefined;
+  if (indexerId !== undefined && Number.isNaN(indexerId)) {
+    return res.status(422).json({ message: `Invalid indexer_id: ${rawIndexerId}` });
+  }
+
+  const rawEventType = (req.query.event_type as string | undefined)?.trim();
+  if (rawEventType && !INDEXER_EVENT_TYPES.includes(rawEventType as IndexerEventType)) {
+    return res.status(422).json({ message: `Unknown event type: ${rawEventType}` });
+  }
+
+  const { history, total } = await mockStore.listIndexerHistory({
+    page,
+    perPage,
+    indexerId,
+    eventType: (rawEventType as IndexerEventType | undefined) || undefined,
+  });
+
+  res.json({ history, total, page, per_page: perPage });
 });
 
 api.post('/indexers/test', async (_req, res) => {

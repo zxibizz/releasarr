@@ -66,6 +66,37 @@ class IndexerHealth(StrEnum):
     DISABLED = "disabled"
 
 
+class IndexerEventType(StrEnum):
+    """What an indexer was asked to do, in Prowlarr's own history.
+
+    Prowlarr names these in camel case; they are renamed here to read like the
+    rest of this codebase, and ``UNKNOWN`` absorbs any event type a newer
+    Prowlarr starts reporting.
+    """
+
+    UNKNOWN = "unknown"
+    INDEXER_QUERY = "indexer_query"
+    INDEXER_RSS = "indexer_rss"
+    INDEXER_AUTH = "indexer_auth"
+    INDEXER_INFO = "indexer_info"
+    RELEASE_GRABBED = "release_grabbed"
+
+
+class IndexerLogLevel(StrEnum):
+    """Severity in a search provider's own log, least severe first.
+
+    Declared in order because the provider filters on this as a threshold: a
+    request for warnings is expected to return errors too.
+    """
+
+    TRACE = "trace"
+    DEBUG = "debug"
+    INFO = "info"
+    WARN = "warn"
+    ERROR = "error"
+    FATAL = "fatal"
+
+
 class AsyncJobStatus(StrEnum):
     QUEUED = "queued"
     PENDING = "pending"
@@ -102,7 +133,9 @@ class SyncJobTrigger(StrEnum):
 __all__ = [
     "AsyncJobStatus",
     "EpisodeStatus",
+    "IndexerEventType",
     "IndexerHealth",
+    "IndexerLogLevel",
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",

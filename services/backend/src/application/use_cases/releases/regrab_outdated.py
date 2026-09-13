@@ -49,7 +49,7 @@ class RegrabOutdatedReleasesUseCase:
         # Search Prowlarr for the specific release
         # We rely on the release name (torrent name) to find it again.
         results = await self._search_service.search(release.name)
-        
+
         # Find the result that matches our current GUID (Release.id)
         match = next((r for r in results.results if r.release_id == release.id), None)
         if not match:
@@ -62,7 +62,7 @@ class RegrabOutdatedReleasesUseCase:
         # distinct source logic
         if match.magnet_link:
             new_hash = self._extract_hash_from_magnet(match.magnet_link)
-        
+
         if not new_hash and match.torrent_file_url:
             try:
                 torrent_bytes = await self._search_service.fetch_torrent(match.torrent_file_url)
@@ -83,24 +83,24 @@ class RegrabOutdatedReleasesUseCase:
                 old_hash=current_hash,
                 new_hash=new_hash,
             )
-            
+
             # Re-download
             request_id = release.request_ids[0] if release.request_ids else "unknown"
-            
+
             await self._download_service.queue_download(
                 request_id=request_id,
                 release_id=release.id,
                 magnet_link=match.magnet_link or "",
                 torrent_bytes=torrent_bytes,
             )
-            
+
             # Update DB
             await self._repository.update_release(
                 release.id,
                 info_hash=new_hash.upper(),
                 export_failures_count=0,
-                last_exported_info_hash=None, # Reset export
-                name=match.release_name, # Update name in case of rename
+                last_exported_info_hash=None,  # Reset export
+                name=match.release_name,  # Update name in case of rename
             )
 
     @staticmethod

@@ -3,13 +3,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { indexersApi } from '@/features/indexers/api';
-import type { Indexer, IndexerTestResult } from '@/types';
+import type { Indexer, IndexerEventType, IndexerLogLevel, IndexerTestResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
+
+export interface IndexerHistoryFilters {
+  page: number;
+  indexerId?: number;
+  eventType?: IndexerEventType;
+}
+
+export interface IndexerLogFilters {
+  page: number;
+  minLevel?: IndexerLogLevel;
+}
 
 export const indexerKeys = {
   all: ['indexers'] as const,
   list: () => ['indexers', 'list'] as const,
+  history: (filters: IndexerHistoryFilters) => ['indexers', 'history', filters] as const,
+  logs: (filters: IndexerLogFilters) => ['indexers', 'logs', filters] as const,
 };
+
+export const HISTORY_PAGE_SIZE = 25;
 
 /**
  * Prowlarr lifts its own back-off on a timer, so the list goes stale on its own
@@ -32,6 +47,45 @@ export function useIndexers() {
     queryKey: indexerKeys.list(),
     queryFn: ({ signal }) => indexersApi.list(signal),
     refetchInterval: POLL_INTERVAL_MS,
+  });
+}
+
+/**
+ * A page of Prowlarr's own log, the one its UI shows as System → Events.
+ *
+ * Only fetched while its tab is showing: every call reaches Prowlarr, and
+ * neither this nor the history is something releasarr changes. The previous page
+ * stays on screen while the next loads, so paging does not blank the table.
+ */
+export function useIndexerLogs(filters: IndexerLogFilters, enabled: boolean) {
+  return useQuery({
+    queryKey: indexerKeys.logs(filters),
+    queryFn: ({ signal }) =>
+      indexersApi.logs(
+        { page: filters.page, perPage: HISTORY_PAGE_SIZE, minLevel: filters.minLevel },
+        signal,
+      ),
+    enabled,
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** A page of Prowlarr's indexer history. Fetched only while its tab is showing. */
+export function useIndexerHistory(filters: IndexerHistoryFilters, enabled: boolean) {
+  return useQuery({
+    queryKey: indexerKeys.history(filters),
+    queryFn: ({ signal }) =>
+      indexersApi.history(
+        {
+          page: filters.page,
+          perPage: HISTORY_PAGE_SIZE,
+          indexerId: filters.indexerId,
+          eventType: filters.eventType,
+        },
+        signal,
+      ),
+    enabled,
+    placeholderData: (previous) => previous,
   });
 }
 

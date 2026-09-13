@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 from pydantic import Field, field_serializer
 
 from src.schemas.base import APIModel
-from src.schemas.enums import IndexerHealth
+from src.schemas.common import PaginatedResponse
+from src.schemas.enums import IndexerEventType, IndexerHealth, IndexerLogLevel
 
 
 def _as_utc_iso(value: datetime | None) -> str | None:
@@ -53,8 +54,53 @@ class IndexerTestResults(APIModel):
     results: list[IndexerTestResult]
 
 
+class IndexerHistoryEntry(APIModel):
+    id: int
+    indexer_id: int
+    occurred_at: datetime
+    event_type: IndexerEventType
+    successful: bool
+    indexer_name: str | None = None
+    query: str | None = None
+    title: str | None = None
+    source: str | None = None
+    elapsed_ms: int | None = None
+    data: dict[str, str] = Field(default_factory=dict)
+
+    @field_serializer("occurred_at")
+    def _serialize_occurred_at(self, value: datetime) -> str | None:
+        return _as_utc_iso(value)
+
+
+class IndexerHistoryResponse(PaginatedResponse):
+    history: list[IndexerHistoryEntry]
+
+
+class IndexerLogEntry(APIModel):
+    id: int
+    occurred_at: datetime
+    level: IndexerLogLevel
+    message: str
+    component: str | None = None
+    method: str | None = None
+    exception: str | None = None
+    exception_type: str | None = None
+
+    @field_serializer("occurred_at")
+    def _serialize_occurred_at(self, value: datetime) -> str | None:
+        return _as_utc_iso(value)
+
+
+class IndexerLogsResponse(PaginatedResponse):
+    logs: list[IndexerLogEntry]
+
+
 __all__ = [
     "Indexer",
+    "IndexerHistoryEntry",
+    "IndexerHistoryResponse",
+    "IndexerLogEntry",
+    "IndexerLogsResponse",
     "IndexerTestResult",
     "IndexerTestResults",
     "IndexersResponse",

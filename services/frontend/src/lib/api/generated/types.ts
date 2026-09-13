@@ -576,6 +576,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/indexers/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prowlarr's own log
+         * @description Prowlarr's application log, newest first — what its own UI shows under
+         *     System → Events. This is Prowlarr's log rather than releasarr's, so it
+         *     is where an indexer's connection failures and captcha trouble surface.
+         */
+        get: operations["listIndexerLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/indexers/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prowlarr indexer events
+         * @description What Prowlarr's indexers have been doing, newest first: searches it ran,
+         *     RSS refreshes, logins, and releases it grabbed. This is Prowlarr's own
+         *     history rather than releasarr's log, so it also covers queries other
+         *     applications sent through the same indexers.
+         */
+        get: operations["listIndexerHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/indexers/test": {
         parameters: {
             query?: never;
@@ -634,6 +679,21 @@ export interface components {
          * @enum {string}
          */
         IndexerHealth: "healthy" | "degraded" | "blocked" | "disabled";
+        /**
+         * @description Severity as Prowlarr records it, from least to most severe. Prowlarr's
+         *     own names, lower-cased.
+         * @enum {string}
+         */
+        IndexerLogLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
+        /**
+         * @description What Prowlarr did. `indexer_query` is a search somebody asked for,
+         *     `indexer_rss` is an unprompted feed refresh, `indexer_auth` is a login,
+         *     and `release_grabbed` is a torrent or nzb handed to a download client.
+         *     Prowlarr's own names are camel case; these are the same values renamed to
+         *     match the rest of this API.
+         * @enum {string}
+         */
+        IndexerEventType: "unknown" | "indexer_query" | "indexer_rss" | "indexer_auth" | "indexer_info" | "release_grabbed";
         ErrorResponse: {
             /** @description Machine-readable error identifier. */
             code: string;
@@ -1008,6 +1068,62 @@ export interface components {
         IndexersResponse: {
             indexers: components["schemas"]["Indexer"][];
         };
+        IndexerLogEntry: {
+            /** @description Prowlarr's own identifier for the log record. */
+            id: number;
+            /** Format: date-time */
+            occurred_at: string;
+            level: components["schemas"]["IndexerLogLevel"];
+            message: string;
+            /**
+             * @description What logged the line. Prowlarr calls this the logger, and names it
+             *     after the indexer for an indexer's own failures.
+             */
+            component?: string | null;
+            method?: string | null;
+            /** @description Stack trace or provider response, when Prowlarr recorded one. */
+            exception?: string | null;
+            exception_type?: string | null;
+        };
+        IndexerLogsResponse: {
+            logs: components["schemas"]["IndexerLogEntry"][];
+            total: number;
+            page: number;
+            per_page: number;
+        };
+        /**
+         * @description Whatever else Prowlarr recorded against the event. The keys differ per
+         *     event type and per indexer implementation, and the fields lifted onto
+         *     the entry itself are removed from here rather than repeated.
+         */
+        IndexerEventData: {
+            [key: string]: string;
+        };
+        IndexerHistoryEntry: {
+            /** @description Prowlarr's own identifier for the history record. */
+            id: number;
+            indexer_id: number;
+            indexer_name?: string | null;
+            /** Format: date-time */
+            occurred_at: string;
+            event_type: components["schemas"]["IndexerEventType"];
+            successful: boolean;
+            /** @description Search term, for events that came from a search. */
+            query?: string | null;
+            /** @description Release name, for events that grabbed one. */
+            title?: string | null;
+            /** @description Application that asked, as Prowlarr recorded it. */
+            source?: string | null;
+            /** @description How long the indexer took to answer. */
+            elapsed_ms?: number | null;
+            data: components["schemas"]["IndexerEventData"];
+        };
+        IndexerHistoryResponse: {
+            history: components["schemas"]["IndexerHistoryEntry"][];
+            total: number;
+            page: number;
+            per_page: number;
+        };
         IndexerTestResult: {
             indexer_id: number;
             name?: string | null;
@@ -1179,6 +1295,15 @@ export interface components {
         RequestIdFilter: string;
         /** @description Optional background task to filter results. */
         TaskFilter: components["schemas"]["SyncJobKind"];
+        /** @description Optional Prowlarr indexer to filter results. */
+        IndexerIdFilter: number;
+        /** @description Optional indexer event type to filter results. */
+        IndexerEventTypeFilter: components["schemas"]["IndexerEventType"];
+        /**
+         * @description Least severe level to return. Prowlarr treats this as a threshold rather
+         *     than an exact match, so `warn` also returns errors and fatals.
+         */
+        IndexerLogLevelFilter: components["schemas"]["IndexerLogLevel"];
     };
     requestBodies: never;
     headers: never;
@@ -2778,6 +2903,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IndexersResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listIndexerLogs: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /**
+                 * @description Least severe level to return. Prowlarr treats this as a threshold rather
+                 *     than an exact match, so `warn` also returns errors and fatals.
+                 */
+                min_level?: components["parameters"]["IndexerLogLevelFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Log entries matching the supplied filters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexerLogsResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listIndexerHistory: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /** @description Optional Prowlarr indexer to filter results. */
+                indexer_id?: components["parameters"]["IndexerIdFilter"];
+                /** @description Optional indexer event type to filter results. */
+                event_type?: components["parameters"]["IndexerEventTypeFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexer events matching the supplied filters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexerHistoryResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unexpected server error. */

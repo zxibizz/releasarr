@@ -6,7 +6,7 @@ import { IndexerAlertBadge } from '@/features/indexers/components/IndexerAlertBa
 import { IndexersPage } from '@/features/indexers/pages/IndexersPage';
 import { ApiError, apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
-import type { Indexer, IndexerTestResult } from '@/types';
+import type { Indexer, IndexerHistoryEntry, IndexerTestResult } from '@/types';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -30,19 +30,54 @@ const indexer = (overrides: Partial<Indexer> = {}): Indexer => ({
   ...overrides,
 });
 
+const event = (overrides: Partial<IndexerHistoryEntry> = {}): IndexerHistoryEntry => ({
+  id: 412,
+  indexer_id: 1,
+  indexer_name: 'Anthelion',
+  occurred_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+  event_type: 'indexer_query',
+  successful: true,
+  query: 'Severance S02',
+  title: null,
+  source: 'Sonarr',
+  elapsed_ms: 412,
+  data: { queryResults: '39' },
+  ...overrides,
+});
+
 type Handlers = {
   indexers?: Indexer[];
   listError?: unknown;
   testResult?: IndexerTestResult;
   testAllResults?: IndexerTestResult[];
+  history?: IndexerHistoryEntry[];
+  historyTotal?: number;
+  historyError?: unknown;
 };
 
-const respondWith = ({ indexers = [], listError, testResult, testAllResults }: Handlers) => {
+const respondWith = ({
+  indexers = [],
+  listError,
+  testResult,
+  testAllResults,
+  history = [],
+  historyTotal,
+  historyError,
+}: Handlers) => {
   vi.mocked(apiRequest).mockImplementation(
-    async (path: string, options?: { method?: string }) => {
+    async (path: string, options?: { method?: string; query?: Record<string, unknown> }) => {
       if (path === '/indexers') {
         if (listError) throw listError;
         return { indexers };
+      }
+      if (path === '/indexers/history') {
+        if (historyError) throw historyError;
+        return {
+          history,
+          total: historyTotal ?? history.length,
+          page: Number(options?.query?.page ?? 1),
+          per_page: Number(options?.query?.per_page ?? 25),
+        };
       }
       if (path === '/indexers/test' && options?.method === 'POST') {
         return { results: testAllResults ?? [] };
@@ -53,6 +88,13 @@ const respondWith = ({ indexers = [], listError, testResult, testAllResults }: H
       throw new Error(`Unexpected request: ${path}`);
     },
   );
+};
+
+const historyCalls = () =>
+  vi.mocked(apiRequest).mock.calls.filter(([path]) => path === '/indexers/history');
+
+const openLogs = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole('button', { name: /^logs$/i }));
 };
 
 describe('IndexersPage', () => {
@@ -147,6 +189,7 @@ describe('IndexersPage', () => {
     expect(await screen.findByText('Prowlarr is not configured')).toBeInTheDocument();
     expect(screen.queryByText('No indexers yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /test all/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^logs$/i })).toBeDisabled();
   });
 
   it('offers a retry when Prowlarr is configured but unreachable', async () => {
@@ -164,6 +207,145 @@ describe('IndexersPage', () => {
     renderWithProviders(<IndexersPage />);
 
     expect(await screen.findByText('No indexers yet')).toBeInTheDocument();
+  });
+});
+
+describe('IndexerHistoryModal', () => {
+  beforeEach(() => {
+    vi.mocked(apiRequest).mockReset();
+  });
+
+  it('leaves Prowlarr alone until the reader asks for the logs', async () => {
+    const user = userEvent.setup();
+    respondWith({ indexers: [indexer()], history: [event()] });
+
+    renderWithProviders(<IndexersPage />);
+
+    await screen.findByText('Anthelion');
+    expect(historyCalls()).toHaveLength(0);
+
+    await openLogs(user);
+
+    await waitFor(() => expect(historyCalls()).toHaveLength(1));
+  });
+
+  it('shows what each event was, and what it was for', async () => {
+    const user = userEvent.setup();
+    respondWith({
+      indexers: [indexer()],
+      history: [
+        event(),
+        event({
+          id: 411,
+          event_type: 'release_grabbed',
+          query: null,
+          title: 'Severance.S02E01.2160p',
+        }),
+      ],
+    });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    expect(await screen.findByText('Severance S02')).toBeInTheDocument();
+    expect(screen.getByText('Search')).toBeInTheDocument();
+    expect(screen.getByText('Severance.S02E01.2160p')).toBeInTheDocument();
+    expect(screen.getByText('Grabbed')).toBeInTheDocument();
+  });
+
+  it('keeps the noisier Prowlarr fields behind the row toggle', async () => {
+    const user = userEvent.setup();
+    respondWith({ indexers: [indexer()], history: [event()] });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    await screen.findByText('Severance S02');
+    expect(screen.queryByText(/queryResults=39/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show event details/i }));
+
+    expect(await screen.findByText(/queryResults=39/)).toBeInTheDocument();
+    expect(screen.getByText(/Asked by: Sonarr/)).toBeInTheDocument();
+    expect(screen.getByText(/Took: 412ms/)).toBeInTheDocument();
+  });
+
+  it('narrows the history to one event type, from the first page', async () => {
+    const user = userEvent.setup();
+    respondWith({ indexers: [indexer()], history: [event()], historyTotal: 60 });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    await screen.findByText('Severance S02');
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByText(/Page 2 of 3/)).toBeInTheDocument());
+
+    await user.click(screen.getByRole('textbox', { name: /filter by event/i }));
+    await user.click(await screen.findByRole('option', { name: 'Grabbed' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
+        '/indexers/history',
+        expect.objectContaining({
+          query: expect.objectContaining({ event_type: 'release_grabbed', page: 1 }),
+        }),
+      );
+    });
+  });
+
+  it('narrows the history to one indexer', async () => {
+    const user = userEvent.setup();
+    respondWith({
+      indexers: [indexer(), indexer({ id: 3, name: 'Nyaa' })],
+      history: [event()],
+    });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    await screen.findByText('Severance S02');
+    await user.click(screen.getByRole('textbox', { name: /filter by indexer/i }));
+    await user.click(await screen.findByRole('option', { name: 'Nyaa' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
+        '/indexers/history',
+        expect.objectContaining({ query: expect.objectContaining({ indexer_id: 3 }) }),
+      );
+    });
+  });
+
+  it('reports an unreachable Prowlarr with a retry rather than an empty history', async () => {
+    const user = userEvent.setup();
+    respondWith({
+      indexers: [indexer()],
+      historyError: new ApiError('Bad gateway', { status: 502 }),
+    });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    expect(await screen.findByText('Could not load indexer logs')).toBeInTheDocument();
+    expect(screen.queryByText('No events yet')).not.toBeInTheDocument();
+  });
+
+  it('says nothing matched when the filters exclude everything', async () => {
+    const user = userEvent.setup();
+    respondWith({ indexers: [indexer(), indexer({ id: 3, name: 'Nyaa' })], history: [] });
+
+    renderWithProviders(<IndexersPage />);
+    await openLogs(user);
+
+    expect(await screen.findByText('No events yet')).toBeInTheDocument();
+    expect(
+      screen.getByText('Events appear here once something searches through Prowlarr.'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('textbox', { name: /filter by indexer/i }));
+    await user.click(await screen.findByRole('option', { name: 'Nyaa' }));
+
+    expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument();
   });
 });
 

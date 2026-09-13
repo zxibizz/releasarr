@@ -1,9 +1,11 @@
 import { Alert, Button, Group, Loader, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { IconPlugConnected } from '@tabler/icons-react';
+import { useDisclosure } from '@mantine/hooks';
+import { IconListDetails, IconPlugConnected } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { IndexerLogsModal } from '@/features/indexers/components/IndexerLogsModal';
 import { IndexersTable } from '@/features/indexers/components/IndexersTable';
 import { isIndexerUnhealthy, useIndexers, useTestAllIndexers } from '@/features/indexers/queries';
 import { ApiError } from '@/lib/api/client';
@@ -13,6 +15,7 @@ export function IndexersPage() {
   const { t } = useTranslation();
   const indexers = useIndexers();
   const testAll = useTestAllIndexers();
+  const [logsOpened, logsModal] = useDisclosure(false);
 
   const list = indexers.data ?? [];
   const unhealthy = list.filter(isIndexerUnhealthy);
@@ -28,6 +31,15 @@ export function IndexersPage() {
 
         <Group gap="sm">
           {indexers.isFetching && <Loader size="xs" />}
+          <Button
+            size="sm"
+            variant="default"
+            leftSection={<IconListDetails size={16} />}
+            disabled={notConfigured}
+            onClick={logsModal.open}
+          >
+            {t('indexers.page.logs')}
+          </Button>
           <Button
             size="sm"
             variant="light"
@@ -80,6 +92,8 @@ export function IndexersPage() {
           <IndexersTable indexers={list} />
         )}
       </Panel>
+
+      <IndexerLogsModal indexers={list} opened={logsOpened} onClose={logsModal.close} />
     </Stack>
   );
 }
