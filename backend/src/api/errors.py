@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from loguru import logger
 
 from src.application.use_cases.discover.exceptions import (
     InvalidRootFolderError,
@@ -113,6 +114,14 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Fallback handler for unexpected errors."""
 
+    # The response deliberately says nothing about the cause, so this is the only
+    # record that the crash ever happened.
+    logger.opt(exception=exc).error(
+        f"Unhandled error serving {request.method} {request.url.path}",
+        method=request.method,
+        path=request.url.path,
+        error=str(exc),
+    )
     payload = _error_payload("internal_error", "An unexpected error occurred")
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=payload)
 

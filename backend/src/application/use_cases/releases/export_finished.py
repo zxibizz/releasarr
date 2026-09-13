@@ -76,7 +76,7 @@ class ExportFinishedReleasesUseCase:
                 await self._process_release(release)
                 result.succeeded += 1
             except Exception as exc:
-                self._logger.error(
+                self._logger.opt(exception=exc).error(
                     "Failed to export release",
                     release_id=release.id,
                     release_name=release.name,

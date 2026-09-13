@@ -38,7 +38,7 @@ class RegrabOutdatedReleasesUseCase:
             try:
                 await self._process_release(release)
             except Exception as exc:
-                self._logger.error(
+                self._logger.opt(exception=exc).error(
                     "Failed to check for updates",
                     release_id=release.id,
                     release_name=release.name,

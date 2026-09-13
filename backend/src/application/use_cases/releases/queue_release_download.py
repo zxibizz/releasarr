@@ -108,7 +108,7 @@ class QueueReleaseDownloadUseCase:
             except ValueError as exc:
                 raise ReleaseDownloadConflictError(command.request_id, command.release_id) from exc
         except Exception as exc:
-            logger.error(
+            logger.opt(exception=exc).error(
                 f"Failed to grab release: {exc}",
                 request_id=effective_request_id,
                 release_id=command.release_id,

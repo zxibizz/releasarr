@@ -36,8 +36,11 @@ class LogEntry:
 class LogFileReader:
     """Parse Loguru's serialized JSON log file into :class:`LogEntry` records."""
 
-    def __init__(self, log_file: str | Path) -> None:
+    def __init__(self, log_file: str | Path, history_files: int = 1) -> None:
         self._path = Path(log_file)
+        # Reading every surviving rotation would make each call scale with the
+        # retention window, so only the most recent few are in reach.
+        self._history_files = max(1, history_files)
 
     def read_entries(
         self,
@@ -50,24 +53,44 @@ class LogFileReader:
         the record rather than on the message text.
         """
 
-        if not self._path.exists():
-            return []
-
         entries: list[LogEntry] = []
-        with self._path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                entry = self._parse_line(stripped)
-                if entry is None:
-                    continue
-                if request_id is not None and not self._matches(entry, "request_id", request_id):
-                    continue
-                if task is not None and not self._matches(entry, "task", task):
-                    continue
-                entries.append(entry)
+        for path in self._log_files():
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    entry = self._parse_line(stripped)
+                    if entry is None:
+                        continue
+                    if request_id is not None and not self._matches(
+                        entry, "request_id", request_id
+                    ):
+                        continue
+                    if task is not None and not self._matches(entry, "task", task):
+                        continue
+                    entries.append(entry)
         return entries
+
+    def _log_files(self) -> list[Path]:
+        """Return the files to scan, oldest first.
+
+        Rotation moves history out of the configured path into a timestamped
+        sibling (``backend.log`` becomes ``backend.2026-09-13_04-54-26_300466.log``),
+        so reading only the active file would drop everything logged before the
+        last rotation.
+        """
+        rotated = [
+            path
+            for path in self._path.parent.glob(f"{self._path.stem}.*{self._path.suffix}")
+            if path != self._path and path.is_file()
+        ]
+        rotated.sort(key=lambda path: (path.stat().st_mtime, path.name))
+
+        # The active file counts against the budget and is always the newest.
+        keep = self._history_files - 1
+        recent = rotated[-keep:] if keep > 0 else []
+        return [path for path in [*recent, self._path] if path.exists()]
 
     @staticmethod
     def _matches(entry: LogEntry, key: str, value: str) -> bool:

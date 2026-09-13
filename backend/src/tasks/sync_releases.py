@@ -94,7 +94,11 @@ class SyncReleasesTask:
                     unchanged += 1
             except Exception as exc:
                 failed += 1
-                logger.error(f"Failed to sync release {release.id}: {exc}")
+                logger.opt(exception=exc).error(
+                    f"Failed to sync release {release.id}: {exc}",
+                    release_id=release.id,
+                    error=str(exc),
+                )
 
         requests_updated = await self._sync_request_statuses()
 
