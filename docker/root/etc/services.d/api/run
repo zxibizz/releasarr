@@ -1,4 +1,6 @@
 #!/command/with-contenv sh
+# uvicorn logs to stderr, but s6 only pipes fd 1 to the logger in log/run.
+exec 2>&1
 # Port 8000 is what the nginx site proxies /api/ to.
 cd /app
 exec /app/.venv/bin/uvicorn src.api.app:app --host 0.0.0.0 --port 8000

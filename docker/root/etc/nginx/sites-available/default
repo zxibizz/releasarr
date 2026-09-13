@@ -1,6 +1,11 @@
 server {
   listen 80;
   merge_slashes off;
+  # Debian's defaults write both to /var/log/nginx, where nothing rotates them
+  # and nobody reads them. Sending them to the service's own descriptors puts
+  # them in `docker logs`, tagged by the s6 logger.
+  access_log /dev/stdout;
+  error_log /dev/stderr;
   location /api/ {
     proxy_pass http://localhost:8000/;
     proxy_set_header Host $host;

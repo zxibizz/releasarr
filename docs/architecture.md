@@ -29,6 +29,13 @@ there takes the container down rather than serving against a stale schema — an
 services in `/etc/services.d` come up afterwards, each restarted on its own if it dies. The tree
 lives in `docker/root/`, copied to `/` at build time.
 
+Each service has a `log/run` that pipes it through `s6-log`, which tags every line with `[api]`,
+`[scheduler]`, or `[nginx]` — otherwise one container's stream mixes three processes with no way
+to tell them apart. The `run` scripts start with `exec 2>&1` because s6 pipes only fd 1 to the
+logger, and both uvicorn and Loguru write to stderr. nginx is pointed at `/dev/stdout` and
+`/dev/stderr` for the same reason, which also stops it filling `/var/log/nginx` inside the
+container, where nothing rotates it.
+
 Two details of that arrangement look like faults and are not. s6 warns at boot that
 `/etc/s6-overlay/s6-rc.d` is empty, because the services use the older `services.d` layout — four
 shell scripts rather than the sixteen files the `s6-rc` format needs for the same three daemons

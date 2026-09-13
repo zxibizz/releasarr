@@ -59,7 +59,7 @@ COPY backend/alembic.ini /app
 # The nginx site, the migration step, and the three supervised services, each
 # already at the path it occupies in the image
 COPY docker/root/ /
-RUN chmod +x /etc/cont-init.d/* /etc/services.d/*/run
+RUN chmod +x /etc/cont-init.d/* /etc/services.d/*/run /etc/services.d/*/log/run
 
 # Abort the boot if migrations fail instead of serving against a stale schema.
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
