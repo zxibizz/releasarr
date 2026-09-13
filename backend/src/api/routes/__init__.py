@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from src.api.routes.discover import router as discover_router
+from src.api.routes.indexers import router as indexers_router
 from src.api.routes.logs import router as logs_router
 from src.api.routes.releases import request_releases_router
 from src.api.routes.releases import router as releases_router
@@ -19,6 +20,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(discover_router)
     app.include_router(logs_router)
     app.include_router(tasks_router)
+    app.include_router(indexers_router)
 
 
 __all__ = ["register_routes"]

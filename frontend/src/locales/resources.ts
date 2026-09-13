@@ -8,7 +8,8 @@ export const resources = {
       nav: {
         requests: 'Requests',
         add: 'Add',
-        system: 'System',
+        tasks: 'Tasks',
+        indexers: 'Indexers',
         openMenu: 'Open navigation menu',
         languageLabel: 'Select language',
         languages: {
@@ -36,6 +37,10 @@ export const resources = {
         failed: 'Failed',
         queued: 'Queued',
         running: 'Running',
+        healthy: 'Healthy',
+        degraded: 'Degraded',
+        blocked: 'Blocked',
+        disabled: 'Disabled',
       },
       requestCard: {
         posterAlt: '{{title}} poster',
@@ -558,6 +563,58 @@ export const resources = {
           description: 'The log file is unavailable right now.',
         },
       },
+      indexers: {
+        page: {
+          title: 'Indexers',
+          subtitle: 'What Prowlarr is searching on your behalf, and whether it still can.',
+          testAll: 'Test all',
+          notConfigured: {
+            title: 'Prowlarr is not configured',
+            description:
+              'Set RELEASARR_PROWLARR_URL and RELEASARR_PROWLARR_API_KEY, then restart Releasarr to see your indexers here.',
+          },
+          error: {
+            title: 'Could not load indexers',
+            description: 'Prowlarr is unavailable right now.',
+          },
+          unhealthy: {
+            title: 'Some indexers need attention',
+            description_one: '{{names}} is failing. Test it to check whether it has recovered.',
+            description_other: '{{names}} are failing. Test them to check whether they recovered.',
+          },
+          empty: {
+            title: 'No indexers yet',
+            description: 'Add an indexer in Prowlarr and it will show up here.',
+          },
+        },
+        columns: {
+          name: 'Name',
+          health: 'Health',
+          protocol: 'Protocol',
+          priority: 'Priority',
+          lastFailure: 'Last failure',
+        },
+        capabilities: {
+          search: 'Search',
+          rss: 'RSS',
+          none: 'No capabilities reported',
+        },
+        never: 'Never',
+        testNow: 'Test now',
+        testIndexer: 'Test {{name}}',
+        blockedUntil: 'Prowlarr disabled this indexer after repeated failures. Retrying {{when}}.',
+        degradedHint: 'This indexer has failed recently. Prowlarr is still querying it.',
+        alert_one: '{{count}} indexer needs attention',
+        alert_other: '{{count}} indexers need attention',
+        toasts: {
+          passed_one: 'Indexer passed',
+          passed_other: 'All {{count}} indexers passed',
+          failedTitle_one: '{{count}} indexer failed',
+          failedTitle_other: '{{count}} indexers failed',
+          errorTitle: 'Could not test indexers',
+          errorFallback: 'Prowlarr did not answer.',
+        },
+      },
     },
   },
   ru: {
@@ -565,7 +622,8 @@ export const resources = {
       nav: {
         requests: 'Запросы',
         add: 'Добавить',
-        system: 'Система',
+        tasks: 'Задачи',
+        indexers: 'Индексеры',
         openMenu: 'Открыть меню навигации',
         languageLabel: 'Выберите язык',
         languages: {
@@ -593,6 +651,10 @@ export const resources = {
         failed: 'Ошибка',
         queued: 'В очереди',
         running: 'Выполняется',
+        healthy: 'Работает',
+        degraded: 'Сбои',
+        blocked: 'Заблокирован',
+        disabled: 'Отключён',
       },
       requestCard: {
         posterAlt: 'Постер «{{title}}»',
@@ -1127,6 +1189,67 @@ export const resources = {
         error: {
           title: 'Не удалось загрузить логи',
           description: 'Файл логов сейчас недоступен.',
+        },
+      },
+      indexers: {
+        page: {
+          title: 'Индексеры',
+          subtitle: 'Где Prowlarr ищет для вас — и может ли он это делать сейчас.',
+          testAll: 'Проверить все',
+          notConfigured: {
+            title: 'Prowlarr не настроен',
+            description:
+              'Задайте RELEASARR_PROWLARR_URL и RELEASARR_PROWLARR_API_KEY и перезапустите Releasarr, чтобы увидеть здесь свои индексеры.',
+          },
+          error: {
+            title: 'Не удалось загрузить индексеры',
+            description: 'Prowlarr сейчас недоступен.',
+          },
+          unhealthy: {
+            title: 'Некоторым индексерам нужно внимание',
+            description_one: '{{names}} выдаёт ошибки. Проверьте его, чтобы узнать, ожил ли он.',
+            description_few: '{{names}} выдают ошибки. Проверьте их, чтобы узнать, ожили ли они.',
+            description_many: '{{names}} выдают ошибки. Проверьте их, чтобы узнать, ожили ли они.',
+            description_other: '{{names}} выдают ошибки. Проверьте их, чтобы узнать, ожили ли они.',
+          },
+          empty: {
+            title: 'Индексеров пока нет',
+            description: 'Добавьте индексер в Prowlarr, и он появится здесь.',
+          },
+        },
+        columns: {
+          name: 'Название',
+          health: 'Состояние',
+          protocol: 'Протокол',
+          priority: 'Приоритет',
+          lastFailure: 'Последняя ошибка',
+        },
+        capabilities: {
+          search: 'Поиск',
+          rss: 'RSS',
+          none: 'Возможности не заявлены',
+        },
+        never: 'Никогда',
+        testNow: 'Проверить',
+        testIndexer: 'Проверить «{{name}}»',
+        blockedUntil:
+          'Prowlarr отключил этот индексер после серии ошибок. Следующая попытка {{when}}.',
+        degradedHint: 'У этого индексера недавно были ошибки, но Prowlarr продолжает его опрашивать.',
+        alert_one: '{{count}} индексеру нужно внимание',
+        alert_few: '{{count}} индексерам нужно внимание',
+        alert_many: '{{count}} индексерам нужно внимание',
+        alert_other: '{{count}} индексерам нужно внимание',
+        toasts: {
+          passed_one: 'Индексер прошёл проверку',
+          passed_few: 'Все {{count}} индексера прошли проверку',
+          passed_many: 'Все {{count}} индексеров прошли проверку',
+          passed_other: 'Все {{count}} индексеров прошли проверку',
+          failedTitle_one: '{{count}} индексер не прошёл проверку',
+          failedTitle_few: '{{count}} индексера не прошли проверку',
+          failedTitle_many: '{{count}} индексеров не прошли проверку',
+          failedTitle_other: '{{count}} индексеров не прошли проверку',
+          errorTitle: 'Не удалось проверить индексеры',
+          errorFallback: 'Prowlarr не ответил.',
         },
       },
     },

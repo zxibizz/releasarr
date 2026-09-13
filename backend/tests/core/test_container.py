@@ -12,7 +12,7 @@ from src.application.use_cases.requests.list_requests import ListMediaRequestsUs
 from src.core.container import AppContainer, get_container
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
-from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
+from src.infrastructure.prowlarr import ProwlarrIndexerDirectory, ProwlarrReleaseSearchService
 from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
 from src.infrastructure.releases.services import (
     InMemoryReleaseDownloadService,
@@ -83,3 +83,24 @@ def test_container_uses_prowlarr_search_when_configured() -> None:
     search_service = container.services.release_search
 
     assert isinstance(search_service, ProwlarrReleaseSearchService)
+
+
+def test_container_provides_the_indexer_directory_when_prowlarr_is_configured() -> None:
+    settings = AppSettings(
+        prowlarr_url="https://prowlarr.example/api/v1",
+        prowlarr_api_key=SecretStr("token"),
+    )
+    container = AppContainer(settings=settings)
+
+    directory = container.services.indexer_directory
+
+    assert isinstance(directory, ProwlarrIndexerDirectory)
+    assert directory is container.services.indexer_directory
+
+
+def test_container_has_no_indexer_directory_without_prowlarr() -> None:
+    """The indexer use cases report the missing configuration rather than fake it."""
+
+    container = AppContainer(settings=AppSettings(prowlarr_url="", prowlarr_api_key=SecretStr("")))
+
+    assert container.services.indexer_directory is None

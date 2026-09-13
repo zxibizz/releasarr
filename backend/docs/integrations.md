@@ -10,7 +10,7 @@ unconfigured. Adapters live in `src/infrastructure/<service>/`; the ports they i
 | --- | --- | --- | --- | --- |
 | Sonarr | `RELEASARR_SONARR_URL` | `http://localhost:8989/api/v3` | `/api/v3` | Client exists, errors on first call |
 | Radarr | `RELEASARR_RADARR_URL` | `http://localhost:7878/api/v3` | `/api/v3` | Client exists, errors on first call |
-| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | `InMemoryReleaseSearchService` |
+| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | `InMemoryReleaseSearchService`; indexer directory is `None` |
 | qBittorrent | `RELEASARR_QBITTORRENT_URL` | *(empty)* | `/api/v2` | In-memory download + lifecycle stubs |
 | TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | v4 root | `None`; use cases degrade |
 | TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | `/3` | `None`; use cases degrade |
@@ -139,6 +139,40 @@ Three behaviours worth knowing:
 - **"All indexers unavailable" is not an error.** On a 400, the body is checked for
   `"all selected indexers"`; if it matches, an empty result set is returned instead of raising,
   so one broken indexer does not look like a broken search. Any other 400 propagates.
+
+### Indexer health
+
+`ProwlarrIndexerDirectory` implements `IndexerDirectory`, backing the indexers page. Same base
+URL and auth as the search service, resolved separately in `ServiceContainer.indexer_directory`.
+
+| Method | Path | Used for |
+| --- | --- | --- |
+| GET | `/indexer` | Every indexer: `enable`, `protocol`, `privacy`, `priority`, `supports*`, `indexerUrls` |
+| GET | `/indexerstatus` | Only the ones Prowlarr is backing off: `disabledTill`, `mostRecentFailure`, `initialFailure` |
+| GET | `/indexer/{id}` | The definition to post back to `test` |
+| POST | `/indexer/test` | Body is that definition verbatim |
+| POST | `/indexer/testall` | No body; returns `[{id, validationFailures}]` |
+
+Four things about this pair of endpoints are easy to get wrong:
+
+- **`/indexerstatus` is a failure log, not a status list.** It holds nothing for a healthy
+  indexer, so an empty array means everything is fine rather than nothing is known. The
+  `status` field on `/indexer` looks like it would save the second call, but Prowlarr does not
+  populate it reliably on the list route.
+- **The `********` round-trip is deliberate.** Prowlarr masks api-key and password fields when
+  it hands out a definition, and `SchemaBuilder.ReadFromSchema` restores the stored value when
+  it reads that sentinel back against the resource `id`. So posting the definition unchanged
+  tests with real credentials; stripping or rewriting the masked fields would break it.
+- **`testall` answers 400 when any indexer fails,** carrying the same per-indexer body as a
+  success. The status code is a summary, so the body is parsed either way. It also skips
+  indexers that are switched off.
+- **Health is derived in the use case, not here.** The adapter reports raw flags and
+  timestamps; `derive_health` compares `disabled_till` against now. A cleared `enable` outranks
+  the failure log, because that is a deliberate choice rather than a back-off that expires.
+
+Unlike release search, **an unconfigured Prowlarr raises** `ProwlarrNotConfiguredError` (503)
+instead of falling back to an in-memory stub. This page exists to answer "are my indexers
+working", and an empty list reads as "no indexers" rather than "no Prowlarr".
 
 ## qBittorrent
 

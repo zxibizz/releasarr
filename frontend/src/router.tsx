@@ -71,6 +71,14 @@ export const router = createBrowserRouter([
         },
         errorElement: <RouteErrorBoundary />,
       },
+      {
+        path: 'system/indexers',
+        lazy: async () => {
+          const { IndexersPage } = await import('@/features/indexers/pages/IndexersPage');
+          return { Component: IndexersPage };
+        },
+        errorElement: <RouteErrorBoundary />,
+      },
       { path: '*', element: <NotFound /> },
     ],
   },

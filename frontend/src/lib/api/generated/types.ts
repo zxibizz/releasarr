@@ -4,2652 +4,2911 @@
  */
 
 export interface paths {
-  '/requests': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List media requests */
+        get: operations["listRequests"];
+        put?: never;
+        /** Create a media request */
+        post: operations["createRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List media requests */
-    get: operations['listRequests'];
-    put?: never;
-    /** Create a media request */
-    post: operations['createRequest'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/requests/{requestId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Retrieve a single request */
+        get: operations["getRequest"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a media request
+         * @description Removes the request and unmonitors what produced it: the season in Sonarr
+         *     or the movie in Radarr. Dropping the row alone would not last, because the
+         *     recurring sync rebuilds a request for every monitored season Sonarr still
+         *     reports as missing.
+         *
+         *     The series or movie itself stays in the library, as do any files already
+         *     imported, and a series stays monitored even once its last season has
+         *     gone - Sonarr reads one with no monitored season as wanting nothing.
+         */
+        delete: operations["deleteRequest"];
+        options?: never;
+        head?: never;
+        /** Partially update a media request */
+        patch: operations["updateRequest"];
+        trace?: never;
     };
-    /** Retrieve a single request */
-    get: operations['getRequest'];
-    put?: never;
-    post?: never;
-    /**
-     * Delete a media request
-     * @description Removes the request and unmonitors what produced it: the season in Sonarr
-     *     or the movie in Radarr. Dropping the row alone would not last, because the
-     *     recurring sync rebuilds a request for every monitored season Sonarr still
-     *     reports as missing.
-     *
-     *     The series or movie itself stays in the library, as do any files already
-     *     imported, and a series stays monitored even once its last season has
-     *     gone - Sonarr reads one with no monitored season as wanting nothing.
-     */
-    delete: operations['deleteRequest'];
-    options?: never;
-    head?: never;
-    /** Partially update a media request */
-    patch: operations['updateRequest'];
-    trace?: never;
-  };
-  '/requests/{requestId}/episodes': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the episodes of the season a request covers
+         * @description Every episode of the one season a series request covers, with its air
+         *     date and the file Sonarr holds for it, if any. Sonarr is asked directly
+         *     rather than the answer being derived from the files of the releases
+         *     grabbed here: a season is just as likely to have been filled from
+         *     outside releasarr, and what Sonarr holds is the truth either way.
+         *
+         *     An episode counts as `downloaded` once Sonarr has a file for it,
+         *     whatever its air date says. Of the rest, one whose air date has passed
+         *     is `missing` - the only state that is anybody's to act on - and one
+         *     still to air, or that Sonarr has no date for at all, is `unaired`.
+         */
+        get: operations["listRequestEpisodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List the episodes of the season a request covers
-     * @description Every episode of the one season a series request covers, with its air
-     *     date and the file Sonarr holds for it, if any. Sonarr is asked directly
-     *     rather than the answer being derived from the files of the releases
-     *     grabbed here: a season is just as likely to have been filled from
-     *     outside releasarr, and what Sonarr holds is the truth either way.
-     *
-     *     An episode counts as `downloaded` once Sonarr has a file for it,
-     *     whatever its air date says. Of the rest, one whose air date has passed
-     *     is `missing` - the only state that is anybody's to act on - and one
-     *     still to air, or that Sonarr has no date for at all, is `unaired`.
-     */
-    get: operations['listRequestEpisodes'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/requests/{requestId}/seasons': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seasons of the series a request belongs to
+         * @description The seasons of the series behind a series request, with the request state
+         *     of each, for managing the selection from the request itself. Sonarr is
+         *     asked by the series id the sync stamped on the request, which is the only
+         *     handle a request page has - it knows nothing about TVDB. The monitored
+         *     flags come from Sonarr itself, so a season monitored there without ever
+         *     going missing is reported as monitored here too.
+         */
+        get: operations["listRequestSeasons"];
+        /**
+         * Set which seasons of a series Sonarr monitors
+         * @description Brings the monitoring of a series in line with the given selection,
+         *     writing the flags straight to Sonarr. The difference is taken against
+         *     what Sonarr monitors now rather than against the requests releasarr
+         *     holds, because a monitored season that is already complete never becomes
+         *     a request and would otherwise be unmonitored on save.
+         *
+         *     Newly picked seasons are monitored and synced into requests; seasons
+         *     dropped from the selection are unmonitored and any request of theirs
+         *     removed, which includes the request in the path if its own season is left
+         *     out.
+         *
+         *     Both halves go through a single Sonarr write, so the series never passes
+         *     through a state where every season has been dropped and is about to be
+         *     added back.
+         */
+        put: operations["updateRequestSeasons"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List the seasons of the series a request belongs to
-     * @description The seasons of the series behind a series request, with the request state
-     *     of each, for managing the selection from the request itself. Sonarr is
-     *     asked by the series id the sync stamped on the request, which is the only
-     *     handle a request page has - it knows nothing about TVDB. The monitored
-     *     flags come from Sonarr itself, so a season monitored there without ever
-     *     going missing is reported as monitored here too.
-     */
-    get: operations['listRequestSeasons'];
-    /**
-     * Set which seasons of a series Sonarr monitors
-     * @description Brings the monitoring of a series in line with the given selection,
-     *     writing the flags straight to Sonarr. The difference is taken against
-     *     what Sonarr monitors now rather than against the requests releasarr
-     *     holds, because a monitored season that is already complete never becomes
-     *     a request and would otherwise be unmonitored on save.
-     *
-     *     Newly picked seasons are monitored and synced into requests; seasons
-     *     dropped from the selection are unmonitored and any request of theirs
-     *     removed, which includes the request in the path if its own season is left
-     *     out.
-     *
-     *     Both halves go through a single Sonarr write, so the series never passes
-     *     through a state where every season has been dropped and is about to be
-     *     added back.
-     */
-    put: operations['updateRequestSeasons'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/requests/{requestId}/releases': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List releases attached to a request
+         * @deprecated
+         */
+        get: operations["listReleasesForRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List releases attached to a request
-     * @deprecated
-     */
-    get: operations['listReleasesForRequest'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List releases */
+        get: operations["listReleases"];
+        put?: never;
+        /** Register a new release sourced from an external download */
+        post: operations["createRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List releases */
-    get: operations['listReleases'];
-    put?: never;
-    /** Register a new release sourced from an external download */
-    post: operations['createRelease'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/{releaseId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/{releaseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Retrieve release details */
+        get: operations["getRelease"];
+        put?: never;
+        post?: never;
+        /** Remove a release */
+        delete: operations["deleteRelease"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Retrieve release details */
-    get: operations['getRelease'];
-    put?: never;
-    post?: never;
-    /** Remove a release */
-    delete: operations['deleteRelease'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/{releaseId}/pause': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/{releaseId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause an active release */
+        post: operations["pauseRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Pause an active release */
-    post: operations['pauseRelease'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/{releaseId}/resume': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/{releaseId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume a paused release */
+        post: operations["resumeRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Resume a paused release */
-    post: operations['resumeRelease'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/{releaseId}/files/mapping': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/{releaseId}/files/mapping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update mappings for release files */
+        put: operations["updateReleaseFileMappings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /** Update mappings for release files */
-    put: operations['updateReleaseFileMappings'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/{releaseId}/files/mapping/suggestions': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/{releaseId}/files/mapping/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest mappings for release files
+         * @description Returns the mappings automapping would make for the files that are not already mapped correctly, without storing any of them. Only files a mapping could be resolved for are listed.
+         */
+        get: operations["suggestReleaseFileMappings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Suggest mappings for release files
-     * @description Returns the mappings automapping would make for the files that are not already mapped correctly, without storing any of them. Only files a mapping could be resolved for are listed.
-     */
-    get: operations['suggestReleaseFileMappings'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/releases/search': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/releases/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search for release sources */
+        get: operations["searchReleaseSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Search for release sources */
-    get: operations['searchReleaseSources'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/requests/{requestId}/releases/download': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}/releases/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a release download for a request */
+        post: operations["queueReleaseDownload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Queue a release download for a request */
-    post: operations['queueReleaseDownload'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/requests/{requestId}/releases/manual': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/requests/{requestId}/releases/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a hand-supplied release for a request
+         * @description Grabs a release the user already has, bypassing the indexer search.
+         *     Exactly one of `torrent_file_base64` or `magnet_link` must be supplied.
+         *     The release is identified by the info hash the payload carries, so a
+         *     torrent file and its magnet equivalent resolve to the same release.
+         */
+        post: operations["queueManualRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Queue a hand-supplied release for a request
-     * @description Grabs a release the user already has, bypassing the indexer search.
-     *     Exactly one of `torrent_file_base64` or `magnet_link` must be supplied.
-     *     The release is identified by the info hash the payload carries, so a
-     *     torrent file and its magnet equivalent resolve to the same release.
-     */
-    post: operations['queueManualRelease'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/discover/search': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/discover/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search TVDB or TMDB for media to request
+         * @description Results come from the metadata provider for the given type - TVDB for
+         *     series, TMDB for movies - and are annotated with what releasarr already
+         *     holds: whether Sonarr/Radarr has the item in its library, and which of
+         *     its seasons already have a request. The annotation is best-effort, so a
+         *     Sonarr or Radarr that cannot be reached leaves the results unannotated
+         *     rather than failing the search.
+         *
+         *     Omitting `type` searches both providers and returns one mixed list,
+         *     ordered by how closely each title matches the term. Only one of the two
+         *     providers has to be configured, and a provider that cannot be reached is
+         *     left out rather than failing the search.
+         */
+        get: operations["searchMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Search TVDB or TMDB for media to request
-     * @description Results come from the metadata provider for the given type - TVDB for
-     *     series, TMDB for movies - and are annotated with what releasarr already
-     *     holds: whether Sonarr/Radarr has the item in its library, and which of
-     *     its seasons already have a request. The annotation is best-effort, so a
-     *     Sonarr or Radarr that cannot be reached leaves the results unannotated
-     *     rather than failing the search.
-     *
-     *     Omitting `type` searches both providers and returns one mixed list,
-     *     ordered by how closely each title matches the term. Only one of the two
-     *     providers has to be configured, and a provider that cannot be reached is
-     *     left out rather than failing the search.
-     */
-    get: operations['searchMedia'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/discover/series/{tvdbId}/seasons': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/discover/series/{tvdbId}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seasons of a series, with their request state
+         * @description Season numbers come from Sonarr's own lookup, so they are the ones an add
+         *     would actually monitor. For a series already in the library each season
+         *     also reports whether Sonarr monitors it and whether it already has a
+         *     request.
+         */
+        get: operations["listSeriesSeasons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List the seasons of a series, with their request state
-     * @description Season numbers come from Sonarr's own lookup, so they are the ones an add
-     *     would actually monitor. For a series already in the library each season
-     *     also reports whether Sonarr monitors it and whether it already has a
-     *     request.
-     */
-    get: operations['listSeriesSeasons'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/discover/root-folders': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/discover/root-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the library locations media can be added to */
+        get: operations["listRootFolders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List the library locations media can be added to */
-    get: operations['listRootFolders'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/discover/requests': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/discover/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add media to Sonarr/Radarr and request it
+         * @description Adds the picked series or movie to Sonarr/Radarr by its TVDB/TMDB id,
+         *     monitoring the selected seasons, and creates the matching media requests
+         *     before responding. Media already in the library is not re-added: only the
+         *     monitoring is widened to cover the selection.
+         */
+        post: operations["addRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Add media to Sonarr/Radarr and request it
-     * @description Adds the picked series or movie to Sonarr/Radarr by its TVDB/TMDB id,
-     *     monitoring the selected seasons, and creates the matching media requests
-     *     before responding. Media already in the library is not re-added: only the
-     *     monitoring is widened to cover the selection.
-     */
-    post: operations['addRequest'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/logs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List processing logs
+         * @description Application log entries, newest first. Filters match fields the log
+         *     producer bound onto the record, so `task` returns everything logged
+         *     while that background task was running, including lines emitted deeper
+         *     in the call stack.
+         */
+        get: operations["listRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List processing logs
-     * @description Application log entries, newest first. Filters match fields the log
-     *     producer bound onto the record, so `task` returns everything logged
-     *     while that background task was running, including lines emitted deeper
-     *     in the call stack.
-     */
-    get: operations['listRequestLogs'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/sync_all': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/sync_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue every task
+         * @description Queues every task in dependency order: Sonarr and Radarr request syncs,
+         *     download state refresh, import of finished releases back into them, and
+         *     re-grab of outdated releases. Execution happens in the scheduler process,
+         *     so the response only acknowledges that the work was queued.
+         */
+        post: operations["triggerFullSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Queue every task
-     * @description Queues every task in dependency order: Sonarr and Radarr request syncs,
-     *     download state refresh, import of finished releases back into them, and
-     *     re-grab of outdated releases. Execution happens in the scheduler process,
-     *     so the response only acknowledges that the work was queued.
-     */
-    post: operations['triggerFullSync'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/sync_downloads': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/sync_downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a download sync and library import
+         * @description Refreshes download state from the download client and imports finished
+         *     releases into Sonarr and Radarr. Intended for a download client to call
+         *     when a torrent finishes, so it deliberately skips the slower library and
+         *     indexer tasks of a full sync.
+         */
+        post: operations["triggerDownloadSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Queue a download sync and library import
-     * @description Refreshes download state from the download client and imports finished
-     *     releases into Sonarr and Radarr. Intended for a download client to call
-     *     when a torrent finishes, so it deliberately skips the slower library and
-     *     indexer tasks of a full sync.
-     */
-    post: operations['triggerDownloadSync'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/run/{kind}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/run/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a single task
+         * @description Queues one task for immediate execution, equivalent to the run button
+         *     next to each task on the system tasks page.
+         */
+        post: operations["runTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Queue a single task
-     * @description Queues one task for immediate execution, equivalent to the run button
-     *     next to each task on the system tasks page.
-     */
-    post: operations['runTask'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/scheduled': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recurring tasks
+         * @description Returns every task the scheduler runs on an interval, along with when it
+         *     last ran and when it is next due. Scheduled runs are not recorded as
+         *     jobs, so this is the only place their outcome is reported.
+         */
+        get: operations["listScheduledTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List recurring tasks
-     * @description Returns every task the scheduler runs on an interval, along with when it
-     *     last ran and when it is next due. Scheduled runs are not recorded as
-     *     jobs, so this is the only place their outcome is reported.
-     */
-    get: operations['listScheduledTasks'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/jobs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent task runs
+         * @description History of on-demand runs, newest first. Only runs triggered over the
+         *     API or by a download client appear here; scheduled runs are reported by
+         *     the scheduled tasks endpoint instead.
+         */
+        get: operations["listSyncJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List recent task runs
-     * @description History of on-demand runs, newest first. Only runs triggered over the
-     *     API or by a download client appear here; scheduled runs are reported by
-     *     the scheduled tasks endpoint instead.
-     */
-    get: operations['listSyncJobs'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/tasks/jobs/{jobId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/tasks/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a task run */
+        get: operations["getSyncJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Get a task run */
-    get: operations['getSyncJob'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/indexers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prowlarr indexers
+         * @description Every indexer Prowlarr knows about, with the health releasarr derives
+         *     from it. Prowlarr backs off an indexer after repeated failures, which is
+         *     reported separately from an indexer somebody switched off by hand.
+         */
+        get: operations["listIndexers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/indexers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test every enabled indexer
+         * @description Asks Prowlarr to query each enabled indexer. A passing test clears the
+         *     back-off Prowlarr applied after earlier failures, so this doubles as the
+         *     way to bring a blocked indexer back.
+         */
+        post: operations["testIndexers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/indexers/{indexerId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test a single indexer */
+        post: operations["testIndexer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @enum {string} */
-    MediaType: 'movie' | 'series';
-    /** @enum {string} */
-    MediaRequestStatus: 'pending' | 'searching' | 'downloading' | 'completed' | 'failed';
-    /** @enum {string} */
-    ReleaseStatus: 'pending' | 'downloading' | 'seeding' | 'completed' | 'failed';
-    /** @enum {string} */
-    RequestLogLevel: 'info' | 'warning' | 'error';
-    ErrorResponse: {
-      /** @description Machine-readable error identifier. */
-      code: string;
-      /** @description Human-readable explanation of the error. */
-      message: string;
-      /** @description Optional key/value data with context for the failure. */
-      details?: {
-        [key: string]: string | number | boolean | string[];
-      };
+    schemas: {
+        /** @enum {string} */
+        MediaType: "movie" | "series";
+        /** @enum {string} */
+        MediaRequestStatus: "pending" | "searching" | "downloading" | "completed" | "failed";
+        /** @enum {string} */
+        ReleaseStatus: "pending" | "downloading" | "seeding" | "completed" | "failed";
+        /** @enum {string} */
+        RequestLogLevel: "info" | "warning" | "error";
+        /**
+         * @description How usable an indexer is right now. `disabled` was switched off by hand
+         *     and stays that way; `blocked` is Prowlarr's own back-off after repeated
+         *     failures and lifts on its own, or on a passing test.
+         * @enum {string}
+         */
+        IndexerHealth: "healthy" | "degraded" | "blocked" | "disabled";
+        ErrorResponse: {
+            /** @description Machine-readable error identifier. */
+            code: string;
+            /** @description Human-readable explanation of the error. */
+            message: string;
+            /** @description Optional key/value data with context for the failure. */
+            details?: {
+                [key: string]: string | number | boolean | string[];
+            };
+        };
+        RequestsResponse: {
+            requests: components["schemas"]["MediaRequest"][];
+            total: number;
+            page: number;
+            per_page: number;
+        };
+        /**
+         * @description Where an episode stands. `downloaded` whenever Sonarr holds a file for it, `missing` once its air date has passed with no file, and `unaired` while it is still to come or has no known date.
+         * @enum {string}
+         */
+        EpisodeStatus: "downloaded" | "missing" | "unaired";
+        SeasonEpisode: {
+            episode_number: number;
+            title: string;
+            status: components["schemas"]["EpisodeStatus"];
+            /**
+             * Format: date-time
+             * @description When the episode airs, in UTC. Null for an episode Sonarr has no date for, which also leaves it reported as unaired.
+             */
+            air_date?: string | null;
+            /** @description Bytes on disk. Null for an episode Sonarr holds no file for, and for one whose file it has yet to measure. */
+            file_size?: number | null;
+        };
+        SeasonEpisodesResponse: {
+            season_number: number;
+            episodes: components["schemas"]["SeasonEpisode"][];
+        };
+        ReleasesResponse: {
+            releases: components["schemas"]["Release"][];
+            total: number;
+            page: number;
+            per_page: number;
+        };
+        LogsResponse: {
+            logs: components["schemas"]["RequestLogEntry"][];
+            total: number;
+            page: number;
+            per_page: number;
+        };
+        RequestLogMetadata: {
+            [key: string]: string | number | boolean;
+        };
+        RequestLogEntry: {
+            id: string;
+            /**
+             * Format: int64
+             * @description Milliseconds since Unix epoch when the event occurred.
+             */
+            occurredAt: number;
+            /** @description Human-readable timestamp formatted for display. */
+            timestamp: string;
+            level: components["schemas"]["RequestLogLevel"];
+            message: string;
+            /** @description Origin system or component. */
+            source?: string;
+            metadata?: components["schemas"]["RequestLogMetadata"];
+            /** @description Optional diagnostic stack trace for error logs. */
+            stackTrace?: string;
+        };
+        /** @description Title and overview translated to a specific language. */
+        MediaLocalization: {
+            title?: string | null;
+            overview?: string | null;
+        };
+        BaseMediaRequest: {
+            id: string;
+            title: string;
+            year: number;
+            /** Format: uri */
+            poster_url: string;
+            overview: string;
+            genres: string[];
+            status: components["schemas"]["MediaRequestStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Localized titles and overviews keyed by 3-letter language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
+        };
+        MovieRequest: components["schemas"]["BaseMediaRequest"] & {
+            /** @enum {string} */
+            type: "movie";
+            /** @description Runtime in minutes. */
+            runtime: number;
+            /** @description IMDb identifier. */
+            imdb_id: string;
+            /** @description Identifier of the linked Radarr movie when the request was auto-synchronised. */
+            radarr_movie_id?: number | null;
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "movie";
+        };
+        SeriesRequest: components["schemas"]["BaseMediaRequest"] & {
+            /** @enum {string} */
+            type: "series";
+            season_number: number;
+            total_episodes: number;
+            series_title: string;
+            series_year: number;
+            imdb_id: string;
+            /** @description Identifier of the linked Sonarr series when the request was auto-synchronised. */
+            sonarr_series_id?: number | null;
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "series";
+        };
+        MediaRequest: components["schemas"]["MovieRequest"] | components["schemas"]["SeriesRequest"];
+        CreateMovieRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "movie";
+            title: string;
+            year: number;
+            runtime: number;
+            imdb_id: string;
+            overview?: string;
+            poster_url?: string;
+            genres?: string[];
+            /** @description Optional localized titles and overviews keyed by language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
+        };
+        CreateSeriesRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "series";
+            title: string;
+            year: number;
+            season_number: number;
+            total_episodes: number;
+            series_title: string;
+            series_year: number;
+            imdb_id: string;
+            overview?: string;
+            poster_url?: string;
+            genres?: string[];
+            /** @description Optional localized titles and overviews keyed by language codes. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            };
+        };
+        MediaRequestCreate: components["schemas"]["CreateMovieRequest"] | components["schemas"]["CreateSeriesRequest"];
+        MediaRequestUpdate: {
+            title?: string | null;
+            year?: number | null;
+            poster_url?: string | null;
+            overview?: string | null;
+            genres?: string[] | null;
+            status?: components["schemas"]["MediaRequestStatus"];
+            runtime?: number | null;
+            imdb_id?: string | null;
+            season_number?: number | null;
+            total_episodes?: number | null;
+            series_title?: string | null;
+            series_year?: number | null;
+            /** @description Replace or clear localized metadata when provided. */
+            localizations?: {
+                [key: string]: components["schemas"]["MediaLocalization"];
+            } | null;
+        };
+        Release: {
+            id: string;
+            name: string;
+            hash: string;
+            /**
+             * Format: int64
+             * @description Total bytes.
+             */
+            size: number;
+            files: components["schemas"]["ReleaseFile"][];
+            status: components["schemas"]["ReleaseStatus"];
+            /** Format: float */
+            progress: number;
+            /** Format: float */
+            download_speed: number;
+            /** Format: float */
+            upload_speed: number;
+            seeders: number;
+            leechers: number;
+            /** Format: float */
+            ratio: number;
+            /** Format: date-time */
+            added_date: string;
+            /** Format: date-time */
+            completed_date?: string | null;
+            request_ids: string[];
+            torrent_source?: string | null;
+            quality?: string | null;
+        };
+        ReleaseFile: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            size: number;
+            path: string;
+            request_mapping?: components["schemas"]["FileRequestMapping"];
+        };
+        FileRequestMapping: components["schemas"]["MovieFileRequestMapping"] | components["schemas"]["SeriesFileRequestMapping"];
+        MovieFileRequestMapping: {
+            request_id: string;
+            request_title?: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mapping_type: "movie";
+        };
+        SeriesFileRequestMapping: {
+            request_id: string;
+            request_title?: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mapping_type: "series";
+            season: number;
+            episode: number;
+        };
+        ReleaseFileMappingInput: {
+            file_id: string;
+            request_mapping?: components["schemas"]["FileRequestMapping"];
+        };
+        ReleaseFileMappingsUpdate: {
+            files: components["schemas"]["ReleaseFileMappingInput"][];
+        };
+        /** @description A mapping the server proposes for a file. Unlike an update, it always names one: there is no such thing as suggesting that a file be unmapped. */
+        ReleaseFileMappingSuggestion: {
+            file_id: string;
+            request_mapping: components["schemas"]["FileRequestMapping"];
+        };
+        ReleaseFileMappingSuggestions: {
+            files: components["schemas"]["ReleaseFileMappingSuggestion"][];
+        };
+        AsyncOperationResponse: {
+            /** @description Identifier of the async operation that was accepted. */
+            operation: string;
+            /**
+             * @description Initial status assigned to the async operation.
+             * @enum {string}
+             */
+            status: "queued" | "pending";
+            /** @description Unique identifier clients can use to poll for completion. */
+            operation_id?: string;
+            /**
+             * Format: uri
+             * @description Alternative URL for polling if different from the Location header.
+             */
+            location?: string | null;
+            /** @description Human-readable acknowledgement of the queued work. */
+            message?: string | null;
+            /** @description Primary resource impacted by the async operation. */
+            resource_id?: string | null;
+            /** @description Optional metadata describing the accepted work. */
+            details?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        SuccessResponse: {
+            success: boolean;
+        };
+        /**
+         * @description A unit of background work. `sonarr_sync` pulls wanted episodes from
+         *     Sonarr, `radarr_sync` pulls wanted movies from Radarr, `release_sync`
+         *     refreshes download state from the download client, `export` imports
+         *     finished releases back into Sonarr and Radarr, and `regrab` re-downloads
+         *     releases the indexer has since replaced.
+         * @enum {string}
+         */
+        SyncJobKind: "sonarr_sync" | "radarr_sync" | "release_sync" | "export" | "regrab";
+        /** @enum {string} */
+        SyncJobStatus: "queued" | "running" | "completed" | "failed";
+        /**
+         * @description Origin of the sync request.
+         * @enum {string}
+         */
+        SyncJobTrigger: "api" | "download_client" | "schedule";
+        SyncJob: {
+            id: string;
+            kind: components["schemas"]["SyncJobKind"];
+            status: components["schemas"]["SyncJobStatus"];
+            trigger: components["schemas"]["SyncJobTrigger"];
+            /** Format: date-time */
+            queued_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Wall-clock run time, absent until the job finishes. */
+            duration_ms?: number | null;
+            /** @description Why the run failed. */
+            error?: string | null;
+            /** @description Summary of the work performed. */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        SyncJobsResponse: {
+            jobs: components["schemas"]["SyncJob"][];
+        };
+        ScheduledTask: {
+            kind: components["schemas"]["SyncJobKind"];
+            /** @description How often the scheduler runs this task. */
+            interval_seconds: number;
+            /**
+             * Format: date-time
+             * @description Absent until the scheduler has run the task once.
+             */
+            last_execution?: string | null;
+            last_duration_ms?: number | null;
+            last_status?: components["schemas"]["SyncJobStatus"];
+            last_error?: string | null;
+            /**
+             * Format: date-time
+             * @description Computed from the last execution; absent if never run.
+             */
+            next_execution?: string | null;
+        };
+        ScheduledTasksResponse: {
+            tasks: components["schemas"]["ScheduledTask"][];
+        };
+        Indexer: {
+            /** @description Prowlarr's own identifier for the indexer. */
+            id: number;
+            name: string;
+            health: components["schemas"]["IndexerHealth"];
+            /** @description Whether the indexer is switched on in Prowlarr. */
+            enabled: boolean;
+            /** @description Transport Prowlarr grabs from, typically torrent or usenet. */
+            protocol?: string | null;
+            privacy?: string | null;
+            priority?: number | null;
+            supports_search: boolean;
+            supports_rss: boolean;
+            indexer_urls: string[];
+            /**
+             * Format: date-time
+             * @description When Prowlarr will query the indexer again after failures.
+             */
+            disabled_till?: string | null;
+            /** Format: date-time */
+            most_recent_failure?: string | null;
+            /**
+             * Format: date-time
+             * @description Start of the current run of failures, absent once one succeeds.
+             */
+            initial_failure?: string | null;
+        };
+        IndexersResponse: {
+            indexers: components["schemas"]["Indexer"][];
+        };
+        IndexerTestResult: {
+            indexer_id: number;
+            name?: string | null;
+            success: boolean;
+            errors: string[];
+        };
+        IndexerTestResults: {
+            results: components["schemas"]["IndexerTestResult"][];
+        };
+        AddReleaseRequest: {
+            magnet_link: string;
+            request_ids: string[];
+        };
+        ReleaseSearchResult: {
+            release_id: string;
+            release_name: string;
+            size: string;
+            /**
+             * Format: uri
+             * @description Magnet URI for the release when available.
+             */
+            magnet_link?: string | null;
+            /**
+             * Format: uri
+             * @description Direct URL to the .torrent file when available.
+             */
+            torrent_file_url?: string | null;
+            /**
+             * Format: uri
+             * @description Link to additional release information on the indexer.
+             */
+            info_url?: string | null;
+            seeders?: number | null;
+            leechers?: number | null;
+            quality?: string | null;
+            source?: string | null;
+            /** @description Identifier of the media request that initiated the search. */
+            request_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the indexer published the release. Used to derive release age.
+             */
+            publish_date?: string | null;
+        };
+        ReleaseSearchResponse: {
+            results: components["schemas"]["ReleaseSearchResult"][];
+            query: string;
+            total_results: number;
+        };
+        ReleaseDownloadRequest: {
+            release_id: string;
+        };
+        /** @description Exactly one of the two fields must be supplied. */
+        ManualReleaseRequest: {
+            /** @description A magnet URI carrying the info hash. */
+            magnet_link?: string | null;
+            /** @description Base64-encoded contents of a `.torrent` file. */
+            torrent_file_base64?: string | null;
+        };
+        MediaSearchResult: {
+            type: components["schemas"]["MediaType"];
+            /** @description TVDB id for a series, TMDB id for a movie. What the add is keyed by. */
+            provider_id: number;
+            title: string;
+            year?: number | null;
+            overview?: string | null;
+            poster_url?: string | null;
+            /**
+             * @description Whether Sonarr/Radarr already holds this media.
+             * @default false
+             */
+            in_library: boolean;
+            /** @description Sonarr series id or Radarr movie id, when already in the library. */
+            library_id?: number | null;
+            /** @description Season numbers that already have a request. Series only. */
+            requested_seasons?: number[];
+            /** @description Identifier of the existing request. Movies only. */
+            request_id?: string | null;
+            /** @description Status of the existing request. Movies only. */
+            request_status?: components["schemas"]["MediaRequestStatus"] | null;
+        };
+        MediaSearchResponse: {
+            results: components["schemas"]["MediaSearchResult"][];
+        };
+        SeasonOption: {
+            season_number: number;
+            /**
+             * @description Whether Sonarr monitors the season today.
+             * @default false
+             */
+            monitored: boolean;
+            /** @default false */
+            requested: boolean;
+            /**
+             * @description Whether Sonarr holds a file for every episode of the season that has aired. False for a season yet to air, which has nothing to hold.
+             * @default false
+             */
+            downloaded: boolean;
+            request_id?: string | null;
+        };
+        SeriesSeasonsResponse: {
+            /** @description Absent when the seasons were read from a series in the library rather than looked up by TVDB id, which is how managing a request arrives. */
+            tvdb_id?: number | null;
+            /** @default false */
+            in_library: boolean;
+            library_id?: number | null;
+            /**
+             * @description Whether Sonarr monitors seasons announced after the series was added. Only meaningful in the library; Sonarr has nowhere to record it until then.
+             * @default false
+             */
+            monitor_new_seasons: boolean;
+            seasons: components["schemas"]["SeasonOption"][];
+        };
+        RootFolder: {
+            path: string;
+            /** @description Bytes available, as the *arr app reports them. */
+            free_space?: number | null;
+        };
+        RootFoldersResponse: {
+            folders: components["schemas"]["RootFolder"][];
+        };
+        AddRequestPayload: {
+            type: components["schemas"]["MediaType"];
+            /** @description TVDB id for a series, TMDB id for a movie. */
+            provider_id: number;
+            root_folder_path: string;
+            /** @description Seasons to request. Required to add a series Sonarr does not hold yet, and rejected for movies. Empty for a series already in the library requests nothing and sets only monitor_new_seasons. */
+            season_numbers?: number[] | null;
+            /**
+             * @description Ask Sonarr to monitor seasons announced later, which the sync then turns into requests of their own. Series only.
+             * @default false
+             */
+            monitor_new_seasons: boolean;
+        };
+        UpdateSeasonsPayload: {
+            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had, and the series itself stays monitored however few seasons are left. */
+            season_numbers: number[];
+            /** @default false */
+            monitor_new_seasons: boolean;
+        };
+        AddRequestResponse: {
+            /** @description One request per requested season for a series, a single one for a movie. */
+            requests: components["schemas"]["MediaRequest"][];
+        };
     };
-    RequestsResponse: {
-      requests: components['schemas']['MediaRequest'][];
-      total: number;
-      page: number;
-      per_page: number;
+    responses: never;
+    parameters: {
+        /** @description Unique identifier for a media request. */
+        RequestId: string;
+        /** @description Unique identifier for a release. */
+        ReleaseId: string;
+        /** @description Unique identifier for a sync job. */
+        JobId: string;
+        /** @description Prowlarr identifier of an indexer. */
+        IndexerId: number;
+        /** @description TVDB identifier of a series. */
+        TvdbId: number;
+        /** @description Results page to retrieve (1-indexed). */
+        Page: number;
+        /** @description Number of items to return per page. */
+        PerPage: number;
+        /** @description Filter requests by lifecycle status. */
+        RequestStatus: components["schemas"]["MediaRequestStatus"];
+        /** @description Filter requests by media type. */
+        RequestType: components["schemas"]["MediaType"];
+        /** @description Filter releases by lifecycle status. */
+        ReleaseStatus: components["schemas"]["ReleaseStatus"];
+        /** @description Optional media request identifier to filter results. */
+        RequestIdFilter: string;
+        /** @description Optional background task to filter results. */
+        TaskFilter: components["schemas"]["SyncJobKind"];
     };
-    /**
-     * @description Where an episode stands. `downloaded` whenever Sonarr holds a file for it, `missing` once its air date has passed with no file, and `unaired` while it is still to come or has no known date.
-     * @enum {string}
-     */
-    EpisodeStatus: 'downloaded' | 'missing' | 'unaired';
-    SeasonEpisode: {
-      episode_number: number;
-      title: string;
-      status: components['schemas']['EpisodeStatus'];
-      /**
-       * Format: date-time
-       * @description When the episode airs, in UTC. Null for an episode Sonarr has no date for, which also leaves it reported as unaired.
-       */
-      air_date?: string | null;
-      /** @description Bytes on disk. Null for an episode Sonarr holds no file for, and for one whose file it has yet to measure. */
-      file_size?: number | null;
-    };
-    SeasonEpisodesResponse: {
-      season_number: number;
-      episodes: components['schemas']['SeasonEpisode'][];
-    };
-    ReleasesResponse: {
-      releases: components['schemas']['Release'][];
-      total: number;
-      page: number;
-      per_page: number;
-    };
-    LogsResponse: {
-      logs: components['schemas']['RequestLogEntry'][];
-      total: number;
-      page: number;
-      per_page: number;
-    };
-    RequestLogMetadata: {
-      [key: string]: string | number | boolean;
-    };
-    RequestLogEntry: {
-      id: string;
-      /**
-       * Format: int64
-       * @description Milliseconds since Unix epoch when the event occurred.
-       */
-      occurredAt: number;
-      /** @description Human-readable timestamp formatted for display. */
-      timestamp: string;
-      level: components['schemas']['RequestLogLevel'];
-      message: string;
-      /** @description Origin system or component. */
-      source?: string;
-      metadata?: components['schemas']['RequestLogMetadata'];
-      /** @description Optional diagnostic stack trace for error logs. */
-      stackTrace?: string;
-    };
-    /** @description Title and overview translated to a specific language. */
-    MediaLocalization: {
-      title?: string | null;
-      overview?: string | null;
-    };
-    BaseMediaRequest: {
-      id: string;
-      title: string;
-      year: number;
-      /** Format: uri */
-      poster_url: string;
-      overview: string;
-      genres: string[];
-      status: components['schemas']['MediaRequestStatus'];
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      updated_at: string;
-      /** @description Localized titles and overviews keyed by 3-letter language codes. */
-      localizations?: {
-        [key: string]: components['schemas']['MediaLocalization'];
-      };
-    };
-    MovieRequest: components['schemas']['BaseMediaRequest'] & {
-      /** @enum {string} */
-      type: 'movie';
-      /** @description Runtime in minutes. */
-      runtime: number;
-      /** @description IMDb identifier. */
-      imdb_id: string;
-      /** @description Identifier of the linked Radarr movie when the request was auto-synchronised. */
-      radarr_movie_id?: number | null;
-    } & {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: 'movie';
-    };
-    SeriesRequest: components['schemas']['BaseMediaRequest'] & {
-      /** @enum {string} */
-      type: 'series';
-      season_number: number;
-      total_episodes: number;
-      series_title: string;
-      series_year: number;
-      imdb_id: string;
-      /** @description Identifier of the linked Sonarr series when the request was auto-synchronised. */
-      sonarr_series_id?: number | null;
-    } & {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: 'series';
-    };
-    MediaRequest: components['schemas']['MovieRequest'] | components['schemas']['SeriesRequest'];
-    CreateMovieRequest: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: 'movie';
-      title: string;
-      year: number;
-      runtime: number;
-      imdb_id: string;
-      overview?: string;
-      poster_url?: string;
-      genres?: string[];
-      /** @description Optional localized titles and overviews keyed by language codes. */
-      localizations?: {
-        [key: string]: components['schemas']['MediaLocalization'];
-      };
-    };
-    CreateSeriesRequest: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: 'series';
-      title: string;
-      year: number;
-      season_number: number;
-      total_episodes: number;
-      series_title: string;
-      series_year: number;
-      imdb_id: string;
-      overview?: string;
-      poster_url?: string;
-      genres?: string[];
-      /** @description Optional localized titles and overviews keyed by language codes. */
-      localizations?: {
-        [key: string]: components['schemas']['MediaLocalization'];
-      };
-    };
-    MediaRequestCreate:
-      components['schemas']['CreateMovieRequest'] | components['schemas']['CreateSeriesRequest'];
-    MediaRequestUpdate: {
-      title?: string | null;
-      year?: number | null;
-      poster_url?: string | null;
-      overview?: string | null;
-      genres?: string[] | null;
-      status?: components['schemas']['MediaRequestStatus'];
-      runtime?: number | null;
-      imdb_id?: string | null;
-      season_number?: number | null;
-      total_episodes?: number | null;
-      series_title?: string | null;
-      series_year?: number | null;
-      /** @description Replace or clear localized metadata when provided. */
-      localizations?: {
-        [key: string]: components['schemas']['MediaLocalization'];
-      } | null;
-    };
-    Release: {
-      id: string;
-      name: string;
-      hash: string;
-      /**
-       * Format: int64
-       * @description Total bytes.
-       */
-      size: number;
-      files: components['schemas']['ReleaseFile'][];
-      status: components['schemas']['ReleaseStatus'];
-      /** Format: float */
-      progress: number;
-      /** Format: float */
-      download_speed: number;
-      /** Format: float */
-      upload_speed: number;
-      seeders: number;
-      leechers: number;
-      /** Format: float */
-      ratio: number;
-      /** Format: date-time */
-      added_date: string;
-      /** Format: date-time */
-      completed_date?: string | null;
-      request_ids: string[];
-      torrent_source?: string | null;
-      quality?: string | null;
-    };
-    ReleaseFile: {
-      id: string;
-      name: string;
-      /** Format: int64 */
-      size: number;
-      path: string;
-      request_mapping?: components['schemas']['FileRequestMapping'];
-    };
-    FileRequestMapping:
-      | components['schemas']['MovieFileRequestMapping']
-      | components['schemas']['SeriesFileRequestMapping'];
-    MovieFileRequestMapping: {
-      request_id: string;
-      request_title?: string;
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      mapping_type: 'movie';
-    };
-    SeriesFileRequestMapping: {
-      request_id: string;
-      request_title?: string;
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      mapping_type: 'series';
-      season: number;
-      episode: number;
-    };
-    ReleaseFileMappingInput: {
-      file_id: string;
-      request_mapping?: components['schemas']['FileRequestMapping'];
-    };
-    ReleaseFileMappingsUpdate: {
-      files: components['schemas']['ReleaseFileMappingInput'][];
-    };
-    /** @description A mapping the server proposes for a file. Unlike an update, it always names one: there is no such thing as suggesting that a file be unmapped. */
-    ReleaseFileMappingSuggestion: {
-      file_id: string;
-      request_mapping: components['schemas']['FileRequestMapping'];
-    };
-    ReleaseFileMappingSuggestions: {
-      files: components['schemas']['ReleaseFileMappingSuggestion'][];
-    };
-    AsyncOperationResponse: {
-      /** @description Identifier of the async operation that was accepted. */
-      operation: string;
-      /**
-       * @description Initial status assigned to the async operation.
-       * @enum {string}
-       */
-      status: 'queued' | 'pending';
-      /** @description Unique identifier clients can use to poll for completion. */
-      operation_id?: string;
-      /**
-       * Format: uri
-       * @description Alternative URL for polling if different from the Location header.
-       */
-      location?: string | null;
-      /** @description Human-readable acknowledgement of the queued work. */
-      message?: string | null;
-      /** @description Primary resource impacted by the async operation. */
-      resource_id?: string | null;
-      /** @description Optional metadata describing the accepted work. */
-      details?: {
-        [key: string]: unknown;
-      } | null;
-    };
-    SuccessResponse: {
-      success: boolean;
-    };
-    /**
-     * @description A unit of background work. `sonarr_sync` pulls wanted episodes from
-     *     Sonarr, `radarr_sync` pulls wanted movies from Radarr, `release_sync`
-     *     refreshes download state from the download client, `export` imports
-     *     finished releases back into Sonarr and Radarr, and `regrab` re-downloads
-     *     releases the indexer has since replaced.
-     * @enum {string}
-     */
-    SyncJobKind: 'sonarr_sync' | 'radarr_sync' | 'release_sync' | 'export' | 'regrab';
-    /** @enum {string} */
-    SyncJobStatus: 'queued' | 'running' | 'completed' | 'failed';
-    /**
-     * @description Origin of the sync request.
-     * @enum {string}
-     */
-    SyncJobTrigger: 'api' | 'download_client' | 'schedule';
-    SyncJob: {
-      id: string;
-      kind: components['schemas']['SyncJobKind'];
-      status: components['schemas']['SyncJobStatus'];
-      trigger: components['schemas']['SyncJobTrigger'];
-      /** Format: date-time */
-      queued_at: string;
-      /** Format: date-time */
-      started_at?: string | null;
-      /** Format: date-time */
-      finished_at?: string | null;
-      /** @description Wall-clock run time, absent until the job finishes. */
-      duration_ms?: number | null;
-      /** @description Why the run failed. */
-      error?: string | null;
-      /** @description Summary of the work performed. */
-      result?: {
-        [key: string]: unknown;
-      } | null;
-    };
-    SyncJobsResponse: {
-      jobs: components['schemas']['SyncJob'][];
-    };
-    ScheduledTask: {
-      kind: components['schemas']['SyncJobKind'];
-      /** @description How often the scheduler runs this task. */
-      interval_seconds: number;
-      /**
-       * Format: date-time
-       * @description Absent until the scheduler has run the task once.
-       */
-      last_execution?: string | null;
-      last_duration_ms?: number | null;
-      last_status?: components['schemas']['SyncJobStatus'];
-      last_error?: string | null;
-      /**
-       * Format: date-time
-       * @description Computed from the last execution; absent if never run.
-       */
-      next_execution?: string | null;
-    };
-    ScheduledTasksResponse: {
-      tasks: components['schemas']['ScheduledTask'][];
-    };
-    AddReleaseRequest: {
-      magnet_link: string;
-      request_ids: string[];
-    };
-    ReleaseSearchResult: {
-      release_id: string;
-      release_name: string;
-      size: string;
-      /**
-       * Format: uri
-       * @description Magnet URI for the release when available.
-       */
-      magnet_link?: string | null;
-      /**
-       * Format: uri
-       * @description Direct URL to the .torrent file when available.
-       */
-      torrent_file_url?: string | null;
-      /**
-       * Format: uri
-       * @description Link to additional release information on the indexer.
-       */
-      info_url?: string | null;
-      seeders?: number | null;
-      leechers?: number | null;
-      quality?: string | null;
-      source?: string | null;
-      /** @description Identifier of the media request that initiated the search. */
-      request_id?: string | null;
-      /**
-       * Format: date-time
-       * @description When the indexer published the release. Used to derive release age.
-       */
-      publish_date?: string | null;
-    };
-    ReleaseSearchResponse: {
-      results: components['schemas']['ReleaseSearchResult'][];
-      query: string;
-      total_results: number;
-    };
-    ReleaseDownloadRequest: {
-      release_id: string;
-    };
-    /** @description Exactly one of the two fields must be supplied. */
-    ManualReleaseRequest: {
-      /** @description A magnet URI carrying the info hash. */
-      magnet_link?: string | null;
-      /** @description Base64-encoded contents of a `.torrent` file. */
-      torrent_file_base64?: string | null;
-    };
-    MediaSearchResult: {
-      type: components['schemas']['MediaType'];
-      /** @description TVDB id for a series, TMDB id for a movie. What the add is keyed by. */
-      provider_id: number;
-      title: string;
-      year?: number | null;
-      overview?: string | null;
-      poster_url?: string | null;
-      /**
-       * @description Whether Sonarr/Radarr already holds this media.
-       * @default false
-       */
-      in_library: boolean;
-      /** @description Sonarr series id or Radarr movie id, when already in the library. */
-      library_id?: number | null;
-      /** @description Season numbers that already have a request. Series only. */
-      requested_seasons?: number[];
-      /** @description Identifier of the existing request. Movies only. */
-      request_id?: string | null;
-      /** @description Status of the existing request. Movies only. */
-      request_status?: components['schemas']['MediaRequestStatus'] | null;
-    };
-    MediaSearchResponse: {
-      results: components['schemas']['MediaSearchResult'][];
-    };
-    SeasonOption: {
-      season_number: number;
-      /**
-       * @description Whether Sonarr monitors the season today.
-       * @default false
-       */
-      monitored: boolean;
-      /** @default false */
-      requested: boolean;
-      /**
-       * @description Whether Sonarr holds a file for every episode of the season that has aired. False for a season yet to air, which has nothing to hold.
-       * @default false
-       */
-      downloaded: boolean;
-      request_id?: string | null;
-    };
-    SeriesSeasonsResponse: {
-      /** @description Absent when the seasons were read from a series in the library rather than looked up by TVDB id, which is how managing a request arrives. */
-      tvdb_id?: number | null;
-      /** @default false */
-      in_library: boolean;
-      library_id?: number | null;
-      /**
-       * @description Whether Sonarr monitors seasons announced after the series was added. Only meaningful in the library; Sonarr has nowhere to record it until then.
-       * @default false
-       */
-      monitor_new_seasons: boolean;
-      seasons: components['schemas']['SeasonOption'][];
-    };
-    RootFolder: {
-      path: string;
-      /** @description Bytes available, as the *arr app reports them. */
-      free_space?: number | null;
-    };
-    RootFoldersResponse: {
-      folders: components['schemas']['RootFolder'][];
-    };
-    AddRequestPayload: {
-      type: components['schemas']['MediaType'];
-      /** @description TVDB id for a series, TMDB id for a movie. */
-      provider_id: number;
-      root_folder_path: string;
-      /** @description Seasons to request. Required to add a series Sonarr does not hold yet, and rejected for movies. Empty for a series already in the library requests nothing and sets only monitor_new_seasons. */
-      season_numbers?: number[] | null;
-      /**
-       * @description Ask Sonarr to monitor seasons announced later, which the sync then turns into requests of their own. Series only.
-       * @default false
-       */
-      monitor_new_seasons: boolean;
-    };
-    UpdateSeasonsPayload: {
-      /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had, and the series itself stays monitored however few seasons are left. */
-      season_numbers: number[];
-      /** @default false */
-      monitor_new_seasons: boolean;
-    };
-    AddRequestResponse: {
-      /** @description One request per requested season for a series, a single one for a movie. */
-      requests: components['schemas']['MediaRequest'][];
-    };
-  };
-  responses: never;
-  parameters: {
-    /** @description Unique identifier for a media request. */
-    RequestId: string;
-    /** @description Unique identifier for a release. */
-    ReleaseId: string;
-    /** @description Unique identifier for a sync job. */
-    JobId: string;
-    /** @description TVDB identifier of a series. */
-    TvdbId: number;
-    /** @description Results page to retrieve (1-indexed). */
-    Page: number;
-    /** @description Number of items to return per page. */
-    PerPage: number;
-    /** @description Filter requests by lifecycle status. */
-    RequestStatus: components['schemas']['MediaRequestStatus'];
-    /** @description Filter requests by media type. */
-    RequestType: components['schemas']['MediaType'];
-    /** @description Filter releases by lifecycle status. */
-    ReleaseStatus: components['schemas']['ReleaseStatus'];
-    /** @description Optional media request identifier to filter results. */
-    RequestIdFilter: string;
-    /** @description Optional background task to filter results. */
-    TaskFilter: components['schemas']['SyncJobKind'];
-  };
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  listRequests: {
-    parameters: {
-      query?: {
-        /** @description Results page to retrieve (1-indexed). */
-        page?: components['parameters']['Page'];
-        /** @description Number of items to return per page. */
-        per_page?: components['parameters']['PerPage'];
-        /** @description Filter requests by lifecycle status. */
-        status?: components['parameters']['RequestStatus'];
-        /** @description Filter requests by media type. */
-        type?: components['parameters']['RequestType'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Paged list of media requests. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['RequestsResponse'];
-        };
-      };
-      /** @description Invalid pagination or filter parameters. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  createRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['MediaRequestCreate'];
-      };
-    };
-    responses: {
-      /** @description Created request details. */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MediaRequest'];
-        };
-      };
-      /** @description Malformed request payload. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Validation failed for the provided fields. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  getRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Requested media request. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MediaRequest'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  deleteRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Request removed. */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr or Radarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  updateRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['MediaRequestUpdate'];
-      };
-    };
-    responses: {
-      /** @description Updated request details. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MediaRequest'];
-        };
-      };
-      /** @description Malformed request body. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Validation failed for at least one field. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listRequestEpisodes: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The episodes of the request's season, in episode order. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SeasonEpisodesResponse'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description The request has no season in Sonarr whose episodes can be listed. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listRequestSeasons: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The seasons of the request's series. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SeriesSeasonsResponse'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description The request has no series in Sonarr whose seasons can be managed. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  updateRequestSeasons: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateSeasonsPayload'];
-      };
-    };
-    responses: {
-      /** @description The seasons of the request's series, as they now stand. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SeriesSeasonsResponse'];
-        };
-      };
-      /** @description The series has no such season. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description The request has no series in Sonarr whose seasons can be managed. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Validation failed for the provided fields. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listReleasesForRequest: {
-    parameters: {
-      query?: {
-        /** @description Results page to retrieve (1-indexed). */
-        page?: components['parameters']['Page'];
-        /** @description Number of items to return per page. */
-        per_page?: components['parameters']['PerPage'];
-        /** @description Filter releases by lifecycle status. */
-        status?: components['parameters']['ReleaseStatus'];
-      };
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Releases linked to the provided request. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReleasesResponse'];
-        };
-      };
-      /** @description Invalid pagination or filter parameters. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Request not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listReleases: {
-    parameters: {
-      query?: {
-        /** @description Results page to retrieve (1-indexed). */
-        page?: components['parameters']['Page'];
-        /** @description Number of items to return per page. */
-        per_page?: components['parameters']['PerPage'];
-        /** @description Filter releases by lifecycle status. */
-        status?: components['parameters']['ReleaseStatus'];
-        /** @description Optional media request identifier to filter results. */
-        request_id?: components['parameters']['RequestIdFilter'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description List of releases. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReleasesResponse'];
-        };
-      };
-      /** @description Invalid pagination or filter parameters. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  createRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AddReleaseRequest'];
-      };
-    };
-    responses: {
-      /** @description Created release metadata. */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Release'];
-        };
-      };
-      /** @description Malformed request payload. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description A release with the same identifier already exists. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Validation failed for the provided fields. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  getRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Release metadata and files. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Release'];
-        };
-      };
-      /** @description Release not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  deleteRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Release removed. */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Release not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  pauseRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Pause accepted. */
-      202: {
-        headers: {
-          /** @description URL to poll for the async pause operation status. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Release cannot be paused because the request was invalid. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release is not in a pausable state. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  resumeRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Resume accepted. */
-      202: {
-        headers: {
-          /** @description URL to poll for the async resume operation status. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Release cannot be resumed because the request was invalid. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release is not in a resumable state. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  updateReleaseFileMappings: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ReleaseFileMappingsUpdate'];
-      };
-    };
-    responses: {
-      /** @description Mapping update acknowledgement. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SuccessResponse'];
-        };
-      };
-      /** @description Malformed request payload. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release or file not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  suggestReleaseFileMappings: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a release. */
-        releaseId: components['parameters']['ReleaseId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Proposed mappings, awaiting confirmation. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReleaseFileMappingSuggestions'];
-        };
-      };
-      /** @description Release not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  searchReleaseSources: {
-    parameters: {
-      query: {
-        /** @description Free-text query string. */
-        q: string;
-        /** @description Identifier of the media request initiating the search. */
-        request_id?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Release source search results. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReleaseSearchResponse'];
-        };
-      };
-      /** @description Malformed search query. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  queueReleaseDownload: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ReleaseDownloadRequest'];
-      };
-    };
-    responses: {
-      /** @description Release source accepted for download. */
-      202: {
-        headers: {
-          /** @description URL to poll for the queued download status. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Malformed request body. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Release candidate not found for the request. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Request already has an active download. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  queueManualRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a media request. */
-        requestId: components['parameters']['RequestId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ManualReleaseRequest'];
-      };
-    };
-    responses: {
-      /** @description Release accepted for download. */
-      202: {
-        headers: {
-          /** @description URL to poll for the queued download status. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Unreadable torrent file or magnet link. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description The release is already registered. */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  searchMedia: {
-    parameters: {
-      query: {
-        /** @description Free-text title to search for. */
-        q: string;
-        /**
-         * @description Restrict the search to one media type. Both are searched when
-         *     omitted.
-         */
-        type?: components['schemas']['MediaType'];
-        /**
-         * @description Preferred language for the titles and overviews, as a 2- or
-         *     3-letter code. Takes precedence over the configured metadata
-         *     languages, and is ignored if the provider has no translation.
-         */
-        lang?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Metadata provider matches, annotated with library and request state. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MediaSearchResponse'];
-        };
-      };
-      /** @description Invalid search parameters. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr, Radarr or the metadata provider could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description The metadata provider is not configured. */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listSeriesSeasons: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description TVDB identifier of a series. */
-        tvdbId: components['parameters']['TvdbId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The seasons the series offers. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SeriesSeasonsResponse'];
-        };
-      };
-      /** @description No series matches the TVDB id. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr or the metadata provider could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listRootFolders: {
-    parameters: {
-      query: {
-        /** @description Whether to read Sonarr's or Radarr's root folders. */
-        type: components['schemas']['MediaType'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Root folders configured in the *arr app, unreachable ones omitted. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['RootFoldersResponse'];
-        };
-      };
-      /** @description Invalid media type. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr or Radarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  addRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AddRequestPayload'];
-      };
-    };
-    responses: {
-      /** @description The created requests, one per season for a series. */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AddRequestResponse'];
-        };
-      };
-      /** @description Invalid root folder, season selection or quality profile. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description No media matches the provider id. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Validation failed for the provided fields. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Sonarr or Radarr could not be reached. */
-      502: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listRequestLogs: {
-    parameters: {
-      query?: {
-        /** @description Results page to retrieve (1-indexed). */
-        page?: components['parameters']['Page'];
-        /** @description Number of items to return per page. */
-        per_page?: components['parameters']['PerPage'];
-        /** @description Optional media request identifier to filter results. */
-        request_id?: components['parameters']['RequestIdFilter'];
-        /** @description Optional background task to filter results. */
-        task?: components['parameters']['TaskFilter'];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Request logs matching the supplied filters. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LogsResponse'];
-        };
-      };
-      /** @description Invalid pagination or filter parameters. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  triggerFullSync: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Sync queued. */
-      202: {
-        headers: {
-          /** @description URL to poll for the queued sync job. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  triggerDownloadSync: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Sync queued. */
-      202: {
-        headers: {
-          /** @description URL to poll for the queued sync job. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  runTask: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The task to run. */
-        kind: components['schemas']['SyncJobKind'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Task queued. */
-      202: {
-        headers: {
-          /** @description URL to poll for the queued sync job. */
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AsyncOperationResponse'];
-        };
-      };
-      /** @description Unknown task. */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listScheduledTasks: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The recurring tasks. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ScheduledTasksResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  listSyncJobs: {
-    parameters: {
-      query?: {
-        /** @description Maximum number of jobs to return, newest first. */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Recently queued sync jobs. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SyncJobsResponse'];
-        };
-      };
-      /** @description Invalid pagination parameters. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  getSyncJob: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Unique identifier for a sync job. */
-        jobId: components['parameters']['JobId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The requested sync job. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SyncJob'];
-        };
-      };
-      /** @description Sync job not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
+    listRequests: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /** @description Filter requests by lifecycle status. */
+                status?: components["parameters"]["RequestStatus"];
+                /** @description Filter requests by media type. */
+                type?: components["parameters"]["RequestType"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged list of media requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestsResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Created request details. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRequest"];
+                };
+            };
+            /** @description Malformed request payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requested media request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRequest"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Request removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated request details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRequest"];
+                };
+            };
+            /** @description Malformed request body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for at least one field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRequestEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episodes of the request's season, in episode order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonEpisodesResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no season in Sonarr whose episodes can be listed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRequestSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seasons of the request's series. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no series in Sonarr whose seasons can be managed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRequestSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeasonsPayload"];
+            };
+        };
+        responses: {
+            /** @description The seasons of the request's series, as they now stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description The series has no such season. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request has no series in Sonarr whose seasons can be managed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listReleasesForRequest: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /** @description Filter releases by lifecycle status. */
+                status?: components["parameters"]["ReleaseStatus"];
+            };
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Releases linked to the provided request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listReleases: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /** @description Filter releases by lifecycle status. */
+                status?: components["parameters"]["ReleaseStatus"];
+                /** @description Optional media request identifier to filter results. */
+                request_id?: components["parameters"]["RequestIdFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of releases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasesResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddReleaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Created release metadata. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            /** @description Malformed request payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A release with the same identifier already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Release metadata and files. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            /** @description Release not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Release removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Release not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    pauseRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pause accepted. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the async pause operation status. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Release cannot be paused because the request was invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release is not in a pausable state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resumeRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resume accepted. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the async resume operation status. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Release cannot be resumed because the request was invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release is not in a resumable state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateReleaseFileMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseFileMappingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Mapping update acknowledgement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Malformed request payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release or file not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggestReleaseFileMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposed mappings, awaiting confirmation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseFileMappingSuggestions"];
+                };
+            };
+            /** @description Release not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    searchReleaseSources: {
+        parameters: {
+            query: {
+                /** @description Free-text query string. */
+                q: string;
+                /** @description Identifier of the media request initiating the search. */
+                request_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Release source search results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseSearchResponse"];
+                };
+            };
+            /** @description Malformed search query. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    queueReleaseDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDownloadRequest"];
+            };
+        };
+        responses: {
+            /** @description Release source accepted for download. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued download status. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Malformed request body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Release candidate not found for the request. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request already has an active download. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    queueManualRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualReleaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Release accepted for download. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued download status. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unreadable torrent file or magnet link. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The release is already registered. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    searchMedia: {
+        parameters: {
+            query: {
+                /** @description Free-text title to search for. */
+                q: string;
+                /**
+                 * @description Restrict the search to one media type. Both are searched when
+                 *     omitted.
+                 */
+                type?: components["schemas"]["MediaType"];
+                /**
+                 * @description Preferred language for the titles and overviews, as a 2- or
+                 *     3-letter code. Takes precedence over the configured metadata
+                 *     languages, and is ignored if the provider has no translation.
+                 */
+                lang?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metadata provider matches, annotated with library and request state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaSearchResponse"];
+                };
+            };
+            /** @description Invalid search parameters. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr, Radarr or the metadata provider could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The metadata provider is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSeriesSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description TVDB identifier of a series. */
+                tvdbId: components["parameters"]["TvdbId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seasons the series offers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSeasonsResponse"];
+                };
+            };
+            /** @description No series matches the TVDB id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or the metadata provider could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRootFolders: {
+        parameters: {
+            query: {
+                /** @description Whether to read Sonarr's or Radarr's root folders. */
+                type: components["schemas"]["MediaType"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Root folders configured in the *arr app, unreachable ones omitted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RootFoldersResponse"];
+                };
+            };
+            /** @description Invalid media type. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    addRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddRequestPayload"];
+            };
+        };
+        responses: {
+            /** @description The created requests, one per season for a series. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddRequestResponse"];
+                };
+            };
+            /** @description Invalid root folder, season selection or quality profile. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No media matches the provider id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRequestLogs: {
+        parameters: {
+            query?: {
+                /** @description Results page to retrieve (1-indexed). */
+                page?: components["parameters"]["Page"];
+                /** @description Number of items to return per page. */
+                per_page?: components["parameters"]["PerPage"];
+                /** @description Optional media request identifier to filter results. */
+                request_id?: components["parameters"]["RequestIdFilter"];
+                /** @description Optional background task to filter results. */
+                task?: components["parameters"]["TaskFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Request logs matching the supplied filters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogsResponse"];
+                };
+            };
+            /** @description Invalid pagination or filter parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    triggerFullSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    triggerDownloadSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    runTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task to run. */
+                kind: components["schemas"]["SyncJobKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task queued. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued sync job. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unknown task. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listScheduledTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recurring tasks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledTasksResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSyncJobs: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of jobs to return, newest first. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recently queued sync jobs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncJobsResponse"];
+                };
+            };
+            /** @description Invalid pagination parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSyncJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a sync job. */
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested sync job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncJob"];
+                };
+            };
+            /** @description Sync job not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listIndexers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configured indexers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexersResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    testIndexers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The outcome of each test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexerTestResults"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    testIndexer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Prowlarr identifier of an indexer. */
+                indexerId: components["parameters"]["IndexerId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The outcome of the test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexerTestResult"];
+                };
+            };
+            /** @description Indexer not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
 }

@@ -572,6 +572,25 @@ api.get('/tasks/jobs/:jobId', async (req, res) => {
   res.json(job);
 });
 
+api.get('/indexers', async (_req, res) => {
+  const indexers = await mockStore.listIndexers();
+  res.json({ indexers });
+});
+
+api.post('/indexers/test', async (_req, res) => {
+  const results = await mockStore.testAllIndexers();
+  res.json({ results });
+});
+
+api.post('/indexers/:indexerId/test', async (req, res) => {
+  const indexerId = Number.parseInt(req.params.indexerId, 10);
+  const result = Number.isNaN(indexerId) ? null : await mockStore.testIndexer(indexerId);
+  if (!result) {
+    return res.status(404).json({ code: 'indexer_not_found', message: 'Indexer not found' });
+  }
+  res.json(result);
+});
+
 app.use(apiPath, api);
 
 app.use((_req, res) => {

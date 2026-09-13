@@ -10,8 +10,11 @@ import {
   type DiscoverCatalogueEntry,
   localizeEntry,
 } from './mockDiscover';
+import { MOCK_FAILING_INDEXER_IDS, MOCK_INDEXERS } from './mockIndexers';
 import { generateMockRequestLogs, generateMockTaskLogs } from './mockLogs';
 import type {
+  Indexer,
+  IndexerTestResult,
   MediaSearchResult,
   MediaRequest,
   MediaType,
@@ -137,6 +140,7 @@ export class MockStore {
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
+  private indexersCache: Indexer[] | null = null;
   private syncJobs: SyncJob[] = [];
   // Cloned because adding media mutates it, standing in for the *arr library.
   private discoverCatalogue: DiscoverCatalogueEntry[] = DISCOVER_CATALOGUE.map((entry) =>
@@ -669,6 +673,54 @@ export class MockStore {
         next_execution: new Date(lastExecution.getTime() + interval * 1_000).toISOString(),
       } satisfies ScheduledTask;
     });
+  }
+
+  async listIndexers(): Promise<Indexer[]> {
+    return this.ensureIndexers().map((indexer) => clone(indexer));
+  }
+
+  /**
+   * Runs a mock test, mirroring the real effect of a passing one: Prowlarr
+   * clears its back-off, so the indexer stops being blocked.
+   */
+  async testIndexer(id: number): Promise<IndexerTestResult | null> {
+    const indexer = this.ensureIndexers().find((candidate) => candidate.id === id);
+    if (!indexer) {
+      return null;
+    }
+    return this.runIndexerTest(indexer);
+  }
+
+  /** Prowlarr only tests indexers that are switched on. */
+  async testAllIndexers(): Promise<IndexerTestResult[]> {
+    return this.ensureIndexers()
+      .filter((indexer) => indexer.enabled)
+      .map((indexer) => this.runIndexerTest(indexer));
+  }
+
+  private runIndexerTest(indexer: Indexer): IndexerTestResult {
+    if (MOCK_FAILING_INDEXER_IDS.has(indexer.id)) {
+      return {
+        indexer_id: indexer.id,
+        name: indexer.name,
+        success: false,
+        errors: ['Unable to connect to indexer'],
+      };
+    }
+
+    indexer.disabled_till = null;
+    indexer.most_recent_failure = null;
+    indexer.initial_failure = null;
+    indexer.health = indexer.enabled ? 'healthy' : 'disabled';
+
+    return { indexer_id: indexer.id, name: indexer.name, success: true, errors: [] };
+  }
+
+  private ensureIndexers(): Indexer[] {
+    if (this.indexersCache === null) {
+      this.indexersCache = MOCK_INDEXERS.map((indexer) => clone(indexer));
+    }
+    return this.indexersCache;
   }
 
   /** A null type searches both kinds, as the real endpoint does. */

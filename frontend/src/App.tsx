@@ -10,17 +10,20 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { IndexerAlertBadge } from '@/features/indexers/components/IndexerAlertBadge';
 import { useSyncWatcher } from '@/features/tasks/queries';
 
 interface NavItem {
   to: string;
   labelKey: string;
   isActive: (pathname: string) => boolean;
+  /** Rendered beside the label, for items that can demand attention. */
+  badge?: () => ReactNode;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -36,8 +39,14 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: '/system/tasks',
-    labelKey: 'nav.system',
-    isActive: (pathname) => pathname.startsWith('/system'),
+    labelKey: 'nav.tasks',
+    isActive: (pathname) => pathname.startsWith('/system/tasks'),
+  },
+  {
+    to: '/system/indexers',
+    labelKey: 'nav.indexers',
+    isActive: (pathname) => pathname.startsWith('/system/indexers'),
+    badge: () => <IndexerAlertBadge />,
   },
 ];
 
@@ -64,18 +73,20 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
           {NAV_ITEMS.map((item) => {
             const active = item.isActive(pathname);
             return (
-              <Text
-                key={item.to}
-                component={Link}
-                to={item.to}
-                size="sm"
-                fw={600}
-                c={active ? 'blue.4' : 'dimmed'}
-                aria-current={active ? 'page' : undefined}
-                style={{ textDecoration: 'none' }}
-              >
-                {t(item.labelKey)}
-              </Text>
+              <Group key={item.to} gap={6} wrap="nowrap">
+                <Text
+                  component={Link}
+                  to={item.to}
+                  size="sm"
+                  fw={600}
+                  c={active ? 'blue.4' : 'dimmed'}
+                  aria-current={active ? 'page' : undefined}
+                  style={{ textDecoration: 'none' }}
+                >
+                  {t(item.labelKey)}
+                </Text>
+                {item.badge?.()}
+              </Group>
             );
           })}
           <LanguageSwitcher />
@@ -124,9 +135,12 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
                 backgroundColor: active ? 'var(--mantine-color-dark-6)' : undefined,
               }}
             >
-              <Text fw={600} c={active ? 'blue.4' : undefined}>
-                {t(item.labelKey)}
-              </Text>
+              <Group gap={8} wrap="nowrap">
+                <Text fw={600} c={active ? 'blue.4' : undefined}>
+                  {t(item.labelKey)}
+                </Text>
+                {item.badge?.()}
+              </Group>
             </UnstyledButton>
           );
         })}
