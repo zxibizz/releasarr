@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import pytest
@@ -18,6 +19,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
 )
+from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
@@ -44,9 +46,16 @@ from src.application.use_cases.releases.queue_release_download import QueueRelea
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
+from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.application.utility.torrent import TorrentFileInfo, TorrentInfo
-from src.domain.enums import MediaType, ReleaseStatus
+from src.domain.enums import (
+    MediaType,
+    ReleaseStatus,
+    SyncJobKind,
+    SyncJobStatus,
+    SyncJobTrigger,
+)
 from src.settings.config import AppSettings
 
 
@@ -104,6 +113,20 @@ def make_release_record(
         last_exported_info_hash=None,
         export_failures_count=0,
         files=files or [],
+    )
+
+
+def make_movie_mapping_command(release_id: str = "rel-1") -> UpdateFileMappingsCommand:
+    return UpdateFileMappingsCommand(
+        release_id=release_id,
+        files=[
+            FileMappingCommand(
+                file_id="file-1",
+                mapping_type=MediaType.MOVIE.value,
+                request_id="req-1",
+                request_title="Example Movie",
+            )
+        ],
     )
 
 
@@ -290,6 +313,49 @@ class FakeSearchService:
         if self.torrent_bytes is not None:
             return self.torrent_bytes
         raise RuntimeError("torrent not available in fake search service")
+
+
+class FakeSyncJobRepository:
+    """The queue the scheduler drains, of which only enqueueing is reached here."""
+
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self.error = error
+        self.sequences: list[tuple[list[SyncJobKind], SyncJobTrigger]] = []
+
+    async def enqueue_sequence(
+        self,
+        *,
+        kinds: Sequence[SyncJobKind],
+        trigger: SyncJobTrigger,
+    ) -> list[EnqueueSyncJobResult]:
+        if self.error is not None:
+            raise self.error
+
+        self.sequences.append((list(kinds), trigger))
+        return [
+            EnqueueSyncJobResult(
+                job=SyncJobRecord(
+                    id=f"job-{index}",
+                    kind=kind,
+                    status=SyncJobStatus.QUEUED,
+                    trigger=trigger,
+                    queued_at=datetime.now(UTC),
+                    started_at=None,
+                    finished_at=None,
+                    error=None,
+                    result={},
+                ),
+                created=True,
+            )
+            for index, kind in enumerate(kinds, start=1)
+        ]
+
+
+def make_export_queue(
+    *, error: Exception | None = None
+) -> tuple[EnqueueSyncJobUseCase, FakeSyncJobRepository]:
+    repository = FakeSyncJobRepository(error=error)
+    return EnqueueSyncJobUseCase(repository), repository
 
 
 class FailingDownloadService(FakeDownloadService):
@@ -510,6 +576,62 @@ async def test_update_file_mappings_queues_the_release_for_export_again() -> Non
         "last_exported_info_hash": None,
         "export_failures_count": 0,
     }
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_exports_a_finished_release_right_away() -> None:
+    """The download is already on disk, so the new mapping can be imported now."""
+
+    release = make_release_record(
+        "rel-1",
+        files=[make_release_file("file-1")],
+        status=ReleaseStatus.COMPLETED,
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    export_queue, sync_jobs = make_export_queue()
+    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+
+    await use_case.execute(make_movie_mapping_command())
+
+    assert sync_jobs.sequences == [([SyncJobKind.EXPORT], SyncJobTrigger.API)]
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_leaves_a_downloading_release_to_its_own_export() -> None:
+    """There is nothing to import yet, and finishing the download triggers one."""
+
+    release = make_release_record(
+        "rel-1",
+        files=[make_release_file("file-1")],
+        status=ReleaseStatus.DOWNLOADING,
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    export_queue, sync_jobs = make_export_queue()
+    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+
+    await use_case.execute(make_movie_mapping_command())
+
+    assert sync_jobs.sequences == []
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_saves_even_when_the_export_cannot_be_queued() -> None:
+    """The mappings are stored by then, and the scheduled export still runs."""
+
+    file_record = make_release_file("file-1")
+    release = make_release_record(
+        "rel-1",
+        files=[file_record],
+        status=ReleaseStatus.COMPLETED,
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    export_queue, _ = make_export_queue(error=RuntimeError("database is gone"))
+    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+
+    result = await use_case.execute(make_movie_mapping_command())
+
+    assert result is True
+    assert file_record.mapping is not None
 
 
 @pytest.mark.asyncio

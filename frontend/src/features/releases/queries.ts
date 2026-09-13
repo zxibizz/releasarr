@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
+import { taskKeys } from '@/features/tasks/queries';
 import type { ReleaseFileMappingInput } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -98,6 +99,9 @@ export function useUpdateFileMappings(releaseId: string, requestId: string | und
       void queryClient.invalidateQueries({
         queryKey: releaseKeys.mappingSuggestions(releaseId),
       });
+      // A release that already finished downloading is exported again on the
+      // spot, so pick that job up and let the watcher report how it went.
+      void queryClient.invalidateQueries({ queryKey: taskKeys.jobsRoot });
     },
   });
 }

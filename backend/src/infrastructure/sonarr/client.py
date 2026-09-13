@@ -221,10 +221,12 @@ class SonarrHttpClient(SonarrService):
         seasons we happen to hold requests for would drop those episodes out of
         Sonarr's wanted list behind their back.
 
-        The series itself is always left monitored. Releasarr keeps no
-        series-level switch of its own, and the flag costs nothing when it is
-        off on its own: Sonarr reads a monitored series with no monitored season
-        as wanting nothing, so it sits there searching for none of it.
+        The series flag follows its seasons: it goes on for the first season
+        monitored and comes off once the last one is dropped, so a series
+        nothing is wanted from reads as unmonitored in Sonarr rather than as
+        monitored and asking for nothing. A series still set to pick up seasons
+        that have yet to air wants something, and stays on with no season of
+        its own monitored.
         """
 
         payload = await self._request("GET", f"/series/{series_id}")
@@ -243,16 +245,17 @@ class SonarrHttpClient(SonarrService):
             if monitor_new_seasons is None
             else monitor_new_seasons
         )
+        wants_series = wants_new_seasons or any(season.get("monitored") for season in updated)
 
         if (
             updated == seasons
-            and bool(payload.get("monitored"))
+            and bool(payload.get("monitored")) == wants_series
             and wants_new_seasons == self._reads_monitor_new_items(payload)
         ):
             return
 
         payload["seasons"] = updated
-        payload["monitored"] = True
+        payload["monitored"] = wants_series
         payload["monitorNewItems"] = self._monitor_new_items(wants_new_seasons)
         await self._request("PUT", f"/series/{series_id}", json=payload)
 

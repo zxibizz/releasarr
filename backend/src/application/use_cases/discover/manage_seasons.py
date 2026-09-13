@@ -112,7 +112,8 @@ class UpdateRequestSeasonsUseCase:
 
     Both halves go through a single Sonarr write, so the series never passes
     through a state where it has been emptied of seasons and is about to be
-    filled again - which is the moment Sonarr would see as "unmonitor me".
+    filled again - the moment its own monitoring would be switched off, only to
+    be switched back on for the seasons arriving behind it.
     """
 
     def __init__(

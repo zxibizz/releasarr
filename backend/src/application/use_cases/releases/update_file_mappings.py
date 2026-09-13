@@ -7,6 +7,7 @@ from loguru import logger
 from src.application.interfaces.releases import (
     FileMappingUpdateData,
     ReleaseFileMapping,
+    ReleaseRecord,
     ReleaseRepository,
 )
 from src.application.use_cases.releases.commands import (
@@ -17,14 +18,20 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
-from src.domain.enums import MediaType
+from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
+from src.domain.enums import MediaType, ReleaseStatus, SyncJobKind, SyncJobTrigger
 
 
 class UpdateReleaseFileMappingsUseCase:
     """Use case applying mapping changes to release files."""
 
-    def __init__(self, repository: ReleaseRepository) -> None:
+    def __init__(
+        self,
+        repository: ReleaseRepository,
+        enqueue_sync: EnqueueSyncJobUseCase | None = None,
+    ) -> None:
         self._repository = repository
+        self._enqueue_sync = enqueue_sync
 
     async def execute(self, command: UpdateFileMappingsCommand) -> bool:
         release = await self._repository.get_release(command.release_id)
@@ -56,8 +63,36 @@ class UpdateReleaseFileMappingsUseCase:
         )
 
         self._log_mappings(command)
+        await self._queue_export(release)
 
         return True
+
+    async def _queue_export(self, release: ReleaseRecord) -> None:
+        """Run the export again for a release that already finished downloading.
+
+        Re-arming the release is not enough on its own: the export only revisits
+        it when a run happens, and the next scheduled one is minutes away, so the
+        correction the user just made would sit unapplied until then. A release
+        still downloading needs nothing, since the export skips it either way and
+        the run that follows its completion picks the new mapping up.
+        """
+
+        if self._enqueue_sync is None or release.status is not ReleaseStatus.COMPLETED:
+            return
+
+        try:
+            await self._enqueue_sync.execute(
+                kinds=[SyncJobKind.EXPORT],
+                trigger=SyncJobTrigger.API,
+            )
+        except Exception as exc:
+            # The mappings are already stored, so this is not worth failing the
+            # request over - the scheduled export run is the fallback.
+            logger.opt(exception=exc).warning(
+                "Could not queue an export for the remapped release",
+                release_id=release.id,
+                error=str(exc),
+            )
 
     @staticmethod
     def _log_mappings(command: UpdateFileMappingsCommand) -> None:

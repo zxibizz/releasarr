@@ -402,7 +402,10 @@ class ReleaseUseCases:
 
     @cached_property
     def update_mappings(self) -> UpdateReleaseFileMappingsUseCase:
-        return UpdateReleaseFileMappingsUseCase(repository=self._container.repositories.releases)
+        return UpdateReleaseFileMappingsUseCase(
+            repository=self._container.repositories.releases,
+            enqueue_sync=self._container.use_cases.tasks.enqueue_sync,
+        )
 
     @cached_property
     def suggest_mappings(self) -> SuggestReleaseFileMappingsUseCase:
