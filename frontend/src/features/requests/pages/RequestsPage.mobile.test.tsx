@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -109,19 +109,7 @@ describe('RequestsPage on a phone', () => {
     expect(screen.getByRole('button', { name: 'Filters (active)' })).toBeInTheDocument();
   });
 
-  it('drops the whole stats panel, numbers by status included', async () => {
-    renderWithProviders(<RequestsPage />);
-
-    await screen.findByText('The Dark Knight');
-    expect(screen.queryByText(/total requests/i)).not.toBeInTheDocument();
-
-    // The only "Downloading" left is the badge on the request's own card; a
-    // second one would mean the per-status counts came back.
-    expect(screen.getAllByText(/downloading/i)).toHaveLength(1);
-    expect(screen.getByText('1 request')).toBeInTheDocument();
-  });
-
-  it('still shows genres, the synopsis and the totals on a desktop', async () => {
+  it('still shows genres and the synopsis on a desktop', async () => {
     setViewportWidth(DESKTOP_WIDTH);
 
     renderWithProviders(<RequestsPage />);
@@ -129,9 +117,5 @@ describe('RequestsPage on a phone', () => {
     expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
     expect(screen.getByText(/war on crime/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Movies' })).toBeInTheDocument();
-
-    const totals = screen.getByText(/total requests/i).closest('div');
-    expect(totals && within(totals).getByText('1')).toBeInTheDocument();
   });
 });

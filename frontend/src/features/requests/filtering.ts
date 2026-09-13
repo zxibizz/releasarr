@@ -1,4 +1,4 @@
-import type { MediaRequest, MediaRequestStatus } from '@/types';
+import type { MediaRequest } from '@/types';
 
 /**
  * Media type and progress are independent questions — "which series are still
@@ -83,20 +83,3 @@ export const filterAndSortRequests = (
     )
     .sort(SORTERS[sort]);
 };
-
-export interface RequestStats {
-  total: number;
-  byType: Partial<Record<MediaRequest['type'], number>>;
-  byStatus: Partial<Record<MediaRequestStatus, number>>;
-}
-
-export const buildStats = (requests: MediaRequest[]): RequestStats =>
-  requests.reduce<RequestStats>(
-    (stats, request) => {
-      stats.total += 1;
-      stats.byType[request.type] = (stats.byType[request.type] ?? 0) + 1;
-      stats.byStatus[request.status] = (stats.byStatus[request.status] ?? 0) + 1;
-      return stats;
-    },
-    { total: 0, byType: {}, byStatus: {} },
-  );

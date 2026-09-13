@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Collapse,
-  Divider,
   Group,
   Indicator,
   Paper,
@@ -25,7 +24,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
-import { StatusBadge } from '@/components/StatusBadge';
 import { RequestCard } from '@/features/requests/components/RequestCard';
 import {
   DEFAULT_SORT,
@@ -34,7 +32,6 @@ import {
   SORT_KEYS,
   STATUS_KEYS,
   TYPE_KEYS,
-  buildStats,
   filterAndSortRequests,
   type SortKey,
   type StatusFilter,
@@ -44,7 +41,6 @@ import { localizeRequest, useMetadataLanguage } from '@/features/requests/locali
 import { useRequestsList } from '@/features/requests/queries';
 import { useRequestFilters } from '@/features/requests/useRequestFilters';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { MediaRequestStatus } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
 const TYPE_LABEL_KEYS: Record<TypeFilter, string> = {
@@ -170,10 +166,11 @@ interface RequestFiltersProps {
 }
 
 /**
- * The pills plus three labelled fields filled a phone screen on their own. Type,
- * status and search stay out in the open here; sort moves behind a toggle,
- * marked with a dot while it is set so a non-default sort is never hidden
- * silently.
+ * Search stays out in the open; type, status and sort sit behind a toggle. The
+ * default list is the one wanted almost every time, and three rows of controls
+ * standing above it earned less than the vertical space they cost — on a desktop
+ * as much as on a phone. The toggle carries a dot while any hidden control is
+ * set, so a narrowed list is never unexplained.
  */
 function RequestFilters({
   type,
@@ -230,26 +227,13 @@ function RequestFilters({
     </FilterRow>
   );
 
-  if (!isMobile) {
-    return (
-      <Stack gap="sm">
-        {typeRow}
-        {statusRow}
-        <Group align="flex-end" gap="sm" wrap="wrap">
-          {searchInput}
-          {sortSelect}
-        </Group>
-      </Stack>
-    );
-  }
-
-  // Anything the collapsed panel is hiding shows as a dot on the toggle, so a
-  // narrowed list is never unexplained.
   const adjusted = type !== DEFAULT_TYPE || status !== DEFAULT_STATUS || sort !== DEFAULT_SORT;
 
   return (
     <Stack gap="xs">
-      <Group gap="xs" wrap="nowrap" align="center">
+      {/* Only the phone's search box drops its label, so only there do the two
+          controls share a baseline. */}
+      <Group gap="xs" wrap="nowrap" align={isMobile ? 'center' : 'flex-end'}>
         {searchInput}
         <Indicator disabled={!adjusted} size={8} offset={4}>
           <ActionIcon
@@ -268,11 +252,9 @@ function RequestFilters({
       </Group>
 
       {/*
-        Every control lives behind the toggle on a phone: the default list is the
-        one wanted almost every time, and four rows of filters above it cost more
-        than they earned. Unmounted while closed so the hidden controls stay out
-        of the tab order — all of them read their value from the URL, so there is
-        no state to preserve.
+        Unmounted while closed so the hidden controls stay out of the tab order —
+        all of them read their value from the URL, so there is no state to
+        preserve.
       */}
       <Collapse expanded={expanded} keepMounted={false}>
         <Stack gap="sm" pt="xs">
@@ -302,8 +284,6 @@ export function RequestsPage() {
     () => filterAndSortRequests(localizedRequests, { type, status, sort, search }),
     [localizedRequests, type, status, sort, search],
   );
-
-  const stats = useMemo(() => buildStats(requests), [requests]);
 
   const typeLabel = (key: TypeFilter) => t(TYPE_LABEL_KEYS[key]);
   const statusLabel = (key: StatusFilter) => {
@@ -349,7 +329,7 @@ export function RequestsPage() {
   }
 
   return (
-    // `xl` gaps between five stacked sections cost a quarter of a phone screen.
+    // `xl` gaps between four stacked sections cost a quarter of a phone screen.
     <Stack gap={isMobile ? 'md' : 'xl'}>
       <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
         <Stack gap={4} style={{ minWidth: 0 }}>
@@ -397,8 +377,6 @@ export function RequestsPage() {
         setSort={setSort}
       />
 
-      <RequestStats stats={stats} />
-
       <Group justify="space-between" align="center">
         <Title order={3}>{heading}</Title>
         <Text c="dimmed" size="sm">
@@ -425,62 +403,6 @@ export function RequestsPage() {
           ))}
         </SimpleGrid>
       )}
-    </Stack>
-  );
-}
-
-function RequestStats({ stats }: { stats: ReturnType<typeof buildStats> }) {
-  const { t } = useTranslation();
-  const isMobile = useIsMobile();
-
-  /*
-   * The whole panel is desktop-only. Every number in it repeats something a
-   * phone already shows: the totals match the result count above the list, the
-   * type split is in the type filter, and each request carries its own status
-   * badge on its card.
-   */
-  if (isMobile) {
-    return null;
-  }
-
-  const breakdown = (
-    <Group gap="xs" wrap="wrap">
-      {(Object.keys(stats.byStatus) as MediaRequestStatus[]).map((status) => (
-        <Group key={status} gap={6} style={{ flexShrink: 0 }}>
-          <StatusBadge status={status} size="sm" />
-          <Text size="sm" c="dimmed">
-            {stats.byStatus[status]}
-          </Text>
-        </Group>
-      ))}
-    </Group>
-  );
-
-  return (
-    <Paper withBorder radius="lg" p="md">
-      <Stack gap="sm">
-        <SimpleGrid cols={{ base: 2, md: 4 }}>
-          <Stat label={t('requestsList.stats.total')} value={stats.total} />
-          <Stat label={t('requestsList.stats.movies')} value={stats.byType.movie ?? 0} />
-          <Stat label={t('requestsList.stats.series')} value={stats.byType.series ?? 0} />
-          <Stat label={t('requestsList.stats.completed')} value={stats.byStatus.completed ?? 0} />
-        </SimpleGrid>
-        <Divider />
-        {breakdown}
-      </Stack>
-    </Paper>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <Stack gap={2}>
-      <Text size="xs" c="dimmed" tt="uppercase">
-        {label}
-      </Text>
-      <Text fz={26} fw={700}>
-        {value}
-      </Text>
     </Stack>
   );
 }
