@@ -123,6 +123,10 @@ export const resources = {
           count_one: '{{count}} result',
           count_other: '{{count}} results',
         },
+        tabs: {
+          movies: 'Movies',
+          shows: 'Shows',
+        },
         seasons: {
           label: 'Seasons',
           season: 'Season {{season}}',
@@ -744,6 +748,10 @@ export const resources = {
           count_few: '{{count}} результата',
           count_many: '{{count}} результатов',
           count_other: '{{count}} результатов',
+        },
+        tabs: {
+          movies: 'Фильмы',
+          shows: 'Сериалы',
         },
         seasons: {
           label: 'Сезоны',
