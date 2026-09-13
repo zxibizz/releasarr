@@ -170,6 +170,9 @@ api.put('/requests/:requestId/seasons', async (req, res) => {
   try {
     const seasons = await mockStore.updateRequestSeasons(req.params.requestId, {
       season_numbers: payload.season_numbers,
+      // Left out, the series flag follows from what the seasons want, so an
+      // absent one has to stay absent rather than become false.
+      monitored: payload.monitored ?? null,
       monitor_new_seasons: Boolean(payload.monitor_new_seasons),
     });
     if (!seasons) {

@@ -46,8 +46,9 @@ class SeriesSeasonsDTO:
     tvdb_id: int | None = None
     in_library: bool = False
     library_id: int | None = None
-    # Only meaningful for a series in the library; Sonarr has nowhere to record
-    # the choice until then.
+    # Sonarr's series-wide flags, only meaningful for a series in the library;
+    # it has nowhere to record either choice until then.
+    monitored: bool = False
     monitor_new_seasons: bool = False
     seasons: list[SeasonOptionDTO] = field(default_factory=list)
 

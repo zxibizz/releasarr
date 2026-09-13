@@ -20,10 +20,12 @@ interface ManageSeasonsModalProps {
 
 /**
  * The add-request season picker, pointed at a series already in the library.
- * The difference is that a season can be untaken here: the selection describes
- * what the series should hold requests for from now on, so unticking one both
- * withdraws it from Sonarr and deletes its request — including the request this
- * modal was opened from.
+ * The ticks here are Sonarr's own monitored flags, read from it and saved
+ * straight back: a season monitored in Sonarr shows as ticked whether or not
+ * releasarr holds a request for it, which a complete season never does.
+ *
+ * A season can therefore be untaken, which unmonitors it in Sonarr and deletes
+ * whatever request it had — including the request this modal was opened from.
  */
 export function ManageSeasonsModal({
   request,
@@ -37,28 +39,30 @@ export function ManageSeasonsModal({
   const updateSeasons = useUpdateRequestSeasons(request.id);
 
   const [picked, setPicked] = useState<number[] | null>(null);
+  const [pickedMonitored, setPickedMonitored] = useState<boolean | null>(null);
   const [pickedNewSeasons, setPickedNewSeasons] = useState<boolean | null>(null);
 
-  const requested = useMemo(
+  const monitoredSeasons = useMemo(
     () =>
       (seasons.data?.seasons ?? [])
-        .filter((season) => season.requested && season.season_number > 0)
+        .filter((season) => season.monitored && season.season_number > 0)
         .map((season) => season.season_number),
     [seasons.data],
   );
 
-  // Derived rather than stored, so the selection shows what the series holds
+  // Derived rather than stored, so the selection shows what Sonarr monitors
   // today the moment the seasons arrive, without an effect to copy it across.
-  const selected = picked ?? requested;
+  const selected = picked ?? monitoredSeasons;
+  const monitored = pickedMonitored ?? seasons.data?.monitored ?? false;
   const monitorNewSeasons = pickedNewSeasons ?? seasons.data?.monitor_new_seasons ?? false;
 
-  const removing = requested.filter((season) => !selected.includes(season));
+  const removing = monitoredSeasons.filter((season) => !selected.includes(season));
   const seasonNames = (numbers: number[]) =>
     numbers.map((season) => t(seasonLabelKey(season), { season })).join(', ');
 
   const save = () => {
     updateSeasons.mutate(
-      { season_numbers: selected, monitor_new_seasons: monitorNewSeasons },
+      { season_numbers: selected, monitored, monitor_new_seasons: monitorNewSeasons },
       {
         onSuccess: () => {
           onClose();
@@ -115,6 +119,8 @@ export function ManageSeasonsModal({
             isLoading={seasons.isLoading}
             error={seasons.error}
             allowRemoving
+            monitored={monitored}
+            onMonitoredChange={setPickedMonitored}
             monitorNewSeasons={monitorNewSeasons}
             onMonitorNewSeasonsChange={setPickedNewSeasons}
           />

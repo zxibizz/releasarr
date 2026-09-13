@@ -706,13 +706,19 @@ export class MockStore {
   }
 
   /**
-   * Brings the season requests of a series in line with the selection: seasons
-   * left out are unmonitored and their requests removed, exactly as dropping
-   * them one at a time would.
+   * Brings the monitoring of a series in line with the selection. The selection
+   * is Sonarr's monitoring, so the difference is taken against the seasons
+   * monitored now rather than against the requests: a season already monitored
+   * keeps whatever request state it had, and one left out is unmonitored with
+   * its request removed.
    */
   async updateRequestSeasons(
     requestId: string,
-    payload: { season_numbers: number[]; monitor_new_seasons?: boolean },
+    payload: {
+      season_numbers: number[];
+      monitored?: boolean | null;
+      monitor_new_seasons?: boolean;
+    },
   ): Promise<SeriesSeasonsResponse | null> {
     const entry = await this.entryForRequest(requestId);
     if (!entry) {
@@ -725,6 +731,10 @@ export class MockStore {
       throw new Error('invalid_season_selection');
     }
 
+    const monitoredNow = (entry.monitored_seasons ?? []).filter((season) => season > 0);
+    const added = desired.filter((season) => !monitoredNow.includes(season));
+    const removed = monitoredNow.filter((season) => !desired.includes(season));
+
     const requests = await this.ensureRequests();
     const related = this.requestsForEntry(requests, entry).filter(
       (request) => request.type === 'series',
@@ -732,12 +742,18 @@ export class MockStore {
 
     for (const request of related) {
       const season = (request as { season_number: number }).season_number;
-      if (season > 0 && !desired.includes(season)) {
+      if (removed.includes(season)) {
         await this.deleteRequest(request.id);
       }
     }
 
-    for (const season of desired) {
+    // A dropped season with no request of its own still has to come off the
+    // monitored list, which only the request deletion above would have done.
+    entry.monitored_seasons = (entry.monitored_seasons ?? []).filter(
+      (season) => !removed.includes(season),
+    );
+
+    for (const season of added) {
       await this.addDiscoverRequest({
         type: 'series',
         provider_id: entry.provider_id,
@@ -748,7 +764,11 @@ export class MockStore {
       });
     }
 
-    entry.monitor_new_seasons = payload.monitor_new_seasons ?? false;
+    const newSeasons = payload.monitor_new_seasons ?? false;
+    entry.monitor_new_seasons = newSeasons;
+    entry.monitored =
+      payload.monitored ??
+      (newSeasons || (entry.monitored_seasons ?? []).some((season) => season > 0));
     // Described from the series rather than the request, which may be one of
     // the rows just deleted - as it is whenever its own season was dropped.
     return await this.describeRequestSeasons(entry);
@@ -773,6 +793,7 @@ export class MockStore {
       tvdb_id: entry.provider_id,
       in_library: entry.library_id !== undefined,
       library_id: entry.library_id ?? null,
+      monitored: entry.monitored ?? false,
       monitor_new_seasons: entry.monitor_new_seasons ?? false,
       seasons: (entry.seasons ?? []).map(
         (seasonNumber) =>

@@ -138,6 +138,8 @@ export const resources = {
           selectAll: 'Select all',
           clearAll: 'Clear all',
           alreadyRequested: 'Already requested',
+          monitored: 'Monitored',
+          monitoredHint: 'Whether Sonarr monitors this series at all.',
           newSeasons: 'New seasons',
           newSeasonsHint: 'Request future seasons of this series as they are announced.',
           none: 'No seasons are available for this series yet.',
@@ -399,9 +401,9 @@ export const resources = {
           unavailable:
             'Sonarr has not linked this request to a series yet, so its seasons cannot be managed.',
           removeDialog: {
-            title: 'Remove seasons',
-            body: 'The requests for {{seasons}} will be removed and Sonarr will stop monitoring them. Files already downloaded are left alone.',
-            confirm: 'Remove and save',
+            title: 'Stop monitoring seasons',
+            body: 'Sonarr will stop monitoring {{seasons}}, and any requests for them will be removed. Files already downloaded are left alone.',
+            confirm: 'Unmonitor and save',
           },
         },
         remove: {
@@ -693,6 +695,8 @@ export const resources = {
           selectAll: 'Выбрать все',
           clearAll: 'Снять все',
           alreadyRequested: 'Уже запрошен',
+          monitored: 'Отслеживается',
+          monitoredHint: 'Отслеживает ли Sonarr этот сериал в целом.',
           newSeasons: 'Новые сезоны',
           newSeasonsHint: 'Запрашивать будущие сезоны этого сериала по мере их анонса.',
           none: 'У этого сериала пока нет доступных сезонов.',
@@ -953,9 +957,9 @@ export const resources = {
           unavailable:
             'Sonarr ещё не связал этот запрос с сериалом, поэтому управлять его сезонами нельзя.',
           removeDialog: {
-            title: 'Удалить сезоны',
-            body: 'Запросы на {{seasons}} будут удалены, а Sonarr перестанет их отслеживать. Уже скачанные файлы останутся на месте.',
-            confirm: 'Удалить и сохранить',
+            title: 'Отключить отслеживание сезонов',
+            body: 'Sonarr перестанет отслеживать {{seasons}}, а их запросы будут удалены. Уже скачанные файлы останутся на месте.',
+            confirm: 'Отключить и сохранить',
           },
         },
         remove: {

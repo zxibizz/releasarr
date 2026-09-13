@@ -70,6 +70,7 @@ class UnusedSonarrLibraryCalls:
         *,
         monitor: Sequence[int] = (),
         unmonitor: Sequence[int] = (),
+        monitored: bool | None = None,
         monitor_new_seasons: bool | None = None,
     ) -> None:
         raise NotImplementedError
@@ -319,6 +320,7 @@ class FakeSonarrService:
         *,
         monitor: Sequence[int] = (),
         unmonitor: Sequence[int] = (),
+        monitored: bool | None = None,
         monitor_new_seasons: bool | None = None,
     ) -> None:
         self.monitored.append(
@@ -326,6 +328,7 @@ class FakeSonarrService:
                 "series_id": series_id,
                 "monitor": list(monitor),
                 "unmonitor": list(unmonitor),
+                "monitored": monitored,
                 "monitor_new_seasons": monitor_new_seasons,
             }
         )
@@ -334,6 +337,8 @@ class FakeSonarrService:
         details = self._catalogue.get(series_id)
         if details is None:
             return
+        if monitored is not None:
+            details.monitored = monitored
         if monitor_new_seasons is not None:
             details.monitor_new_seasons = monitor_new_seasons
         for season_number in monitor:
@@ -494,6 +499,7 @@ def make_series_details(
     series_id: int = 12,
     *,
     seasons: dict[int, tuple[int, bool]] | None = None,
+    monitored: bool = True,
     monitor_new_seasons: bool = False,
 ) -> SeriesDetails:
     """Build Sonarr series details from ``{season: (episode_count, monitored)}``."""
@@ -514,10 +520,11 @@ def make_series_details(
                 episode_count=episode_count,
                 total_episode_count=episode_count,
                 episode_file_count=0,
-                monitored=monitored,
+                monitored=season_monitored,
             )
-            for season_number, (episode_count, monitored) in resolved.items()
+            for season_number, (episode_count, season_monitored) in resolved.items()
         },
+        monitored=monitored,
         monitor_new_seasons=monitor_new_seasons,
     )
 

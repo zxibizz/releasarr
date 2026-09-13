@@ -24,19 +24,27 @@ interface SeasonPickerProps {
   error: unknown;
   /**
    * Lets a season that already has a request be unticked, which is what turns
-   * the picker into a manager: the selection then describes what the series
-   * should hold requests for rather than what to add to it.
+   * the picker into a manager: the selection then describes what Sonarr should
+   * monitor rather than what to add to the series.
    */
   allowRemoving?: boolean;
+  /**
+   * Sonarr's series-wide monitored flag, offered only where there is a series
+   * to hold it — the add form has none until it has added one.
+   */
+  monitored?: boolean;
+  onMonitoredChange?: (monitored: boolean) => void;
   monitorNewSeasons?: boolean;
   onMonitorNewSeasonsChange?: (monitor: boolean) => void;
 }
 
 /**
- * Seasons that already have a request show as ticked. Where they cannot be
- * removed they are locked too: requesting one again is harmless — the backend
- * refreshes the existing row — but offering it as a choice invites the user to
- * look for a difference that isn't there.
+ * What a tick means depends on the caller. Adding a request, it is a season to
+ * ask for, and the seasons already requested are ticked and locked: requesting
+ * one again is harmless — the backend refreshes the existing row — but offering
+ * it as a choice invites the user to look for a difference that isn't there.
+ * Managing a series (`allowRemoving`), it is Sonarr's monitored flag, which the
+ * caller both seeds from and saves to.
  *
  * Specials are left out entirely: they are rarely what someone means by "the
  * next season", and TVDB files anything without a home there.
@@ -48,6 +56,8 @@ export function SeasonPicker({
   isLoading,
   error,
   allowRemoving = false,
+  monitored,
+  onMonitoredChange,
   monitorNewSeasons,
   onMonitorNewSeasonsChange,
 }: SeasonPickerProps) {
@@ -139,19 +149,25 @@ export function SeasonPicker({
       </SimpleGrid>
 
       {/*
-        Future seasons are a property of the series rather than one of the
-        numbered seasons, so they sit below the grid instead of in it.
+        Whole-series monitoring and future seasons belong to the series rather
+        than to any numbered season, so they sit below the grid instead of in it.
       */}
+      {(onMonitoredChange || onMonitorNewSeasonsChange) && <Divider my={4} />}
+      {onMonitoredChange && (
+        <Checkbox
+          checked={monitored ?? false}
+          label={t('discover.seasons.monitored')}
+          description={t('discover.seasons.monitoredHint')}
+          onChange={(event) => onMonitoredChange(event.currentTarget.checked)}
+        />
+      )}
       {onMonitorNewSeasonsChange && (
-        <>
-          <Divider my={4} />
-          <Checkbox
-            checked={monitorNewSeasons ?? false}
-            label={t('discover.seasons.newSeasons')}
-            description={t('discover.seasons.newSeasonsHint')}
-            onChange={(event) => onMonitorNewSeasonsChange(event.currentTarget.checked)}
-          />
-        </>
+        <Checkbox
+          checked={monitorNewSeasons ?? false}
+          label={t('discover.seasons.newSeasons')}
+          description={t('discover.seasons.newSeasonsHint')}
+          onChange={(event) => onMonitorNewSeasonsChange(event.currentTarget.checked)}
+        />
       )}
     </Stack>
   );
