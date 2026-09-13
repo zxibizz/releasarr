@@ -62,7 +62,7 @@ RELEASE_REQUEST_LINKS = Table(
     Base.metadata,
     Column(
         "release_id",
-        String(64),
+        String(512),
         ForeignKey("releases.id", ondelete="CASCADE"),
         primary_key=True,
     ),
@@ -152,8 +152,11 @@ class Release(Base):
 
     __tablename__ = "releases"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Both come straight from the indexer: the id is a Prowlarr guid, commonly a
+    # forum URL, and the name is the tracker's own title, which routinely runs
+    # past 255 characters once it lists dubs, episode ranges and release notes.
+    id: Mapped[str] = mapped_column(String(512), primary_key=True)
+    name: Mapped[str] = mapped_column(Text(), nullable=False)
     info_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[ReleaseStatus] = mapped_column(
@@ -245,9 +248,9 @@ class ReleaseFile(Base):
         ForeignKey("releases.id", ondelete="CASCADE"),
         nullable=False,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(Text(), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    path: Mapped[str] = mapped_column(Text(), nullable=False)
 
     mapping_type: Mapped[MediaType | None] = mapped_column(
         build_enum(MediaType, "file_mapping_media_type"),
