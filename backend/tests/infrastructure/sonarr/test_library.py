@@ -268,12 +268,8 @@ async def test_apply_season_monitoring_unmonitors_only_the_named_seasons() -> No
     ]
 
 
-async def test_apply_season_monitoring_leaves_the_series_monitored_with_nothing_left() -> None:
-    """Releasarr keeps no series-level switch of its own.
-
-    A monitored series with no monitored season is read by Sonarr as wanting
-    nothing, so leaving the flag on costs nothing once the seasons have gone.
-    """
+async def test_apply_season_monitoring_unmonitors_a_series_with_nothing_left() -> None:
+    """The last season to go takes the series with it."""
 
     calls: list[tuple[str, Any]] = []
     handler = build_monitoring_handler(
@@ -284,8 +280,43 @@ async def test_apply_season_monitoring_leaves_the_series_monitored_with_nothing_
     await build_client(handler).apply_season_monitoring(12, unmonitor=[1])
 
     payload = calls[1][1]
-    assert payload["monitored"] is True
+    assert payload["monitored"] is False
     assert payload["seasons"][0]["monitored"] is False
+
+
+async def test_apply_season_monitoring_counts_specials_as_a_season_worth_keeping() -> None:
+    """Specials are still something the series is wanted for."""
+
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {
+            "id": 12,
+            "monitored": True,
+            "seasons": [
+                {"seasonNumber": 0, "monitored": True},
+                {"seasonNumber": 1, "monitored": True},
+            ],
+        },
+    )
+
+    await build_client(handler).apply_season_monitoring(12, unmonitor=[1])
+
+    assert calls[1][1]["monitored"] is True
+
+
+async def test_apply_season_monitoring_skips_a_series_already_off_and_empty() -> None:
+    """Nothing to say to Sonarr about a series that is off and wants nothing."""
+
+    calls: list[tuple[str, Any]] = []
+    handler = build_monitoring_handler(
+        calls,
+        {"id": 12, "monitored": False, "seasons": [{"seasonNumber": 1, "monitored": False}]},
+    )
+
+    await build_client(handler).apply_season_monitoring(12, unmonitor=[1])
+
+    assert [method for method, _ in calls] == ["GET"]
 
 
 async def test_apply_season_monitoring_monitors_a_series_that_was_switched_off() -> None:
@@ -303,6 +334,8 @@ async def test_apply_season_monitoring_monitors_a_series_that_was_switched_off()
 
 
 async def test_apply_season_monitoring_keeps_a_series_wanted_for_future_seasons() -> None:
+    """A series waiting on seasons yet to air wants something with none monitored."""
+
     calls: list[tuple[str, Any]] = []
     handler = build_monitoring_handler(
         calls,

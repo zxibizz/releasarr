@@ -141,8 +141,9 @@ class SonarrService(Protocol):
         """Change the monitoring of the named seasons of a series in the library.
 
         Only the seasons named are touched, so a season monitored outside
-        releasarr keeps whatever the user chose for it. The series itself is
-        always left monitored, releasarr keeping no switch of its own for it.
+        releasarr keeps whatever the user chose for it. The series itself
+        follows its seasons: monitored while any season is, or while seasons
+        yet to air are wanted, and unmonitored once neither holds.
         """
 
     async def wait_for_series_episodes(

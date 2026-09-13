@@ -97,6 +97,13 @@ scheduler claims them within a few seconds. Each endpoint returns `202` with a
 | `POST /tasks/sync_all` | All four, in order | "Run all tasks" button, operators |
 | `POST /tasks/sync_downloads` | `release_sync`, `export` | Download client on torrent completion |
 
+Saving file mappings queues an `export` too, whenever the release they belong to
+has already finished downloading. Remapping is how a wrong or missing import
+gets corrected, and the payload is on disk by then, so the fix applies at once
+instead of waiting out the 5-minute interval. Failing to queue it is logged and
+otherwise ignored: the mappings are stored regardless, and the scheduled run is
+still coming.
+
 One job runs one task, so a `sync_all` queues four jobs. The response tracks the
 last of them, since that finishing means the whole sequence is done.
 
