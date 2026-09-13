@@ -40,7 +40,7 @@ import {
   type StatusFilter,
   type TypeFilter,
 } from '@/features/requests/filtering';
-import { localizeRequest, useLanguageSelection } from '@/features/requests/localization';
+import { localizeRequest, useMetadataLanguage } from '@/features/requests/localization';
 import { useRequestsList } from '@/features/requests/queries';
 import { useRequestFilters } from '@/features/requests/useRequestFilters';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -167,16 +167,13 @@ interface RequestFiltersProps {
   setSearch: (value: string) => void;
   sort: SortKey;
   setSort: (value: SortKey) => void;
-  language: string | null;
-  setLanguage: (value: string | null) => void;
-  availableLanguages: string[];
 }
 
 /**
  * The pills plus three labelled fields filled a phone screen on their own. Type,
- * status and search stay out in the open here; sort and metadata language move
- * behind a toggle, marked with a dot while either is set so a non-default sort
- * is never hidden silently.
+ * status and search stay out in the open here; sort moves behind a toggle,
+ * marked with a dot while it is set so a non-default sort is never hidden
+ * silently.
  */
 function RequestFilters({
   type,
@@ -189,9 +186,6 @@ function RequestFilters({
   setSearch,
   sort,
   setSort,
-  language,
-  setLanguage,
-  availableLanguages,
 }: RequestFiltersProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -225,23 +219,6 @@ function RequestFilters({
     />
   );
 
-  const languageSelect = availableLanguages.length > 0 && (
-    <Select
-      label={t('localization.selectorLabel')}
-      value={language ?? 'default'}
-      onChange={(value) => setLanguage(value === 'default' ? null : value)}
-      allowDeselect={false}
-      data={[
-        { value: 'default', label: t('localization.defaultOption') },
-        ...availableLanguages.map((code) => ({
-          value: code,
-          label: t(`localization.languageNames.${code}`, { defaultValue: code.toUpperCase() }),
-        })),
-      ]}
-      w={{ base: '100%', sm: 180 }}
-    />
-  );
-
   const typeRow = (
     <FilterRow label={t('requestsList.filters.typeLabel')}>
       <FilterPills value={type} options={TYPE_KEYS} onSelect={setType} label={typeLabel} />
@@ -261,7 +238,6 @@ function RequestFilters({
         <Group align="flex-end" gap="sm" wrap="wrap">
           {searchInput}
           {sortSelect}
-          {languageSelect}
         </Group>
       </Stack>
     );
@@ -269,11 +245,7 @@ function RequestFilters({
 
   // Anything the collapsed panel is hiding shows as a dot on the toggle, so a
   // narrowed list is never unexplained.
-  const adjusted =
-    type !== DEFAULT_TYPE ||
-    status !== DEFAULT_STATUS ||
-    sort !== DEFAULT_SORT ||
-    language !== null;
+  const adjusted = type !== DEFAULT_TYPE || status !== DEFAULT_STATUS || sort !== DEFAULT_SORT;
 
   return (
     <Stack gap="xs">
@@ -307,7 +279,6 @@ function RequestFilters({
           {typeRow}
           {statusRow}
           {sortSelect}
-          {languageSelect}
         </Stack>
       </Collapse>
     </Stack>
@@ -320,11 +291,11 @@ export function RequestsPage() {
   const { type, status, sort, search, setType, setStatus, setSort, setSearch } =
     useRequestFilters();
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
-  const { availableLanguages, language, setLanguage } = useLanguageSelection(requests);
+  const metadataLanguage = useMetadataLanguage();
 
   const localizedRequests = useMemo(
-    () => requests.map((request) => localizeRequest(request, language)),
-    [requests, language],
+    () => requests.map((request) => localizeRequest(request, metadataLanguage)),
+    [requests, metadataLanguage],
   );
 
   const visibleRequests = useMemo(
@@ -424,9 +395,6 @@ export function RequestsPage() {
         setSearch={setSearch}
         sort={sort}
         setSort={setSort}
-        language={language}
-        setLanguage={setLanguage}
-        availableLanguages={availableLanguages}
       />
 
       <RequestStats stats={stats} />

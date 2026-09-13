@@ -1,4 +1,4 @@
-import { Button, Card, Select, Skeleton, Stack, Text } from '@mantine/core';
+import { Button, Card, Skeleton, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
@@ -17,7 +17,7 @@ import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasons
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { SeasonEpisodes } from '@/features/requests/components/SeasonEpisodes';
-import { localizeRequest } from '@/features/requests/localization';
+import { localizeRequest, useMetadataLanguage } from '@/features/requests/localization';
 import { requestKeys, useRemoveRequest, useRequest } from '@/features/requests/queries';
 import type { Release } from '@/types';
 
@@ -45,7 +45,6 @@ export function RequestDetailPage() {
   const { data: request, isLoading, error } = useRequest(id);
   const removeRequest = useRemoveRequest();
 
-  const [language, setLanguage] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [hasReleases, setHasReleases] = useState(false);
   const [searchRequested, setSearchRequested] = useState(false);
@@ -58,21 +57,11 @@ export function RequestDetailPage() {
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
-  const availableLanguages = useMemo(
-    () => Object.keys(request?.localizations ?? {}).sort(),
-    [request],
-  );
-
-  const activeLanguage =
-    language && availableLanguages.includes(language)
-      ? language
-      : (['rus', 'eng'].find((code) => availableLanguages.includes(code)) ??
-        availableLanguages[0] ??
-        null);
+  const metadataLanguage = useMetadataLanguage();
 
   const localizedRequest = useMemo(
-    () => (request ? localizeRequest(request, activeLanguage) : null),
-    [request, activeLanguage],
+    () => (request ? localizeRequest(request, metadataLanguage) : null),
+    [request, metadataLanguage],
   );
 
   const handleReleasesLoaded = useCallback((releases: Release[]) => {
@@ -168,28 +157,7 @@ export function RequestDetailPage() {
     <Stack gap="xl">
       <MediaInfo
         request={localizedRequest}
-        onSeriesClick={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
-        languageSelector={
-          availableLanguages.length > 0 ? (
-            <Select
-              size="xs"
-              w={140}
-              aria-label={t('localization.selectorLabel')}
-              value={activeLanguage ?? 'default'}
-              allowDeselect={false}
-              onChange={(value) => setLanguage(value === 'default' ? null : value)}
-              data={[
-                { value: 'default', label: t('localization.defaultOption') },
-                ...availableLanguages.map((code) => ({
-                  value: code,
-                  label: t(`localization.languageNames.${code}`, {
-                    defaultValue: code.toUpperCase(),
-                  }),
-                })),
-              ]}
-            />
-          ) : null
-        }
+        onManageSeasons={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
       />
 
       {localizedRequest.type === 'series' && <SeasonEpisodes requestId={localizedRequest.id} />}

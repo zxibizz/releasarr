@@ -1,44 +1,19 @@
-import {
-  Anchor,
-  Badge,
-  Card,
-  Group,
-  Image,
-  Paper,
-  SimpleGrid,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
-import type { ReactNode } from 'react';
+import { Badge, Button, Card, Group, Image, Stack, Text, Title } from '@mantine/core';
+import { IconListCheck } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
-import { formatDate, formatRuntime } from '@/utils/formatters';
+import { formatRuntime } from '@/utils/formatters';
 
 interface MediaInfoProps {
   request: MediaRequest;
-  languageSelector?: ReactNode;
-  /** Turns the series name into the way in to managing its seasons. */
-  onSeriesClick?: () => void;
+  /** Offers the way in to managing the series' seasons, for a series request. */
+  onManageSeasons?: () => void;
 }
 
-function InfoItem({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Paper withBorder radius="md" p={{ base: 'xs', sm: 'sm' }}>
-      <Text size="xs" c="dimmed" tt="uppercase">
-        {label}
-      </Text>
-      <Text size="sm" fw={600} mt={4} className="break-anywhere">
-        {children}
-      </Text>
-    </Paper>
-  );
-}
-
-export function MediaInfo({ request, languageSelector, onSeriesClick }: MediaInfoProps) {
+export function MediaInfo({ request, onManageSeasons }: MediaInfoProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
@@ -57,6 +32,27 @@ export function MediaInfo({ request, languageSelector, onSeriesClick }: MediaInf
   );
 
   /*
+   * Everything the card used to spread across a grid of bordered tiles. Each
+   * value was three words at most, and a caption above it said what a reader
+   * could already tell — a year looks like a year. The two dates the grid also
+   * carried are gone rather than moved: neither answers a question the page is
+   * asked.
+   */
+  const meta = [
+    isMovie ? `🎬 ${t('mediaType.movie')}` : `📺 ${t('mediaType.series')}`,
+    // Sonarr's own name for the series, which the heading is only missing when
+    // it is showing a translation of it instead.
+    !isMovie && !request.title.includes(request.series_title) ? request.series_title : null,
+    String(request.year),
+    isMovie
+      ? formatRuntime(request.runtime)
+      : t('requestCard.season', { season: request.season_number }),
+    isMovie ? null : t('mediaInfo.episodes', { count: request.total_episodes }),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  /*
    * Beside the poster the title gets barely half the screen, and a localised
    * title is often one unbreakable word longer than that — at `h2` it ran past
    * the card edge. A step down in size plus a mid-word wrap keeps every title
@@ -67,58 +63,32 @@ export function MediaInfo({ request, languageSelector, onSeriesClick }: MediaInf
       <Title order={isMobile ? 3 : 2} className="break-anywhere">
         {request.title}
       </Title>
-      <Group gap="xs" c="dimmed">
-        <Text fw={600}>{request.year}</Text>
-        <Text>•</Text>
-        <Text>
-          {isMovie
-            ? formatRuntime(request.runtime)
-            : t('requestCard.season', { season: request.season_number })}
-        </Text>
-      </Group>
+      {/* One wrapping line rather than a row of separate values, so the narrow
+          column beside the poster reflows it instead of overflowing. */}
+      <Text size="sm" c="dimmed">
+        {meta}
+      </Text>
     </Stack>
   );
 
   const controls = (
     <Group gap="sm" wrap="nowrap">
-      {languageSelector}
+      {onManageSeasons && (
+        <Button
+          variant="light"
+          size={isMobile ? 'compact-sm' : 'xs'}
+          leftSection={<IconListCheck size={16} />}
+          onClick={onManageSeasons}
+        >
+          {t('requestPage.seasons.manage')}
+        </Button>
+      )}
       <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
     </Group>
   );
 
   const details = (
     <>
-      <SimpleGrid cols={{ base: 2, md: 3 }} spacing={{ base: 'xs', sm: 'sm' }}>
-        <InfoItem label={t('mediaInfo.labels.type')}>
-          {isMovie ? `🎬 ${t('mediaType.movie')}` : `📺 ${t('mediaType.series')}`}
-        </InfoItem>
-        <InfoItem label={t('mediaInfo.labels.created')}>{formatDate(request.created_at)}</InfoItem>
-        <InfoItem label={t('mediaInfo.labels.updated')}>{formatDate(request.updated_at)}</InfoItem>
-        {!isMovie && (
-          <InfoItem label={t('mediaInfo.labels.series')}>
-            {onSeriesClick ? (
-              <Anchor
-                component="button"
-                type="button"
-                inherit
-                title={t('requestPage.seasons.manage')}
-                onClick={onSeriesClick}
-                className="break-anywhere"
-              >
-                {request.series_title} ({request.series_year})
-              </Anchor>
-            ) : (
-              `${request.series_title} (${request.series_year})`
-            )}
-          </InfoItem>
-        )}
-        {!isMovie && (
-          <InfoItem label={t('mediaInfo.labels.episodes')}>
-            {t('mediaInfo.episodes', { count: request.total_episodes })}
-          </InfoItem>
-        )}
-      </SimpleGrid>
-
       {request.genres.length > 0 && (
         <Stack gap="xs">
           <Title order={5}>{t('mediaInfo.sections.genres')}</Title>
@@ -142,10 +112,10 @@ export function MediaInfo({ request, languageSelector, onSeriesClick }: MediaInf
   );
 
   /*
-   * A phone cannot fit the poster beside the details grid, so only the title
-   * sits next to it and everything else spans the full width underneath. The
-   * language picker and status take a row of their own rather than wrapping
-   * inside the narrow column left over next to the poster.
+   * A phone cannot fit the poster beside the details, so only the title sits
+   * next to it and everything else spans the full width underneath. The season
+   * button and status take a row of their own rather than wrapping inside the
+   * narrow column left over next to the poster.
    */
   if (isMobile) {
     return (

@@ -45,13 +45,6 @@ export const resources = {
         createdAt: 'Created {{date}}',
       },
       mediaInfo: {
-        labels: {
-          type: 'Type',
-          created: 'Created',
-          updated: 'Updated',
-          series: 'Series',
-          episodes: 'Episodes',
-        },
         sections: {
           genres: 'Genres',
           overview: 'Overview',
@@ -197,14 +190,6 @@ export const resources = {
         subtitle: {
           movie: 'Movie request details',
           series: 'Series request details',
-        },
-      },
-      localization: {
-        selectorLabel: 'Metadata language',
-        defaultOption: 'Original metadata',
-        languageNames: {
-          eng: 'English',
-          rus: 'Русский',
         },
       },
       requestActions: {
@@ -621,13 +606,6 @@ export const resources = {
         createdAt: 'Создано {{date}}',
       },
       mediaInfo: {
-        labels: {
-          type: 'Тип',
-          created: 'Создано',
-          updated: 'Обновлено',
-          series: 'Сериал',
-          episodes: 'Эпизоды',
-        },
         sections: {
           genres: 'Жанры',
           overview: 'Описание',

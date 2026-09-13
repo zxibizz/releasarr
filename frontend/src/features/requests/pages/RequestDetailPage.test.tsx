@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from 'i18next';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequestDetailPage } from '@/features/requests/pages/RequestDetailPage';
 import { ApiError, apiRequest } from '@/lib/api/client';
@@ -38,6 +39,8 @@ const series: MediaRequest = {
   status: 'downloading',
   created_at: '2026-02-01T00:00:00.000Z',
   updated_at: '2026-02-02T00:00:00.000Z',
+  // No `eng` entry, so an English page falls back to the title above.
+  localizations: { rus: { title: 'Разделение', overview: 'Сотрудники разделяют память.' } },
 };
 
 const movie: MediaRequest = {
@@ -128,7 +131,7 @@ const stubRoutes = ({
 };
 
 const openSeasonManager = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: /Severance \(2022\)/ }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Manage seasons' }));
   return screen.findByRole('dialog', { name: /Seasons of Severance/ });
 };
 
@@ -136,6 +139,12 @@ describe('RequestDetailPage', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
     navigate.mockReset();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
   });
 
   it('lists the episodes of the season with what became of each', async () => {
@@ -191,12 +200,40 @@ describe('RequestDetailPage', () => {
 
     renderWithProviders(<RequestDetailPage />);
 
-    expect(await screen.findByRole('button', { name: /Severance \(2022\)/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Severance - Season 2' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText(/downloaded$/)).not.toBeInTheDocument();
   });
 
-  it('opens the season manager from the series name', async () => {
+  it('sums the request up in one line, dates excluded', async () => {
+    stubRoutes();
+
+    renderWithProviders(<RequestDetailPage />);
+
+    // The series name is left out: the heading is already saying it.
+    expect(
+      await screen.findByText('📺 Series · 2022 · Season 2 · 10 episodes'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Feb 1, 2026/)).not.toBeInTheDocument();
+  });
+
+  it('reads the request in the language the app is set to', async () => {
+    stubRoutes();
+    await act(async () => {
+      await i18n.changeLanguage('ru');
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Разделение' })).toBeInTheDocument();
+    // The heading has stopped saying Sonarr's own name for the series, so the
+    // meta line picks it up.
+    expect(screen.getByText(/· Severance ·/)).toBeInTheDocument();
+  });
+
+  it('opens the season manager from the header', async () => {
     stubRoutes();
 
     renderWithProviders(<RequestDetailPage />);
@@ -311,7 +348,7 @@ describe('RequestDetailPage', () => {
     renderWithProviders(<RequestDetailPage />);
 
     expect(await screen.findByText('Arrival')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Severance/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage seasons' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Remove Request'));
 
