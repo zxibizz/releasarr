@@ -1,11 +1,13 @@
 import {
   Alert,
+  Badge,
   Button,
   Group,
   Paper,
   SimpleGrid,
   Skeleton,
   Stack,
+  Tabs,
   Text,
   TextInput,
   Title,
@@ -20,6 +22,15 @@ import { useMediaSearch } from '@/features/discover/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
+
+type ResultTab = MediaSearchResult['type'];
+
+const RESULT_TABS: readonly ResultTab[] = ['movie', 'series'];
+
+const TAB_LABELS: Record<ResultTab, string> = {
+  movie: 'discover.tabs.movies',
+  series: 'discover.tabs.shows',
+};
 
 function ResultsSkeleton() {
   return (
@@ -47,9 +58,26 @@ export function AddRequestPage() {
   // the request table; the query only moves on submit.
   const [submitted, setSubmitted] = useState('');
   const [picked, setPicked] = useState<MediaSearchResult | null>(null);
+  // Null until the reader picks a tab, which leaves every fresh search free to
+  // open whichever tab its best hit landed in.
+  const [chosenTab, setChosenTab] = useState<ResultTab | null>(null);
 
   const search = useMediaSearch(submitted);
   const results = search.data?.results ?? [];
+
+  const grouped: Record<ResultTab, MediaSearchResult[]> = {
+    movie: results.filter((result) => result.type === 'movie'),
+    series: results.filter((result) => result.type === 'series'),
+  };
+
+  /*
+   * The search covers both kinds at once and comes back as one list already
+   * ranked across the two providers, so whichever kind took the top spot is the
+   * kind the term was most likely about. Opening that tab saves the reader from
+   * finding an empty-handed Movies tab when they searched for a series.
+   */
+  const activeTab =
+    chosenTab && grouped[chosenTab].length > 0 ? chosenTab : (results[0]?.type ?? 'series');
 
   return (
     <Stack gap={isMobile ? 'md' : 'xl'}>
@@ -62,6 +90,7 @@ export function AddRequestPage() {
         onSubmit={(event) => {
           event.preventDefault();
           setSubmitted(term.trim());
+          setChosenTab(null);
         }}
       >
         <Group gap="sm" wrap="nowrap" align="flex-end">
@@ -101,15 +130,44 @@ export function AddRequestPage() {
               {t('discover.results.count', { count: results.length })}
             </Text>
           </Group>
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-            {results.map((result) => (
-              <MediaSearchResultCard
-                key={`${result.type}-${result.provider_id}`}
-                result={result}
-                onPick={setPicked}
-              />
+          <Tabs
+            value={activeTab}
+            onChange={(value) => setChosenTab(value === 'movie' ? 'movie' : 'series')}
+            // An inactive tab renders nothing rather than hiding a second grid
+            // of cards, each of which loads a poster.
+            keepMounted={false}
+          >
+            <Tabs.List mb="lg">
+              {RESULT_TABS.map((tab) => (
+                <Tabs.Tab
+                  key={tab}
+                  value={tab}
+                  disabled={grouped[tab].length === 0}
+                  rightSection={
+                    <Badge size="sm" variant="light" circle>
+                      {grouped[tab].length}
+                    </Badge>
+                  }
+                >
+                  {t(TAB_LABELS[tab])}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+
+            {RESULT_TABS.map((tab) => (
+              <Tabs.Panel key={tab} value={tab}>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                  {grouped[tab].map((result) => (
+                    <MediaSearchResultCard
+                      key={`${result.type}-${result.provider_id}`}
+                      result={result}
+                      onPick={setPicked}
+                    />
+                  ))}
+                </SimpleGrid>
+              </Tabs.Panel>
             ))}
-          </SimpleGrid>
+          </Tabs>
         </Stack>
       )}
 

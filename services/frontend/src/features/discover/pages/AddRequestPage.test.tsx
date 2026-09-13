@@ -154,27 +154,86 @@ describe('AddRequestPage', () => {
     );
   });
 
-  it('searches movies and series together, labelling which each result is', async () => {
+  it('searches movies and series together, splitting the two into tabs', async () => {
     stubRoutes({ results: [seriesResult, movieResult] });
 
     renderWithProviders(<AddRequestPage />);
     await search();
 
     expect(await screen.findByText('Game of Thrones')).toBeInTheDocument();
-    expect(screen.getByText('Arrival')).toBeInTheDocument();
     expect(screen.getByText(/📺 Series/)).toBeInTheDocument();
+    // The other kind is a tab away rather than mixed into the same grid.
+    expect(screen.queryByText('Arrival')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: /Movies/ }));
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
     expect(screen.getByText(/🎬 Movie/)).toBeInTheDocument();
+    expect(screen.queryByText('Game of Thrones')).not.toBeInTheDocument();
+  });
+
+  it('opens the tab holding the result most likely to be the one wanted', async () => {
+    /*
+     * The provider ranks both kinds into one list, so the kind that took the
+     * top spot is the kind the term was about. Landing on the other tab hides
+     * the best hit behind a click.
+     */
+    stubRoutes({ results: [movieResult, seriesResult] });
+
+    renderWithProviders(<AddRequestPage />);
+    await search('arrival');
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Movies/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /Shows/ })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('counts each kind on its tab, and offers no empty one to click', async () => {
+    stubRoutes({ results: [seriesResult, knownSeries] });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    const shows = await screen.findByRole('tab', { name: /Shows/ });
+    expect(shows).toHaveTextContent('2');
+    expect(shows).toBeEnabled();
+
+    const movies = screen.getByRole('tab', { name: /Movies/ });
+    expect(movies).toHaveTextContent('0');
+    expect(movies).toBeDisabled();
+  });
+
+  it('re-picks the tab for each new search rather than keeping the last choice', async () => {
+    stubRoutes({ results: [movieResult, seriesResult] });
+
+    renderWithProviders(<AddRequestPage />);
+    await search('arrival');
+
+    // The movie took the top spot, so Movies opens; the reader moves to Shows.
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: /Shows/ }));
+    expect(await screen.findByText('Game of Thrones')).toBeInTheDocument();
+
+    // A different term, so a fresh search rather than the cached one.
+    await userEvent.clear(screen.getByRole('searchbox'));
+    await search('thrones');
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Movies/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('offers no way to search one kind on its own', async () => {
+    /* The tabs split what came back; the search itself stays over both kinds. */
     stubRoutes({ results: [seriesResult, movieResult] });
 
     renderWithProviders(<AddRequestPage />);
     await search();
 
     expect(await screen.findByText('Game of Thrones')).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Movie' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Series' })).not.toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/discover/search',
+      expect.objectContaining({ query: { q: 'thrones', lang: 'en' } }),
+    );
   });
 
   it('asks the provider for the language the UI is in', async () => {
