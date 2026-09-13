@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import UTC, datetime
-from types import SimpleNamespace
-from typing import ClassVar
 
 import pytest
 
@@ -47,8 +45,18 @@ from src.application.use_cases.releases.resume_release import ResumeReleaseUseCa
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
+from src.application.utility.torrent import TorrentFileInfo, TorrentInfo
 from src.domain.enums import MediaType, ReleaseStatus
 from src.settings.config import AppSettings
+
+
+def stub_parse_torrent(monkeypatch, info: TorrentInfo) -> None:
+    """Make the grab read the supplied metadata instead of real torrent bytes."""
+
+    monkeypatch.setattr(
+        "src.application.use_cases.releases.queue_release_download.parse_torrent",
+        lambda payload: info,
+    )
 
 
 def make_release_file(
@@ -697,22 +705,9 @@ async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
     search_results = ReleaseSearchResults(results=[candidate], query="query", total_results=1)
     search_service = FakeSearchService(search_results, torrent_bytes=b"torrent-data")
 
-    class DummyTorrent:
-        magnet_link = "magnet:?xt=urn:btih:DUMMYHASH"
-        files: ClassVar[list[object]] = []
-
-    def fake_from_string(cls, payload):
-        return DummyTorrent()
-
-    import importlib
-
-    queue_module = importlib.import_module(
-        "src.application.use_cases.releases.queue_release_download"
-    )
-    monkeypatch.setattr(
-        queue_module.Torrent,
-        "from_string",
-        classmethod(fake_from_string),
+    stub_parse_torrent(
+        monkeypatch,
+        TorrentInfo(magnet_link="magnet:?xt=urn:btih:DUMMYHASH", name="Dummy", files=[]),
     )
 
     use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
@@ -756,22 +751,16 @@ async def test_queue_release_download_maps_files_on_grab(monkeypatch) -> None:
         torrent_bytes=b"torrent-data",
     )
 
-    class DummyTorrent:
-        magnet_link = "magnet:?xt=urn:btih:DUMMYHASH"
-        files: ClassVar[list[object]] = [
-            SimpleNamespace(name="Avatar/Avatar.S01E01.mkv", length=2048),
-            SimpleNamespace(name="Avatar/Avatar.S01E02.mkv", length=2048),
-        ]
-
-    import importlib
-
-    queue_module = importlib.import_module(
-        "src.application.use_cases.releases.queue_release_download"
-    )
-    monkeypatch.setattr(
-        queue_module.Torrent,
-        "from_string",
-        classmethod(lambda cls, payload: DummyTorrent()),
+    stub_parse_torrent(
+        monkeypatch,
+        TorrentInfo(
+            magnet_link="magnet:?xt=urn:btih:DUMMYHASH",
+            name="Avatar.The.Last.Airbender.S01.1080p.BluRay.x264",
+            files=[
+                TorrentFileInfo(name="Avatar/Avatar.S01E01.mkv", size_bytes=2048),
+                TorrentFileInfo(name="Avatar/Avatar.S01E02.mkv", size_bytes=2048),
+            ],
+        ),
     )
 
     use_case = QueueReleaseDownloadUseCase(

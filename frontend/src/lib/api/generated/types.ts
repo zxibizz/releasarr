@@ -182,6 +182,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requests/{requestId}/releases/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a hand-supplied release for a request
+         * @description Grabs a release the user already has, bypassing the indexer search.
+         *     Exactly one of `torrent_file_base64` or `magnet_link` must be supplied.
+         *     The release is identified by the info hash the payload carries, so a
+         *     torrent file and its magnet equivalent resolve to the same release.
+         */
+        post: operations["queueManualRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/discover/search": {
         parameters: {
             query?: never;
@@ -795,6 +818,13 @@ export interface components {
         };
         ReleaseDownloadRequest: {
             release_id: string;
+        };
+        /** @description Exactly one of the two fields must be supplied. */
+        ManualReleaseRequest: {
+            /** @description A magnet URI carrying the info hash. */
+            magnet_link?: string | null;
+            /** @description Base64-encoded contents of a `.torrent` file. */
+            torrent_file_base64?: string | null;
         };
         MediaSearchResult: {
             type: components["schemas"]["MediaType"];
@@ -1641,6 +1671,62 @@ export interface operations {
                 };
             };
             /** @description Request already has an active download. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    queueManualRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualReleaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Release accepted for download. */
+            202: {
+                headers: {
+                    /** @description URL to poll for the queued download status. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsyncOperationResponse"];
+                };
+            };
+            /** @description Unreadable torrent file or magnet link. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The release is already registered. */
             409: {
                 headers: {
                     [name: string]: unknown;

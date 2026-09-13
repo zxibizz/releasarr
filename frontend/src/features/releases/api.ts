@@ -1,6 +1,7 @@
 import { apiRequest } from '@/lib/api/client';
 import type {
   AsyncOperationResponse,
+  ManualReleaseRequest,
   Release,
   ReleaseDownloadRequest,
   ReleaseFileMappingInput,
@@ -13,10 +14,9 @@ const encode = encodeURIComponent;
 
 export const releasesApi = {
   byRequest: async (requestId: string, signal?: AbortSignal): Promise<Release[]> => {
-    const response = await apiRequest<ReleasesResponse>(
-      `/requests/${encode(requestId)}/releases`,
-      { signal },
-    );
+    const response = await apiRequest<ReleasesResponse>(`/requests/${encode(requestId)}/releases`, {
+      signal,
+    });
     return response.releases;
   },
 
@@ -28,6 +28,12 @@ export const releasesApi = {
 
   queueDownload: (requestId: string, payload: ReleaseDownloadRequest) =>
     apiRequest<AsyncOperationResponse>(`/requests/${encode(requestId)}/releases/download`, {
+      method: 'POST',
+      body: payload,
+    }),
+
+  queueManual: (requestId: string, payload: ManualReleaseRequest) =>
+    apiRequest<AsyncOperationResponse>(`/requests/${encode(requestId)}/releases/manual`, {
       method: 'POST',
       body: payload,
     }),

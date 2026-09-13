@@ -536,6 +536,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/releases/manual:
+    post:
+      tags: [Releases]
+      summary: Queue a hand-supplied release for a request
+      description: |
+        Grabs a release the user already has, bypassing the indexer search.
+        Exactly one of `torrent_file_base64` or `magnet_link` must be supplied.
+        The release is identified by the info hash the payload carries, so a
+        torrent file and its magnet equivalent resolve to the same release.
+      operationId: queueManualRelease
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualReleaseRequest'
+      responses:
+        '202':
+          description: Release accepted for download.
+          headers:
+            Location:
+              description: URL to poll for the queued download status.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationResponse'
+        '400':
+          description: Unreadable torrent file or magnet link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The release is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /discover/search:
     get:
       tags: [Discover]
@@ -1743,6 +1792,18 @@ components:
       properties:
         release_id:
           type: string
+    ManualReleaseRequest:
+      type: object
+      description: Exactly one of the two fields must be supplied.
+      properties:
+        magnet_link:
+          type: string
+          nullable: true
+          description: A magnet URI carrying the info hash.
+        torrent_file_base64:
+          type: string
+          nullable: true
+          description: Base64-encoded contents of a `.torrent` file.
     MediaSearchResult:
       type: object
       required: [type, provider_id, title]

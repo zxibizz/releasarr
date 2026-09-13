@@ -103,9 +103,17 @@ class ReleaseDownloadRequest(APIModel):
     release_id: str
 
 
+class ManualReleaseRequest(APIModel):
+    """A hand-supplied grab: exactly one of the two fields must be present."""
+
+    magnet_link: str | None = None
+    torrent_file_base64: str | None = None
+
+
 __all__ = [
     "AddReleaseRequest",
     "FileRequestMapping",
+    "ManualReleaseRequest",
     "MovieFileRequestMapping",
     "Release",
     "ReleaseDownloadRequest",

@@ -16,6 +16,7 @@ export type ReleaseFile = Schemas['ReleaseFile'];
 export type ReleaseSearchResult = Schemas['ReleaseSearchResult'];
 export type ReleaseSearchResponse = Schemas['ReleaseSearchResponse'];
 export type ReleaseDownloadRequest = Schemas['ReleaseDownloadRequest'];
+export type ManualReleaseRequest = Schemas['ManualReleaseRequest'];
 
 export type MediaSearchResult = Schemas['MediaSearchResult'];
 export type MediaSearchResponse = Schemas['MediaSearchResponse'];
