@@ -29,6 +29,9 @@ from src.application.use_cases.releases.delete_release import DeleteReleaseUseCa
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
+from src.application.use_cases.releases.queue_manual_release import (
+    QueueManualReleaseUseCase,
+)
 from src.application.use_cases.releases.queue_release_download import (
     QueueReleaseDownloadUseCase,
 )
@@ -401,6 +404,15 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             search_service=self._container.services.release_search,
+            request_repository=self._container.repositories.media_requests,
+            auto_mapper=self.auto_mapper,
+        )
+
+    @cached_property
+    def queue_manual(self) -> QueueManualReleaseUseCase:
+        return QueueManualReleaseUseCase(
+            repository=self._container.repositories.releases,
+            download_service=self._container.services.release_download,
             request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
         )

@@ -13,11 +13,18 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from src.application.interfaces.releases import ReleaseFileRecord, ReleaseRecord
+from src.application.interfaces.releases import (
+    ReleaseFileRecord,
+    ReleaseRecord,
+    ReleaseSearchResultRecord,
+)
 from src.application.use_cases.releases.commands import (
     FileMappingCommand,
+    QueueReleaseDownloadCommand,
     UpdateFileMappingsCommand,
 )
+from src.application.use_cases.releases.exceptions import ReleaseDownloadFailedError
+from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
@@ -116,3 +123,57 @@ async def test_saving_a_file_mapping_logs_against_the_request(
     mapped = [record for record in captured_records if record.get("request_id") == "req-1"]
     assert mapped, "file mapping produced no log entry bound to the request"
     assert mapped[0]["release_id"] == "rel-1"
+
+
+class StubEmptyReleaseRepository:
+    async def get_release(self, release_id: str) -> ReleaseRecord | None:
+        return None
+
+
+class StubSearchService:
+    def __init__(self, candidate: ReleaseSearchResultRecord) -> None:
+        self._candidate = candidate
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        return self._candidate if release_id == self._candidate.release_id else None
+
+
+class FailingDownloadService:
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> Any:
+        raise RuntimeError("client offline")
+
+
+async def test_a_failed_grab_logs_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    candidate = ReleaseSearchResultRecord(
+        release_id="rel-1",
+        release_name="Example.S01E01",
+        size="1 GB",
+        magnet_link="magnet:?xt=urn:btih:ABC123",
+        torrent_file_url=None,
+        info_url=None,
+        seeders=10,
+        leechers=2,
+        quality="1080p",
+        source="indexer",
+        request_id="req-1",
+    )
+    use_case = QueueReleaseDownloadUseCase(
+        repository=StubEmptyReleaseRepository(),  # type: ignore[arg-type]
+        download_service=FailingDownloadService(),  # type: ignore[arg-type]
+        search_service=StubSearchService(candidate),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(ReleaseDownloadFailedError):
+        await use_case.execute(QueueReleaseDownloadCommand(request_id="req-1", release_id="rel-1"))
+
+    failures = [record for record in captured_records if record.get("request_id") == "req-1"]
+    assert failures, "a failed grab produced no log entry bound to the request"
+    assert "client offline" in failures[0]["error"]

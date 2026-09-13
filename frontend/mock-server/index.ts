@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import path from 'path';
 
 import cors from 'cors';
@@ -391,6 +391,53 @@ api.post('/requests/:requestId/releases/download', async (req, res) => {
     return res.status(500).json({
       message: 'Failed to queue release download',
     });
+  }
+});
+
+/**
+ * The mock cannot read bencoded metadata, so an upload stands in for the info
+ * hash the real backend derives from the torrent's info dict. Hashing the file
+ * keeps it stable, which is what the duplicate check needs.
+ */
+const pseudoInfoHash = (torrentFileBase64: string): string =>
+  createHash('sha1').update(Buffer.from(torrentFileBase64, 'base64')).digest('hex');
+
+api.post('/requests/:requestId/releases/manual', async (req, res) => {
+  const payload = req.body ?? {};
+  const requestId = req.params.requestId?.trim();
+  const magnetLink = (payload.magnet_link as string | undefined)?.trim();
+  const torrentFile = (payload.torrent_file_base64 as string | undefined)?.trim();
+
+  if (!requestId) {
+    return res.status(400).json({ message: 'requestId path param is required' });
+  }
+  if (Boolean(magnetLink) === Boolean(torrentFile)) {
+    return res
+      .status(400)
+      .json({ message: 'Supply exactly one of torrent_file_base64 or magnet_link' });
+  }
+  if (magnetLink && !magnetLink.startsWith('magnet:')) {
+    return res.status(400).json({ message: 'magnet_link must be a magnet URI' });
+  }
+
+  try {
+    const created = await mockStore.addRelease({
+      magnet_link: magnetLink ?? `magnet:?xt=urn:btih:${pseudoInfoHash(torrentFile as string)}`,
+      request_ids: [requestId],
+      name: torrentFile ? 'Manual.Torrent.Upload.mock' : undefined,
+      source: 'manual',
+    });
+
+    const body = buildAsyncResponse(
+      'release.download',
+      created.id,
+      'Manual release queued (mock)',
+      { release_id: created.id, request_id: requestId },
+    );
+    return res.status(202).location(body.location).json(body);
+  } catch (error) {
+    console.error('Failed to queue manual release', error);
+    return res.status(500).json({ message: 'Failed to queue manual release' });
   }
 });
 

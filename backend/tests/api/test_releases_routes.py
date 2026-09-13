@@ -19,6 +19,7 @@ from src.api.routes.releases import (
     _list_use_case,
     _pause_use_case,
     _queue_download_use_case,
+    _queue_manual_use_case,
     _search_use_case,
     _update_mappings_use_case,
 )
@@ -329,6 +330,78 @@ async def test_queue_release_download_failure_returns_500(api_client: AsyncClien
     payload = response.json()
     assert payload["code"] == "release_download_failed"
     assert "client offline" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_queue_manual_release_accepts_a_torrent_file(api_client: AsyncClient) -> None:
+    op = AsyncOperationDTO(
+        operation="queue_download",
+        status="accepted",
+        operation_id="op-1",
+        location="/operations/op-1",
+        message=None,
+        resource_id="HASH",
+        details=None,
+    )
+
+    class FakeManual:
+        def __init__(self) -> None:
+            self.commands: list[Any] = []
+
+        async def execute(self, command):
+            self.commands.append(command)
+            return op
+
+    fake_manual = FakeManual()
+
+    with override_dependency(_queue_manual_use_case, fake_manual):
+        response = await api_client.post(
+            "/requests/req-1/releases/manual",
+            headers=API_KEY_HEADER,
+            json={"torrent_file_base64": "ZDQ6c3BhbWk0MmVl"},
+        )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert response.headers.get("Location") == op.location
+    assert fake_manual.commands[0].request_id == "req-1"
+    assert fake_manual.commands[0].torrent_file_base64 == "ZDQ6c3BhbWk0MmVl"
+    assert fake_manual.commands[0].magnet_link is None
+
+
+@pytest.mark.asyncio
+async def test_queue_manual_release_rejects_an_unusable_payload(api_client: AsyncClient) -> None:
+    class FakeManual:
+        async def execute(self, command):
+            raise ValueError("supply exactly one of torrent_file_base64 or magnet_link")
+
+    with override_dependency(_queue_manual_use_case, FakeManual()):
+        response = await api_client.post(
+            "/requests/req-1/releases/manual",
+            headers=API_KEY_HEADER,
+            json={},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    payload = response.json()
+    assert payload["code"] == "invalid_manual_release"
+    assert "exactly one" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_queue_manual_release_conflict_returns_409(api_client: AsyncClient) -> None:
+    class FakeManual:
+        async def execute(self, command):
+            raise ReleaseDownloadConflictError(command.request_id, "HASH")
+
+    with override_dependency(_queue_manual_use_case, FakeManual()):
+        response = await api_client.post(
+            "/requests/req-1/releases/manual",
+            headers=API_KEY_HEADER,
+            json={"magnet_link": "magnet:?xt=urn:btih:HASH"},
+        )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == "release_download_conflict"
 
 
 @pytest.mark.asyncio

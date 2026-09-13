@@ -12,6 +12,7 @@ import {
   Select,
   Skeleton,
   Stack,
+  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -25,6 +26,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
+import { ManualReleaseForm } from '@/features/releases/components/ManualReleaseForm';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
@@ -43,6 +45,9 @@ const SORT_FIELDS: SortField[] = ['age', 'seeders', 'leechers', 'size'];
 
 const DEFAULT_SORT_FIELD: SortField = 'age';
 const DEFAULT_SOURCE_FILTER = 'all';
+
+const SEARCH_TAB = 'search';
+const MANUAL_TAB = 'manual';
 
 /**
  * Each field has a different "most useful first" direction: freshest releases
@@ -130,6 +135,7 @@ export function ReleaseSearch({
     return t('releaseSearch.age.days', { count: Math.floor(days) });
   };
 
+  const [activeTab, setActiveTab] = useState<string>(SEARCH_TAB);
   const [query, setQuery] = useState(prefillQuery ?? '');
   const [results, setResults] = useState<ReleaseSearchResult[]>([]);
   const [searchedQuery, setSearchedQuery] = useState('');
@@ -191,6 +197,18 @@ export function ReleaseSearch({
     setQuery(prefillQuery ?? '');
   }
 
+  // The request page's "Manual search" action expects the query field, so it
+  // pulls the search tab back to the front if the manual one is showing.
+  const [lastFocusToken, setLastFocusToken] = useState(focusToken);
+  if (focusToken !== lastFocusToken) {
+    setLastFocusToken(focusToken);
+    if (focusToken > 0) {
+      setActiveTab(SEARCH_TAB);
+    }
+  }
+
+  // Focus is the browser's to give, not React's, so it stays in an effect and
+  // runs after the tab above has had its chance to mount the field.
   useEffect(() => {
     if (focusToken > 0) {
       inputRef.current?.focus();
@@ -289,231 +307,246 @@ export function ReleaseSearch({
 
   return (
     <Card withBorder radius="lg" padding={isMobile ? 'sm' : 'lg'}>
-      <Stack gap="lg">
-        <Title order={4}>{t('releaseSearch.title')}</Title>
+      <Tabs value={activeTab} onChange={(value) => setActiveTab(value ?? SEARCH_TAB)}>
+        <Tabs.List mb="lg">
+          <Tabs.Tab value={SEARCH_TAB}>{t('releaseSearch.tabs.search')}</Tabs.Tab>
+          <Tabs.Tab value={MANUAL_TAB}>{t('releaseSearch.tabs.manual')}</Tabs.Tab>
+        </Tabs.List>
 
-        <form onSubmit={handleSubmit}>
-          <Group align="flex-end" gap="sm" wrap="wrap">
-            {isMobile ? (
-              /*
-                Queries here are whole release titles — the prefilled request
-                title alone outruns a phone-width field, and a single line hid
-                everything but its first few words behind a horizontal scroll.
-                The field grows to show the query instead, up to four lines.
-              */
-              <Textarea
-                ref={assignInputRef}
-                autosize
-                minRows={1}
-                maxRows={4}
-                w="100%"
-                value={query}
-                onChange={(event) => setQuery(event.currentTarget.value)}
-                placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
-                aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
-              />
-            ) : (
-              <TextInput
-                ref={assignInputRef}
-                type="search"
-                enterKeyHint="search"
-                style={{ flex: '1 1 220px', minWidth: 0 }}
-                value={query}
-                onChange={(event) => setQuery(event.currentTarget.value)}
-                placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
-                aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
-              />
-            )}
-            <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
-              <Button
-                type="submit"
-                loading={search.isPending}
-                disabled={!normalizedQuery}
-                style={{ flex: actionFlex }}
-              >
-                {t('releaseSearch.actions.search')}
-              </Button>
-              {(query || results.length > 0) && (
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={handleClear}
-                  style={{ flex: actionFlex }}
-                >
-                  {t('releaseSearch.actions.clear')}
-                </Button>
-              )}
-            </Group>
-          </Group>
-        </form>
-
-        {search.isPending && (
-          <Stack gap="sm">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Paper key={index} withBorder radius="md" p="md">
-                <Skeleton height={14} width="70%" mb="xs" />
-                <Skeleton height={10} width="40%" />
-              </Paper>
-            ))}
-          </Stack>
-        )}
-
-        {search.isError && (
-          <Alert color="red" radius="md">
-            {getErrorMessage(search.error, t('releaseSearch.toasts.searchFailedFallback'))}
-          </Alert>
-        )}
-
-        {visibleResults.length > 0 && (
-          <Stack gap="md">
-            <Group justify="space-between" wrap="wrap" gap="xs">
-              <Title order={5}>{t('releaseSearch.results.heading')}</Title>
-              <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                <Text size="sm" c="dimmed">
-                  {t(
-                    visibleResults.length === results.length
-                      ? 'releaseSearch.results.summary'
-                      : 'releaseSearch.results.summaryWithTotal',
-                    {
-                      count: visibleResults.length,
-                      total: results.length,
-                      query: searchedQuery,
-                    },
-                  )}
-                </Text>
-                {isMobile && (
-                  <Indicator disabled={!filtersAdjusted} size={8} offset={4}>
-                    <ActionIcon
-                      variant={filtersExpanded ? 'filled' : 'default'}
-                      size="lg"
-                      // The dot is only visual, so the label carries the same news.
-                      aria-label={t(
-                        filtersAdjusted
-                          ? 'releaseSearch.filters.toggleActive'
-                          : 'releaseSearch.filters.toggle',
-                      )}
-                      aria-expanded={filtersExpanded}
-                      onClick={toggleFilters}
-                    >
-                      <IconAdjustmentsHorizontal size={18} />
-                    </ActionIcon>
-                  </Indicator>
+        <Tabs.Panel value={SEARCH_TAB}>
+          <Stack gap="lg">
+            <form onSubmit={handleSubmit}>
+              <Group align="flex-end" gap="sm" wrap="wrap">
+                {isMobile ? (
+                  /*
+                    Queries here are whole release titles — the prefilled
+                    request title alone outruns a phone-width field, and a
+                    single line hid everything but its first few words behind a
+                    horizontal scroll. The field grows to show the query
+                    instead, up to four lines.
+                  */
+                  <Textarea
+                    ref={assignInputRef}
+                    autosize
+                    minRows={1}
+                    maxRows={4}
+                    w="100%"
+                    value={query}
+                    onChange={(event) => setQuery(event.currentTarget.value)}
+                    placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                    aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+                  />
+                ) : (
+                  <TextInput
+                    ref={assignInputRef}
+                    type="search"
+                    enterKeyHint="search"
+                    style={{ flex: '1 1 220px', minWidth: 0 }}
+                    value={query}
+                    onChange={(event) => setQuery(event.currentTarget.value)}
+                    placeholder={t('releaseSearch.placeholder', { title: requestTitle })}
+                    aria-label={t('releaseSearch.ariaLabel', { title: requestTitle })}
+                  />
                 )}
+                <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
+                  <Button
+                    type="submit"
+                    loading={search.isPending}
+                    disabled={!normalizedQuery}
+                    style={{ flex: actionFlex }}
+                  >
+                    {t('releaseSearch.actions.search')}
+                  </Button>
+                  {(query || results.length > 0) && (
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={handleClear}
+                      style={{ flex: actionFlex }}
+                    >
+                      {t('releaseSearch.actions.clear')}
+                    </Button>
+                  )}
+                </Group>
               </Group>
-            </Group>
+            </form>
 
-            {/*
-              Two rows of sort and source controls on a phone pushed the
-              candidates themselves below the fold, and the default order —
-              freshest first, every source — is the one wanted almost every
-              time. Unmounted while closed so the hidden controls stay out of
-              the tab order.
-            */}
-            {isMobile ? (
-              <Collapse expanded={filtersExpanded} keepMounted={false}>
-                {filterControls}
-              </Collapse>
-            ) : (
-              filterControls
+            {search.isPending && (
+              <Stack gap="sm">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Paper key={index} withBorder radius="md" p="md">
+                    <Skeleton height={14} width="70%" mb="xs" />
+                    <Skeleton height={10} width="40%" />
+                  </Paper>
+                ))}
+              </Stack>
             )}
 
-            <Stack gap="sm">
-              {visibleResults.map((candidate) => {
-                const quality = candidate.quality;
-                const age = ageInDays(candidate);
-                const publishedAt = candidate.publish_date
-                  ? formatDateTime(candidate.publish_date)
-                  : null;
-                return (
-                  <Paper
-                    key={candidate.release_id}
-                    withBorder
-                    radius="md"
-                    p={{ base: 'sm', sm: 'md' }}
-                  >
-                    <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                      <Stack gap={6} style={{ flex: '1 1 240px', minWidth: 0 }}>
-                        {/*
-                          The name is the whole basis for picking one candidate
-                          over another — group, resolution, audio tracks and
-                          release tags all live in its tail — so it wraps in
-                          full rather than being clamped.
-                        */}
-                        <Text size="sm" fw={600} className="break-anywhere">
-                          {candidate.release_name}
-                        </Text>
-                        <Group gap="sm" fz="xs" c="dimmed" wrap="wrap">
-                          {/* An indexer that reported no quality gets no badge:
-                              "Unknown" named the gap without narrowing it. */}
-                          {quality && (
-                            <Badge
-                              size="sm"
-                              radius="xl"
-                              variant="light"
-                              color={QUALITY_COLORS[quality] ?? 'gray'}
-                            >
-                              {quality}
-                            </Badge>
-                          )}
-                          <Text size="xs" title={publishedAt ?? undefined}>
-                            🕒 {ageLabel(age)}
-                          </Text>
-                          <Text size="xs">📦 {candidate.size}</Text>
-                          <Text size="xs" c="teal">
-                            ⬆️ {candidate.seeders ?? 0}
-                          </Text>
-                          <Text size="xs" c="red">
-                            ⬇️ {candidate.leechers ?? 0}
-                          </Text>
-                          {candidate.source && <Text size="xs">🏷️ {candidate.source}</Text>}
-                          {candidate.info_url && (
-                            <Anchor
-                              href={candidate.info_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              size="xs"
-                            >
-                              {t('releaseSearch.links.info')}
-                            </Anchor>
-                          )}
-                        </Group>
-                      </Stack>
+            {search.isError && (
+              <Alert color="red" radius="md">
+                {getErrorMessage(search.error, t('releaseSearch.toasts.searchFailedFallback'))}
+              </Alert>
+            )}
 
-                      <Button
-                        size="xs"
-                        w={{ base: '100%', sm: 'auto' }}
-                        loading={downloadingId === candidate.release_id}
-                        disabled={Boolean(downloadingId) && downloadingId !== candidate.release_id}
-                        aria-label={t('releaseSearch.actions.queueDownload', {
-                          name: candidate.release_name,
-                        })}
-                        onClick={() => {
-                          setDownloadingId(candidate.release_id);
-                          download.mutate(candidate);
-                        }}
+            {visibleResults.length > 0 && (
+              <Stack gap="md">
+                <Group justify="space-between" wrap="wrap" gap="xs">
+                  <Title order={5}>{t('releaseSearch.results.heading')}</Title>
+                  <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <Text size="sm" c="dimmed">
+                      {t(
+                        visibleResults.length === results.length
+                          ? 'releaseSearch.results.summary'
+                          : 'releaseSearch.results.summaryWithTotal',
+                        {
+                          count: visibleResults.length,
+                          total: results.length,
+                          query: searchedQuery,
+                        },
+                      )}
+                    </Text>
+                    {isMobile && (
+                      <Indicator disabled={!filtersAdjusted} size={8} offset={4}>
+                        <ActionIcon
+                          variant={filtersExpanded ? 'filled' : 'default'}
+                          size="lg"
+                          // The dot is only visual, so the label carries the same news.
+                          aria-label={t(
+                            filtersAdjusted
+                              ? 'releaseSearch.filters.toggleActive'
+                              : 'releaseSearch.filters.toggle',
+                          )}
+                          aria-expanded={filtersExpanded}
+                          onClick={toggleFilters}
+                        >
+                          <IconAdjustmentsHorizontal size={18} />
+                        </ActionIcon>
+                      </Indicator>
+                    )}
+                  </Group>
+                </Group>
+
+                {/*
+                  Two rows of sort and source controls on a phone pushed the
+                  candidates themselves below the fold, and the default order —
+                  freshest first, every source — is the one wanted almost every
+                  time. Unmounted while closed so the hidden controls stay out
+                  of the tab order.
+                */}
+                {isMobile ? (
+                  <Collapse expanded={filtersExpanded} keepMounted={false}>
+                    {filterControls}
+                  </Collapse>
+                ) : (
+                  filterControls
+                )}
+
+                <Stack gap="sm">
+                  {visibleResults.map((candidate) => {
+                    const quality = candidate.quality;
+                    const age = ageInDays(candidate);
+                    const publishedAt = candidate.publish_date
+                      ? formatDateTime(candidate.publish_date)
+                      : null;
+                    return (
+                      <Paper
+                        key={candidate.release_id}
+                        withBorder
+                        radius="md"
+                        p={{ base: 'sm', sm: 'md' }}
                       >
-                        {t('releaseSearch.download')}
-                      </Button>
-                    </Group>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          </Stack>
-        )}
+                        <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                          <Stack gap={6} style={{ flex: '1 1 240px', minWidth: 0 }}>
+                            {/*
+                              The name is the whole basis for picking one
+                              candidate over another — group, resolution, audio
+                              tracks and release tags all live in its tail — so
+                              it wraps in full rather than being clamped.
+                            */}
+                            <Text size="sm" fw={600} className="break-anywhere">
+                              {candidate.release_name}
+                            </Text>
+                            <Group gap="sm" fz="xs" c="dimmed" wrap="wrap">
+                              {/* An indexer that reported no quality gets no
+                                  badge: "Unknown" named the gap without
+                                  narrowing it. */}
+                              {quality && (
+                                <Badge
+                                  size="sm"
+                                  radius="xl"
+                                  variant="light"
+                                  color={QUALITY_COLORS[quality] ?? 'gray'}
+                                >
+                                  {quality}
+                                </Badge>
+                              )}
+                              <Text size="xs" title={publishedAt ?? undefined}>
+                                🕒 {ageLabel(age)}
+                              </Text>
+                              <Text size="xs">📦 {candidate.size}</Text>
+                              <Text size="xs" c="teal">
+                                ⬆️ {candidate.seeders ?? 0}
+                              </Text>
+                              <Text size="xs" c="red">
+                                ⬇️ {candidate.leechers ?? 0}
+                              </Text>
+                              {candidate.source && <Text size="xs">🏷️ {candidate.source}</Text>}
+                              {candidate.info_url && (
+                                <Anchor
+                                  href={candidate.info_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  size="xs"
+                                >
+                                  {t('releaseSearch.links.info')}
+                                </Anchor>
+                              )}
+                            </Group>
+                          </Stack>
 
-        {searchedQuery && !search.isPending && visibleResults.length === 0 && (
-          <Paper withBorder radius="lg" p={{ base: 'md', sm: 'xl' }}>
-            <Stack align="center" gap="xs">
-              <Text fz={32}>🔍</Text>
-              <Title order={5}>{t('releaseSearch.empty.title')}</Title>
-              <Text size="sm" c="dimmed" ta="center">
-                {t('releaseSearch.empty.description')}
-              </Text>
-            </Stack>
-          </Paper>
-        )}
-      </Stack>
+                          <Button
+                            size="xs"
+                            w={{ base: '100%', sm: 'auto' }}
+                            loading={downloadingId === candidate.release_id}
+                            disabled={
+                              Boolean(downloadingId) && downloadingId !== candidate.release_id
+                            }
+                            aria-label={t('releaseSearch.actions.queueDownload', {
+                              name: candidate.release_name,
+                            })}
+                            onClick={() => {
+                              setDownloadingId(candidate.release_id);
+                              download.mutate(candidate);
+                            }}
+                          >
+                            {t('releaseSearch.download')}
+                          </Button>
+                        </Group>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+              </Stack>
+            )}
+
+            {searchedQuery && !search.isPending && visibleResults.length === 0 && (
+              <Paper withBorder radius="lg" p={{ base: 'md', sm: 'xl' }}>
+                <Stack align="center" gap="xs">
+                  <Text fz={32}>🔍</Text>
+                  <Title order={5}>{t('releaseSearch.empty.title')}</Title>
+                  <Text size="sm" c="dimmed" ta="center">
+                    {t('releaseSearch.empty.description')}
+                  </Text>
+                </Stack>
+              </Paper>
+            )}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value={MANUAL_TAB}>
+          <ManualReleaseForm requestId={requestId} onDownloadQueued={onDownloadQueued} />
+        </Tabs.Panel>
+      </Tabs>
     </Card>
   );
 }

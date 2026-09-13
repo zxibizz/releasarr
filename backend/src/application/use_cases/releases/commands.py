@@ -58,10 +58,20 @@ class QueueReleaseDownloadCommand:
     release_id: str
 
 
+@dataclass(slots=True)
+class QueueManualReleaseCommand:
+    """A grab the user supplied by hand, as either a torrent file or a magnet."""
+
+    request_id: str
+    magnet_link: str | None = None
+    torrent_file_base64: str | None = None
+
+
 __all__ = [
     "CreateReleaseCommand",
     "FileMappingCommand",
     "ListReleasesOptions",
+    "QueueManualReleaseCommand",
     "QueueReleaseDownloadCommand",
     "ReleaseIdCommand",
     "SearchReleaseSourcesCommand",

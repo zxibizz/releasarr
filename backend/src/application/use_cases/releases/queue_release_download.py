@@ -2,21 +2,12 @@
 
 from __future__ import annotations
 
-from urllib.parse import quote_plus
-from uuid import uuid4
-
 from loguru import logger
-from torrentool.api import Torrent
 
-from src.application.interfaces.media_requests import (
-    MediaRequestRepository,
-    UpdateMediaRequestData,
-)
+from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
-    ReleaseFileRecord,
-    ReleaseRecord,
     ReleaseRepository,
     ReleaseSearchService,
 )
@@ -28,8 +19,9 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseDownloadFailedError,
     ReleaseNotFoundError,
 )
+from src.application.use_cases.releases.grab import ReleaseGrabFinalizer, to_release_files
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
-from src.domain.enums import MediaRequestStatus
+from src.application.utility.torrent import TorrentInfo, parse_torrent
 
 
 class QueueReleaseDownloadUseCase:
@@ -46,72 +38,83 @@ class QueueReleaseDownloadUseCase:
         self._repository = repository
         self._download_service = download_service
         self._search_service = search_service
-        self._request_repository = request_repository
-        self._auto_mapper = auto_mapper
+        self._finalizer = ReleaseGrabFinalizer(request_repository, auto_mapper)
 
     async def execute(self, command: QueueReleaseDownloadCommand) -> AsyncOperationDTO:
-        release = await self._repository.get_release(command.release_id)
+        # Anything that goes wrong below has to be logged against the request
+        # before it propagates. A caller only sees the resulting error response,
+        # while the request's activity view is built from log records filtered on
+        # request_id, so an unlogged failure leaves no trace of the attempt.
         effective_request_id = command.request_id
-        magnet_link: str | None = None
-        torrent_bytes: bytes | None = None
+        try:
+            release = await self._repository.get_release(command.release_id)
+            if release is not None:
+                raise ReleaseDownloadConflictError(command.request_id, command.release_id)
 
-        if release is not None:
-            raise ReleaseDownloadConflictError(command.request_id, command.release_id)
+            candidate = self._search_service.resolve(command.release_id)
+            if candidate is None:
+                raise ReleaseNotFoundError(command.release_id)
 
-        candidate = self._search_service.resolve(command.release_id)
-        if candidate is None:
-            raise ReleaseNotFoundError(command.release_id)
+            effective_request_id = candidate.request_id or command.request_id
+            if not effective_request_id:
+                raise ReleaseDownloadConflictError(command.request_id, command.release_id)
 
-        effective_request_id = candidate.request_id or command.request_id
-        if not effective_request_id:
-            raise ReleaseDownloadConflictError(command.request_id, command.release_id)
+            magnet_link = candidate.magnet_link
+            torrent_bytes: bytes | None = None
+            torrent: TorrentInfo | None = None
 
-        magnet_link = candidate.magnet_link
+            if candidate.torrent_file_url:
+                try:
+                    torrent_bytes = await self._search_service.fetch_torrent(
+                        candidate.torrent_file_url
+                    )
+                    torrent = parse_torrent(torrent_bytes)
+                    magnet_link = torrent.magnet_link
+                except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
+                    logger.warning(
+                        "Failed to resolve torrent file, falling back to magnet link",
+                        request_id=effective_request_id,
+                        release_id=command.release_id,
+                        error=str(exc),
+                    )
+                    torrent_bytes = None
+                    torrent = None
 
-        if candidate.torrent_file_url:
+            if not magnet_link:
+                raise ReleaseNotFoundError(command.release_id)
+
             try:
-                torrent_bytes = await self._search_service.fetch_torrent(candidate.torrent_file_url)
-                torrent = Torrent.from_string(torrent_bytes)
-                magnet_link = torrent.magnet_link
-            except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
-                logger.warning(
-                    "Failed to resolve torrent file, falling back to magnet link",
-                    request_id=effective_request_id,
-                    release_id=command.release_id,
-                    error=str(exc),
+                queued = await self._download_service.queue_download(
+                    effective_request_id,
+                    command.release_id,
+                    magnet_link,
+                    torrent_bytes,
                 )
-                torrent_bytes = None
-                torrent = None
-        else:
-            torrent = None
+            except Exception as exc:  # pragma: no cover - defensive
+                raise ReleaseDownloadFailedError(command.release_id, str(exc)) from exc
 
-        if not magnet_link:
-            raise ReleaseNotFoundError(command.release_id)
-
-        try:
-            queued = await self._download_service.queue_download(
-                effective_request_id,
-                command.release_id,
-                magnet_link,
-                torrent_bytes,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            raise ReleaseDownloadFailedError(command.release_id, str(exc)) from exc
-
-        try:
-            release = await self._repository.create_release(
-                data=CreateReleaseData(
-                    magnet_link=magnet_link,
-                    request_ids=[effective_request_id],
-                    id=candidate.release_id,
-                    name=candidate.release_name,
-                    source=candidate.source or "",
-                    quality=candidate.quality or "",
-                    files=self._extract_files(torrent) if torrent else None,
+            try:
+                release = await self._repository.create_release(
+                    data=CreateReleaseData(
+                        magnet_link=magnet_link,
+                        request_ids=[effective_request_id],
+                        id=candidate.release_id,
+                        name=candidate.release_name,
+                        source=candidate.source or "",
+                        quality=candidate.quality or "",
+                        files=to_release_files(torrent.files) if torrent else None,
+                    )
                 )
+            except ValueError as exc:
+                raise ReleaseDownloadConflictError(command.request_id, command.release_id) from exc
+        except Exception as exc:
+            logger.error(
+                f"Failed to grab release: {exc}",
+                request_id=effective_request_id,
+                release_id=command.release_id,
+                error=str(exc),
             )
-        except ValueError as exc:
-            raise ReleaseDownloadConflictError(command.request_id, command.release_id) from exc
+            raise
 
         logger.info(
             f"Grabbed release {candidate.release_name}",
@@ -121,70 +124,10 @@ class QueueReleaseDownloadUseCase:
             source=candidate.source,
             quality=candidate.quality,
         )
-        await self._mark_request_downloading(effective_request_id)
-        await self._auto_map_files(release)
+        await self._finalizer.mark_request_downloading(effective_request_id)
+        await self._finalizer.auto_map_files(release)
 
         return queued_download_to_async_operation(queued)
-
-    async def _auto_map_files(self, release: ReleaseRecord) -> None:
-        """Map the files the torrent metadata revealed.
-
-        A grab that only resolved to a magnet link carries no file list, leaving
-        nothing to map. The download is queued and the release stored by now, so a
-        failure here must not surface.
-        """
-        if self._auto_mapper is None or not release.files:
-            return
-        try:
-            await self._auto_mapper.apply(release)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
-                "Failed to auto-map release files",
-                release_id=release.id,
-                error=str(exc),
-            )
-
-    async def _mark_request_downloading(self, request_id: str) -> None:
-        """Reflect the grab on the request straight away.
-
-        The release sync is what keeps request status honest from here on; this only
-        avoids leaving the request on ``pending`` until the next sync cycle. The
-        torrent is already queued at this point, so a failure here must not surface.
-        """
-        if self._request_repository is None:
-            return
-        try:
-            await self._request_repository.update_request(
-                request_id,
-                UpdateMediaRequestData(status=MediaRequestStatus.DOWNLOADING),
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
-                "Failed to mark request as downloading",
-                request_id=request_id,
-                error=str(exc),
-            )
-
-    def _magnet_from_release(self, release: ReleaseRecord) -> str:
-        quoted_name = quote_plus(release.name) if release.name else None
-        magnet = f"magnet:?xt=urn:btih:{release.info_hash}"
-        if quoted_name:
-            magnet = f"{magnet}&dn={quoted_name}"
-        return magnet
-
-    def _extract_files(self, torrent: Torrent) -> list[ReleaseFileRecord]:
-        files: list[ReleaseFileRecord] = []
-        for file in torrent.files:
-            files.append(
-                ReleaseFileRecord(
-                    id=str(uuid4()),
-                    name=file.name,
-                    size_bytes=file.length,
-                    path=file.name,  # Simple path for now
-                    mapping=None,
-                )
-            )
-        return files
 
 
 __all__ = ["QueueReleaseDownloadUseCase"]

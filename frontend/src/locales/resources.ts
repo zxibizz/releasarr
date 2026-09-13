@@ -215,11 +215,12 @@ export const resources = {
         },
       },
       releaseSearch: {
-        title: '🔍 Search Release Sources',
-        instructions:
-          'Enter a title or identifier and press the search button to fetch release candidates.',
         placeholder: 'Search release sources for "{{title}}"…',
         ariaLabel: 'Search releases for {{title}}',
+        tabs: {
+          search: '🔍 Search indexers',
+          manual: '📎 Add manually',
+        },
         actions: {
           runSearch: 'Run release search',
           search: 'Search',
@@ -281,6 +282,32 @@ export const resources = {
         empty: {
           title: 'No release sources found',
           description: 'Try adjusting your search terms or check back later.',
+        },
+      },
+      manualRelease: {
+        instructions:
+          'Already have the release? Upload its .torrent file or paste a magnet link and it goes straight to the download client.',
+        or: 'or',
+        file: {
+          label: 'Torrent file',
+          description: 'The file list is read straight away, so files are mapped on arrival.',
+          placeholder: 'Choose a .torrent file',
+        },
+        magnet: {
+          label: 'Magnet link',
+          description: 'File names only arrive once the download client has the metadata.',
+          placeholder: 'magnet:?xt=urn:btih:…',
+          invalid: 'A magnet link must start with "magnet:".',
+        },
+        actions: {
+          submit: 'Add release',
+          clear: 'Clear',
+        },
+        toasts: {
+          queuedTitle: 'Download queued',
+          queuedDescription: 'The release was handed to the download client.',
+          failedTitle: 'Could not add the release',
+          failedFallback: 'Failed to add the release',
         },
       },
       releaseCard: {
@@ -705,11 +732,12 @@ export const resources = {
         },
       },
       releaseSearch: {
-        title: '🔍 Поиск релизов',
-        instructions:
-          'Введите название или идентификатор и нажмите поиск, чтобы получить кандидатов.',
         placeholder: 'Поиск релизов для «{{title}}»…',
         ariaLabel: 'Поиск релизов для {{title}}',
+        tabs: {
+          search: '🔍 Поиск по индексерам',
+          manual: '📎 Добавить вручную',
+        },
         actions: {
           runSearch: 'Запустить поиск релизов',
           search: 'Поиск',
@@ -773,6 +801,33 @@ export const resources = {
         empty: {
           title: 'Ничего не найдено',
           description: 'Измените поисковый запрос или попробуйте позже.',
+        },
+      },
+      manualRelease: {
+        instructions:
+          'Релиз уже есть? Загрузите его .torrent-файл или вставьте magnet-ссылку — он сразу уйдёт в загрузчик.',
+        or: 'или',
+        file: {
+          label: 'Torrent-файл',
+          description:
+            'Список файлов читается сразу, поэтому сопоставление проходит при добавлении.',
+          placeholder: 'Выберите .torrent-файл',
+        },
+        magnet: {
+          label: 'Magnet-ссылка',
+          description: 'Имена файлов появятся, только когда загрузчик получит метаданные.',
+          placeholder: 'magnet:?xt=urn:btih:…',
+          invalid: 'Magnet-ссылка должна начинаться с «magnet:».',
+        },
+        actions: {
+          submit: 'Добавить релиз',
+          clear: 'Очистить',
+        },
+        toasts: {
+          queuedTitle: 'Скачивание добавлено',
+          queuedDescription: 'Релиз передан в загрузчик.',
+          failedTitle: 'Не удалось добавить релиз',
+          failedFallback: 'Ошибка при добавлении релиза',
         },
       },
       releaseCard: {

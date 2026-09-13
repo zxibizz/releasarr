@@ -16,6 +16,7 @@ from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
     FileMappingCommand,
     ListReleasesOptions,
+    QueueManualReleaseCommand,
     QueueReleaseDownloadCommand,
     SearchReleaseSourcesCommand,
     UpdateFileMappingsCommand,
@@ -31,6 +32,7 @@ from src.application.use_cases.releases.dto import (
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
+from src.application.use_cases.releases.queue_manual_release import QueueManualReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
@@ -43,6 +45,7 @@ from src.schemas.jobs import AsyncOperationResponse
 from src.schemas.releases import (
     AddReleaseRequest,
     FileRequestMapping,
+    ManualReleaseRequest,
     Release,
     ReleaseDownloadRequest,
     ReleaseFile,
@@ -101,6 +104,12 @@ def _queue_download_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> QueueReleaseDownloadUseCase:
     return container.use_cases.releases.queue_download
+
+
+def _queue_manual_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> QueueManualReleaseUseCase:
+    return container.use_cases.releases.queue_manual
 
 
 _SERVER_ERROR = "Unexpected server error."
@@ -181,6 +190,14 @@ QUEUE_DOWNLOAD_RESPONSES = error_responses(
         status.HTTP_400_BAD_REQUEST: "Malformed request body.",
         status.HTTP_404_NOT_FOUND: "Release candidate not found for the request.",
         status.HTTP_409_CONFLICT: "Request already has an active download.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+MANUAL_RELEASE_RESPONSES = error_responses(
+    {
+        status.HTTP_400_BAD_REQUEST: "Unreadable torrent file or magnet link.",
+        status.HTTP_409_CONFLICT: "The release is already registered.",
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -481,6 +498,32 @@ async def queue_release_download(
 ) -> AsyncOperationResponse:
     command = QueueReleaseDownloadCommand(request_id=request_id, release_id=payload.release_id)
     dto = await queue_use_case.execute(command)
+    if dto.location:
+        response.headers["Location"] = dto.location
+    return _async_to_response(dto)
+
+
+@request_releases_router.post(
+    "/{requestId}/releases/manual",
+    response_model=AsyncOperationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=MANUAL_RELEASE_RESPONSES,
+)
+async def queue_manual_release(
+    request_id: RequestIdParam,
+    payload: ManualReleaseRequest,
+    response: Response,
+    manual_use_case: QueueManualReleaseUseCase = Depends(_queue_manual_use_case),
+) -> AsyncOperationResponse:
+    command = QueueManualReleaseCommand(
+        request_id=request_id,
+        magnet_link=payload.magnet_link,
+        torrent_file_base64=payload.torrent_file_base64,
+    )
+    try:
+        dto = await manual_use_case.execute(command)
+    except ValueError as exc:
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_manual_release", str(exc)) from exc
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)
