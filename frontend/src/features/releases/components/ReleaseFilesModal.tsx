@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { ResponsiveModal } from '@/components/ResponsiveModal';
 import { OtherFilesSection } from '@/features/releases/components/OtherFilesSection';
 import { FileMappingForm } from '@/features/releases/fileMapping/FileMappingForm';
-import type { DefaultRequest } from '@/features/releases/fileMapping/useFileMappingForm';
 import type { MediaRequest, Release, ReleaseFile } from '@/types';
 import { formatEpisodeCode, splitVideoFiles } from '@/utils/files';
 import { formatFileSize } from '@/utils/formatters';
@@ -57,15 +56,6 @@ export function ReleaseFilesModal({
   }
 
   const { video, other } = splitVideoFiles(release.files);
-  const isSeries = currentRequest.type === 'series';
-  const defaultRequest: DefaultRequest = {
-    id: currentRequest.id,
-    title: currentRequest.title,
-    type: isSeries ? 'series' : 'movie',
-    seasonNumber: isSeries ? currentRequest.season_number : undefined,
-    seriesTitle: isSeries ? currentRequest.series_title : undefined,
-    sonarrSeriesId: isSeries ? currentRequest.sonarr_series_id : undefined,
-  };
 
   return (
     <ResponsiveModal opened={opened} onClose={onClose} title={`📁 ${release.name}`}>
@@ -95,7 +85,6 @@ export function ReleaseFilesModal({
             releaseId={release.id}
             requestId={currentRequest.id}
             files={release.files}
-            defaultRequest={defaultRequest}
           />
         </Tabs.Panel>
       </Tabs>

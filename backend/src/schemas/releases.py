@@ -73,6 +73,18 @@ class ReleaseFileMappingsUpdate(APIModel):
     files: list[ReleaseFileMappingInput]
 
 
+class ReleaseFileMappingSuggestion(APIModel):
+    """A mapping the server proposes for a file. Unlike an update, it always
+    names one: there is no such thing as suggesting that a file be unmapped."""
+
+    file_id: str
+    request_mapping: FileRequestMapping
+
+
+class ReleaseFileMappingSuggestions(APIModel):
+    files: list[ReleaseFileMappingSuggestion]
+
+
 class AddReleaseRequest(APIModel):
     magnet_link: str
     request_ids: list[str]
@@ -119,6 +131,8 @@ __all__ = [
     "ReleaseDownloadRequest",
     "ReleaseFile",
     "ReleaseFileMappingInput",
+    "ReleaseFileMappingSuggestion",
+    "ReleaseFileMappingSuggestions",
     "ReleaseFileMappingsUpdate",
     "ReleaseSearchResponse",
     "ReleaseSearchResult",

@@ -2,6 +2,7 @@ import type {
   MediaRequest,
   MovieRequest,
   Release,
+  ReleaseFileMappingSuggestion,
   ReleaseSearchResult,
   SeriesRequest,
 } from '../src/types';
@@ -483,3 +484,50 @@ export const getMockReleasesByRequest = async (requestId: string): Promise<Relea
   return mockReleases.filter((release) => release.request_ids.includes(requestId));
 };
 
+/**
+ * What the server's automapper would come back with for each release. These are
+ * fixtures rather than a parser: the heuristics belong to the backend, and a
+ * second implementation here would only drift from it.
+ */
+const mockMappingSuggestions: Record<string, ReleaseFileMappingSuggestion[]> = {
+  r1: [
+    {
+      file_id: 'f1',
+      request_mapping: {
+        request_id: '1',
+        request_title: 'The Dark Knight',
+        mapping_type: 'movie',
+      },
+    },
+  ],
+  r2: ['f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8'].map((fileId, index) => ({
+    file_id: fileId,
+    request_mapping: {
+      request_id: '5',
+      request_title: 'Breaking Bad - Season 1',
+      mapping_type: 'series',
+      season: 1,
+      episode: index + 1,
+    },
+  })),
+  r3: [
+    {
+      file_id: 'f9',
+      request_mapping: {
+        request_id: '2',
+        request_title: 'Inception',
+        mapping_type: 'movie',
+      },
+    },
+  ],
+};
+
+export const getMockMappingSuggestions = async (
+  releaseId: string,
+): Promise<ReleaseFileMappingSuggestion[] | null> => {
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  if (!mockReleases.some((release) => release.id === releaseId)) {
+    return null;
+  }
+  return mockMappingSuggestions[releaseId] ?? [];
+};

@@ -20,7 +20,7 @@ from src.application.use_cases.releases.dto import (
 )
 
 
-def _mapping_to_dto(mapping: ReleaseFileMapping | None) -> ReleaseFileMappingDTO | None:
+def mapping_to_dto(mapping: ReleaseFileMapping | None) -> ReleaseFileMappingDTO | None:
     if mapping is None:
         return None
 
@@ -41,7 +41,7 @@ def _file_record_to_dto(record: ReleaseFileRecord) -> ReleaseFileDTO:
         name=record.name,
         size_bytes=record.size_bytes,
         path=record.path,
-        request_mapping=_mapping_to_dto(record.mapping),
+        request_mapping=mapping_to_dto(record.mapping),
     )
 
 
@@ -118,6 +118,7 @@ def queued_download_to_async_operation(download: QueuedDownload) -> AsyncOperati
 
 
 __all__ = [
+    "mapping_to_dto",
     "queued_download_to_async_operation",
     "record_to_dto",
     "records_to_page",

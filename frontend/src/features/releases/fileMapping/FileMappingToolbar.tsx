@@ -7,20 +7,24 @@ import type { MediaRequest } from '@/types';
 interface FileMappingToolbarProps {
   requests: MediaRequest[];
   requestsLoading: boolean;
-  canAutoFill: boolean;
+  canSuggest: boolean;
+  canNumberEpisodes: boolean;
   hasChanges: boolean;
   onApplyToAll: (request: MediaRequest) => void;
-  onAutoFill: () => void;
+  onApplySuggestions: () => void;
+  onNumberEpisodes: () => void;
   onReset: () => void;
 }
 
 export function FileMappingToolbar({
   requests,
   requestsLoading,
-  canAutoFill,
+  canSuggest,
+  canNumberEpisodes,
   hasChanges,
   onApplyToAll,
-  onAutoFill,
+  onApplySuggestions,
+  onNumberEpisodes,
   onReset,
 }: FileMappingToolbarProps) {
   const { t } = useTranslation();
@@ -32,9 +36,9 @@ export function FileMappingToolbar({
   }));
 
   /*
-   * These two labels are long enough that sharing a row on a phone leaves the
-   * text narrower than the button's padding allows, so each takes its own row.
-   * On wider screens they keep their natural width: growing them would let
+   * These labels are long enough that sharing a row on a phone leaves the text
+   * narrower than the button's padding allows, so each takes its own row. On
+   * wider screens they keep their natural width: growing them would let
    * flexbox shrink the labels below their content.
    */
   const buttonFlex = isMobile ? '1 1 100%' : undefined;
@@ -64,11 +68,20 @@ export function FileMappingToolbar({
       <Group gap="sm" wrap="wrap" w={{ base: '100%', sm: 'auto' }}>
         <Button
           variant="default"
-          onClick={onAutoFill}
-          disabled={!canAutoFill}
+          onClick={onApplySuggestions}
+          disabled={!canSuggest}
           style={{ flex: buttonFlex }}
         >
-          {t('fileMapping.autoFill', { defaultValue: 'Auto-fill from filenames' })}
+          {t('fileMapping.applySuggestions', { defaultValue: 'Use suggested mapping' })}
+        </Button>
+
+        <Button
+          variant="default"
+          onClick={onNumberEpisodes}
+          disabled={!canNumberEpisodes}
+          style={{ flex: buttonFlex }}
+        >
+          {t('fileMapping.numberEpisodes', { defaultValue: 'Number episodes in order' })}
         </Button>
 
         <Button

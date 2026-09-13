@@ -36,6 +36,9 @@ from src.application.use_cases.releases.queue_manual_release import QueueManualR
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
+from src.application.use_cases.releases.suggest_file_mappings import (
+    SuggestReleaseFileMappingsUseCase,
+)
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaType, ReleaseStatus
@@ -49,6 +52,8 @@ from src.schemas.releases import (
     Release,
     ReleaseDownloadRequest,
     ReleaseFile,
+    ReleaseFileMappingSuggestion,
+    ReleaseFileMappingSuggestions,
     ReleaseFileMappingsUpdate,
     ReleaseSearchResponse,
     ReleasesResponse,
@@ -84,6 +89,12 @@ def _update_mappings_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> UpdateReleaseFileMappingsUseCase:
     return container.use_cases.releases.update_mappings
+
+
+def _suggest_mappings_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> SuggestReleaseFileMappingsUseCase:
+    return container.use_cases.releases.suggest_mappings
 
 
 def _pause_use_case(container: AppContainer = Depends(_get_container)) -> PauseReleaseUseCase:
@@ -166,6 +177,13 @@ UPDATE_MAPPINGS_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Malformed request payload.",
         status.HTTP_404_NOT_FOUND: "Release or file not found.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+SUGGEST_MAPPINGS_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Release not found.",
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -384,6 +402,30 @@ async def create_release(
     except ValueError as exc:
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_release", str(exc)) from exc
     return _dto_to_release(dto)
+
+
+# Ahead of the release lookup below: a release id is a path, so the greedy
+# pattern there would otherwise swallow this whole URL as one.
+@router.get(
+    "/{releaseId:path}/files/mapping/suggestions",
+    response_model=ReleaseFileMappingSuggestions,
+    responses=SUGGEST_MAPPINGS_RESPONSES,
+)
+async def suggest_file_mappings(
+    release_id: ReleaseIdParam,
+    suggest_use_case: SuggestReleaseFileMappingsUseCase = Depends(_suggest_mappings_use_case),
+) -> ReleaseFileMappingSuggestions:
+    suggestions = await suggest_use_case.execute(_decode_id(release_id))
+    return ReleaseFileMappingSuggestions(
+        files=[
+            ReleaseFileMappingSuggestion(
+                file_id=suggestion.file_id,
+                request_mapping=mapping,
+            )
+            for suggestion in suggestions
+            if (mapping := _dto_to_file_mapping(suggestion.request_mapping)) is not None
+        ]
+    )
 
 
 @router.get(

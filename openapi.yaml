@@ -579,6 +579,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /releases/{releaseId}/files/mapping/suggestions:
+    get:
+      tags: [Releases]
+      summary: Suggest mappings for release files
+      description: >-
+        Returns the mappings automapping would make for the files that are not
+        already mapped correctly, without storing any of them. Only files a
+        mapping could be resolved for are listed.
+      operationId: suggestReleaseFileMappings
+      parameters:
+        - $ref: '#/components/parameters/ReleaseId'
+      responses:
+        '200':
+          description: Proposed mappings, awaiting confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseFileMappingSuggestions'
+        '404':
+          description: Release not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /releases/search:
     get:
       tags: [Releases]
@@ -1709,6 +1739,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReleaseFileMappingInput'
+    ReleaseFileMappingSuggestion:
+      type: object
+      required: [file_id, request_mapping]
+      description: >-
+        A mapping the server proposes for a file. Unlike an update, it always
+        names one: there is no such thing as suggesting that a file be unmapped.
+      properties:
+        file_id:
+          type: string
+        request_mapping:
+          $ref: '#/components/schemas/FileRequestMapping'
+    ReleaseFileMappingSuggestions:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseFileMappingSuggestion'
     AsyncOperationResponse:
       type: object
       required: [operation, status]

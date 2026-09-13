@@ -164,13 +164,25 @@ def natural_sort_key(value: str) -> tuple[str | int, ...]:
     return tuple(int(part) if part.isdigit() else part.lower() for part in parts)
 
 
-def parse_episode(name: str, path: str | None = None) -> ParsedEpisode:
+def parse_episode(
+    name: str,
+    path: str | None = None,
+    *,
+    season_hint: int | None = None,
+) -> ParsedEpisode:
     """Recover season/episode numbers from a release file.
 
     The file name is inspected first; when it only carries an episode number the
     enclosing directories are consulted for the season, which is how most
     multi-season packs are laid out (``Season 02/Show - 05.mkv``). ``name`` may
     itself be a relative path, as torrent file listings usually are.
+
+    A bare number is only read as the episode once the season is settled, since
+    on its own it is as likely to be part of the title. ``season_hint`` lets a
+    caller that knows the season from elsewhere unlock that reading for names
+    that never mention one, as absolute-numbered releases tend not to. It is not
+    reported back as the season: this returns what the name itself says, and
+    resolving precedence stays with the caller.
     """
 
     segments = _segments(name)
@@ -191,7 +203,7 @@ def parse_episode(name: str, path: str | None = None) -> ParsedEpisode:
 
     if episode is None:
         episode = _match_episode(stem)
-    if episode is None and season is not None:
+    if episode is None and (season is not None or season_hint is not None):
         episode = _match_loose_episode(stem)
 
     return _validated(season, episode)

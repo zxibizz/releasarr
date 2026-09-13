@@ -5,6 +5,8 @@ import type {
   Release,
   ReleaseDownloadRequest,
   ReleaseFileMappingInput,
+  ReleaseFileMappingSuggestion,
+  ReleaseFileMappingSuggestions,
   ReleaseSearchResponse,
   ReleasesResponse,
   SuccessResponse,
@@ -56,5 +58,16 @@ export const releasesApi = {
       { method: 'PUT', body: { files } },
     );
     return response.success;
+  },
+
+  suggestedFileMappings: async (
+    releaseId: string,
+    signal?: AbortSignal,
+  ): Promise<ReleaseFileMappingSuggestion[]> => {
+    const response = await apiRequest<ReleaseFileMappingSuggestions>(
+      `/releases/${encode(releaseId)}/files/mapping/suggestions`,
+      { signal },
+    );
+    return response.files;
   },
 };

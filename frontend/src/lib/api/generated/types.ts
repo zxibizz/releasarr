@@ -200,6 +200,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/{releaseId}/files/mapping/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest mappings for release files
+         * @description Returns the mappings automapping would make for the files that are not already mapped correctly, without storing any of them. Only files a mapping could be resolved for are listed.
+         */
+        get: operations["suggestReleaseFileMappings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/releases/search": {
         parameters: {
             query?: never;
@@ -740,6 +760,14 @@ export interface components {
         };
         ReleaseFileMappingsUpdate: {
             files: components["schemas"]["ReleaseFileMappingInput"][];
+        };
+        /** @description A mapping the server proposes for a file. Unlike an update, it always names one: there is no such thing as suggesting that a file be unmapped. */
+        ReleaseFileMappingSuggestion: {
+            file_id: string;
+            request_mapping: components["schemas"]["FileRequestMapping"];
+        };
+        ReleaseFileMappingSuggestions: {
+            files: components["schemas"]["ReleaseFileMappingSuggestion"][];
         };
         AsyncOperationResponse: {
             /** @description Identifier of the async operation that was accepted. */
@@ -1781,6 +1809,47 @@ export interface operations {
                 };
             };
             /** @description Release or file not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    suggestReleaseFileMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a release. */
+                releaseId: components["parameters"]["ReleaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposed mappings, awaiting confirmation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseFileMappingSuggestions"];
+                };
+            };
+            /** @description Release not found. */
             404: {
                 headers: {
                     [name: string]: unknown;
