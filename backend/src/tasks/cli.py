@@ -94,7 +94,7 @@ def sync_releases_command() -> None:
     result = asyncio.run(_run())
 
     typer.echo(
-        f"Release sync complete (synced={result.synced}, "
+        f"Release sync complete (synced={result.synced}, unchanged={result.unchanged}, "
         f"failed={result.failed}, not_found={result.not_found})"
     )
 

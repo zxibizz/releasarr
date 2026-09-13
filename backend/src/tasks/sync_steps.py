@@ -88,6 +88,7 @@ class SyncSteps:
         result = await task.execute()
         return {
             "synced": result.synced,
+            "unchanged": result.unchanged,
             "failed": result.failed,
             "not_found": result.not_found,
             "requests_updated": result.requests_updated,

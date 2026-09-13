@@ -31,6 +31,7 @@ class SyncResult:
     synced: int
     failed: int
     not_found: int
+    unchanged: int = 0
     requests_updated: int = 0
 
 
@@ -47,6 +48,10 @@ class SyncReleasesTask:
     - status (based on qBT state)
     - completed_at (when download finishes)
 
+    Releases whose fields already match qBittorrent are left alone, so ``synced``
+    counts the releases that actually moved rather than the ones that were looked
+    at; ``unchanged`` carries the rest.
+
     It then propagates the refreshed release statuses onto the media requests those
     releases belong to, so a request reflects that a download is under way.
     """
@@ -58,6 +63,7 @@ class SyncReleasesTask:
     async def execute(self) -> SyncResult:
         """Sync all releases with their qBittorrent state."""
         synced = 0
+        unchanged = 0
         failed = 0
         not_found = 0
 
@@ -82,8 +88,10 @@ class SyncReleasesTask:
                 continue
 
             try:
-                await self._update_release(release.id, torrent)
-                synced += 1
+                if await self._update_release(release, torrent):
+                    synced += 1
+                else:
+                    unchanged += 1
             except Exception as exc:
                 failed += 1
                 logger.error(f"Failed to sync release {release.id}: {exc}")
@@ -94,36 +102,72 @@ class SyncReleasesTask:
             synced=synced,
             failed=failed,
             not_found=not_found,
+            unchanged=unchanged,
             requests_updated=requests_updated,
         )
 
-    async def _update_release(self, release_id: str, torrent: dict[str, Any]) -> None:
-        """Update a single release with torrent data."""
+    async def _update_release(self, release: models.Release, torrent: dict[str, Any]) -> bool:
+        """Write the torrent's state onto the release, reporting whether it moved.
+
+        A release lives in the database for as long as it seeds, which is usually
+        far longer than it downloads, so on a typical cycle every field already
+        holds the value qBittorrent reports. Comparing before opening a
+        transaction keeps those cycles from rewriting - and re-fsyncing - rows
+        that nothing has changed.
+        """
+        fields = self._fields_from_torrent(torrent, completed_at=release.completed_at)
+        if all(getattr(release, name) == value for name, value in fields.items()):
+            return False
+
         async with self.db.transaction() as session:
-            release = await session.get(models.Release, release_id)
-            if release is None:
-                return
+            stored = await session.get(models.Release, release.id)
+            if stored is None:
+                return False
 
-            # Map qBT fields to Release model
-            release.progress = float(torrent.get("progress", 0)) * 100
-            release.download_speed = float(torrent.get("dlspeed", 0))
-            release.upload_speed = float(torrent.get("upspeed", 0))
-            release.seeders = int(torrent.get("num_seeds", 0))
-            release.leechers = int(torrent.get("num_leechs", 0))
-            release.ratio = float(torrent.get("ratio", 0))
-            release.size_bytes = int(torrent.get("total_size", 0))
-
-            # Map qBT state to ReleaseStatus
-            qbt_state = str(torrent.get("state", "")).lower()
-            release.status = self._map_status(qbt_state, finished=self._is_finished(torrent))
-
-            # Set completed_at if download finished
-            if release.status == ReleaseStatus.COMPLETED and release.completed_at is None:
-                completion_on = torrent.get("completion_on", 0)
-                if completion_on and completion_on > 0:
-                    release.completed_at = datetime.fromtimestamp(int(completion_on), tz=UTC)
+            for name, value in fields.items():
+                setattr(stored, name, value)
 
             await session.flush()
+
+        return True
+
+    def _fields_from_torrent(
+        self,
+        torrent: dict[str, Any],
+        *,
+        completed_at: datetime | None,
+    ) -> dict[str, Any]:
+        """The Release column values a torrent's current state implies."""
+        qbt_state = str(torrent.get("state", "")).lower()
+        status = self._map_status(qbt_state, finished=self._is_finished(torrent))
+
+        return {
+            "progress": float(torrent.get("progress", 0)) * 100,
+            "download_speed": float(torrent.get("dlspeed", 0)),
+            "upload_speed": float(torrent.get("upspeed", 0)),
+            "seeders": int(torrent.get("num_seeds", 0)),
+            "leechers": int(torrent.get("num_leechs", 0)),
+            "ratio": float(torrent.get("ratio", 0)),
+            "size_bytes": int(torrent.get("total_size", 0)),
+            "status": status,
+            "completed_at": self._completion_time(torrent, status, completed_at),
+        }
+
+    @staticmethod
+    def _completion_time(
+        torrent: dict[str, Any],
+        status: ReleaseStatus,
+        current: datetime | None,
+    ) -> datetime | None:
+        """When the download finished, stamped once and never revised afterwards."""
+        if current is not None or status is not ReleaseStatus.COMPLETED:
+            return current
+
+        completion_on = int(torrent.get("completion_on", 0) or 0)
+        if completion_on <= 0:
+            return None
+
+        return datetime.fromtimestamp(completion_on, tz=UTC)
 
     async def _sync_request_statuses(self) -> int:
         """Reflect the state of each request's releases on the request itself.

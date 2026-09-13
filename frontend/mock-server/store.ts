@@ -55,7 +55,7 @@ const MOCK_TASK_ORDER: SyncJobKind[] = [
 const MOCK_TASK_RESULTS: Record<SyncJobKind, Record<string, unknown>> = {
   sonarr_sync: { created: 0, updated: 2, completed: 1 },
   radarr_sync: { created: 1, updated: 1, completed: 0 },
-  release_sync: { synced: 3, failed: 0, not_found: 0, requests_updated: 1 },
+  release_sync: { synced: 3, unchanged: 2, failed: 0, not_found: 0, requests_updated: 1 },
   export: { succeeded: 1, failed: 0 },
   regrab: { completed: true },
 };
