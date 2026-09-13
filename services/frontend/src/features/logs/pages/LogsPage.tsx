@@ -4,10 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { LogsPanel } from '@/features/logs/components/LogsPanel';
 import { LOG_SERVICES, isLogService } from '@/features/logs/services';
 import { useLogFilters } from '@/features/logs/useLogFilters';
+import { useLogLevel } from '@/features/logs/useLogLevel';
 
 export function LogsPage() {
   const { t } = useTranslation();
   const { service, task, setService, setTask } = useLogFilters();
+  const { level, setLevel } = useLogLevel();
 
   return (
     <Stack gap="lg">
@@ -39,7 +41,9 @@ export function LogsPage() {
             */}
             <LogsPanel
               service={value}
+              level={level}
               task={task}
+              onLevelChange={setLevel}
               onTaskChange={setTask}
               active={service === value}
             />

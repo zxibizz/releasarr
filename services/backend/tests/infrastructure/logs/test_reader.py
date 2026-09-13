@@ -178,6 +178,51 @@ def test_filters_by_the_process_that_wrote_the_record(tmp_path: Path) -> None:
     assert [e.message for e in reader.read_entries(service="scheduler")] == ["ran a task"]
 
 
+def test_min_level_returns_that_severity_and_worse(tmp_path: Path) -> None:
+    """A threshold, not an exact match: someone chasing a problem wants the lot."""
+
+    log = tmp_path / "backend.log"
+    write_log(
+        log,
+        serialized_record("routine", level="INFO"),
+        serialized_record("quiet detail", level="DEBUG"),
+        serialized_record("worth a look", level="WARNING"),
+        serialized_record("broken", level="ERROR"),
+        serialized_record("also broken", level="CRITICAL"),
+    )
+
+    reader = make_reader(log)
+
+    assert [e.message for e in reader.read_entries(min_level="warning")] == [
+        "worth a look",
+        "broken",
+        "also broken",
+    ]
+    assert [e.message for e in reader.read_entries(min_level="error")] == [
+        "broken",
+        "also broken",
+    ]
+    # Debug is folded into info, so a floor of info is a floor of everything.
+    assert len(reader.read_entries(min_level="info")) == 5
+    assert len(reader.read_entries()) == 5
+
+
+def test_min_level_combines_with_the_other_filters(tmp_path: Path) -> None:
+    log = tmp_path / "backend.log"
+    write_log(
+        log,
+        serialized_record("api failure", level="ERROR", service="api"),
+        serialized_record("scheduler noise", level="INFO", service="scheduler"),
+        serialized_record("scheduler failure", level="ERROR", service="scheduler"),
+    )
+
+    reader = make_reader(log)
+
+    assert [e.message for e in reader.read_entries(service="scheduler", min_level="warning")] == [
+        "scheduler failure"
+    ]
+
+
 def test_merges_both_files_in_time_order(tmp_path: Path) -> None:
     """A request's activity spans both processes, so neither file alone is the answer."""
 

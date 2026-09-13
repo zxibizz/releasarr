@@ -31,6 +31,7 @@ class FakeLogsUseCase(ListLogsUseCase):
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        min_level: str | None = None,
     ) -> LogsPageResult:
         self.calls.append(
             {
@@ -39,6 +40,7 @@ class FakeLogsUseCase(ListLogsUseCase):
                 "request_id": request_id,
                 "task": task,
                 "service": service,
+                "min_level": min_level,
             }
         )
         return self._result
@@ -137,6 +139,37 @@ async def test_list_logs_rejects_an_unknown_service(api_client: AsyncClient) -> 
         response = await api_client.get(
             "/logs",
             params={"service": "not_a_process"},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert use_case.calls == []
+
+
+@pytest.mark.asyncio
+async def test_list_logs_passes_the_level_floor_through(api_client: AsyncClient) -> None:
+    use_case = FakeLogsUseCase(make_logs_result())
+
+    with override_dependency(_get_use_case, use_case):
+        response = await api_client.get(
+            "/logs",
+            params={"min_level": "warning"},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.calls[0]["min_level"] == "warning"
+    assert use_case.calls[0]["service"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_logs_rejects_an_unknown_level(api_client: AsyncClient) -> None:
+    use_case = FakeLogsUseCase(make_logs_result())
+
+    with override_dependency(_get_use_case, use_case):
+        response = await api_client.get(
+            "/logs",
+            params={"min_level": "shouty"},
             headers=API_KEY_HEADER,
         )
 

@@ -416,7 +416,7 @@ export interface paths {
          *     producer bound onto the record, so `task` returns everything logged
          *     while that background task was running, including lines emitted deeper
          *     in the call stack, and `service` splits the API's records from the
-         *     scheduler's.
+         *     scheduler's. `min_level` is a threshold over the parsed severity.
          */
         get: operations["listRequestLogs"];
         put?: never;
@@ -675,7 +675,7 @@ export interface components {
         RequestLogLevel: "info" | "warning" | "error";
         /**
          * @description The process that wrote a record. The API and the scheduler run as
-         *     separate processes and share one log file.
+         *     separate processes, each writing its own log file.
          * @enum {string}
          */
         LogService: "api" | "scheduler";
@@ -1319,6 +1319,12 @@ export interface components {
         TaskFilter: components["schemas"]["SyncJobKind"];
         /** @description Optional process to filter results by. */
         ServiceFilter: components["schemas"]["LogService"];
+        /**
+         * @description Least severe level to return, along with everything worse. Records are
+         *     mapped onto three levels, so this is a threshold rather than an exact
+         *     match: `warning` also returns errors.
+         */
+        LogLevelFilter: components["schemas"]["RequestLogLevel"];
         /** @description Optional Prowlarr indexer to filter results. */
         IndexerIdFilter: number;
         /** @description Optional indexer event type to filter results. */
@@ -2661,6 +2667,12 @@ export interface operations {
                 task?: components["parameters"]["TaskFilter"];
                 /** @description Optional process to filter results by. */
                 service?: components["parameters"]["ServiceFilter"];
+                /**
+                 * @description Least severe level to return, along with everything worse. Records are
+                 *     mapped onto three levels, so this is a threshold rather than an exact
+                 *     match: `warning` also returns errors.
+                 */
+                min_level?: components["parameters"]["LogLevelFilter"];
             };
             header?: never;
             path?: never;

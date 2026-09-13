@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { logsApi } from '@/features/logs/api';
-import type { LogService, SyncJobKind } from '@/types';
+import type { LogService, RequestLogLevel, SyncJobKind } from '@/types';
 
 export const LOGS_PAGE_SIZE = 25;
 
@@ -15,8 +15,12 @@ export const LOGS_POLL_INTERVAL_MS = 10_000;
 export const logKeys = {
   all: ['logs'] as const,
   byRequest: (requestId: string) => [...logKeys.all, 'by-request', requestId] as const,
-  list: (filters: { page: number; service: LogService; task?: SyncJobKind }) =>
-    [...logKeys.all, 'list', filters] as const,
+  list: (filters: {
+    page: number;
+    service: LogService;
+    task?: SyncJobKind;
+    minLevel?: RequestLogLevel;
+  }) => [...logKeys.all, 'list', filters] as const,
 };
 
 /**
@@ -32,7 +36,8 @@ export function useRequestLogs(requestId: string | undefined, enabled: boolean) 
 }
 
 /**
- * A page of application logs for one process, optionally narrowed to a task.
+ * A page of application logs for one process, optionally narrowed to a task and to
+ * a severity.
  *
  * The newest page refetches on an interval so the view follows the log as it is
  * written; a page further back is a deliberate, static read. Every call makes the
@@ -43,18 +48,20 @@ export function useLogs({
   page,
   service,
   task,
+  minLevel,
   active = true,
 }: {
   page: number;
   service: LogService;
   task?: SyncJobKind;
+  minLevel?: RequestLogLevel;
   /** Whether this process's tab is the visible one; a hidden tab stays quiet. */
   active?: boolean;
 }) {
   return useQuery({
-    queryKey: logKeys.list({ page, service, task }),
+    queryKey: logKeys.list({ page, service, task, minLevel }),
     queryFn: ({ signal }) =>
-      logsApi.list({ page, perPage: LOGS_PAGE_SIZE, service, task }, signal),
+      logsApi.list({ page, perPage: LOGS_PAGE_SIZE, service, task, minLevel }, signal),
     enabled: active,
     placeholderData: (previous) => previous,
     refetchInterval: active && page === 1 ? LOGS_POLL_INTERVAL_MS : false,

@@ -146,9 +146,9 @@ over paging through everything.
 
 ### Which process logged a line
 
-The API and the scheduler are separate processes sharing one file, so every
-record names the one that produced it: `configure_logging` binds `service` once
-per process rather than making each call site remember, and
+The API and the scheduler are separate processes writing their own files, so
+every record names the one that produced it: `configure_logging` binds `service`
+once per process rather than making each call site remember, and
 `GET /logs?service={api|scheduler}` splits them. The CLI task commands count as
 the scheduler — they run the same work the loops do, without the loop.
 
@@ -160,6 +160,17 @@ switches process rather than leaving a filter that could only match nothing.
 Records written before the processes tagged themselves carry no `service` at all.
 The reader falls back to the presence of `task` for those, so upgrading does not
 blank out the history already on disk.
+
+### Filtering by severity
+
+`GET /logs?min_level={info|warning|error}` is a floor rather than an exact match:
+`warning` returns warnings and errors. Loguru's seven levels are collapsed onto
+these three while the file is parsed, so `_LEVEL_SEVERITY` in the reader is what
+orders them — the names alone would not say that `CRITICAL` outranks `WARNING`.
+
+The logs page keeps the chosen floor in `localStorage` rather than in the URL,
+because it is a preference about the reader rather than part of one view: someone
+who only wants errors wants them on both tabs, and after a reload.
 
 ### The API's own request lines
 

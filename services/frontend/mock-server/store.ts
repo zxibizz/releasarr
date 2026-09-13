@@ -27,6 +27,7 @@ import type {
   ReleaseFileMappingSuggestion,
   ReleaseSearchResult,
   RequestLogEntry,
+  RequestLogLevel,
   RootFolder,
   ScheduledTask,
   SeasonEpisodesResponse,
@@ -40,6 +41,13 @@ import type {
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];
 type ReleaseStatus = Release['status'];
+
+/** The same threshold the backend applies after collapsing Loguru's levels. */
+const LOG_LEVEL_SEVERITY: Record<RequestLogLevel, number> = {
+  info: 0,
+  warning: 1,
+  error: 2,
+};
 
 type EnqueueSyncJobPayload = {
   kinds: SyncJobKind[];
@@ -349,13 +357,18 @@ export class MockStore {
   }
 
   async listRequestLogs(
-    filters: { requestId?: string; task?: SyncJobKind; service?: LogService } = {},
+    filters: {
+      requestId?: string;
+      task?: SyncJobKind;
+      service?: LogService;
+      minLevel?: RequestLogLevel;
+    } = {},
   ): Promise<RequestLogEntry[]> {
-    const { requestId, task, service } = filters;
+    const { requestId, task, service, minLevel } = filters;
 
     if (requestId) {
       const logs = await this.ensureRequestLogs(requestId);
-      return this.sortedCopy(this.selectService(logs, service));
+      return this.sortedCopy(this.select(logs, service, minLevel));
     }
 
     if (!this.taskLogsCache) {
@@ -364,8 +377,10 @@ export class MockStore {
 
     if (task) {
       return this.sortedCopy(
-        this.taskLogsCache.filter(
-          (log) => log.metadata?.task === task && (!service || log.metadata?.service === service),
+        this.select(
+          this.taskLogsCache.filter((log) => log.metadata?.task === task),
+          service,
+          minLevel,
         ),
       );
     }
@@ -376,15 +391,24 @@ export class MockStore {
       aggregated.push(...(await this.ensureRequestLogs(req.id)));
     }
 
-    return this.sortedCopy(this.selectService(aggregated, service));
+    return this.sortedCopy(this.select(aggregated, service, minLevel));
   }
 
-  private selectService(
+  private select(
     logs: RequestLogEntry[],
     service: LogService | undefined,
+    minLevel: RequestLogLevel | undefined,
   ): RequestLogEntry[] {
-    if (!service) return logs;
-    return logs.filter((log) => log.metadata?.service === service);
+    let selected = logs;
+    if (service) {
+      selected = selected.filter((log) => log.metadata?.service === service);
+    }
+    if (minLevel) {
+      // A threshold, matching the backend: warning also means error.
+      const floor = LOG_LEVEL_SEVERITY[minLevel];
+      selected = selected.filter((log) => LOG_LEVEL_SEVERITY[log.level] >= floor);
+    }
+    return selected;
   }
 
   private sortedCopy(logs: RequestLogEntry[]): RequestLogEntry[] {

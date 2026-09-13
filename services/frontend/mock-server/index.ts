@@ -94,6 +94,9 @@ type TaskKind = (typeof TASK_KINDS)[number];
 const LOG_SERVICES = ['api', 'scheduler'] as const;
 type LogService = (typeof LOG_SERVICES)[number];
 
+const LOG_LEVELS = ['info', 'warning', 'error'] as const;
+type LogLevel = (typeof LOG_LEVELS)[number];
+
 const INDEXER_EVENT_TYPES = [
   'unknown',
   'indexer_query',
@@ -346,16 +349,21 @@ api.get('/logs', async (req, res) => {
   const requestId = (req.query.request_id as string | undefined)?.trim();
   const task = (req.query.task as string | undefined)?.trim();
   const service = (req.query.service as string | undefined)?.trim();
+  const minLevel = (req.query.min_level as string | undefined)?.trim();
   if (task && !TASK_KINDS.includes(task as TaskKind)) {
     return res.status(422).json({ message: `Unknown task: ${task}` });
   }
   if (service && !LOG_SERVICES.includes(service as LogService)) {
     return res.status(422).json({ message: `Unknown service: ${service}` });
   }
+  if (minLevel && !LOG_LEVELS.includes(minLevel as LogLevel)) {
+    return res.status(422).json({ message: `Unknown level: ${minLevel}` });
+  }
   const logs = await mockStore.listRequestLogs({
     requestId: requestId || undefined,
     task: (task as TaskKind | undefined) || undefined,
     service: (service as LogService | undefined) || undefined,
+    minLevel: (minLevel as LogLevel | undefined) || undefined,
   });
   const total = logs.length;
   const start = (page - 1) * perPage;

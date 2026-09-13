@@ -64,6 +64,11 @@ async def list_logs(
         default=None,
         description="Only entries written by this process.",
     ),
+    min_level: RequestLogLevel | None = Query(
+        default=None,
+        alias="min_level",
+        description="Least severity to return, along with everything worse.",
+    ),
     use_case: ListLogsUseCase = Depends(_get_use_case),
 ) -> LogsResponse:
     try:
@@ -73,6 +78,7 @@ async def list_logs(
             request_id=request_id,
             task=task.value if task else None,
             service=service.value if service else None,
+            min_level=min_level.value if min_level else None,
         )
     except ValueError as exc:  # pragma: no cover - defensive whilst query validates internally
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_logs_query", str(exc)) from exc
