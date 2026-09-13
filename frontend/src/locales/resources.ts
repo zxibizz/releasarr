@@ -292,6 +292,7 @@ export const resources = {
           label: 'Torrent file',
           description: 'The file list is read straight away, so files are mapped on arrival.',
           placeholder: 'Choose a .torrent file',
+          invalid: 'That is not a .torrent file. Pick the torrent itself, not the media.',
         },
         magnet: {
           label: 'Magnet link',
@@ -812,6 +813,7 @@ export const resources = {
           description:
             'Список файлов читается сразу, поэтому сопоставление проходит при добавлении.',
           placeholder: 'Выберите .torrent-файл',
+          invalid: 'Это не .torrent-файл. Выберите сам торрент, а не медиафайл.',
         },
         magnet: {
           label: 'Magnet-ссылка',

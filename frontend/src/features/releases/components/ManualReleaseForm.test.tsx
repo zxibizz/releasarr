@@ -82,6 +82,36 @@ describe('ManualReleaseForm', () => {
     expect(onDownloadQueued).toHaveBeenCalled();
   });
 
+  /*
+    iOS ignores an `accept` of `.torrent` or `application/x-bittorrent` and
+    then offers no selectable file at all, so the attribute has to name a type
+    it recognises and let anything through. That makes it a hint, and the
+    component the only thing standing between a mis-picked photo and the API.
+  */
+  it('offers a type iOS recognises so its picker is not left empty', () => {
+    const { container } = renderForm();
+
+    expect(fileInputOf(container).accept).toContain('application/octet-stream');
+  });
+
+  it('refuses a file that is not a torrent', async () => {
+    const { container } = renderForm();
+
+    // `applyAccept: false` is what makes this a test of iOS: user-event honours
+    // the accept attribute, and the device it has to survive does not.
+    await userEvent.upload(
+      fileInputOf(container),
+      new File(['not a torrent'], 'Show.S01E01.mkv', { type: 'video/x-matroska' }),
+      { applyAccept: false },
+    );
+
+    expect(
+      screen.getByText('That is not a .torrent file. Pick the torrent itself, not the media.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: SUBMIT })).toBeDisabled();
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
   it('refuses a link that is not a magnet', async () => {
     renderForm();
 

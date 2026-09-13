@@ -10,7 +10,18 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ManualReleaseRequest } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
-const TORRENT_ACCEPT = '.torrent,application/x-bittorrent';
+/**
+ * iOS resolves every `accept` entry to a UTI, and neither `.torrent` nor
+ * `application/x-bittorrent` maps to one. An empty UTI set makes WebKit fall
+ * back to the photo and video pickers, which is how a phone ends up offering a
+ * picker with no selectable torrent in it. `application/octet-stream` resolves
+ * to `public.data`, so the document picker opens and every file is reachable.
+ * That makes the attribute a hint rather than a filter, hence the check below.
+ */
+const TORRENT_ACCEPT = 'application/octet-stream,.torrent,application/x-bittorrent';
+const TORRENT_EXTENSION = '.torrent';
+
+const isTorrentFile = (file: File): boolean => file.name.toLowerCase().endsWith(TORRENT_EXTENSION);
 
 /**
  * `btoa` takes a string, so the bytes go through it in chunks: spreading a
@@ -43,6 +54,7 @@ export function ManualReleaseForm({ requestId, onDownloadQueued }: ManualRelease
 
   const trimmedMagnet = magnet.replace(/\s+/g, '').trim();
   const magnetLooksWrong = trimmedMagnet.length > 0 && !trimmedMagnet.startsWith('magnet:');
+  const fileLooksWrong = file !== null && !isTorrentFile(file);
 
   const reset = () => {
     setFile(null);
@@ -91,7 +103,7 @@ export function ManualReleaseForm({ requestId, onDownloadQueued }: ManualRelease
     }
   };
 
-  const canSubmit = Boolean(file) || (trimmedMagnet.length > 0 && !magnetLooksWrong);
+  const canSubmit = file ? !fileLooksWrong : trimmedMagnet.length > 0 && !magnetLooksWrong;
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -116,6 +128,7 @@ export function ManualReleaseForm({ requestId, onDownloadQueued }: ManualRelease
           label={t('manualRelease.file.label')}
           description={t('manualRelease.file.description')}
           placeholder={t('manualRelease.file.placeholder')}
+          error={fileLooksWrong ? t('manualRelease.file.invalid') : null}
         />
 
         <Divider label={t('manualRelease.or')} labelPosition="center" />
