@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from src.application.queries.releases import ReleaseSummary
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrResult
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import LogService, ReleaseStatus
 from src.tasks import cli
 
 runner = CliRunner()
@@ -63,10 +63,12 @@ class FakeContainer:
     def __init__(self, use_case: FakeSyncUseCase) -> None:
         self.started = False
         self.stopped = False
+        self.service: LogService | None = None
         self.use_cases = SimpleNamespace(media_requests=SimpleNamespace(sync_sonarr=use_case))
 
-    def startup(self) -> None:
+    def startup(self, *, service: LogService) -> None:
         self.started = True
+        self.service = service
 
     async def shutdown(self) -> None:
         self.stopped = True
@@ -85,4 +87,5 @@ def test_sync_sonarr_requests_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "completed=3" in result.stdout
     assert container.started is True
     assert container.stopped is True
+    assert container.service is LogService.SCHEDULER
     assert use_case.calls == 1

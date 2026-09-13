@@ -44,6 +44,7 @@ export type SuccessResponse = Schemas['SuccessResponse'];
 export type RequestLogLevel = Schemas['RequestLogLevel'];
 export type RequestLogEntry = Schemas['RequestLogEntry'];
 export type LogsResponse = Schemas['LogsResponse'];
+export type LogService = Schemas['LogService'];
 
 export type SyncJobKind = Schemas['SyncJobKind'];
 export type SyncJobStatus = Schemas['SyncJobStatus'];

@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from src.domain.enums import LogService
+
 _LEVEL_MAP = {
     "TRACE": "info",
     "DEBUG": "info",
@@ -46,11 +48,12 @@ class LogFileReader:
         self,
         request_id: str | None = None,
         task: str | None = None,
+        service: str | None = None,
     ) -> list[LogEntry]:
         """Return log entries in chronological order, optionally filtered.
 
-        Filters are combined, and both match on fields the producer bound onto
-        the record rather than on the message text.
+        Filters are combined, and all three match on fields the producer bound
+        onto the record rather than on the message text.
         """
 
         entries: list[LogEntry] = []
@@ -69,8 +72,30 @@ class LogFileReader:
                         continue
                     if task is not None and not self._matches(entry, "task", task):
                         continue
+                    if service is not None and self._service_of(entry) != service.lower():
+                        continue
                     entries.append(entry)
         return entries
+
+    @staticmethod
+    def _service_of(entry: LogEntry) -> str:
+        """Return the process that wrote a record, as ``LogService`` spells it.
+
+        The processes tag every record they write, but ones written before they
+        did would otherwise match neither service and vanish from the view. Work
+        done inside a background task always has ``task`` bound onto it by
+        ``SyncSteps.for_kind``, so that field is what separates the worker's
+        records from request handling.
+        """
+
+        metadata = entry.metadata
+        if metadata is not None:
+            raw = metadata.get("service")
+            if raw is not None:
+                return str(raw).lower()
+            if "task" in metadata:
+                return LogService.SCHEDULER.value
+        return LogService.API.value
 
     def _log_files(self) -> list[Path]:
         """Return the files to scan, oldest first.

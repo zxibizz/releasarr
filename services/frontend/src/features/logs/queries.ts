@@ -1,14 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { logsApi } from '@/features/logs/api';
-import type { SyncJobKind } from '@/types';
+import type { LogService, SyncJobKind } from '@/types';
 
 export const LOGS_PAGE_SIZE = 25;
+
+/**
+ * Interval for the log page's follow mode. Every call re-reads and parses each
+ * reachable log file on the server, so this runs well clear of the task polling
+ * intervals and only while the newest page is on screen.
+ */
+export const LOGS_POLL_INTERVAL_MS = 10_000;
 
 export const logKeys = {
   all: ['logs'] as const,
   byRequest: (requestId: string) => [...logKeys.all, 'by-request', requestId] as const,
-  list: (filters: { page: number; task?: SyncJobKind }) =>
+  list: (filters: { page: number; service: LogService; task?: SyncJobKind }) =>
     [...logKeys.all, 'list', filters] as const,
 };
 
@@ -25,15 +32,31 @@ export function useRequestLogs(requestId: string | undefined, enabled: boolean) 
 }
 
 /**
- * A page of application logs, optionally narrowed to one background task.
+ * A page of application logs for one process, optionally narrowed to a task.
  *
- * The previous page stays on screen while the next one loads, so paging and
- * changing the filter do not blank the table.
+ * The newest page refetches on an interval so the view follows the log as it is
+ * written; a page further back is a deliberate, static read. Every call makes the
+ * server re-parse each log file it can reach, which is what the interval is sized
+ * against.
  */
-export function useLogs({ page, task }: { page: number; task?: SyncJobKind }) {
+export function useLogs({
+  page,
+  service,
+  task,
+  active = true,
+}: {
+  page: number;
+  service: LogService;
+  task?: SyncJobKind;
+  /** Whether this process's tab is the visible one; a hidden tab stays quiet. */
+  active?: boolean;
+}) {
   return useQuery({
-    queryKey: logKeys.list({ page, task }),
-    queryFn: ({ signal }) => logsApi.list({ page, perPage: LOGS_PAGE_SIZE, task }, signal),
+    queryKey: logKeys.list({ page, service, task }),
+    queryFn: ({ signal }) =>
+      logsApi.list({ page, perPage: LOGS_PAGE_SIZE, service, task }, signal),
+    enabled: active,
     placeholderData: (previous) => previous,
+    refetchInterval: active && page === 1 ? LOGS_POLL_INTERVAL_MS : false,
   });
 }

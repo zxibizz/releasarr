@@ -415,7 +415,8 @@ export interface paths {
          * @description Application log entries, newest first. Filters match fields the log
          *     producer bound onto the record, so `task` returns everything logged
          *     while that background task was running, including lines emitted deeper
-         *     in the call stack.
+         *     in the call stack, and `service` splits the API's records from the
+         *     scheduler's.
          */
         get: operations["listRequestLogs"];
         put?: never;
@@ -672,6 +673,12 @@ export interface components {
         ReleaseStatus: "pending" | "downloading" | "seeding" | "completed" | "failed";
         /** @enum {string} */
         RequestLogLevel: "info" | "warning" | "error";
+        /**
+         * @description The process that wrote a record. The API and the scheduler run as
+         *     separate processes and share one log file.
+         * @enum {string}
+         */
+        LogService: "api" | "scheduler";
         /**
          * @description How usable an indexer is right now. `disabled` was switched off by hand
          *     and stays that way; `blocked` is Prowlarr's own back-off after repeated
@@ -1310,6 +1317,8 @@ export interface components {
         RequestIdFilter: string;
         /** @description Optional background task to filter results. */
         TaskFilter: components["schemas"]["SyncJobKind"];
+        /** @description Optional process to filter results by. */
+        ServiceFilter: components["schemas"]["LogService"];
         /** @description Optional Prowlarr indexer to filter results. */
         IndexerIdFilter: number;
         /** @description Optional indexer event type to filter results. */
@@ -2650,6 +2659,8 @@ export interface operations {
                 request_id?: components["parameters"]["RequestIdFilter"];
                 /** @description Optional background task to filter results. */
                 task?: components["parameters"]["TaskFilter"];
+                /** @description Optional process to filter results by. */
+                service?: components["parameters"]["ServiceFilter"];
             };
             header?: never;
             path?: never;

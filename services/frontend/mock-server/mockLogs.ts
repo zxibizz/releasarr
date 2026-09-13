@@ -164,7 +164,8 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
   ];
 
   logs.sort((a, b) => b.occurredAt - a.occurredAt);
-  return logs;
+  // Mirrors the API process, which stamps every record it writes.
+  return logs.map((log) => ({ ...log, metadata: { ...log.metadata, service: 'api' } }));
 };
 
 type TaskLogSeed = {
@@ -264,7 +265,8 @@ export const generateMockTaskLogs = (): RequestLogEntry[] => {
       return buildLog(now, minutes, {
         ...rest,
         id: `task-log-${round}-${index}`,
-        metadata: { ...metadata, task },
+        // Mirrors the scheduler process, which stamps every record it writes.
+        metadata: { ...metadata, task, service: 'scheduler' },
       });
     }),
   );

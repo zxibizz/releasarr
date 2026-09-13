@@ -48,6 +48,11 @@ const NAV_ITEMS: NavItem[] = [
     isActive: (pathname) => pathname.startsWith('/system/indexers'),
     badge: () => <IndexerAlertBadge />,
   },
+  {
+    to: '/system/logs',
+    labelKey: 'nav.logs',
+    isActive: (pathname) => pathname.startsWith('/system/logs'),
+  },
 ];
 
 function Logo() {

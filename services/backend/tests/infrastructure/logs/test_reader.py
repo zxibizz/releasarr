@@ -21,6 +21,7 @@ def serialized_record(
     level: str = "INFO",
     request_id: str | None = None,
     task: str | None = None,
+    service: str | None = None,
     timestamp: float = 1_789_275_266.3,
     exception: dict[str, Any] | None = None,
     text: str | None = None,
@@ -30,6 +31,8 @@ def serialized_record(
     extra: dict[str, Any] = {"request_id": request_id}
     if task is not None:
         extra["task"] = task
+    if service is not None:
+        extra["service"] = service
     payload = {
         "text": text or f"2026-09-13 04:54:26.300 | {level} | mod:fn:1 - {message}\n",
         "record": {
@@ -54,7 +57,6 @@ def write_log(path: Path, *lines: str, mtime: int | None = None) -> None:
 def test_parses_a_serialized_record(tmp_path: Path) -> None:
     log = tmp_path / "backend.log"
     write_log(log, serialized_record("Grabbed release", request_id="req-1", task="release_sync"))
-
     entries = LogFileReader(log).read_entries()
 
     assert len(entries) == 1
@@ -141,6 +143,44 @@ def test_filters_combine_on_bound_fields(tmp_path: Path) -> None:
     ]
     assert [e.message for e in reader.read_entries(request_id="req-1", task="release_sync")] == [
         "both"
+    ]
+
+
+def test_filters_by_the_process_that_wrote_the_record(tmp_path: Path) -> None:
+    log = tmp_path / "backend.log"
+    write_log(
+        log,
+        serialized_record("served a request", service="api"),
+        serialized_record("ran a task", service="scheduler"),
+        serialized_record("also the api", service="API"),
+    )
+
+    reader = LogFileReader(log)
+
+    assert [e.message for e in reader.read_entries(service="api")] == [
+        "served a request",
+        "also the api",
+    ]
+    assert [e.message for e in reader.read_entries(service="scheduler")] == ["ran a task"]
+
+
+def test_records_written_before_processes_were_tagged_still_resolve(tmp_path: Path) -> None:
+    """Older records carry no service, and dropping them would empty the view."""
+
+    log = tmp_path / "backend.log"
+    write_log(
+        log,
+        serialized_record("legacy task line", task="release_sync"),
+        serialized_record("legacy request line", request_id="req-1"),
+        serialized_record("no metadata at all"),
+    )
+
+    reader = LogFileReader(log)
+
+    assert [e.message for e in reader.read_entries(service="scheduler")] == ["legacy task line"]
+    assert [e.message for e in reader.read_entries(service="api")] == [
+        "legacy request line",
+        "no metadata at all",
     ]
 
 

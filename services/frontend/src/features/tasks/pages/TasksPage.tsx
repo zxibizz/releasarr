@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { ScheduledTasksTable } from '@/features/tasks/components/ScheduledTasksTable';
-import { TaskLogsSection } from '@/features/tasks/components/TaskLogsSection';
 import { QueueSummary, TaskQueueTable } from '@/features/tasks/components/TaskQueueTable';
 import {
   JOB_HISTORY_LIMIT,
@@ -114,8 +113,6 @@ export function TasksPage() {
           )}
         </Panel>
       </Stack>
-
-      <TaskLogsSection />
     </Stack>
   );
 }

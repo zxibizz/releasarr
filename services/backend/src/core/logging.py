@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from src.domain.enums import LogService
 from src.settings.config import AppSettings
 
 if TYPE_CHECKING:
@@ -82,11 +83,16 @@ def _file_level(level: str) -> str:
     return level if logger.level(level).no < logger.level("INFO").no else "INFO"
 
 
-def configure_logging(settings: AppSettings) -> None:
-    """Configure Loguru sinks for console and file output."""
+def configure_logging(settings: AppSettings, *, service: LogService) -> None:
+    """Configure Loguru sinks for console and file output.
+
+    ``service`` names the process being configured. It is bound as a default
+    extra, so every record this process writes can be told apart from the other
+    process's records in the log file they share.
+    """
 
     logger.remove()
-    logger.configure(extra={"request_id": None}, patcher=redact_secrets)
+    logger.configure(extra={"request_id": None, "service": service.value}, patcher=redact_secrets)
 
     level = _resolve_level(settings.log_level.upper())
 

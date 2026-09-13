@@ -10,6 +10,7 @@ export const resources = {
         add: 'Add',
         tasks: 'Tasks',
         indexers: 'Indexers',
+        logs: 'Logs',
         openMenu: 'Open navigation menu',
         languageLabel: 'Select language',
         languages: {
@@ -551,10 +552,15 @@ export const resources = {
       },
       taskLogs: {
         title: 'Logs',
-        description: 'Everything the background tasks logged, newest first.',
+        description: 'Everything the API and the scheduler logged, newest first.',
+        tabs: {
+          api: 'Backend',
+          scheduler: 'Scheduler',
+        },
         filterLabel: 'Filter by task',
         allTasks: 'All tasks',
         source: 'Source',
+        context: 'Context',
         toggleDetails: 'Show log details',
         previous: 'Previous',
         next: 'Next',
@@ -715,6 +721,7 @@ export const resources = {
         add: 'Добавить',
         tasks: 'Задачи',
         indexers: 'Индексеры',
+        logs: 'Логи',
         openMenu: 'Открыть меню навигации',
         languageLabel: 'Выберите язык',
         languages: {
@@ -1276,10 +1283,15 @@ export const resources = {
       },
       taskLogs: {
         title: 'Логи',
-        description: 'Всё, что записали фоновые задачи, сначала новые.',
+        description: 'Всё, что записали API и планировщик, сначала новые.',
+        tabs: {
+          api: 'Бэкенд',
+          scheduler: 'Планировщик',
+        },
         filterLabel: 'Фильтр по задаче',
         allTasks: 'Все задачи',
         source: 'Источник',
+        context: 'Контекст',
         toggleDetails: 'Показать подробности записи',
         previous: 'Назад',
         next: 'Вперёд',
