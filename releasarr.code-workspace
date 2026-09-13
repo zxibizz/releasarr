@@ -5,13 +5,13 @@
 			"name": "root"
 		},
 		{
-			"path": "frontend",
+			"path": "services/frontend",
 		},
 		{
-			"path": "backend",
+			"path": "services/backend",
 		},
 		{
-			"path": "bot",
+			"path": "services/bot",
 		}
 	]
 }

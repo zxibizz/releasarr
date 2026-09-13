@@ -1,7 +1,7 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS backend
 ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
-# docker-compose.dev.yaml bind-mounts ./backend over /app, which would shadow a
+# docker-compose.dev.yaml bind-mounts ./services/backend over /app, which would shadow a
 # venv living in the project directory — and the host's own .venv is built for
 # the host's platform anyway.
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -17,8 +17,8 @@ ENV PYTHONPYCACHEPREFIX=/tmp/pycache
 WORKDIR /app
 # Dev groups included: the same image runs pytest, ruff, and mypy.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=services/backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=services/backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 
 # ------------------------------------------------
@@ -30,5 +30,5 @@ ENV NODE_ENV=development
 WORKDIR /app
 # Seeds the node_modules volume with Linux binaries on first `up`, so the
 # platform-specific swc and rolldown builds never come from the host mount.
-COPY frontend/package*.json ./
+COPY services/frontend/package*.json ./
 RUN npm ci --no-audit --no-fund

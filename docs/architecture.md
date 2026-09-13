@@ -27,7 +27,7 @@ Three processes, one container image:
 `/etc/cont-init.d/01-migrations` runs `alembic upgrade head` before anything starts — a failure
 there takes the container down rather than serving against a stale schema — and the three
 services in `/etc/services.d` come up afterwards, each restarted on its own if it dies. The tree
-lives in `docker/root/`, copied to `/` at build time.
+lives in `cicd/containers/all-in-one/root/`, copied to `/` at build time.
 
 Each service has a `log/run` that pipes it through `s6-log`, which tags every line with `[api]`,
 `[scheduler]`, or `[nginx]` — otherwise one container's stream mixes three processes with no way
@@ -54,7 +54,8 @@ from the UI, an operator, or qBittorrent's completion hook.
 
 Consequence worth knowing: the two processes configure Loguru against the same file with
 independent rotation state, so records occasionally land in a rotated sibling. The log reader
-follows siblings to compensate. See [`../backend/docs/tasks.md`](../backend/docs/tasks.md).
+follows siblings to compensate. See
+[`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md).
 
 ## The contract
 
@@ -65,7 +66,7 @@ consumers:
 | --- | --- |
 | Backend | `tests/api/test_openapi_contract.py` asserts FastAPI's generated spec covers every operation in the document. Pydantic schemas in `src/schemas/` mirror it by hand — there is no Python codegen. |
 | Frontend | `npm run codegen` regenerates `src/lib/api/generated/types.ts` with `openapi-typescript`. `src/types.ts` re-exports the schemas the app uses. |
-| Mock server | `frontend/mock-server/` implements the same document, and serves it at `/openapi.yaml`. |
+| Mock server | `services/frontend/mock-server/` implements the same document, and serves it at `/openapi.yaml`. |
 
 Note the prefix asymmetry: the spec's `servers` entry is `/api` because that is what nginx
 serves under, but FastAPI mounts routes at `/requests`, `/discover`, and so on. The app itself

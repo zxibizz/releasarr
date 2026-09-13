@@ -1,7 +1,7 @@
 # Releasarr Frontend (v2)
 
 A ground-up rewrite of the Releasarr web UI built on **Vite + React 19 + TypeScript + Mantine**,
-talking to the same backend contract described by [`../openapi.yaml`](../openapi.yaml).
+talking to the same backend contract described by [`../../openapi.yaml`](../../openapi.yaml).
 
 ## Getting started
 
@@ -34,7 +34,7 @@ root.
 | `npm run preview`     | Serve the production build                                      |
 | `npm test`            | Run the Vitest suite once                                       |
 | `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config         |
-| `npm run codegen`     | Regenerate API types from `../openapi.yaml`                     |
+| `npm run codegen`     | Regenerate API types from `../../openapi.yaml`                     |
 | `npm run screenshots` | Recapture the root README's screenshots against the mock API    |
 
 ## Environment
@@ -87,7 +87,7 @@ A few conventions worth knowing:
   Features declare their endpoints in `features/<name>/api.ts` and their cache keys and
   hooks in `features/<name>/queries.ts`.
 - **Types come from the contract.** `src/types.ts` re-exports the generated schema types;
-  run `npm run codegen` after `../openapi.yaml` changes rather than hand-editing types.
+  run `npm run codegen` after `../../openapi.yaml` changes rather than hand-editing types.
 - **Status colors live in one place.** `utils/status.ts` maps a status to a Mantine color
   and icon, and `StatusBadge` is the only component that renders them.
 - **Route loaders warm the cache.** `router.tsx` uses `ensureQueryData` so pages have data
@@ -159,7 +159,7 @@ npm test
 ```
 
 Tests mock `apiRequest` rather than the network or the mock server. Conventions and
-examples are in [`../docs/testing.md`](../docs/testing.md).
+examples are in [`../../docs/testing.md`](../../docs/testing.md).
 
 ## Screenshots
 
@@ -173,7 +173,7 @@ npm run screenshots -- --headed tasks  # watch it drive the UI
 ```
 
 It starts the mock API and dev server itself, or reuses them if `dev:mock` is already
-running, and writes into `../docs/screenshots/`. Shots are declared in
+running, and writes into `../../docs/screenshots/`. Shots are declared in
 `scripts/screenshots/shots.ts`; see [`docs/screenshots.md`](docs/screenshots.md) before
 adding one, because the waiting rules are what keep the output stable.
 
@@ -189,7 +189,7 @@ whatever `RELEASARR_CHROMIUM` points at.
 | [`docs/mock-server.md`](docs/mock-server.md) | The mock API: layout, state, simulated jobs, adding endpoints |
 | [`docs/screenshots.md`](docs/screenshots.md) | Adding a shot, and the waiting rules that keep captures stable |
 
-Repo-wide docs are in [`../docs/`](../docs/README.md) —
-[`../docs/frontend.md`](../docs/frontend.md) for the patterns to follow when adding code,
-[`../AGENTS.md`](../AGENTS.md) for the conventions, and
-[`../docs/architecture.md`](../docs/architecture.md) for how the frontend fits the rest.
+Repo-wide docs are in [`../../docs/`](../../docs/README.md) —
+[`../../docs/frontend.md`](../../docs/frontend.md) for the patterns to follow when adding code,
+[`../../AGENTS.md`](../../AGENTS.md) for the conventions, and
+[`../../docs/architecture.md`](../../docs/architecture.md) for how the frontend fits the rest.

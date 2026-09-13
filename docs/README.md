@@ -15,16 +15,17 @@ The docs above are repo-wide. Detail that only concerns one side lives next to t
 
 | Doc | Covers |
 | --- | --- |
-| [`../backend/README.md`](../backend/README.md) | Backend setup, commands, layout, configuration gotchas |
-| [`../backend/docs/tasks.md`](../backend/docs/tasks.md) | Background tasks and the scheduler: job collapsing, ordering guarantees, log filtering, the qBittorrent hook |
-| [`../backend/docs/integrations.md`](../backend/docs/integrations.md) | Sonarr, Radarr, Prowlarr, qBittorrent, TVDB, TMDB — endpoints called, auth, retries, degradation |
-| [`../backend/docs/file-mapping.md`](../backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
-| [`../frontend/README.md`](../frontend/README.md) | Frontend setup, scripts, routing, i18n, mobile |
-| [`../frontend/docs/file-mapping.md`](../frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
-| [`../frontend/docs/mock-server.md`](../frontend/docs/mock-server.md) | The mock API and how to extend it |
-| [`../frontend/docs/screenshots.md`](../frontend/docs/screenshots.md) | Regenerating the README's screenshots |
+| [`../services/backend/README.md`](../services/backend/README.md) | Backend setup, commands, layout, configuration gotchas |
+| [`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md) | Background tasks and the scheduler: job collapsing, ordering guarantees, log filtering, the qBittorrent hook |
+| [`../services/backend/docs/integrations.md`](../services/backend/docs/integrations.md) | Sonarr, Radarr, Prowlarr, qBittorrent, TVDB, TMDB — endpoints called, auth, retries, degradation |
+| [`../services/backend/docs/file-mapping.md`](../services/backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
+| [`../services/frontend/README.md`](../services/frontend/README.md) | Frontend setup, scripts, routing, i18n, mobile |
+| [`../services/frontend/docs/file-mapping.md`](../services/frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
+| [`../services/frontend/docs/mock-server.md`](../services/frontend/docs/mock-server.md) | The mock API and how to extend it |
+| [`../services/frontend/docs/screenshots.md`](../services/frontend/docs/screenshots.md) | Regenerating the README's screenshots |
 
 [`../openapi.yaml`](../openapi.yaml) is the API contract, and the thing to change first.
 
 `screenshots/` holds the images used by the root [`README.md`](../README.md). They are
-generated — run `npm run screenshots` from `frontend/` rather than replacing them by hand.
+generated — run `npm run screenshots` from `services/frontend/` rather than replacing them by
+hand.

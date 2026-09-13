@@ -1,6 +1,6 @@
 # Screenshots
 
-`scripts/screenshots/` captures the images the root [`README.md`](../../README.md) embeds, by
+`scripts/screenshots/` captures the images the root [`README.md`](../../../README.md) embeds, by
 driving the real UI against the [mock API](mock-server.md). Commands are in the
 [frontend README](../README.md#screenshots).
 

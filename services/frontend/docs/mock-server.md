@@ -1,11 +1,11 @@
 # Mock server
 
-`mock-server/` is an Express app that implements [`../../openapi.yaml`](../../openapi.yaml) in
+`mock-server/` is an Express app that implements [`../../../openapi.yaml`](../../../openapi.yaml) in
 memory. It is how the UI is developed: `npm run dev:mock` runs it on `:8001` alongside Vite on
 `:3000`, and the app cannot tell it from the real backend.
 
 This is not a test double. Frontend tests mock `apiRequest` directly (see
-[`../../docs/testing.md`](../../docs/testing.md)); the mock server exists for the dev server and
+[`../../../docs/testing.md`](../../../docs/testing.md)); the mock server exists for the dev server and
 for the screenshots in the root README.
 
 ## Layout
@@ -122,7 +122,7 @@ completion means the whole run is done.
 
 The mock is the third thing an API change touches, after the spec and the backend:
 
-1. Update `../../openapi.yaml`.
+1. Update `../../../openapi.yaml`.
 2. Implement it in the backend and run its contract test.
 3. Run `npm run codegen` so `src/lib/api/generated/` has the new types.
 4. Add the handler here, typed against the generated types — not against a hand-written shape.

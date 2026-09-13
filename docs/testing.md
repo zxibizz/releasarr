@@ -7,7 +7,7 @@ real Mantine and i18next providers instead of stubs. Mock at the outermost bound
 ## Backend
 
 `pytest` with `pytest-asyncio` in `asyncio_mode = "auto"`, so `async def test_…` needs no
-decorator. Run from `backend/`:
+decorator. Run from `services/backend/`:
 
 ```bash
 uv run pytest
@@ -80,7 +80,9 @@ Remember the API key header — every router carries `Depends(require_api_key)`.
 
 ### The contract test
 
-`tests/api/test_openapi_contract.py` loads `../openapi.yaml` and asserts FastAPI's generated
+`tests/api/test_openapi_contract.py` finds `openapi.yaml` by walking up from its own file — the
+repository root locally, the filesystem root in the dev container, where the service directory is
+mounted over `/app` — and asserts FastAPI's generated
 spec covers every operation in it. It catches a spec edit that never reached the routes, but not
 the reverse, and it does not compare schemas — keeping field names and error codes aligned is
 still manual.
@@ -117,7 +119,7 @@ real SQLite, so constraints are exercised.
 
 ## Frontend
 
-Vitest with jsdom and Testing Library. Run from `frontend/`:
+Vitest with jsdom and Testing Library. Run from `services/frontend/`:
 
 ```bash
 npm test
@@ -191,7 +193,7 @@ release name is fully visible, and full-screen modal behaviour.
 - **No end-to-end tests.** No Playwright, no Cypress. The mock server is the closest thing, and
   it is for manual work.
 - **No CI test run.** `.forgejo/workflows/deploy.yml` runs only `ruff check` and
-  `ruff format --check` on `backend/src`. Run `uv run pytest`, `uv run mypy src`, `npm test`,
+  `ruff format --check` on `services/backend/src`. Run `uv run pytest`, `uv run mypy src`, `npm test`,
   and `npm run build` locally before pushing.
 - **No schema-level contract checking.** The contract test compares operation lists, not field
   shapes.

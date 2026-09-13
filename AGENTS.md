@@ -15,10 +15,11 @@ Two halves, one contract:
 | Path | What it is |
 | --- | --- |
 | `openapi.yaml` | **The contract.** Single source of truth for the HTTP API. |
-| `backend/` | Python 3.12 / FastAPI, layered architecture, `uv`-managed. |
-| `frontend/` | React 19 / Vite / TypeScript / Mantine. |
-| `frontend/mock-server/` | Express mock of the contract, for UI work without a backend. |
-| `bot/` | Untracked scratch work. **Ignore it.** |
+| `services/backend/` | Python 3.12 / FastAPI, layered architecture, `uv`-managed. |
+| `services/frontend/` | React 19 / Vite / TypeScript / Mantine. |
+| `services/frontend/mock-server/` | Express mock of the contract, for UI work without a backend. |
+| `services/bot/` | Untracked scratch work. **Ignore it.** |
+| `cicd/containers/all-in-one/root/` | Overlay baked into the production image: nginx site, s6 services. |
 
 ## Deeper guides
 
@@ -37,14 +38,14 @@ Narrower docs live next to the code they describe:
 
 | Doc | When to read it |
 | --- | --- |
-| [`backend/README.md`](backend/README.md) | Running the backend; what each directory is for |
-| [`backend/docs/tasks.md`](backend/docs/tasks.md) | Background tasks, the scheduler, job queueing, log filtering |
-| [`backend/docs/integrations.md`](backend/docs/integrations.md) | Touching any Sonarr / Radarr / Prowlarr / qBittorrent / TVDB / TMDB adapter |
-| [`backend/docs/file-mapping.md`](backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
-| [`frontend/README.md`](frontend/README.md) | Running the frontend; routing, i18n, mobile |
-| [`frontend/docs/file-mapping.md`](frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
-| [`frontend/docs/mock-server.md`](frontend/docs/mock-server.md) | Adding or changing a mock endpoint |
-| [`frontend/docs/screenshots.md`](frontend/docs/screenshots.md) | Regenerating or adding a README screenshot |
+| [`services/backend/README.md`](services/backend/README.md) | Running the backend; what each directory is for |
+| [`services/backend/docs/tasks.md`](services/backend/docs/tasks.md) | Background tasks, the scheduler, job queueing, log filtering |
+| [`services/backend/docs/integrations.md`](services/backend/docs/integrations.md) | Touching any Sonarr / Radarr / Prowlarr / qBittorrent / TVDB / TMDB adapter |
+| [`services/backend/docs/file-mapping.md`](services/backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
+| [`services/frontend/README.md`](services/frontend/README.md) | Running the frontend; routing, i18n, mobile |
+| [`services/frontend/docs/file-mapping.md`](services/frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
+| [`services/frontend/docs/mock-server.md`](services/frontend/docs/mock-server.md) | Adding or changing a mock endpoint |
+| [`services/frontend/docs/screenshots.md`](services/frontend/docs/screenshots.md) | Regenerating or adding a README screenshot |
 
 ## Hard rules
 
@@ -53,21 +54,21 @@ Violating these produces changes that look fine and break something elsewhere.
 1. **`openapi.yaml` changes first.** It is consumed by three things: the backend's contract
    test, the frontend's type codegen, and the mock server. An API change means updating all
    four — spec, backend schemas, `npm run codegen`, and `mock-server/`.
-2. **Never hand-edit `frontend/src/lib/api/generated/types.ts`.** It is committed but
-   generated. Run `npm run codegen` from `frontend/`.
+2. **Never hand-edit `services/frontend/src/lib/api/generated/types.ts`.** It is committed but
+   generated. Run `npm run codegen` from `services/frontend/`.
 3. **Dependencies point inward in the backend.** `application/` must not import FastAPI,
    SQLAlchemy models, or anything from `infrastructure/`. Use cases depend on `Protocol`s in
    `application/interfaces/`; `infrastructure/` implements them.
 4. **Route handlers stay thin.** Map schema to command, `await use_case.execute(...)`, map DTO
    to schema. Do not catch domain exceptions in routes — register them in `DOMAIN_ERROR_MAP`
-   in `backend/src/api/errors.py` and let the global handler map them.
+   in `services/backend/src/api/errors.py` and let the global handler map them.
 5. **Never start background work inside the FastAPI app.** The scheduler is a separate
    process. The API only writes rows to `sync_jobs`; the worker claims them.
-6. **All frontend HTTP goes through `apiRequest`** in `frontend/src/lib/api/client.ts`. No bare
-   `fetch`, no second client.
-7. **Add UI strings to both `en` and `ru`** in `frontend/src/locales/resources.ts`. Russian
-   plurals need `_one`/`_few`/`_many`/`_other`, English only `_one`/`_other`.
-8. **Status colors live in exactly one place:** `frontend/src/utils/status.ts`, rendered by
+6. **All frontend HTTP goes through `apiRequest`** in `services/frontend/src/lib/api/client.ts`.
+   No bare `fetch`, no second client.
+7. **Add UI strings to both `en` and `ru`** in `services/frontend/src/locales/resources.ts`.
+   Russian plurals need `_one`/`_few`/`_many`/`_other`, English only `_one`/`_other`.
+8. **Status colors live in exactly one place:** `services/frontend/src/utils/status.ts`, rendered by
    `StatusBadge`. Do not hardcode a status color anywhere else.
 9. **Review autogenerated migrations before applying them.** Postgres enum changes need
    hand-written SQL; `batch_alter_table` silently no-ops there. See
@@ -75,7 +76,7 @@ Violating these produces changes that look fine and break something elsewhere.
 
 ## Commands
 
-Backend, from `backend/`:
+Backend, from `services/backend/`:
 
 ```bash
 uv sync                          # install
@@ -89,7 +90,7 @@ uv run alembic upgrade head      # apply migrations
 uv run alembic revision --autogenerate -m "describe change"
 ```
 
-Frontend, from `frontend/`:
+Frontend, from `services/frontend/`:
 
 ```bash
 npm install
@@ -97,12 +98,13 @@ npm run dev:mock                 # mock API on :8001 + Vite on :3000
 npm test                         # vitest
 npm run lint
 npm run build                    # tsc --noEmit && vite build
-npm run codegen                  # regenerate types from ../openapi.yaml
+npm run codegen                  # regenerate types from ../../openapi.yaml
 ```
 
-Whole stack: `docker compose up -d --build`, served on `:8050`. For a containerised stack that
-reloads on edit instead, `docker compose -f docker-compose.dev.yaml up --build` — UI on `:3000`,
-API on `:8000`, scheduler in its own container.
+The production image is `Dockerfile.all-in-one`, built from the repository root
+(`docker build -f Dockerfile.all-in-one .`) and served on `:8050`. For a containerised stack
+that reloads on edit instead, `docker compose -f docker-compose.dev.yaml up --build` — UI on
+`:3000`, API on `:8000`, scheduler in its own container.
 
 ## Code style
 

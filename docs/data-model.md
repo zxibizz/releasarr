@@ -1,7 +1,8 @@
 # Data model
 
-Schema defined in `backend/src/domain/models.py`, enums in `backend/src/domain/enums.py`,
-migrations in `backend/alembic/versions/`. SQLite by default, PostgreSQL via `asyncpg`.
+Schema defined in `services/backend/src/domain/models.py`, enums in
+`services/backend/src/domain/enums.py`, migrations in `services/backend/alembic/versions/`.
+SQLite by default, PostgreSQL via `asyncpg`.
 
 ## Tables
 

@@ -27,11 +27,11 @@ jobs:
           uv venv
 
       - name: Run Ruff linting
-        working-directory: backend
+        working-directory: services/backend
         run: uv run ruff check ./src
 
       - name: Run Ruff formatting
-        working-directory: backend
+        working-directory: services/backend
         run: uv run ruff format --check ./src
 
   build-and-push:
@@ -49,6 +49,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
+          file: Dockerfile.all-in-one
           push: true
           tags: ${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:latest
           cache-from: type=registry,ref=${{ vars.REGISTRY_URL }}/${{ vars.IMAGE_NAME }}:buildcache

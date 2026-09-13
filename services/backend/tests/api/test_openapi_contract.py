@@ -13,9 +13,19 @@ from src.api.app import app
 HTTP_METHODS = {"get", "put", "post", "delete", "patch", "options", "head", "trace"}
 
 
+def _find_contract() -> Path:
+    # Searched for rather than reached by a fixed number of parents: the spec sits
+    # two levels above the service in the repository, but at the filesystem root
+    # in the dev container, where the service directory is mounted over /app.
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "openapi.yaml"
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError("openapi.yaml not found in any parent of the test file")
+
+
 def _load_contract() -> dict[str, Any]:
-    spec_path = Path(__file__).resolve().parents[3] / "openapi.yaml"
-    with spec_path.open("r", encoding="utf-8") as handle:
+    with _find_contract().open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle)
 
 

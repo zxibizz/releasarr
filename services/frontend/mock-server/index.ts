@@ -73,7 +73,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-const contractPath = path.resolve(process.cwd(), '../openapi.yaml');
+const contractPath = path.resolve(process.cwd(), '../../openapi.yaml');
 app.get('/openapi.yaml', (_req, res, next) => {
   res.sendFile(contractPath, (err) => {
     if (err) {
