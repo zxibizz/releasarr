@@ -34,11 +34,11 @@ interface SeasonPickerProps {
 
 /**
  * What a tick means depends on the caller. Adding a request, it is a season to
- * ask for, and the seasons already requested are ticked and locked: requesting
- * one again is harmless — the backend refreshes the existing row — but offering
- * it as a choice invites the user to look for a difference that isn't there.
- * Managing a series (`allowRemoving`), it is Sonarr's monitored flag, which the
- * caller both seeds from and saves to.
+ * ask for, and a season Sonarr already covers — requested by us, or monitored
+ * by it — is ticked and locked: asking again is harmless, but offering it as a
+ * choice both invites the user to look for a difference that isn't there and
+ * misreports what Sonarr is doing. Managing a series (`allowRemoving`), a tick
+ * is Sonarr's monitored flag, which the caller both seeds from and saves to.
  *
  * Specials are left out entirely: they are rarely what someone means by "the
  * next season", and TVDB files anything without a home there.
@@ -85,12 +85,24 @@ export function SeasonPicker({
     );
   }
 
-  const isLocked = (season: SeasonOption) => season.requested && !allowRemoving;
-  const selectable = offered.filter((season) => !isLocked(season));
+  /*
+   * Adding, a season is out of the running once Sonarr already covers it, by a
+   * request of ours or by its own monitoring. An add only ever widens
+   * monitoring, so there is nothing left to ask for and no way to give it back
+   * from here - that is the manage-seasons modal's job.
+   */
+  const isCovered = (season: SeasonOption) =>
+    (season.requested || season.monitored) && !allowRemoving;
+  const selectable = offered.filter((season) => !isCovered(season));
   const selectableNumbers = selectable.map((season) => season.season_number);
   const allSelected =
     selectable.length > 0 && selectableNumbers.every((number) => selected.includes(number));
   const rows = Math.ceil(offered.length / columns);
+
+  const coveredNote = (season: SeasonOption) =>
+    season.requested
+      ? t('discover.seasons.alreadyRequested')
+      : t('discover.seasons.alreadyMonitored');
 
   return (
     <Stack gap="xs">
@@ -124,11 +136,11 @@ export function SeasonPicker({
         {offered.map((season) => (
           <Checkbox
             key={season.season_number}
-            // A season already requested reads as chosen, because it is.
-            checked={isLocked(season) || selected.includes(season.season_number)}
-            disabled={isLocked(season)}
+            // A season already covered reads as chosen, because it is.
+            checked={isCovered(season) || selected.includes(season.season_number)}
+            disabled={isCovered(season)}
             label={t(seasonLabelKey(season.season_number), { season: season.season_number })}
-            description={isLocked(season) ? t('discover.seasons.alreadyRequested') : undefined}
+            description={isCovered(season) ? coveredNote(season) : undefined}
             onChange={(event) =>
               onChange(
                 event.currentTarget.checked
@@ -139,6 +151,16 @@ export function SeasonPicker({
           />
         ))}
       </SimpleGrid>
+
+      {/*
+        Every box ticked and none of them yours to change leaves the submit
+        button disabled, so say why rather than let it read as broken.
+      */}
+      {selectable.length === 0 && (
+        <Text size="sm" c="dimmed">
+          {t('discover.seasons.allCovered')}
+        </Text>
+      )}
 
       {/*
         Future seasons are a property of the series rather than one of the

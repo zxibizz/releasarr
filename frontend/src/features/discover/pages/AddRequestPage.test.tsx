@@ -235,6 +235,85 @@ describe('AddRequestPage', () => {
     expect(available).toBeEnabled();
   });
 
+  it('shows a season Sonarr monitors as taken even without a request of ours', async () => {
+    /*
+     * A monitored season that is already complete never goes missing, so it
+     * never becomes a request. Reading that as "not monitored" contradicted
+     * both Sonarr and our own manage-seasons modal.
+     */
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      seasons: seasons(
+        { season_number: 1, monitored: true },
+        { season_number: 2, monitored: false },
+      ),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+
+    const monitored = await screen.findByRole('checkbox', { name: /Season 1/ });
+    expect(monitored).toBeChecked();
+    expect(monitored).toBeDisabled();
+    expect(screen.getByText('Already monitored in Sonarr')).toBeInTheDocument();
+
+    const available = screen.getByRole('checkbox', { name: /Season 2/ });
+    expect(available).not.toBeChecked();
+    expect(available).toBeEnabled();
+  });
+
+  it('asks only for the seasons Sonarr does not already monitor', async () => {
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      seasons: seasons(
+        { season_number: 1, monitored: true },
+        { season_number: 2 },
+        { season_number: 3 },
+      ),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Select all' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add request' }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith(
+        '/discover/requests',
+        expect.objectContaining({
+          body: expect.objectContaining({ season_numbers: [2, 3] }),
+        }),
+      ),
+    );
+  });
+
+  it('has nothing to add for a series Sonarr already covers entirely', async () => {
+    stubRoutes({
+      results: [knownSeries],
+      inLibrary: true,
+      seasons: seasons(
+        { season_number: 1, monitored: true },
+        { season_number: 2, monitored: true },
+      ),
+    });
+
+    renderWithProviders(<AddRequestPage />);
+    await search();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose seasons' }));
+
+    expect(
+      await screen.findByText('Sonarr already covers every season of this series.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add request' })).toBeDisabled();
+  });
+
   it('asks Sonarr for future seasons when the box is ticked', async () => {
     stubRoutes({
       results: [seriesResult],
