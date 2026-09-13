@@ -53,6 +53,7 @@ describe('LogsPage', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
     logRequests.length = 0;
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -114,6 +115,43 @@ describe('LogsPage', () => {
     await waitFor(() => {
       expect(logRequests.some((query) => query.task === 'release_sync')).toBe(true);
     });
+  });
+
+  it('narrows the log to a level floor', async () => {
+    const user = userEvent.setup();
+    respondWith([logEntry({ level: 'error' })]);
+
+    renderWithProviders(<LogsPage />);
+    await user.click(await visiblePanel().findByRole('combobox', { name: /minimum level/i }));
+    await user.click(await screen.findByRole('option', { name: 'Warning' }));
+
+    await waitFor(() => {
+      expect(logRequests.some((query) => query.min_level === 'warning')).toBe(true);
+    });
+  });
+
+  it('opens at the level a previous visit chose', async () => {
+    window.localStorage.setItem('releasarr.logLevel', 'error');
+    respondWith([logEntry({ level: 'error' })]);
+
+    renderWithProviders(<LogsPage />);
+
+    await waitFor(() => expect(logRequests[0]?.min_level).toBe('error'));
+    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toHaveValue(
+      'Error',
+    );
+  });
+
+  it('offers the level floor on both processes', async () => {
+    const user = userEvent.setup();
+    respondWith([logEntry()]);
+
+    renderWithProviders(<LogsPage />);
+    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toBeInTheDocument();
+
+    await openSchedulerTab(user);
+
+    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toBeInTheDocument();
   });
 
   it('offers no task filter for the API, which never binds a task', async () => {

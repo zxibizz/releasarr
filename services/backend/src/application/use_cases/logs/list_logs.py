@@ -19,6 +19,7 @@ class ListLogsUseCase:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        min_level: str | None = None,
     ) -> LogsPageResult:
         # The query parses every line of the log files to find its matches, which
         # is far too much blocking work to run on the event loop.
@@ -29,4 +30,5 @@ class ListLogsUseCase:
             request_id=request_id,
             task=task,
             service=service,
+            min_level=min_level,
         )

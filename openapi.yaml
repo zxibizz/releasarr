@@ -1009,7 +1009,7 @@ paths:
         producer bound onto the record, so `task` returns everything logged
         while that background task was running, including lines emitted deeper
         in the call stack, and `service` splits the API's records from the
-        scheduler's.
+        scheduler's. `min_level` is a threshold over the parsed severity.
       operationId: listRequestLogs
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -1017,6 +1017,7 @@ paths:
         - $ref: '#/components/parameters/RequestIdFilter'
         - $ref: '#/components/parameters/TaskFilter'
         - $ref: '#/components/parameters/ServiceFilter'
+        - $ref: '#/components/parameters/LogLevelFilter'
       responses:
         '200':
           description: Request logs matching the supplied filters.
@@ -1510,6 +1511,15 @@ components:
       schema:
         $ref: '#/components/schemas/LogService'
       description: Optional process to filter results by.
+    LogLevelFilter:
+      in: query
+      name: min_level
+      schema:
+        $ref: '#/components/schemas/RequestLogLevel'
+      description: |
+        Least severe level to return, along with everything worse. Records are
+        mapped onto three levels, so this is a threshold rather than an exact
+        match: `warning` also returns errors.
     IndexerIdFilter:
       in: query
       name: indexer_id
@@ -1548,7 +1558,7 @@ components:
       enum: [api, scheduler]
       description: |
         The process that wrote a record. The API and the scheduler run as
-        separate processes and share one log file.
+        separate processes, each writing its own log file.
     IndexerHealth:
       type: string
       enum: [healthy, degraded, blocked, disabled]

@@ -21,6 +21,11 @@ _LEVEL_MAP = {
     "CRITICAL": "error",
 }
 
+# Loguru's seven levels collapse onto three, so severity has to be stated here
+# rather than read back off the names. The filter below is a threshold: warning
+# means warning and worse, which is what someone chasing a problem asks for.
+_LEVEL_SEVERITY = {"info": 0, "warning": 1, "error": 2}
+
 
 @dataclass(slots=True)
 class LogEntry:
@@ -59,11 +64,13 @@ class LogFileReader:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        min_level: str | None = None,
     ) -> list[LogEntry]:
         """Return log entries in chronological order, optionally filtered.
 
-        Filters are combined, and all three match on fields the producer bound
-        onto the record rather than on the message text.
+        Filters are combined. The first three match on fields the producer bound
+        onto the record rather than on the message text; ``min_level`` is the odd
+        one out, matching on severity once the record has been parsed.
         """
 
         entries: list[LogEntry] = []
@@ -88,6 +95,8 @@ class LogFileReader:
                             and self._service_of(entry, source) != service.lower()
                         ):
                             continue
+                        if min_level is not None and not self._at_least(entry, min_level):
+                            continue
                         entries.append(entry)
 
         # Each file is written in order, but the two processes interleave in time,
@@ -95,6 +104,10 @@ class LogFileReader:
         # leaves records that share a timestamp in the order they were read.
         entries.sort(key=lambda entry: entry.occurred_at)
         return entries
+
+    @staticmethod
+    def _at_least(entry: LogEntry, min_level: str) -> bool:
+        return _LEVEL_SEVERITY.get(entry.level, 0) >= _LEVEL_SEVERITY.get(min_level.lower(), 0)
 
     @staticmethod
     def _service_of(entry: LogEntry, source: str) -> str:

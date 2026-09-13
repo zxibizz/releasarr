@@ -18,16 +18,19 @@ class MockLogFileReader(LogFileReader):
         self.last_filter_request_id: str | None = None
         self.last_filter_task: str | None = None
         self.last_filter_service: str | None = None
+        self.last_filter_min_level: str | None = None
 
     def read_entries(
         self,
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        min_level: str | None = None,
     ) -> list[LogEntry]:
         self.last_filter_request_id = request_id
         self.last_filter_task = task
         self.last_filter_service = service
+        self.last_filter_min_level = min_level
 
         entries = self.entries
         if request_id:
@@ -152,6 +155,17 @@ def test_list_logs_combines_request_and_task_filters(
     result = query.execute(request_id="req-1", task="export")
 
     assert [entry.message for entry in result.logs] == ["Imported for request"]
+
+
+def test_list_logs_passes_the_level_floor_to_the_reader(
+    make_entry: Any, settings: AppSettings
+) -> None:
+    reader = MockLogFileReader([make_entry("Broken")])
+    query = ListLogsQuery(reader, settings)
+
+    query.execute(min_level="warning")
+
+    assert reader.last_filter_min_level == "warning"
 
 
 def test_list_logs_validates_pagination_params(settings: AppSettings) -> None:

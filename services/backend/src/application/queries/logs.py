@@ -22,8 +22,8 @@ class LogsPageResult:
 class ListLogsQuery:
     """Query handler for retrieving paginated log entries.
 
-    Reads from the Loguru JSON log file and applies pagination
-    and optional request_id, task or service filtering.
+    Reads from the Loguru JSON log files and applies pagination
+    and optional request_id, task, service or min_level filtering.
     """
 
     reader: LogFileReader
@@ -36,6 +36,7 @@ class ListLogsQuery:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        min_level: str | None = None,
     ) -> LogsPageResult:
         """Return a page of log entries.
 
@@ -45,6 +46,7 @@ class ListLogsQuery:
             request_id: Optional filter by request identifier
             task: Optional filter by the background task that logged the entry
             service: Optional filter by the process that logged the entry
+            min_level: Optional least severity to return, and everything worse
 
         Returns:
             Paginated result with log entries.
@@ -57,7 +59,9 @@ class ListLogsQuery:
         if per_page < 1:
             raise ValueError("per_page must be >= 1")
 
-        all_entries = self.reader.read_entries(request_id=request_id, task=task, service=service)
+        all_entries = self.reader.read_entries(
+            request_id=request_id, task=task, service=service, min_level=min_level
+        )
         # Most recent logs first
         all_entries = list(reversed(all_entries))
 
