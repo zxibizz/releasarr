@@ -17,14 +17,20 @@ export function UsersPage() {
   const deleteUser = useDeleteUser();
   const [formOpened, formModal] = useDisclosure(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  // Forces UserFormModal to remount on every open — Mantine keeps it mounted
+  // between opens, so its useState initializers would otherwise never re-run
+  // for the newly selected user.
+  const [formKey, setFormKey] = useState(0);
 
   const openCreate = () => {
     setEditingUser(null);
+    setFormKey((key) => key + 1);
     formModal.open();
   };
 
   const openEdit = (user: User) => {
     setEditingUser(user);
+    setFormKey((key) => key + 1);
     formModal.open();
   };
 
@@ -135,7 +141,7 @@ export function UsersPage() {
 
       <ServiceKeysPanel users={users} />
 
-      <UserFormModal opened={formOpened} onClose={formModal.close} user={editingUser} />
+      <UserFormModal key={formKey} opened={formOpened} onClose={formModal.close} user={editingUser} />
     </>
   );
 }

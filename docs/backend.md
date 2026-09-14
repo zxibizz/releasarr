@@ -215,7 +215,7 @@ class UpdateMediaRequestCommand:
     title: str | None | _Unset = field(default=UNSET)
 
     def is_empty(self) -> bool:
-        return all(value is UNSET for value in self.__dict__.values())
+        return all(getattr(self, f.name) is UNSET for f in fields(self))
 ```
 
 The same sentinel appears at the repository boundary in `UpdateMediaRequestData`.
