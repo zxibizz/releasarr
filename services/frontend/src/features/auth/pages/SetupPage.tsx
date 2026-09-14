@@ -1,5 +1,5 @@
 import { Alert, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 
 export function SetupPage() {
   const { t } = useTranslation();
-  const { completeSetup } = useAuth();
+  const { completeSetup, status } = useAuth();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
@@ -15,6 +15,17 @@ export function SetupPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // This route sits outside RequireAuth's guard: if setup has already been
+  // completed (elsewhere, or by another tab), a stale tab here would otherwise
+  // never notice and would keep offering to create a second admin account.
+  useEffect(() => {
+    if (status === 'authenticated') {
+      navigate('/', { replace: true });
+    } else if (status === 'anonymous') {
+      navigate('/login', { replace: true });
+    }
+  }, [status, navigate]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
