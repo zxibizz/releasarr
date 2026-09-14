@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
-from src.domain.enums import MediaType, ReleaseStatus
+from src.domain.enums import MediaType, ReleaseStatus, ReleaseWarningCode
 
 
 @dataclass(slots=True)
@@ -46,6 +46,16 @@ class ReleaseRequestSnapshot:
     # language won the localization, so matching a release named in another
     # language needs the alternatives too.
     alternate_titles: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ReleaseWarning:
+    """A condition worth surfacing on a release but not worth blocking on."""
+
+    code: ReleaseWarningCode
+    file_ids: list[str]
+    related_release_ids: list[str]
+    details: dict[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -160,6 +170,20 @@ class ReleaseRepository(Protocol):
 
     async def delete_release(self, release_id: str) -> bool:
         """Delete a release. Returns True when a record was removed."""
+
+    async def unlink_request(self, release_id: str, request_id: str) -> bool:
+        """Detach a request from a release without touching the release itself.
+
+        Used when replacing a request's releases: a release shared with other
+        requests must survive, only the link to this one goes.
+        """
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        """Fetch every release linked to any of the given requests, unpaginated.
+
+        Used to evaluate cross-release conditions (mapping overlaps, existing
+        grabs) that a single release's own row cannot answer.
+        """
 
     async def update_file_mappings(
         self,

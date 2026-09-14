@@ -9,7 +9,7 @@ from pydantic import Field
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
-from src.schemas.enums import ReleaseStatus
+from src.schemas.enums import ExistingReleasesAction, ReleaseStatus, ReleaseWarningCode
 
 
 class MovieFileRequestMapping(APIModel):
@@ -40,6 +40,13 @@ class ReleaseFile(APIModel):
     request_mapping: FileRequestMapping | None = None
 
 
+class ReleaseWarning(APIModel):
+    code: ReleaseWarningCode
+    file_ids: list[str]
+    related_release_ids: list[str]
+    details: dict[str, object] | None = None
+
+
 class Release(APIModel):
     id: str
     name: str
@@ -60,6 +67,7 @@ class Release(APIModel):
     quality: str | None = None
     info_url: str | None = None
     published_date: datetime | None = Field(default=None, validation_alias="published_at")
+    warnings: list[ReleaseWarning] = Field(default_factory=list)
 
 
 class ReleasesResponse(PaginatedResponse):
@@ -115,6 +123,7 @@ class ReleaseSearchResponse(APIModel):
 
 class ReleaseDownloadRequest(APIModel):
     release_id: str
+    existing_releases: ExistingReleasesAction | None = None
 
 
 class ManualReleaseRequest(APIModel):
@@ -122,6 +131,7 @@ class ManualReleaseRequest(APIModel):
 
     magnet_link: str | None = None
     torrent_file_base64: str | None = None
+    existing_releases: ExistingReleasesAction | None = None
 
 
 __all__ = [
@@ -138,6 +148,7 @@ __all__ = [
     "ReleaseFileMappingsUpdate",
     "ReleaseSearchResponse",
     "ReleaseSearchResult",
+    "ReleaseWarning",
     "ReleasesResponse",
     "SeriesFileRequestMapping",
 ]

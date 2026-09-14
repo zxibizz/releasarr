@@ -37,6 +37,7 @@ from src.application.use_cases.discover.exceptions import (
 )
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.exceptions import (
+    ExistingReleasesDecisionRequiredError,
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
     ReleaseDownloadConflictError,
@@ -70,6 +71,10 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     ReleaseConflictError: (status.HTTP_409_CONFLICT, "release_conflict"),
     ReleaseDownloadConflictError: (status.HTTP_409_CONFLICT, "release_download_conflict"),
     ReleaseDownloadFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed"),
+    ExistingReleasesDecisionRequiredError: (
+        status.HTTP_409_CONFLICT,
+        "existing_releases_decision_required",
+    ),
     SyncJobNotFoundError: (status.HTTP_404_NOT_FOUND, "sync_job_not_found"),
     MetadataProviderUnavailableError: (
         status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -121,7 +126,8 @@ def api_error(
 
 def _domain_handler(status_code: int, code: str) -> Handler:
     async def handler(request: Request, exc: Exception) -> JSONResponse:
-        payload = _error_payload(code, str(exc))
+        details = getattr(exc, "details", None)
+        payload = _error_payload(code, str(exc), details)
         return JSONResponse(status_code=status_code, content=payload)
 
     return handler

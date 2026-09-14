@@ -32,6 +32,7 @@ from src.application.use_cases.releases.commands import (
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
 from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
 from src.application.use_cases.releases.exceptions import (
+    ExistingReleasesDecisionRequiredError,
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
     ReleaseDownloadConflictError,
@@ -43,6 +44,7 @@ from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
+from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
@@ -50,6 +52,7 @@ from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.application.utility.torrent import TorrentFileInfo, TorrentInfo
 from src.domain.enums import (
+    ExistingReleasesAction,
     MediaType,
     ReleaseStatus,
     SyncJobKind,
@@ -191,6 +194,20 @@ class FakeReleaseRepository:
     async def delete_release(self, release_id: str) -> bool:
         self.last_deleted = release_id
         return self.releases.pop(release_id, None) is not None
+
+    async def unlink_request(self, release_id: str, request_id: str) -> bool:
+        record = self.releases.get(release_id)
+        if record is None:
+            return False
+        record.request_ids = [rid for rid in record.request_ids if rid != request_id]
+        record.requests = [req for req in record.requests if req.id != request_id]
+        return True
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        wanted = set(request_ids)
+        return [
+            record for record in self.releases.values() if wanted & set(record.request_ids)
+        ]
 
     async def update_file_mappings(
         self,
@@ -904,6 +921,115 @@ async def test_queue_release_download_maps_files_on_grab(monkeypatch) -> None:
         for update in repository.last_updates
         if update.mapping is not None
     ] == [("req-1", 1, 1), ("req-1", 1, 2)]
+
+
+def _search_service_for(candidate: ReleaseSearchResultRecord) -> FakeSearchService:
+    return FakeSearchService(ReleaseSearchResults(results=[candidate], query="", total_results=1))
+
+
+def _candidate(release_id: str, request_id: str) -> ReleaseSearchResultRecord:
+    return ReleaseSearchResultRecord(
+        release_id=release_id,
+        release_name="Release",
+        size="1 GB",
+        magnet_link="magnet:?xt=urn:btih:ABC123",
+        torrent_file_url=None,
+        info_url=None,
+        seeders=10,
+        leechers=2,
+        quality="1080p",
+        source="indexer",
+        request_id=request_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_requires_decision_when_request_has_releases() -> None:
+    existing = make_release_record("rel-existing", request_ids=["req-1"])
+    repository = FakeReleaseRepository({existing.id: existing})
+    download_service = FakeDownloadService()
+    search_service = _search_service_for(_candidate("candidate-1", "req-1"))
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueReleaseDownloadUseCase(
+        repository, download_service, search_service, existing_release_replacer=replacer
+    )
+
+    command = QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-1")
+    with pytest.raises(ExistingReleasesDecisionRequiredError) as exc_info:
+        await use_case.execute(command)
+
+    assert exc_info.value.release_ids == ["rel-existing"]
+    # Nothing was queued or created: the decision is required up front.
+    assert download_service.calls == []
+    assert "candidate-1" not in repository.releases
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_keep_leaves_existing_releases_alone() -> None:
+    existing = make_release_record("rel-existing", request_ids=["req-1"])
+    repository = FakeReleaseRepository({existing.id: existing})
+    download_service = FakeDownloadService()
+    search_service = _search_service_for(_candidate("candidate-1", "req-1"))
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueReleaseDownloadUseCase(
+        repository, download_service, search_service, existing_release_replacer=replacer
+    )
+
+    command = QueueReleaseDownloadCommand(
+        request_id="req-1", release_id="candidate-1", existing_releases=ExistingReleasesAction.KEEP
+    )
+    await use_case.execute(command)
+
+    assert "rel-existing" in repository.releases
+    assert download_service.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_replace_deletes_exclusive_release() -> None:
+    existing = make_release_record("rel-existing", request_ids=["req-1"])
+    repository = FakeReleaseRepository({existing.id: existing})
+    download_service = FakeDownloadService()
+    search_service = _search_service_for(_candidate("candidate-1", "req-1"))
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueReleaseDownloadUseCase(
+        repository, download_service, search_service, existing_release_replacer=replacer
+    )
+
+    command = QueueReleaseDownloadCommand(
+        request_id="req-1",
+        release_id="candidate-1",
+        existing_releases=ExistingReleasesAction.REPLACE,
+    )
+    await use_case.execute(command)
+
+    assert "rel-existing" not in repository.releases
+    assert download_service.deleted == [existing.info_hash]
+    assert "candidate-1" in repository.releases
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_replace_unlinks_shared_release() -> None:
+    """A release grabbed for two requests must survive a replace on just one."""
+
+    shared = make_release_record("rel-shared", request_ids=["req-1", "req-2"])
+    repository = FakeReleaseRepository({shared.id: shared})
+    download_service = FakeDownloadService()
+    search_service = _search_service_for(_candidate("candidate-1", "req-1"))
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueReleaseDownloadUseCase(
+        repository, download_service, search_service, existing_release_replacer=replacer
+    )
+
+    command = QueueReleaseDownloadCommand(
+        request_id="req-1",
+        release_id="candidate-1",
+        existing_releases=ExistingReleasesAction.REPLACE,
+    )
+    await use_case.execute(command)
+
+    assert "rel-shared" in repository.releases
+    assert repository.releases["rel-shared"].request_ids == ["req-2"]
+    assert download_service.deleted == []
 
 
 @pytest.mark.asyncio

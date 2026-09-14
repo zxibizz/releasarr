@@ -55,6 +55,7 @@ from src.application.use_cases.releases.queue_manual_release import (
 from src.application.use_cases.releases.queue_release_download import (
     QueueReleaseDownloadUseCase,
 )
+from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import (
     SearchReleaseSourcesUseCase,
@@ -65,6 +66,7 @@ from src.application.use_cases.releases.suggest_file_mappings import (
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
+from src.application.use_cases.releases.warnings import ReleaseWarningEvaluator
 from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
@@ -615,6 +617,7 @@ class ReleaseUseCases:
         return ListReleasesUseCase(
             repository=self._container.repositories.releases,
             settings=self._container.settings,
+            warning_evaluator=self.warning_evaluator,
         )
 
     @cached_property
@@ -623,7 +626,10 @@ class ReleaseUseCases:
 
     @cached_property
     def get(self) -> GetReleaseUseCase:
-        return GetReleaseUseCase(repository=self._container.repositories.releases)
+        return GetReleaseUseCase(
+            repository=self._container.repositories.releases,
+            warning_evaluator=self.warning_evaluator,
+        )
 
     @cached_property
     def delete(self) -> DeleteReleaseUseCase:
@@ -675,6 +681,17 @@ class ReleaseUseCases:
         )
 
     @cached_property
+    def warning_evaluator(self) -> ReleaseWarningEvaluator:
+        return ReleaseWarningEvaluator()
+
+    @cached_property
+    def existing_release_replacer(self) -> ExistingReleaseReplacer:
+        return ExistingReleaseReplacer(
+            repository=self._container.repositories.releases,
+            download_service=self._container.services.release_download,
+        )
+
+    @cached_property
     def queue_download(self) -> QueueReleaseDownloadUseCase:
         return QueueReleaseDownloadUseCase(
             repository=self._container.repositories.releases,
@@ -682,6 +699,7 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
             request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
+            existing_release_replacer=self.existing_release_replacer,
         )
 
     @cached_property
@@ -691,6 +709,7 @@ class ReleaseUseCases:
             download_service=self._container.services.release_download,
             request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
+            existing_release_replacer=self.existing_release_replacer,
         )
 
     @cached_property

@@ -6,6 +6,7 @@ from src.application.interfaces.releases import ReleaseRepository
 from src.application.use_cases.releases.commands import ListReleasesOptions
 from src.application.use_cases.releases.dto import ReleasesPageDTO
 from src.application.use_cases.releases.mappers import records_to_page
+from src.application.use_cases.releases.warnings import ReleaseWarningEvaluator
 from src.settings.config import AppSettings, get_settings
 
 
@@ -16,9 +17,11 @@ class ListReleasesUseCase:
         self,
         repository: ReleaseRepository,
         settings: AppSettings | None = None,
+        warning_evaluator: ReleaseWarningEvaluator | None = None,
     ) -> None:
         self._repository = repository
         self._settings = settings or get_settings()
+        self._warning_evaluator = warning_evaluator or ReleaseWarningEvaluator()
 
     async def execute(self, options: ListReleasesOptions | None = None) -> ReleasesPageDTO:
         opts = options or ListReleasesOptions()
@@ -33,7 +36,17 @@ class ListReleasesUseCase:
             request_id=opts.request_id,
         )
 
-        return records_to_page(records, total=total, page=page, per_page=per_page)
+        request_ids = sorted({req_id for record in records for req_id in record.request_ids})
+        related = await self._repository.get_releases_for_requests(request_ids)
+        warnings_by_release = self._warning_evaluator.evaluate(related)
+
+        return records_to_page(
+            records,
+            total=total,
+            page=page,
+            per_page=per_page,
+            warnings_by_release=warnings_by_release,
+        )
 
     def _normalise_page(self, page: int | None) -> int:
         if page is None or page <= 0:

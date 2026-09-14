@@ -138,6 +138,35 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             await session.delete(release)
             return True
 
+    async def unlink_request(self, release_id: str, request_id: str) -> bool:
+        async with self.db.transaction() as session:
+            release = await session.get(
+                models.Release,
+                release_id,
+                options=[selectinload(models.Release.requests)],
+            )
+            if release is None:
+                return False
+            remaining = [req for req in release.requests if req.id != request_id]
+            release.requests = remaining
+            await session.flush()
+            return True
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        if not request_ids:
+            return []
+        async with self.db.session() as session:
+            stmt = (
+                select(models.Release)
+                .where(models.Release.requests.any(models.MediaRequest.id.in_(request_ids)))
+                .options(
+                    selectinload(models.Release.files),
+                    selectinload(models.Release.requests),
+                )
+            )
+            result = await session.execute(stmt)
+            return [self._to_record(release) for release in result.scalars().all()]
+
     async def update_file_mappings(
         self,
         release_id: str,

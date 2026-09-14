@@ -20,12 +20,14 @@ from src.application.interfaces.releases import (
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import QueueManualReleaseCommand
 from src.application.use_cases.releases.exceptions import (
+    ExistingReleasesDecisionRequiredError,
     ReleaseDownloadConflictError,
     ReleaseDownloadFailedError,
 )
 from src.application.use_cases.releases.queue_manual_release import QueueManualReleaseUseCase
+from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.utility.file_matcher import ReleaseFileMatcher
-from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from src.domain.enums import ExistingReleasesAction, MediaRequestStatus, MediaType, ReleaseStatus
 
 REQUEST_ID = "req-1"
 MAGNET = "magnet:?xt=urn:btih:abc123def4567890abc123def4567890abc123de&dn=Show.S01.1080p"
@@ -71,6 +73,22 @@ class FakeReleaseRepository:
     async def get_release(self, release_id: str) -> ReleaseRecord | None:
         return self.releases.get(release_id)
 
+    async def delete_release(self, release_id: str) -> bool:
+        return self.releases.pop(release_id, None) is not None
+
+    async def unlink_request(self, release_id: str, request_id: str) -> bool:
+        record = self.releases.get(release_id)
+        if record is None:
+            return False
+        record.request_ids = [rid for rid in record.request_ids if rid != request_id]
+        return True
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        wanted = set(request_ids)
+        return [
+            record for record in self.releases.values() if wanted & set(record.request_ids)
+        ]
+
     async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
         self.last_created = data
         record = make_release_record(data)
@@ -94,6 +112,10 @@ class FakeReleaseRepository:
 class FakeDownloadService:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str, bytes | None]] = []
+        self.deleted: list[str] = []
+
+    async def delete_download(self, info_hash: str) -> None:
+        self.deleted.append(info_hash)
 
     async def queue_download(
         self,
@@ -333,3 +355,64 @@ def test_release_file_records_get_distinct_ids(season_pack: bytes) -> None:
     files: list[ReleaseFileRecord] = to_release_files(parse_torrent(season_pack).files)
 
     assert len({file.id for file in files}) == len(files)
+
+
+@pytest.mark.asyncio
+async def test_manual_grab_requires_decision_when_request_has_releases() -> None:
+    existing = make_release_record(
+        CreateReleaseData(
+            magnet_link=MAGNET,
+            request_ids=[REQUEST_ID],
+            name="Show.S01.1080p",
+            id=INFO_HASH,
+            source="manual",
+            quality="",
+        )
+    )
+    repository = FakeReleaseRepository({existing.id: existing})
+    download_service = FakeDownloadService()
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueManualReleaseUseCase(
+        repository, download_service, existing_release_replacer=replacer
+    )
+
+    other_magnet = "magnet:?xt=urn:btih:1112223334445556667778889990001112223334"
+    with pytest.raises(ExistingReleasesDecisionRequiredError) as exc_info:
+        await use_case.execute(
+            QueueManualReleaseCommand(request_id=REQUEST_ID, magnet_link=other_magnet)
+        )
+
+    assert exc_info.value.release_ids == [existing.id]
+    assert download_service.calls == []
+
+
+@pytest.mark.asyncio
+async def test_manual_grab_replace_deletes_exclusive_release() -> None:
+    existing = make_release_record(
+        CreateReleaseData(
+            magnet_link=MAGNET,
+            request_ids=[REQUEST_ID],
+            name="Show.S01.1080p",
+            id=INFO_HASH,
+            source="manual",
+            quality="",
+        )
+    )
+    repository = FakeReleaseRepository({existing.id: existing})
+    download_service = FakeDownloadService()
+    replacer = ExistingReleaseReplacer(repository, download_service)
+    use_case = QueueManualReleaseUseCase(
+        repository, download_service, existing_release_replacer=replacer
+    )
+
+    other_magnet = "magnet:?xt=urn:btih:1112223334445556667778889990001112223334"
+    await use_case.execute(
+        QueueManualReleaseCommand(
+            request_id=REQUEST_ID,
+            magnet_link=other_magnet,
+            existing_releases=ExistingReleasesAction.REPLACE,
+        )
+    )
+
+    assert existing.id not in repository.releases
+    assert download_service.deleted == [existing.info_hash]

@@ -644,15 +644,29 @@ api.post('/requests/:requestId/releases/download', async (req, res) => {
   const payload = req.body ?? {};
   const requestId = req.params.requestId?.trim();
   const releaseId = payload.release_id as string | undefined;
+  const existingReleasesDecision = payload.existing_releases as 'keep' | 'replace' | undefined;
   if (!requestId || !releaseId) {
     return res.status(400).json({ message: 'requestId path param and release_id are required' });
   }
 
   try {
+    const existingReleases = await mockStore.existingReleasesFor(requestId);
+    if (existingReleases.length > 0 && !existingReleasesDecision) {
+      return res.status(409).json({
+        code: 'existing_releases_decision_required',
+        message: 'Request already has releases; existing_releases is required',
+        details: { release_ids: existingReleases.map((release) => release.id) },
+      });
+    }
+
     const queued = await mockStore.queueReleaseDownload({
       requestId,
       releaseId,
     });
+
+    if (existingReleasesDecision === 'replace') {
+      await mockStore.replaceExistingReleases(requestId, queued.id);
+    }
 
     const details = {
       release_id: queued.id,
@@ -692,6 +706,7 @@ api.post('/requests/:requestId/releases/manual', async (req, res) => {
   const requestId = req.params.requestId?.trim();
   const magnetLink = (payload.magnet_link as string | undefined)?.trim();
   const torrentFile = (payload.torrent_file_base64 as string | undefined)?.trim();
+  const existingReleasesDecision = payload.existing_releases as 'keep' | 'replace' | undefined;
 
   if (!requestId) {
     return res.status(400).json({ message: 'requestId path param is required' });
@@ -706,12 +721,25 @@ api.post('/requests/:requestId/releases/manual', async (req, res) => {
   }
 
   try {
+    const existingReleases = await mockStore.existingReleasesFor(requestId);
+    if (existingReleases.length > 0 && !existingReleasesDecision) {
+      return res.status(409).json({
+        code: 'existing_releases_decision_required',
+        message: 'Request already has releases; existing_releases is required',
+        details: { release_ids: existingReleases.map((release) => release.id) },
+      });
+    }
+
     const created = await mockStore.addRelease({
       magnet_link: magnetLink ?? `magnet:?xt=urn:btih:${pseudoInfoHash(torrentFile as string)}`,
       request_ids: [requestId],
       name: torrentFile ? 'Manual.Torrent.Upload.mock' : undefined,
       source: 'manual',
     });
+
+    if (existingReleasesDecision === 'replace') {
+      await mockStore.replaceExistingReleases(requestId, created.id);
+    }
 
     const body = buildAsyncResponse(
       'release.download',

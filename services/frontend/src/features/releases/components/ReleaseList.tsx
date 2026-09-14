@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ReleaseCard } from '@/features/releases/components/ReleaseCard';
 import { useReleaseActions, useReleasesByRequest } from '@/features/releases/queries';
+import { hasMappingOverlap } from '@/features/releases/warnings';
 import { useRequestsList } from '@/features/requests/queries';
 import type { Release } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
@@ -52,6 +53,7 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
 
   const releases = useMemo(() => sortReleases(data ?? []), [data]);
   const isBusy = pause.isPending || resume.isPending || remove.isPending;
+  const hasOverlapWarning = releases.some(hasMappingOverlap);
 
   useEffect(() => {
     if (!isLoading && !isFetching) {
@@ -119,6 +121,11 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
 
   return section(
     <Stack gap="md">
+      {hasOverlapWarning && (
+        <Alert color="yellow" radius="lg" title={t('releasesList.overlapWarning.title')}>
+          {t('releasesList.overlapWarning.description')}
+        </Alert>
+      )}
       {releases.map((release) => (
         <ReleaseCard
           key={release.id}

@@ -34,14 +34,16 @@ from src.application.use_cases.releases.dto import (
     ReleaseSearchResponseDTO,
     ReleaseSearchResultDTO,
     ReleasesPageDTO,
+    ReleaseWarningDTO,
 )
 from src.application.use_cases.releases.exceptions import (
+    ExistingReleasesDecisionRequiredError,
     ReleaseDownloadConflictError,
     ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import ReleaseStatus, ReleaseWarningCode
 
 API_KEY_HEADER: dict[str, str] = {}
 
@@ -106,6 +108,36 @@ async def test_list_releases_returns_results(api_client: AsyncClient) -> None:
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["releases"][0]["id"] == release.id
+
+
+@pytest.mark.asyncio
+async def test_list_releases_serializes_warnings(api_client: AsyncClient) -> None:
+    release = make_release_dto()
+    release.warnings = [
+        ReleaseWarningDTO(
+            code=ReleaseWarningCode.MAPPING_OVERLAP,
+            file_ids=["file-1"],
+            related_release_ids=["rel-2"],
+        )
+    ]
+    page = ReleasesPageDTO(releases=[release], total=1, page=1, per_page=20)
+
+    class FakeList:
+        async def execute(self, options):
+            return page
+
+    with override_dependency(_list_use_case, FakeList()):
+        response = await api_client.get("/releases", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["releases"][0]["warnings"] == [
+        {
+            "code": "mapping_overlap",
+            "file_ids": ["file-1"],
+            "related_release_ids": ["rel-2"],
+            "details": None,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -391,6 +423,62 @@ async def test_queue_release_download_failure_returns_500(api_client: AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_queue_release_download_requires_decision_returns_409_with_release_ids(
+    api_client: AsyncClient,
+) -> None:
+    class FakeQueue:
+        async def execute(self, command):
+            raise ExistingReleasesDecisionRequiredError(command.request_id, ["rel-existing"])
+
+    with override_dependency(_queue_download_use_case, FakeQueue()):
+        response = await api_client.post(
+            "/requests/req-1/releases/download",
+            headers=API_KEY_HEADER,
+            json={"release_id": "rel-1"},
+        )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    payload = response.json()
+    assert payload["code"] == "existing_releases_decision_required"
+    assert payload["details"] == {"release_ids": ["rel-existing"]}
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_passes_existing_releases_decision(
+    api_client: AsyncClient,
+) -> None:
+    op = AsyncOperationDTO(
+        operation="queue_download",
+        status="accepted",
+        operation_id="op-1",
+        location=None,
+        message=None,
+        resource_id="rel-1",
+        details=None,
+    )
+
+    class FakeQueue:
+        def __init__(self) -> None:
+            self.commands: list[Any] = []
+
+        async def execute(self, command):
+            self.commands.append(command)
+            return op
+
+    fake_queue = FakeQueue()
+
+    with override_dependency(_queue_download_use_case, fake_queue):
+        response = await api_client.post(
+            "/requests/req-1/releases/download",
+            headers=API_KEY_HEADER,
+            json={"release_id": "rel-1", "existing_releases": "replace"},
+        )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert fake_queue.commands[0].existing_releases == "replace"
+
+
+@pytest.mark.asyncio
 async def test_queue_manual_release_accepts_a_torrent_file(api_client: AsyncClient) -> None:
     op = AsyncOperationDTO(
         operation="queue_download",
@@ -460,6 +548,41 @@ async def test_queue_manual_release_conflict_returns_409(api_client: AsyncClient
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["code"] == "release_download_conflict"
+
+
+@pytest.mark.asyncio
+async def test_queue_manual_release_passes_existing_releases_decision(
+    api_client: AsyncClient,
+) -> None:
+    op = AsyncOperationDTO(
+        operation="queue_download",
+        status="accepted",
+        operation_id="op-1",
+        location=None,
+        message=None,
+        resource_id="HASH",
+        details=None,
+    )
+
+    class FakeManual:
+        def __init__(self) -> None:
+            self.commands: list[Any] = []
+
+        async def execute(self, command):
+            self.commands.append(command)
+            return op
+
+    fake_manual = FakeManual()
+
+    with override_dependency(_queue_manual_use_case, fake_manual):
+        response = await api_client.post(
+            "/requests/req-1/releases/manual",
+            headers=API_KEY_HEADER,
+            json={"magnet_link": "magnet:?xt=urn:btih:HASH", "existing_releases": "keep"},
+        )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert fake_manual.commands[0].existing_releases == "keep"
 
 
 @pytest.mark.asyncio

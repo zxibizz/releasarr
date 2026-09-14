@@ -742,7 +742,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Request already has an active download.
+          description: >-
+            Request already has an active download, or the request already has
+            releases and `existing_releases` was not supplied
+            (`existing_releases_decision_required`).
           content:
             application/json:
               schema:
@@ -791,7 +794,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The release is already registered.
+          description: >-
+            The release is already registered, or the request already has
+            releases and `existing_releases` was not supplied
+            (`existing_releases_decision_required`).
           content:
             application/json:
               schema:
@@ -2464,6 +2470,7 @@ components:
         - ratio
         - added_date
         - request_ids
+        - warnings
       properties:
         id:
           type: string
@@ -2525,6 +2532,10 @@ components:
           format: date-time
           nullable: true
           description: When the indexer says the release itself went up, when it reported one.
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseWarning'
     ReleaseFile:
       type: object
       required: [id, name, size, path]
@@ -2540,6 +2551,30 @@ components:
           type: string
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
+    ReleaseWarning:
+      type: object
+      required: [code, file_ids, related_release_ids]
+      description: >-
+        A condition worth surfacing to the user but not worth blocking on. The
+        `code` enum is the extension point for future checks.
+      properties:
+        code:
+          type: string
+          enum: [mapping_overlap]
+        file_ids:
+          type: array
+          items:
+            type: string
+          description: Files on this release involved in the warning.
+        related_release_ids:
+          type: array
+          items:
+            type: string
+          description: Other releases sharing the same overlap, if any.
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
     FileRequestMapping:
       oneOf:
         - $ref: '#/components/schemas/MovieFileRequestMapping'
@@ -3004,6 +3039,13 @@ components:
           type: string
         total_results:
           type: integer
+    ExistingReleasesAction:
+      type: string
+      enum: [keep, replace]
+      description: >-
+        Required once a request already has releases. `keep` leaves them running
+        alongside the new grab; `replace` deletes the ones grabbed only for this
+        request and unlinks the ones shared with other requests.
     ReleaseDownloadRequest:
       type: object
       required:
@@ -3011,6 +3053,8 @@ components:
       properties:
         release_id:
           type: string
+        existing_releases:
+          $ref: '#/components/schemas/ExistingReleasesAction'
     ManualReleaseRequest:
       type: object
       description: Exactly one of the two fields must be supplied.
@@ -3023,6 +3067,8 @@ components:
           type: string
           nullable: true
           description: Base64-encoded contents of a `.torrent` file.
+        existing_releases:
+          $ref: '#/components/schemas/ExistingReleasesAction'
     MediaSearchResult:
       type: object
       required: [type, provider_id, title]

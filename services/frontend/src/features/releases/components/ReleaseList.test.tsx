@@ -29,6 +29,7 @@ const release = (progress: number): Release => ({
   request_ids: ['1'],
   torrent_source: 'Indexer A',
   quality: '2160p',
+  warnings: [],
 });
 
 /** Answers both the release list and the requests list it reads titles from. */
@@ -67,5 +68,43 @@ describe('ReleaseList', () => {
     expect(
       vi.mocked(apiRequest).mock.calls.filter(([path]) => path === '/requests/1/releases'),
     ).toHaveLength(2);
+  });
+
+  it('shows a warning banner when a release has a mapping overlap', async () => {
+    vi.mocked(apiRequest).mockImplementation(
+      (path: string) =>
+        Promise.resolve(
+          path.endsWith('/releases')
+            ? {
+                releases: [
+                  {
+                    ...release(41),
+                    warnings: [
+                      {
+                        code: 'mapping_overlap',
+                        file_ids: ['file-1'],
+                        related_release_ids: ['rel-2'],
+                        details: null,
+                      },
+                    ],
+                  },
+                ],
+              }
+            : { requests: [], total: 0 },
+        ) as never,
+    );
+
+    renderList();
+
+    expect(await screen.findByText('Overlapping releases')).toBeInTheDocument();
+  });
+
+  it('shows no warning banner when releases do not overlap', async () => {
+    mockApi(41);
+    renderList();
+
+    await screen.findByText('41.0%');
+
+    expect(screen.queryByText('Overlapping releases')).not.toBeInTheDocument();
   });
 });
