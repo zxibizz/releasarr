@@ -39,11 +39,12 @@ export function useSeriesSeasons(tvdbId: number | undefined) {
   });
 }
 
-export function useRootFolders(type: MediaType) {
+export function useRootFolders(type: MediaType, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: discoverKeys.rootFolders(type),
     queryFn: ({ signal }) => discoverApi.rootFolders(type, signal),
     staleTime: 5 * 60 * 1000,
+    enabled: options.enabled ?? true,
   });
 }
 

@@ -90,7 +90,8 @@ export const resources = {
           canAccessIndexers: 'Can access indexers',
           canAccessLogs: 'Can access logs',
           allowedRootFolders: 'Allowed root folders',
-          allowedRootFoldersHint: 'Comma-separated paths. Leave empty for no restriction.',
+          allowedRootFoldersHint: 'Leave every folder unchecked for no restriction.',
+          allowedRootFoldersEmpty: 'No root folders reported by Sonarr or Radarr yet.',
         },
         delete: {
           title: 'Delete user',
@@ -910,7 +911,8 @@ export const resources = {
           canAccessIndexers: 'Доступ к индексерам',
           canAccessLogs: 'Доступ к логам',
           allowedRootFolders: 'Разрешённые корневые папки',
-          allowedRootFoldersHint: 'Пути через запятую. Оставьте пустым для снятия ограничений.',
+          allowedRootFoldersHint: 'Не отмечайте ни одной папки, чтобы снять ограничение.',
+          allowedRootFoldersEmpty: 'Sonarr и Radarr пока не сообщили ни одной корневой папки.',
         },
         delete: {
           title: 'Удалить пользователя',
