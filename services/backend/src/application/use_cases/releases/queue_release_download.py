@@ -104,6 +104,7 @@ class QueueReleaseDownloadUseCase:
                         quality=candidate.quality or "",
                         files=to_release_files(torrent.files) if torrent else None,
                         info_url=candidate.info_url,
+                        published_at=candidate.publish_date,
                     )
                 )
             except ValueError as exc:

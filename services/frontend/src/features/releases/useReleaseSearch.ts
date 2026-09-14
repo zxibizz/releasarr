@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { releasesApi } from '@/features/releases/api';
 import type { ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
+import { daysSince } from '@/utils/formatters';
 
 export type SortField = 'age' | 'seeders' | 'leechers' | 'size';
 export type SortOrder = 'desc' | 'asc';
@@ -23,7 +24,6 @@ export const NATURAL_SORT_ORDER: Record<SortField, SortOrder> = {
   size: 'desc',
 };
 
-const DAY_IN_MS = 86_400_000;
 const SIZE_MULTIPLIERS: Record<string, number> = {
   B: 1,
   KB: 1024,
@@ -41,12 +41,8 @@ const parseSizeToBytes = (size: string | null | undefined): number | null => {
   return Number.isNaN(value) || !multiplier ? null : value * multiplier;
 };
 
-export const ageInDays = (candidate: ReleaseSearchResult): number | null => {
-  if (!candidate.publish_date) return null;
-  const published = new Date(candidate.publish_date).getTime();
-  if (Number.isNaN(published)) return null;
-  return Math.max(0, (Date.now() - published) / DAY_IN_MS);
-};
+export const ageInDays = (candidate: ReleaseSearchResult): number | null =>
+  daysSince(candidate.publish_date);
 
 const sortValue = (candidate: ReleaseSearchResult, field: SortField): number | null => {
   if (field === 'age') return ageInDays(candidate);

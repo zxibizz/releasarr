@@ -302,6 +302,7 @@ const mockReleases: Release[] = [
     torrent_source: 'SPARKS',
     quality: '1080p',
     info_url: 'https://example.com/releases/the-dark-knight-1080p',
+    published_date: daysAgo(420),
   },
   {
     id: 'r2',
@@ -365,6 +366,7 @@ const mockReleases: Release[] = [
     torrent_source: 'REWARD',
     quality: '1080p',
     info_url: 'https://example.com/releases/breaking-bad-s01',
+    published_date: daysAgo(10),
   },
   {
     id: 'r3',
@@ -391,6 +393,7 @@ const mockReleases: Release[] = [
     torrent_source: 'LEVERAGE',
     quality: '1080p',
     info_url: 'https://example.com/releases/inception-1080p',
+    published_date: daysAgo(2),
   },
   {
     id: 'r4',
@@ -445,6 +448,7 @@ const mockReleases: Release[] = [
     torrent_source: 'COLLECTION',
     quality: '1080p',
     info_url: 'https://example.com/releases/marvel-collection',
+    published_date: daysAgo(90),
   },
   {
     id: 'r5',
@@ -491,6 +495,7 @@ const mockReleases: Release[] = [
     torrent_source: 'COMPLETE',
     quality: '1080p',
     info_url: 'https://example.com/releases/breaking-bad-complete',
+    published_date: daysAgo(1),
   },
 ];
 

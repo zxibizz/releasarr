@@ -789,6 +789,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
         quality="1080p",
         source="indexer",
         request_id="req-1",
+        publish_date=datetime(2026, 1, 5, tzinfo=UTC),
     )
     search_service = FakeSearchService(
         ReleaseSearchResults(results=[candidate], query="query", total_results=1)
@@ -802,6 +803,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
     # Ensure a new release was created and download was queued with the new identifier.
     assert repository.last_created is not None
     assert repository.last_created.info_url == "https://tracker.example/candidate-1"
+    assert repository.last_created.published_at == datetime(2026, 1, 5, tzinfo=UTC)
     created_release_id = download_service.calls[0][1]
     assert created_release_id in repository.releases
     assert download_service.calls[0][2] == "magnet:?xt=urn:btih:ABC123"
