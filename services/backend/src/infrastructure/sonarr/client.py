@@ -20,17 +20,20 @@ from src.application.interfaces.sonarr import (
     SonarrEpisode,
     SonarrService,
 )
+from src.infrastructure.arr.base import (
+    COMMAND_POLL_INTERVAL_SECONDS,
+    COMMAND_SUCCESS_STATUS,
+    COMMAND_TIMEOUT_SECONDS,
+    TERMINAL_COMMAND_STATUSES,
+    UNKNOWN_QUALITY_ID,
+    ArrHttpClient,
+)
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 
-UNKNOWN_QUALITY_ID = 0
 # How Sonarr spells "monitor seasons added after this series was", on the series
 # itself rather than in the one-off add options.
 MONITOR_NEW_ITEMS_ALL = "all"
 MONITOR_NEW_ITEMS_NONE = "none"
-COMMAND_POLL_INTERVAL_SECONDS = 1.0
-COMMAND_TIMEOUT_SECONDS = 300.0
-COMMAND_SUCCESS_STATUS = "completed"
-TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
 
 # Sonarr refreshes a freshly added series in the background, so its episodes -
 # and with them the season episode counts - appear a moment after the add call
@@ -39,7 +42,7 @@ REFRESH_POLL_INTERVAL_SECONDS = 1.0
 REFRESH_TIMEOUT_SECONDS = 30.0
 
 
-class SonarrHttpClient(SonarrService):
+class SonarrHttpClient(ArrHttpClient, SonarrService):
     """Interact with Sonarr's HTTP API."""
 
     def __init__(

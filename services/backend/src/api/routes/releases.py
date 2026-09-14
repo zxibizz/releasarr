@@ -26,6 +26,8 @@ from src.application.use_cases.releases.delete_release import DeleteReleaseUseCa
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
     ReleaseDTO,
+    ReleaseFileDTO,
+    ReleaseFileMappingDTO,
     ReleaseSearchResponseDTO,
     ReleasesPageDTO,
 )
@@ -266,7 +268,7 @@ def _dto_to_release(dto: ReleaseDTO) -> Release:
     )
 
 
-def _dto_to_file(file_dto) -> ReleaseFile:
+def _dto_to_file(file_dto: ReleaseFileDTO) -> ReleaseFile:
     return ReleaseFile(
         id=file_dto.id,
         name=file_dto.name,
@@ -276,7 +278,7 @@ def _dto_to_file(file_dto) -> ReleaseFile:
     )
 
 
-def _dto_to_file_mapping(mapping) -> FileRequestMapping | None:
+def _dto_to_file_mapping(mapping: ReleaseFileMappingDTO | None) -> FileRequestMapping | None:
     if mapping is None or mapping.mapping_type is None:
         return None
 

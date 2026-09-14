@@ -15,20 +15,22 @@ from src.application.interfaces.radarr import (
     MovieLookup,
     RadarrService,
 )
+from src.infrastructure.arr.base import (
+    COMMAND_POLL_INTERVAL_SECONDS,
+    COMMAND_SUCCESS_STATUS,
+    COMMAND_TIMEOUT_SECONDS,
+    TERMINAL_COMMAND_STATUSES,
+    UNKNOWN_QUALITY_ID,
+    ArrHttpClient,
+)
 from src.infrastructure.http import BaseHttpClient, HttpClientError
-
-UNKNOWN_QUALITY_ID = 0
-COMMAND_POLL_INTERVAL_SECONDS = 1.0
-COMMAND_TIMEOUT_SECONDS = 300.0
-COMMAND_SUCCESS_STATUS = "completed"
-TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
 
 # Radarr only reports a movie as wanted once it reaches this availability, and
 # anything stricter would hide a request from our own sync until release day.
 MINIMUM_AVAILABILITY = "released"
 
 
-class RadarrHttpClient(RadarrService):
+class RadarrHttpClient(ArrHttpClient, RadarrService):
     """Interact with Radarr's HTTP API."""
 
     def __init__(
