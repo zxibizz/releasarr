@@ -135,7 +135,7 @@ cd releasarr
 Create a `.env` next to `docker-compose.yaml`:
 
 ```ini
-RELEASARR_API_KEY=pick-something-long
+RELEASARR_AUTH_SECRET=pick-something-long-and-random
 
 RELEASARR_SONARR_URL=http://sonarr:8989/api/v3
 RELEASARR_SONARR_API_KEY=...
@@ -175,8 +175,11 @@ A few things worth knowing before you point it at real data:
   before the first run — `touch services/backend/releasarr.db` — or Docker will make a
   directory in its place. Set
   `RELEASARR_DATABASE_URL` to a `postgresql+asyncpg://` URL to use Postgres instead.
-- **Everything except the health probes needs `X-API-Key`.** The default is `dev-secret`; change
-  it.
+- **`RELEASARR_AUTH_SECRET` has no default and the API refuses to start without it** — it signs
+  access tokens, so treat it like any other credential. The first time you open the UI you will
+  land on a one-time setup screen to create the first admin account; every route after that
+  needs a signed-in session (or, for scripts, a service API key — see "Hooking up qBittorrent"
+  below).
 
 ## Configuration
 
@@ -187,7 +190,7 @@ file. The defaults below are what you get if you set nothing.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_API_KEY` | `dev-secret` | Required `X-API-Key` value on every non-probe endpoint |
+| `RELEASARR_AUTH_SECRET` | *(required, no default)* | Signs access tokens. The app fails to start without it. |
 | `RELEASARR_DATABASE_URL` | `sqlite+aiosqlite:///./releasarr.db` | Async SQLAlchemy URL; `postgresql+asyncpg://…` also works |
 | `RELEASARR_API_HOST` | `0.0.0.0` | Uvicorn bind host |
 | `RELEASARR_API_PORT` | `8001` | Uvicorn bind port when run directly (the image uses 8000 behind nginx) |
@@ -198,6 +201,18 @@ file. The defaults below are what you get if you set nothing.
 | `RELEASARR_LOG_HISTORY_FILES` | `3` | How many rotated files the logs view reaches back through in each file |
 | `RELEASARR_DEFAULT_PAGE_SIZE` | `20` | Default page size |
 | `RELEASARR_MAX_PAGE_SIZE` | `100` | Largest page size a client may ask for |
+
+### Auth
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `RELEASARR_AUTH_ACCESS_TOKEN_TTL_SECONDS` | `900` | Access token lifetime |
+| `RELEASARR_AUTH_REFRESH_TOKEN_TTL_SECONDS` | `86400` | Refresh token lifetime for a normal login |
+| `RELEASARR_AUTH_REFRESH_REMEMBER_TTL_SECONDS` | `2592000` | Refresh token lifetime with "remember me" checked |
+| `RELEASARR_AUTH_COOKIE_SECURE` | `true` | Mark the refresh cookie `Secure`; only disable over plain HTTP in local dev |
+| `RELEASARR_AUTH_COOKIE_SAMESITE` | `lax` | Refresh cookie `SameSite` attribute |
+| `RELEASARR_AUTH_MAX_FAILED_LOGINS` | `10` | Failed attempts before an account is locked |
+| `RELEASARR_AUTH_LOCKOUT_SECONDS` | `900` | Lockout duration once the limit above is hit |
 
 ### Sonarr and Radarr
 
@@ -248,11 +263,12 @@ one, so the first profile they report is used unless you pick one.
 ## Hooking up qBittorrent
 
 By default a finished torrent waits up to five minutes for the next export run. Point
-qBittorrent at Releasarr instead and it gets imported immediately. In **Options → Downloads →
-Run external program on torrent finished**:
+qBittorrent at Releasarr instead and it gets imported immediately. Create a service API key
+first (an admin, from **System → Users**), then in **Options → Downloads → Run external
+program on torrent finished**:
 
 ```bash
-curl -fsS -X POST -H "X-API-Key: your-api-key" http://releasarr/api/tasks/sync_downloads
+curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr/api/tasks/sync_downloads
 ```
 
 `releasarr` here is the container name on a shared Docker network, where nginx listens on port

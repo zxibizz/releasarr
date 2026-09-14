@@ -14,6 +14,7 @@ for the screenshots in the root README.
 | --- | --- |
 | `index.ts` | Express wiring and every route handler |
 | `store.ts` | `MockStore` — all mutable state and the behaviour behind it |
+| `mockAuth.ts` | Users, sessions, and service keys — see "Auth" below |
 | `mockData.ts` | Seed requests, releases, and release files |
 | `mockDiscover.ts` | The pretend Sonarr/Radarr library for the Add flow |
 | `mockLogs.ts` | Seed request and task log lines |
@@ -117,6 +118,23 @@ backend:
 `sync_all` queues all five task kinds; `sync_downloads` queues `release_sync` then `export`, the
 qBittorrent-hook sequence. The **last** job in a sequence is the one tracked, since its
 completion means the whole run is done.
+
+## Auth
+
+`mockAuth.ts` holds users, bearer/refresh tokens, and service keys in their own in-memory maps,
+separate from `mockStore`. It seeds two accounts: `admin`/`admin` (full access) and
+`user`/`user` (restricted — no tasks, indexers, or logs, `allowed_root_folders:
+['/media/movies']`, and it owns two of `mockData.ts`'s seed requests so its scoped view is not
+empty). Set `MOCK_EMPTY_USERS=1` to start with no users and exercise the first-run setup screen
+instead.
+
+An `api.use()` middleware in `index.ts` runs before every route except `/auth/setup|login|
+refresh|logout`: it resolves the `Authorization: Bearer` token (or `X-API-Key`) via
+`mockAuth.authenticate()` and attaches the user to `res.locals.user`, or answers `401` if neither
+is valid. `GET /requests` and `GET /discover/root-folders` read `res.locals.user` to apply the
+same ownership/allow-list scoping the real backend does. The refresh token travels as an
+httpOnly cookie (`releasarr_refresh`, path `/api/auth`) set via a small hand-rolled cookie parser
+— there was no reason to add the `cookie-parser` dependency for one header.
 
 ## Adding an endpoint
 

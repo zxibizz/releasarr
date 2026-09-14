@@ -30,8 +30,8 @@ describe('LoginPage', () => {
     login.mockResolvedValueOnce(undefined);
     renderWithProviders(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'alice');
-    await userEvent.type(screen.getByLabelText('Password'), 'hunter2');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'alice');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'hunter2');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => expect(login).toHaveBeenCalledWith('alice', 'hunter2', false));
@@ -42,8 +42,8 @@ describe('LoginPage', () => {
     login.mockRejectedValueOnce(new ApiError('Invalid', { status: 401 }));
     renderWithProviders(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'alice');
-    await userEvent.type(screen.getByLabelText('Password'), 'wrong');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'alice');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText('Incorrect username or password.')).toBeInTheDocument();
@@ -53,8 +53,8 @@ describe('LoginPage', () => {
     login.mockRejectedValueOnce(new ApiError('Locked', { status: 423 }));
     renderWithProviders(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'alice');
-    await userEvent.type(screen.getByLabelText('Password'), 'wrong');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'alice');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText('Too many failed attempts. Try again later.')).toBeInTheDocument();
@@ -64,8 +64,8 @@ describe('LoginPage', () => {
     login.mockResolvedValueOnce(undefined);
     renderWithProviders(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'alice');
-    await userEvent.type(screen.getByLabelText('Password'), 'hunter2');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'alice');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'hunter2');
     await userEvent.click(screen.getByLabelText('Remember me'));
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 

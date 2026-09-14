@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { ServiceKeysPanel } from '@/features/users/components/ServiceKeysPanel';
 import { UserFormModal } from '@/features/users/components/UserFormModal';
 import { useDeleteUser, useUsersList } from '@/features/users/queries';
 import type { User } from '@/types';
@@ -131,6 +132,8 @@ export function UsersPage() {
           </Table>
         </Table.ScrollContainer>
       </Panel>
+
+      <ServiceKeysPanel users={users} />
 
       <UserFormModal opened={formOpened} onClose={formModal.close} user={editingUser} />
     </>

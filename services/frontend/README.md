@@ -43,11 +43,12 @@ root.
 
 ```
 VITE_API_URL=http://localhost:8001/api
-VITE_API_KEY=dev-secret
 ```
 
-`VITE_API_KEY` is sent as the `X-API-Key` header on every request. Use `.env.local`
-(git-ignored) for real credentials.
+There is no API key to configure — the app authenticates with a signed-in session (a bearer
+token kept in memory plus an httpOnly refresh cookie), not a static header. The mock server's
+seeded accounts (`admin`/`admin` and `user`/`user`) work out of the box; see
+[`docs/mock-server.md`](docs/mock-server.md#auth).
 
 Two more variables are read by `vite.config.ts` rather than the app, and only the containerised
 dev stack sets them: `VITE_API_PROXY_TARGET` makes the dev server proxy `/api` to that backend
@@ -61,6 +62,8 @@ src/
   components/      Shared presentational pieces (StatusBadge, EmptyState, Panel,
                    ResponsiveModal, ...)
   features/
+    auth/           AuthProvider, RequireAuth/RequirePermission route guards, login/setup pages
+    users/          User and service-API-key management (admin only)
     requests/      Request list + detail pages, filtering, localization
     releases/      Release list, card, search, and file mapping
     discover/      Search Sonarr/Radarr/TVDB/TMDB and add requests
@@ -83,22 +86,26 @@ src/
 A few conventions worth knowing:
 
 - **One HTTP entry point.** Everything goes through `apiRequest` in `lib/api/client.ts`,
-  which handles the base URL, auth header, JSON parsing, and `ApiError` normalisation.
-  Features declare their endpoints in `features/<name>/api.ts` and their cache keys and
-  hooks in `features/<name>/queries.ts`.
+  which handles the base URL, the bearer token, refresh-on-401, JSON parsing, and `ApiError`
+  normalisation. Features declare their endpoints in `features/<name>/api.ts` and their cache
+  keys and hooks in `features/<name>/queries.ts`.
 - **Types come from the contract.** `src/types.ts` re-exports the generated schema types;
   run `npm run codegen` after `../../openapi.yaml` changes rather than hand-editing types.
 - **Status colors live in one place.** `utils/status.ts` maps a status to a Mantine color
   and icon, and `StatusBadge` is the only component that renders them.
 - **Route loaders warm the cache.** `router.tsx` uses `ensureQueryData` so pages have data
   on first paint; components then read the same query keys.
+- **Every route below `/` requires a session.** `RequireAuth` wraps the whole shell;
+  `RequirePermission` further gates `/system/tasks`, `/system/indexers`, `/system/logs`, and
+  `/system/users` by the signed-in user's permissions.
 
 ## Routing
 
-`router.tsx` is a React Router 7 data router. The requests list is bundled eagerly because
-it is the landing route; request detail, add, and the system page are `lazy()`. Their
-**loaders stay eager** — a lazy route whose loader is also lazy costs a second round trip
-before the page can start fetching.
+`router.tsx` is a React Router 7 data router. `/login` and `/setup` sit outside the shell and
+need no session. Everything else is nested under `RequireAuth`; the requests list is bundled
+eagerly because it is the landing route, request detail, add, and the system pages are
+`lazy()`. Their **loaders stay eager** — a lazy route whose loader is also lazy costs a second
+round trip before the page can start fetching.
 
 Where a route has a loader it calls `queryClient.ensureQueryData` with the same keys the
 components use, so the loader warms the cache and the component reads it rather than

@@ -11,8 +11,10 @@ uv run alembic upgrade head
 uv run fastapi dev src/api/app.py
 ```
 
-The API comes up on `:8001`. Health probes are `/healthz` and `/readyz`; everything else needs
-an `X-API-Key` header matching `RELEASARR_API_KEY` (default `dev-secret`).
+The API comes up on `:8001`. Health probes are `/healthz` and `/readyz`; everything else needs a
+signed-in session (or a service API key for scripts) — see "Auth" below. Set
+`RELEASARR_AUTH_SECRET` before starting; there is no default and the app refuses to boot without
+it.
 
 The scheduler is a **separate process** and is not started by the API. Run it in another
 terminal when you need background work:
@@ -28,6 +30,18 @@ what happens per service.
 
 With no `.env`, the database is SQLite at `./releasarr.db`, the API logs to
 `.logs/backend.log` and the scheduler to `.logs/scheduler.log`.
+
+## Auth
+
+`GET /auth/setup` reports whether any user exists yet; `POST /auth/setup` creates the first
+admin, once, and only once. After that, `POST /auth/login` returns a short-lived JWT access
+token and sets an httpOnly refresh cookie; `POST /auth/refresh` rotates it. Every other route
+depends on `require_user` / `require_admin` / `require_permission(...)`
+(`src/api/dependencies/auth.py`), which resolve either credential to a `Principal`. For
+script/bot access, an admin creates a service API key under `/service-keys` and sends it as
+`X-API-Key` instead of signing in. See
+[`../../docs/architecture.md`](../../docs/architecture.md#authentication-and-authorization) and
+[`docs/backend.md`](../../docs/backend.md#auth-and-permissions) for the full picture.
 
 ## Commands
 
@@ -57,7 +71,8 @@ uv run python -m src.tasks.cli release-summary --json
 
 ```
 src/
-  api/               Routers, the X-API-Key dependency, exception handlers.
+  api/               Routers, auth dependencies (require_user/require_admin/
+                     require_permission), exception handlers.
                      Thin: schema → command → use case → DTO → schema.
   schemas/           Pydantic models at the HTTP boundary; all extend APIModel.
   application/
@@ -102,7 +117,7 @@ prefix or from `.env`. The full table with defaults is in the
 
 - **Base URLs are passed through verbatim** and must already include the provider's API path:
   Sonarr and Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`, TMDB `…/3`.
-- **`RELEASARR_API_KEY` fails closed.** An empty server-side key returns 500 rather than
-  allowing open access.
+- **`RELEASARR_AUTH_SECRET` has no default and fails closed.** `AppContainer.startup()` raises
+  before the app accepts a connection if it is empty.
 - **`RELEASARR_METADATA_LANGUAGES`** is ISO 639-2 three-letter codes, defaulting to
   `("eng", "rus")`, and sets both what metadata gets fetched and the order it is preferred in.
