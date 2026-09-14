@@ -260,6 +260,7 @@ export const resources = {
           rootFolderPlaceholder: 'Pick a folder',
           rootFolderOption: '{{path}} ({{free}} free)',
           rootFolderFailed: 'We could not load the available folders.',
+          rootFolderSingle: 'Library folder: {{path}}',
           noRootFolders: 'No library folders are configured in Sonarr or Radarr.',
           inLibraryMovie: 'This movie is already in Radarr, so only monitoring will be enabled.',
           inLibrarySeries:
@@ -1096,6 +1097,7 @@ export const resources = {
           rootFolderPlaceholder: 'Выберите папку',
           rootFolderOption: '{{path}} (свободно {{free}})',
           rootFolderFailed: 'Не удалось загрузить доступные папки.',
+          rootFolderSingle: 'Папка библиотеки: {{path}}',
           noRootFolders: 'В Sonarr или Radarr не настроено ни одной папки библиотеки.',
           inLibraryMovie: 'Фильм уже есть в Radarr, поэтому будет включено только отслеживание.',
           inLibrarySeries:

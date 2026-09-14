@@ -96,7 +96,9 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
         </Alert>
       )}
 
-      {!inLibrary && (
+      {/* A single available folder needs no choice -- asking anyway would just
+          be confirming the only possible answer. */}
+      {!inLibrary && folders.length > 1 && (
         <Select
           label={t('discover.modal.rootFolder')}
           description={t('discover.modal.rootFolderHint')}
@@ -117,6 +119,12 @@ function AddRequestForm({ media, onClose }: { media: MediaSearchResult; onClose:
                   }),
           }))}
         />
+      )}
+
+      {!inLibrary && folders.length === 1 && (
+        <Text size="sm" c="dimmed">
+          {t('discover.modal.rootFolderSingle', { path: folders[0].path })}
+        </Text>
       )}
 
       {isSeries && (
