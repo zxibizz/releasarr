@@ -80,9 +80,9 @@ has no `/api` prefix.
 
 Every request carries one of two credentials: an `Authorization: Bearer` access token (a human
 session, 15 minutes, issued by `/auth/login`) or an `X-API-Key` service key (long-lived, hashed,
-bound to one user — for the future bot, not a person). Both resolve to the same `Principal`
-(`src/application/use_cases/auth/permissions.py`), which is what every route depends on via
-`require_user` / `require_admin` / `require_permission(...)` — see
+always admin — for the bot and similar integrations, not bound to any particular user). Both
+resolve to the same `Principal` (`src/application/use_cases/auth/permissions.py`), which is what
+every route depends on via `require_user` / `require_admin` / `require_permission(...)` — see
 [`backend.md`](backend.md#auth-and-permissions).
 
 A session's refresh token is the one piece of this that is not a bearer token: it lives in an
@@ -95,8 +95,9 @@ Permissions are flat and per-user, not role hierarchies: `role` is `admin` or `u
 independent booleans (`view all requests`, `tasks`, `indexers`, `logs`) plus a root-folder
 allow-list apply only to `user`. An admin bypasses every one of them. `media_requests.owner_user_id`
 is the one piece of data this all gates — NULL for a request no human owns (everything
-`sonarr_sync`/`radarr_sync` create), set once at creation for anything added through the UI, and
-reassignable afterwards only by an admin. See [`data-model.md`](data-model.md#ownership-and-permissions).
+`sonarr_sync`/`radarr_sync` create, plus anything added via the service key), set once at
+creation for anything a signed-in user adds, and reassignable afterwards only by an admin. See
+[`data-model.md`](data-model.md#ownership-and-permissions).
 
 Before any of this exists, `GET /auth/setup` reports whether a first admin still needs to be
 created; the frontend's `RequireAuth` sends a browser there instead of `/login` until one has

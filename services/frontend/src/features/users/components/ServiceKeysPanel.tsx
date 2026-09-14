@@ -1,68 +1,30 @@
-import {
-  ActionIcon,
-  Alert,
-  Badge,
-  Button,
-  Group,
-  Modal,
-  Select,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { ActionIcon, Alert, Badge, Button, Group, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconCopy } from '@tabler/icons-react';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Panel } from '@/components/Panel';
-import {
-  useCreateServiceKey,
-  useRevokeServiceKey,
-  useServiceKeysList,
-} from '@/features/users/queries';
-import type { ServiceApiKey, User } from '@/types';
+import { useRegenerateServiceKey, useServiceKey } from '@/features/users/queries';
+import { formatDateTime } from '@/utils/formatters';
 
-/** Admin-only management of hashed service keys, for the bot and similar integrations. */
-export function ServiceKeysPanel({ users }: { users: User[] }) {
+/** Admin-only view of the single, always-present service API key (for the bot and similar integrations). */
+export function ServiceKeysPanel() {
   const { t } = useTranslation();
-  const { serviceKeys, isLoading } = useServiceKeysList();
-  const createKey = useCreateServiceKey();
-  const revokeKey = useRevokeServiceKey();
+  const { data: key, isLoading } = useServiceKey();
+  const regenerate = useRegenerateServiceKey();
+  const [plaintext, setPlaintext] = useState<string | null>(null);
 
-  const [formOpened, formModal] = useDisclosure(false);
-  const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [userId, setUserId] = useState<string | null>(null);
-
-  const closeModal = () => {
-    formModal.close();
-    setCreatedPlaintext(null);
-    setName('');
-    setUserId(null);
-  };
-
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!userId) {
-      return;
-    }
-    const result = await createKey.mutateAsync({
-      name,
-      user_id: userId,
-    });
-    setCreatedPlaintext(result.plaintext);
-  };
-
-  const confirmRevoke = (key: ServiceApiKey) => {
+  const confirmRegenerate = () => {
     modals.openConfirmModal({
-      title: t('serviceKeys.revoke.title'),
-      children: <Text size="sm">{t('serviceKeys.revoke.body', { name: key.name })}</Text>,
-      labels: { confirm: t('serviceKeys.revoke.action'), cancel: t('common.cancel') },
+      title: t('serviceKey.regenerate.title'),
+      children: <Text size="sm">{t('serviceKey.regenerate.body')}</Text>,
+      labels: { confirm: t('serviceKey.regenerate.action'), cancel: t('common.cancel') },
       confirmProps: { color: 'red' },
-      onConfirm: () => revokeKey.mutate(key.id),
+      onConfirm: async () => {
+        const result = await regenerate.mutateAsync();
+        setPlaintext(result.plaintext);
+      },
     });
   };
 
@@ -70,125 +32,63 @@ export function ServiceKeysPanel({ users }: { users: User[] }) {
     <Stack gap="sm" mt="xl">
       <Group justify="space-between">
         <Text fz="lg" fw={700}>
-          {t('serviceKeys.title')}
+          {t('serviceKey.title')}
         </Text>
-        <Button variant="light" onClick={formModal.open}>
-          {t('serviceKeys.newKey')}
+        <Button
+          variant="light"
+          color="red"
+          onClick={confirmRegenerate}
+          loading={regenerate.isPending}
+        >
+          {t('serviceKey.regenerate.action')}
         </Button>
       </Group>
       <Text size="sm" c="dimmed">
-        {t('serviceKeys.description')}
+        {t('serviceKey.description')}
       </Text>
 
-      {!isLoading && serviceKeys.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          {t('serviceKeys.empty')}
-        </Text>
-      ) : (
+      {!isLoading && key ? (
         <Panel>
-          <Table.ScrollContainer minWidth={560}>
-            <Table verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>{t('serviceKeys.columns.name')}</Table.Th>
-                  <Table.Th>{t('serviceKeys.columns.key')}</Table.Th>
-                  <Table.Th>{t('serviceKeys.columns.actsAs')}</Table.Th>
-                  <Table.Th>{t('serviceKeys.columns.impersonate')}</Table.Th>
-                  <Table.Th />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {serviceKeys.map((key) => (
-                  <Table.Tr key={key.id}>
-                    <Table.Td>{key.name}</Table.Td>
-                    <Table.Td>
-                      <Text ff="monospace" size="sm">
-                        {key.prefix}…
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      {users.find((user) => user.id === key.user_id)?.username ?? key.user_id}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={
-                          users.find((user) => user.id === key.user_id)?.role === 'admin'
-                            ? 'grape'
-                            : 'gray'
-                        }
-                        variant="light"
-                      >
-                        {users.find((user) => user.id === key.user_id)?.role === 'admin'
-                          ? t('common.yes')
-                          : t('common.no')}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Button
-                        variant="subtle"
-                        color="red"
-                        size="xs"
-                        onClick={() => confirmRevoke(key)}
-                      >
-                        {t('serviceKeys.revoke.action')}
-                      </Button>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
-        </Panel>
-      )}
-
-      <Modal opened={formOpened} onClose={closeModal} title={t('serviceKeys.form.title')}>
-        {createdPlaintext ? (
-          <Stack gap="sm">
-            <Alert color="yellow" variant="light">
-              {t('serviceKeys.form.onlyShownOnce')}
-            </Alert>
-            <Group gap="xs" wrap="nowrap" align="flex-start">
-              <Text ff="monospace" size="sm" style={{ wordBreak: 'break-all', flex: 1 }}>
-                {createdPlaintext}
+          <Group justify="space-between">
+            <Group gap="xs">
+              <Text ff="monospace" size="sm">
+                {key.prefix}…
               </Text>
-              <ActionIcon
-                variant="light"
-                aria-label={t('serviceKeys.form.copy')}
-                onClick={() => void navigator.clipboard?.writeText(createdPlaintext)}
-              >
-                <IconCopy size={16} />
-              </ActionIcon>
+              <Badge variant="light" color="grape">
+                {t('serviceKey.alwaysAdmin')}
+              </Badge>
             </Group>
-            <Button onClick={closeModal}>{t('common.close')}</Button>
-          </Stack>
-        ) : (
-          <form onSubmit={handleCreate}>
-            <Stack gap="sm">
-              <TextInput
-                label={t('serviceKeys.form.name')}
-                required
-                autoFocus
-                value={name}
-                onChange={(event) => setName(event.currentTarget.value)}
-              />
-              <Select
-                label={t('serviceKeys.form.actsAs')}
-                required
-                allowDeselect={false}
-                data={users.map((user) => ({ value: user.id, label: user.username }))}
-                value={userId}
-                onChange={setUserId}
-              />
-              <Text size="xs" c="dimmed">
-                {t('serviceKeys.form.impersonateHint')}
-              </Text>
-              <Button type="submit" loading={createKey.isPending}>
-                {t('common.save')}
-              </Button>
-            </Stack>
-          </form>
-        )}
-      </Modal>
+            <Text size="xs" c="dimmed">
+              {key.last_used_at
+                ? t('serviceKey.lastUsed', { date: formatDateTime(key.last_used_at) })
+                : t('serviceKey.neverUsed')}
+            </Text>
+          </Group>
+        </Panel>
+      ) : null}
+
+      {plaintext ? (
+        <Alert
+          color="yellow"
+          variant="light"
+          withCloseButton
+          title={t('serviceKey.onlyShownOnce')}
+          onClose={() => setPlaintext(null)}
+        >
+          <Group gap="xs" wrap="nowrap" align="flex-start">
+            <Text ff="monospace" size="sm" style={{ wordBreak: 'break-all', flex: 1 }}>
+              {plaintext}
+            </Text>
+            <ActionIcon
+              variant="light"
+              aria-label={t('serviceKey.copy')}
+              onClick={() => void navigator.clipboard?.writeText(plaintext)}
+            >
+              <IconCopy size={16} />
+            </ActionIcon>
+          </Group>
+        </Alert>
+      ) : null}
     </Stack>
   );
 }

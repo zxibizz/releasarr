@@ -139,7 +139,7 @@ export function UsersPage() {
         </Table.ScrollContainer>
       </Panel>
 
-      <ServiceKeysPanel users={users} />
+      <ServiceKeysPanel />
 
       <UserFormModal key={formKey} opened={formOpened} onClose={formModal.close} user={editingUser} />
     </>

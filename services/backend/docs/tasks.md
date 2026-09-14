@@ -228,7 +228,7 @@ finished**:
 curl -fsS -X POST -H "X-API-Key: $RELEASARR_SERVICE_KEY" http://releasarr:8000/api/tasks/sync_downloads
 ```
 
-Substitute your own host and a service API key (created by an admin under `/service-keys`,
+Substitute your own host and the service API key (visible, and rotatable, under `/service-key`,
 or **System → Users** in the UI); the `/api` prefix is what nginx serves the API under. The narrow endpoint is deliberate: a full sync on every torrent would hit
 Sonarr, Radarr, the metadata providers, and the indexers far more often than
 necessary.

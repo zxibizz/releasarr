@@ -1,9 +1,8 @@
 import { apiRequest } from '@/lib/api/client';
 import type {
-  CreateServiceKeyPayload,
   CreateUserPayload,
   ServiceApiKeyCreated,
-  ServiceApiKeysResponse,
+  ServiceApiKeyInfo,
   UpdateUserPayload,
   User,
   UsersResponse,
@@ -22,13 +21,9 @@ export const usersApi = {
     apiRequest<void>(`/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
-export const serviceKeysApi = {
-  list: (signal?: AbortSignal) =>
-    apiRequest<ServiceApiKeysResponse>('/service-keys', { signal }),
+export const serviceKeyApi = {
+  get: (signal?: AbortSignal) => apiRequest<ServiceApiKeyInfo>('/service-key', { signal }),
 
-  create: (payload: CreateServiceKeyPayload) =>
-    apiRequest<ServiceApiKeyCreated>('/service-keys', { method: 'POST', body: payload }),
-
-  revoke: (id: string) =>
-    apiRequest<void>(`/service-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  regenerate: () =>
+    apiRequest<ServiceApiKeyCreated>('/service-key/regenerate', { method: 'POST' }),
 };

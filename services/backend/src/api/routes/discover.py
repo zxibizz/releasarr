@@ -175,7 +175,7 @@ async def add_request(
         root_folder_path=payload.root_folder_path,
         season_numbers=list(payload.season_numbers or []),
         monitor_new_seasons=payload.monitor_new_seasons,
-        owner_user_id=principal.user.id,
+        owner_user_id=principal.owner_id,
         allowed_root_folders=allowed_root_folders(principal.user),
     )
     requests = await add_request_use_case.execute(command)

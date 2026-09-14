@@ -52,48 +52,29 @@ class RefreshTokenRepository(Protocol):
 
 @dataclass(slots=True)
 class ServiceApiKeyRecord:
-    """A hashed service API key bound to a user identity."""
+    """The single hashed service API key: always admin, never bound to a user."""
 
     id: str
-    name: str
     prefix: str
     key_hash: str
-    user_id: str
-    is_active: bool
-    expires_at: datetime | None
     last_used_at: datetime | None
     created_at: datetime
 
 
 class ServiceApiKeyRepository(Protocol):
-    """Protocol describing persistence for service API keys."""
+    """Protocol describing persistence for the singleton service API key."""
 
-    async def list_keys(self) -> list[ServiceApiKeyRecord]:
-        """Return every service key, newest first."""
+    async def get(self) -> ServiceApiKeyRecord | None:
+        """Fetch the current service key, if one has been created yet."""
 
     async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
-        """Look up a service key by the hash of its plaintext."""
+        """Look up the service key by the hash of its plaintext."""
 
-    async def get_key(self, key_id: str) -> ServiceApiKeyRecord | None:
-        """Fetch a single service key by id."""
-
-    async def create_key(
-        self,
-        *,
-        id: str,
-        name: str,
-        prefix: str,
-        key_hash: str,
-        user_id: str,
-        expires_at: datetime | None,
-    ) -> ServiceApiKeyRecord:
-        """Persist a newly created service key."""
+    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
+        """Replace the service key with a newly generated one, deleting any prior key."""
 
     async def touch_last_used(self, key_id: str, *, at: datetime) -> None:
-        """Record that a key was just used to authenticate."""
-
-    async def delete_key(self, key_id: str) -> bool:
-        """Remove a service key. Returns False if it did not exist."""
+        """Record that the key was just used to authenticate."""
 
 
 class PasswordHasher(Protocol):

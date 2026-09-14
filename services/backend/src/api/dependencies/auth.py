@@ -18,9 +18,8 @@ def _authenticate_use_case() -> AuthenticatePrincipalUseCase:
 async def get_principal(
     authorization: str | None = Header(default=None),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-    x_act_as_user: str | None = Header(default=None, alias="X-Act-As-User"),
 ) -> Principal | None:
-    """Resolve the caller from a bearer access token or a service API key.
+    """Resolve the caller from a bearer access token or the service API key.
 
     Returns ``None`` when no credentials were presented, so a request with no
     auth header at all never touches the database.
@@ -37,9 +36,7 @@ async def get_principal(
         return await _authenticate_use_case().authenticate_bearer(token)
 
     if x_api_key:
-        return await _authenticate_use_case().authenticate_service_key(
-            x_api_key, act_as_username=x_act_as_user
-        )
+        return await _authenticate_use_case().authenticate_service_key(x_api_key)
 
     return None
 

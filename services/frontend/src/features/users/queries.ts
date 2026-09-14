@@ -1,9 +1,9 @@
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { serviceKeysApi, usersApi } from '@/features/users/api';
+import { serviceKeyApi, usersApi } from '@/features/users/api';
 import { getErrorMessage } from '@/utils/errors';
-import type { CreateServiceKeyPayload, CreateUserPayload, UpdateUserPayload } from '@/types';
+import type { CreateUserPayload, UpdateUserPayload } from '@/types';
 
 export const userKeys = {
   all: ['users'] as const,
@@ -11,8 +11,8 @@ export const userKeys = {
 };
 
 export const serviceKeyKeys = {
-  all: ['service-keys'] as const,
-  list: () => [...serviceKeyKeys.all, 'list'] as const,
+  all: ['service-key'] as const,
+  detail: () => [...serviceKeyKeys.all, 'detail'] as const,
 };
 
 export const usersListQuery = () => ({
@@ -68,44 +68,25 @@ export function useDeleteUser() {
   });
 }
 
-export const serviceKeysListQuery = () => ({
-  queryKey: serviceKeyKeys.list(),
-  queryFn: ({ signal }: { signal: AbortSignal }) => serviceKeysApi.list(signal),
+export const serviceKeyQuery = () => ({
+  queryKey: serviceKeyKeys.detail(),
+  queryFn: ({ signal }: { signal: AbortSignal }) => serviceKeyApi.get(signal),
 });
 
-export function useServiceKeysList() {
-  const query = useQuery(serviceKeysListQuery());
-  return { ...query, serviceKeys: query.data?.service_keys ?? [] };
+export function useServiceKey() {
+  return useQuery(serviceKeyQuery());
 }
 
-export function useCreateServiceKey() {
+export function useRegenerateServiceKey() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateServiceKeyPayload) => serviceKeysApi.create(payload),
+    mutationFn: () => serviceKeyApi.regenerate(),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: serviceKeyKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: serviceKeyKeys.detail() });
     },
     onError: (error: unknown) => {
       notifications.show({
-        title: 'Could not create service key',
-        message: getErrorMessage(error, ''),
-        color: 'red',
-      });
-    },
-  });
-}
-
-export function useRevokeServiceKey() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => serviceKeysApi.revoke(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: serviceKeyKeys.list() });
-      notifications.show({ message: 'Service key revoked', color: 'teal' });
-    },
-    onError: (error: unknown) => {
-      notifications.show({
-        title: 'Could not revoke service key',
+        title: 'Could not regenerate the service key',
         message: getErrorMessage(error, ''),
         color: 'red',
       });

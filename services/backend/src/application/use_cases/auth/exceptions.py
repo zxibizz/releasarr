@@ -54,16 +54,8 @@ class SetupAlreadyCompletedError(Exception):
         super().__init__("Setup has already been completed")
 
 
-class ImpersonationNotAllowedError(Exception):
-    """Raised when a non-admin service key sends ``X-Act-As-User``."""
-
-    def __init__(self) -> None:
-        super().__init__("This service key is not allowed to act as another user")
-
-
 __all__ = [
     "AccountLockedError",
-    "ImpersonationNotAllowedError",
     "InactiveUserError",
     "InvalidAccessTokenError",
     "InvalidCredentialsError",

@@ -21,10 +21,12 @@ from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.auth import (
     AuthenticatePrincipalUseCase,
     BootstrapAdminUseCase,
+    GetOrCreateServiceApiKeyUseCase,
     GetSetupStatusUseCase,
     LoginUseCase,
     LogoutUseCase,
     RefreshSessionUseCase,
+    RegenerateServiceApiKeyUseCase,
     SessionIssuer,
 )
 from src.application.use_cases.discover.add_request import AddMediaRequestUseCase
@@ -83,13 +85,10 @@ from src.application.use_cases.tasks.get_sync_job import (
 )
 from src.application.use_cases.users import (
     ChangePasswordUseCase,
-    CreateServiceKeyUseCase,
     CreateUserUseCase,
     DeleteUserUseCase,
     GetUserUseCase,
-    ListServiceKeysUseCase,
     ListUsersUseCase,
-    RevokeServiceKeyUseCase,
     UpdateUserUseCase,
 )
 from src.core.logging import configure_logging, logger
@@ -392,6 +391,18 @@ class AuthUseCases:
     def setup_status(self) -> GetSetupStatusUseCase:
         return GetSetupStatusUseCase(users=self._container.repositories.users)
 
+    @cached_property
+    def service_key(self) -> GetOrCreateServiceApiKeyUseCase:
+        return GetOrCreateServiceApiKeyUseCase(
+            service_api_keys=self._container.repositories.service_api_keys
+        )
+
+    @cached_property
+    def regenerate_service_key(self) -> RegenerateServiceApiKeyUseCase:
+        return RegenerateServiceApiKeyUseCase(
+            service_api_keys=self._container.repositories.service_api_keys
+        )
+
 
 @dataclass
 class UserUseCases:
@@ -428,25 +439,6 @@ class UserUseCases:
         return ChangePasswordUseCase(
             users=self._container.repositories.users,
             password_hasher=self._container.services.password_hasher,
-        )
-
-    @cached_property
-    def create_service_key(self) -> CreateServiceKeyUseCase:
-        return CreateServiceKeyUseCase(
-            service_api_keys=self._container.repositories.service_api_keys,
-            users=self._container.repositories.users,
-        )
-
-    @cached_property
-    def list_service_keys(self) -> ListServiceKeysUseCase:
-        return ListServiceKeysUseCase(
-            service_api_keys=self._container.repositories.service_api_keys
-        )
-
-    @cached_property
-    def revoke_service_key(self) -> RevokeServiceKeyUseCase:
-        return RevokeServiceKeyUseCase(
-            service_api_keys=self._container.repositories.service_api_keys
         )
 
 

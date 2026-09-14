@@ -19,7 +19,6 @@ from loguru import logger
 from src.application.interfaces.indexers import IndexerNotFoundError
 from src.application.use_cases.auth.exceptions import (
     AccountLockedError,
-    ImpersonationNotAllowedError,
     InactiveUserError,
     InvalidAccessTokenError,
     InvalidCredentialsError,
@@ -52,7 +51,6 @@ from src.application.use_cases.requests.exceptions import (
 from src.application.use_cases.tasks.exceptions import SyncJobNotFoundError
 from src.application.use_cases.users.exceptions import (
     LastAdminError,
-    ServiceKeyNotFoundError,
     UsernameTakenError,
     UserNotFoundError,
 )
@@ -96,12 +94,10 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     InactiveUserError: (status.HTTP_403_FORBIDDEN, "user_inactive"),
     InvalidRefreshTokenError: (status.HTTP_401_UNAUTHORIZED, "invalid_refresh_token"),
     InvalidAccessTokenError: (status.HTTP_401_UNAUTHORIZED, "invalid_token"),
-    ImpersonationNotAllowedError: (status.HTTP_403_FORBIDDEN, "impersonation_not_allowed"),
     SetupAlreadyCompletedError: (status.HTTP_409_CONFLICT, "setup_complete"),
     UserNotFoundError: (status.HTTP_404_NOT_FOUND, "user_not_found"),
     UsernameTakenError: (status.HTTP_409_CONFLICT, "username_taken"),
     LastAdminError: (status.HTTP_409_CONFLICT, "last_admin"),
-    ServiceKeyNotFoundError: (status.HTTP_404_NOT_FOUND, "service_key_not_found"),
     # Sonarr, Radarr and the metadata providers all report through this one, so a
     # failure of theirs surfaces as a bad gateway rather than our own crash.
     HttpClientError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),

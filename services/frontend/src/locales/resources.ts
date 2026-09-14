@@ -99,30 +99,19 @@ export const resources = {
           confirm: 'Delete',
         },
       },
-      serviceKeys: {
-        title: 'Service API keys',
-        newKey: 'New key',
+      serviceKey: {
+        title: 'Service API key',
         description:
-          'Lets an external service (such as a bot) call the API as a specific user. The key is shown once, at creation.',
-        empty: 'No service keys yet.',
-        columns: {
-          name: 'Name',
-          key: 'Key',
-          actsAs: 'Acts as',
-          impersonate: 'Can impersonate',
-        },
-        form: {
-          title: 'Create service key',
-          name: 'Name',
-          actsAs: 'Acts as',
-          impersonateHint: 'Keys bound to an admin can also act as a different user via X-Act-As-User.',
-          onlyShownOnce: 'This key is shown only once. Copy it now; it cannot be retrieved again.',
-          copy: 'Copy key',
-        },
-        revoke: {
-          title: 'Revoke service key',
-          body: 'Revoke {{name}}? Anything using it will stop working immediately.',
-          action: 'Revoke',
+          'A single, always-present key with full admin access, for the bot and similar integrations — not tied to any user account, the same as Sonarr and Radarr.',
+        alwaysAdmin: 'Admin',
+        lastUsed: 'Last used {{date}}',
+        neverUsed: 'Never used yet',
+        onlyShownOnce: 'This key is shown only once. Copy it now; it cannot be retrieved again.',
+        copy: 'Copy key',
+        regenerate: {
+          title: 'Regenerate service key',
+          body: 'This replaces the current key with a new one. Anything using the old key will stop working immediately.',
+          action: 'Regenerate',
         },
       },
       mediaType: {
@@ -944,32 +933,20 @@ export const resources = {
           confirm: 'Удалить',
         },
       },
-      serviceKeys: {
-        title: 'Сервисные API-ключи',
-        newKey: 'Новый ключ',
+      serviceKey: {
+        title: 'Сервисный API-ключ',
         description:
-          'Позволяет внешнему сервису (например, боту) обращаться к API от имени определённого пользователя. Ключ показывается один раз, при создании.',
-        empty: 'Пока нет сервисных ключей.',
-        columns: {
-          name: 'Название',
-          key: 'Ключ',
-          actsAs: 'От имени',
-          impersonate: 'Может действовать как другой',
-        },
-        form: {
-          title: 'Создать сервисный ключ',
-          name: 'Название',
-          actsAs: 'От имени',
-          impersonateHint:
-            'Ключи, привязанные к администратору, также могут действовать как другой пользователь через X-Act-As-User.',
-          onlyShownOnce:
-            'Этот ключ показывается один раз. Скопируйте его сейчас — повторно получить его не получится.',
-          copy: 'Скопировать ключ',
-        },
-        revoke: {
-          title: 'Отозвать сервисный ключ',
-          body: 'Отозвать {{name}}? Всё, что использует его, немедленно перестанет работать.',
-          action: 'Отозвать',
+          'Единственный, всегда существующий ключ с полным доступом администратора — для бота и подобных интеграций, не привязан ни к одной учётной записи, как в Sonarr и Radarr.',
+        alwaysAdmin: 'Администратор',
+        lastUsed: 'Последнее использование {{date}}',
+        neverUsed: 'Ещё не использовался',
+        onlyShownOnce:
+          'Этот ключ показывается один раз. Скопируйте его сейчас — повторно получить его не получится.',
+        copy: 'Скопировать ключ',
+        regenerate: {
+          title: 'Обновить сервисный ключ',
+          body: 'Это заменит текущий ключ новым. Всё, что использует старый ключ, немедленно перестанет работать.',
+          action: 'Обновить',
         },
       },
       mediaType: {
