@@ -4,7 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
-import type { ReleaseSearchResult } from '@/types';
+import {
+  confirmExistingReleases,
+  existingReleaseIdsFromError,
+  isExistingReleasesDecisionRequired,
+} from '@/features/releases/existingReleases';
+import { useReleasesByRequest } from '@/features/releases/queries';
+import type { AsyncOperationResponse, ExistingReleasesAction, ReleaseSearchResult } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 import { daysSince } from '@/utils/formatters';
 
@@ -84,6 +90,8 @@ export function useReleaseSearch({
     seasonToken && new RegExp(`(^|\\s)${seasonToken}(\\s|$)`, 'i').test(normalizedQuery),
   );
 
+  const { data: existingReleases } = useReleasesByRequest(requestId);
+
   const search = useMutation({
     mutationFn: (value: string) => releasesApi.search(value, requestId),
     onSuccess: (response, value) => {
@@ -99,10 +107,46 @@ export function useReleaseSearch({
     },
   });
 
+  // Cancelling resolves with `null` rather than throwing, so it never shows as
+  // a failed grab - the user simply changed their mind.
   const download = useMutation({
-    mutationFn: (candidate: ReleaseSearchResult) =>
-      releasesApi.queueDownload(requestId, { release_id: candidate.release_id }),
+    mutationFn: async (candidate: ReleaseSearchResult): Promise<AsyncOperationResponse | null> => {
+      const attempt = async (
+        decision?: ExistingReleasesAction,
+      ): Promise<AsyncOperationResponse | null> => {
+        try {
+          return await releasesApi.queueDownload(requestId, {
+            release_id: candidate.release_id,
+            existing_releases: decision,
+          });
+        } catch (error) {
+          // The cached release list can be stale; the server is the source of truth.
+          if (decision === undefined && isExistingReleasesDecisionRequired(error)) {
+            const releaseIds = existingReleaseIdsFromError(error);
+            const relevant = (existingReleases ?? []).filter((release) =>
+              releaseIds.includes(release.id),
+            );
+            const chosen = await confirmExistingReleases(
+              relevant.length > 0 ? relevant : (existingReleases ?? []),
+              t,
+            );
+            return chosen === null ? null : attempt(chosen);
+          }
+          throw error;
+        }
+      };
+
+      if ((existingReleases ?? []).length > 0) {
+        const chosen = await confirmExistingReleases(existingReleases ?? [], t);
+        return chosen === null ? null : attempt(chosen);
+      }
+
+      return attempt();
+    },
     onSuccess: (response, candidate) => {
+      if (response === null) {
+        return;
+      }
       notifications.show({
         title: t('releaseSearch.toasts.downloadQueuedTitle'),
         message:

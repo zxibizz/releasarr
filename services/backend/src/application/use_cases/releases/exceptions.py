@@ -61,7 +61,20 @@ class ReleaseDownloadFailedError(RuntimeError):
         self.reason = reason
 
 
+class ExistingReleasesDecisionRequiredError(RuntimeError):
+    """Raised when a request already has releases and the caller did not say
+    whether to keep or replace them."""
+
+    def __init__(self, request_id: str, release_ids: list[str]):
+        message = f"Request '{request_id}' already has releases; existing_releases is required"
+        super().__init__(message)
+        self.request_id = request_id
+        self.release_ids = release_ids
+        self.details = {"release_ids": release_ids}
+
+
 __all__ = [
+    "ExistingReleasesDecisionRequiredError",
     "ReleaseActionNotAllowedError",
     "ReleaseConflictError",
     "ReleaseDownloadConflictError",

@@ -30,6 +30,7 @@ from src.application.use_cases.releases.dto import (
     ReleaseFileMappingDTO,
     ReleaseSearchResponseDTO,
     ReleasesPageDTO,
+    ReleaseWarningDTO,
 )
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
@@ -43,7 +44,7 @@ from src.application.use_cases.releases.suggest_file_mappings import (
 )
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.core.container import AppContainer, get_container
-from src.domain.enums import MediaType, ReleaseStatus
+from src.domain.enums import ExistingReleasesAction, MediaType, ReleaseStatus
 from src.schemas.common import SuccessResponse
 from src.schemas.enums import AsyncJobStatus
 from src.schemas.jobs import AsyncOperationResponse
@@ -59,6 +60,7 @@ from src.schemas.releases import (
     ReleaseFileMappingsUpdate,
     ReleaseSearchResponse,
     ReleasesResponse,
+    ReleaseWarning,
 )
 
 router = APIRouter(prefix="/releases", tags=["Releases"], dependencies=[Depends(require_user)])
@@ -209,7 +211,10 @@ QUEUE_DOWNLOAD_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Malformed request body.",
         status.HTTP_404_NOT_FOUND: "Release candidate not found for the request.",
-        status.HTTP_409_CONFLICT: "Request already has an active download.",
+        status.HTTP_409_CONFLICT: (
+            "Request already has an active download, or already has releases and "
+            "existing_releases was not supplied."
+        ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -217,7 +222,10 @@ QUEUE_DOWNLOAD_RESPONSES = error_responses(
 MANUAL_RELEASE_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Unreadable torrent file or magnet link.",
-        status.HTTP_409_CONFLICT: "The release is already registered.",
+        status.HTTP_409_CONFLICT: (
+            "The release is already registered, or the request already has releases "
+            "and existing_releases was not supplied."
+        ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -246,6 +254,11 @@ def _decode_id(encoded_id: str) -> str:
         return decoded_str
 
 
+def _existing_releases_action(value: str | None) -> ExistingReleasesAction | None:
+    # `use_enum_values=True` flattens the schema field to a plain string.
+    return ExistingReleasesAction(value) if value else None
+
+
 def _dto_to_release(dto: ReleaseDTO) -> Release:
     return Release(
         id=dto.id,
@@ -265,6 +278,16 @@ def _dto_to_release(dto: ReleaseDTO) -> Release:
         request_ids=list(dto.request_ids),
         torrent_source=dto.torrent_source,
         quality=dto.quality,
+        warnings=[_dto_to_warning(warning_dto) for warning_dto in dto.warnings],
+    )
+
+
+def _dto_to_warning(warning_dto: ReleaseWarningDTO) -> ReleaseWarning:
+    return ReleaseWarning(
+        code=warning_dto.code,
+        file_ids=list(warning_dto.file_ids),
+        related_release_ids=list(warning_dto.related_release_ids),
+        details=warning_dto.details,
     )
 
 
@@ -540,7 +563,11 @@ async def queue_release_download(
     response: Response,
     queue_use_case: QueueReleaseDownloadUseCase = Depends(_queue_download_use_case),
 ) -> AsyncOperationResponse:
-    command = QueueReleaseDownloadCommand(request_id=request_id, release_id=payload.release_id)
+    command = QueueReleaseDownloadCommand(
+        request_id=request_id,
+        release_id=payload.release_id,
+        existing_releases=_existing_releases_action(payload.existing_releases),
+    )
     dto = await queue_use_case.execute(command)
     if dto.location:
         response.headers["Location"] = dto.location
@@ -563,6 +590,7 @@ async def queue_manual_release(
         request_id=request_id,
         magnet_link=payload.magnet_link,
         torrent_file_base64=payload.torrent_file_base64,
+        existing_releases=_existing_releases_action(payload.existing_releases),
     )
     try:
         dto = await manual_use_case.execute(command)

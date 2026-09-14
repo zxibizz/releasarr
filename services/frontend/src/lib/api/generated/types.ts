@@ -1114,6 +1114,7 @@ export interface components {
              * @description When the indexer says the release itself went up, when it reported one.
              */
             published_date?: string | null;
+            warnings: components["schemas"]["ReleaseWarning"][];
         };
         ReleaseFile: {
             id: string;
@@ -1122,6 +1123,18 @@ export interface components {
             size: number;
             path: string;
             request_mapping?: components["schemas"]["FileRequestMapping"];
+        };
+        /** @description A condition worth surfacing to the user but not worth blocking on. The `code` enum is the extension point for future checks. */
+        ReleaseWarning: {
+            /** @enum {string} */
+            code: "mapping_overlap";
+            /** @description Files on this release involved in the warning. */
+            file_ids: string[];
+            /** @description Other releases sharing the same overlap, if any. */
+            related_release_ids: string[];
+            details?: {
+                [key: string]: unknown;
+            } | null;
         };
         FileRequestMapping: components["schemas"]["MovieFileRequestMapping"] | components["schemas"]["SeriesFileRequestMapping"];
         MovieFileRequestMapping: {
@@ -1381,8 +1394,14 @@ export interface components {
             query: string;
             total_results: number;
         };
+        /**
+         * @description Required once a request already has releases. `keep` leaves them running alongside the new grab; `replace` deletes the ones grabbed only for this request and unlinks the ones shared with other requests.
+         * @enum {string}
+         */
+        ExistingReleasesAction: "keep" | "replace";
         ReleaseDownloadRequest: {
             release_id: string;
+            existing_releases?: components["schemas"]["ExistingReleasesAction"];
         };
         /** @description Exactly one of the two fields must be supplied. */
         ManualReleaseRequest: {
@@ -1390,6 +1409,7 @@ export interface components {
             magnet_link?: string | null;
             /** @description Base64-encoded contents of a `.torrent` file. */
             torrent_file_base64?: string | null;
+            existing_releases?: components["schemas"]["ExistingReleasesAction"];
         };
         MediaSearchResult: {
             type: components["schemas"]["MediaType"];
@@ -2656,7 +2676,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Request already has an active download. */
+            /** @description Request already has an active download, or the request already has releases and `existing_releases` was not supplied (`existing_releases_decision_required`). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2712,7 +2732,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The release is already registered. */
+            /** @description The release is already registered, or the request already has releases and `existing_releases` was not supplied (`existing_releases_decision_required`). */
             409: {
                 headers: {
                     [name: string]: unknown;

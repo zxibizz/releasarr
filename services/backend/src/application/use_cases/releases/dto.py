@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import ReleaseStatus, ReleaseWarningCode
 
 
 @dataclass(slots=True)
@@ -23,6 +23,14 @@ class ReleaseFileMappingSuggestionDTO:
 
     file_id: str
     request_mapping: ReleaseFileMappingDTO
+
+
+@dataclass(slots=True)
+class ReleaseWarningDTO:
+    code: ReleaseWarningCode
+    file_ids: list[str]
+    related_release_ids: list[str]
+    details: dict[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -55,6 +63,7 @@ class ReleaseDTO:
     quality: str | None
     info_url: str | None = None
     published_at: datetime | None = None
+    warnings: list[ReleaseWarningDTO] = field(default_factory=list)
 
 
 @dataclass(slots=True)

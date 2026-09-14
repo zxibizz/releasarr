@@ -5,6 +5,7 @@ from __future__ import annotations
 from src.domain.enums import (
     AsyncJobStatus,
     EpisodeStatus,
+    ExistingReleasesAction,
     IndexerEventType,
     IndexerHealth,
     IndexerLogLevel,
@@ -12,6 +13,7 @@ from src.domain.enums import (
     MediaRequestStatus,
     MediaType,
     ReleaseStatus,
+    ReleaseWarningCode,
     RequestLogLevel,
     SyncJobKind,
     SyncJobStatus,
@@ -22,6 +24,7 @@ from src.domain.enums import (
 __all__ = [
     "AsyncJobStatus",
     "EpisodeStatus",
+    "ExistingReleasesAction",
     "IndexerEventType",
     "IndexerHealth",
     "IndexerLogLevel",
@@ -29,6 +32,7 @@ __all__ = [
     "MediaRequestStatus",
     "MediaType",
     "ReleaseStatus",
+    "ReleaseWarningCode",
     "RequestLogLevel",
     "SyncJobKind",
     "SyncJobStatus",

@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconTrash } from '@tabler/icons-react';
+import { IconAlertTriangle, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
@@ -27,6 +27,7 @@ import {
   formatSpeed,
 } from '@/utils/formatters';
 import { groupFilesByType } from '@/utils/files';
+import { hasMappingOverlap, overlapRelatedReleaseCount } from '@/features/releases/warnings';
 
 interface ReleaseCardProps {
   release: Release;
@@ -134,6 +135,26 @@ export function ReleaseCard({
 
           <Group gap="xs" align="center" wrap="nowrap">
             <StatusBadge status={release.status} />
+            {hasMappingOverlap(release) && (
+              <Tooltip
+                label={
+                  overlapRelatedReleaseCount(release) > 0
+                    ? t('releaseCard.overlapWarning.withOtherReleases', {
+                        count: overlapRelatedReleaseCount(release),
+                      })
+                    : t('releaseCard.overlapWarning.withinRelease')
+                }
+              >
+                <Badge
+                  variant="light"
+                  color="yellow"
+                  radius="sm"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  {t('releaseCard.overlapWarning.badge')}
+                </Badge>
+              </Tooltip>
+            )}
             <Text size="sm" c="dimmed">
               {formatFileSize(release.size)}
             </Text>

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from src.application.interfaces.releases import (
     QueuedDownload,
     ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseSearchResults,
+    ReleaseWarning,
 )
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
@@ -17,6 +20,7 @@ from src.application.use_cases.releases.dto import (
     ReleaseSearchResponseDTO,
     ReleaseSearchResultDTO,
     ReleasesPageDTO,
+    ReleaseWarningDTO,
 )
 
 
@@ -45,7 +49,19 @@ def _file_record_to_dto(record: ReleaseFileRecord) -> ReleaseFileDTO:
     )
 
 
-def record_to_dto(record: ReleaseRecord) -> ReleaseDTO:
+def _warning_to_dto(warning: ReleaseWarning) -> ReleaseWarningDTO:
+    return ReleaseWarningDTO(
+        code=warning.code,
+        file_ids=list(warning.file_ids),
+        related_release_ids=list(warning.related_release_ids),
+        details=warning.details,
+    )
+
+
+def record_to_dto(
+    record: ReleaseRecord,
+    warnings: Sequence[ReleaseWarning] = (),
+) -> ReleaseDTO:
     files = [_file_record_to_dto(file_record) for file_record in record.files]
     request_ids = list(record.request_ids)
 
@@ -69,6 +85,7 @@ def record_to_dto(record: ReleaseRecord) -> ReleaseDTO:
         quality=record.quality,
         info_url=record.info_url,
         published_at=record.published_at,
+        warnings=[_warning_to_dto(warning) for warning in warnings],
     )
 
 
@@ -78,8 +95,12 @@ def records_to_page(
     total: int,
     page: int,
     per_page: int,
+    warnings_by_release: dict[str, list[ReleaseWarning]] | None = None,
 ) -> ReleasesPageDTO:
-    releases = [record_to_dto(record) for record in records]
+    warnings_by_release = warnings_by_release or {}
+    releases = [
+        record_to_dto(record, warnings_by_release.get(record.id, ())) for record in records
+    ]
     return ReleasesPageDTO(releases=releases, total=total, page=page, per_page=per_page)
 
 

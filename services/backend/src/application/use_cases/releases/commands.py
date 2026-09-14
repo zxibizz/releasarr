@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import ExistingReleasesAction, ReleaseStatus
 
 
 @dataclass(slots=True)
@@ -56,6 +56,7 @@ class SearchReleaseSourcesCommand:
 class QueueReleaseDownloadCommand:
     request_id: str
     release_id: str
+    existing_releases: ExistingReleasesAction | None = None
 
 
 @dataclass(slots=True)
@@ -65,6 +66,7 @@ class QueueManualReleaseCommand:
     request_id: str
     magnet_link: str | None = None
     torrent_file_base64: str | None = None
+    existing_releases: ExistingReleasesAction | None = None
 
 
 __all__ = [

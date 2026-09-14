@@ -16,10 +16,12 @@ export type ReleaseStatus = Schemas['ReleaseStatus'];
 export type Release = Schemas['Release'];
 export type ReleasesResponse = Schemas['ReleasesResponse'];
 export type ReleaseFile = Schemas['ReleaseFile'];
+export type ReleaseWarning = Schemas['ReleaseWarning'];
 export type ReleaseSearchResult = Schemas['ReleaseSearchResult'];
 export type ReleaseSearchResponse = Schemas['ReleaseSearchResponse'];
 export type ReleaseDownloadRequest = Schemas['ReleaseDownloadRequest'];
 export type ManualReleaseRequest = Schemas['ManualReleaseRequest'];
+export type ExistingReleasesAction = Schemas['ExistingReleasesAction'];
 
 export type MediaSearchResult = Schemas['MediaSearchResult'];
 export type MediaSearchResponse = Schemas['MediaSearchResponse'];

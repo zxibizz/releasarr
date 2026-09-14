@@ -26,6 +26,7 @@ import type {
   ReleaseFile,
   ReleaseFileMappingSuggestion,
   ReleaseSearchResult,
+  ReleaseWarning,
   RequestLogEntry,
   RequestLogLevel,
   RootFolder,
@@ -144,6 +145,69 @@ const randomId = () => {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).slice(2);
+};
+
+type MappingLike = ReleaseFile['request_mapping'];
+
+const mappingTargetKey = (mapping: MappingLike): string | null => {
+  if (!mapping) return null;
+  if (mapping.mapping_type === 'movie') {
+    return `movie:${mapping.request_id}`;
+  }
+  if (mapping.season != null && mapping.episode != null) {
+    return `series:${mapping.request_id}:${mapping.season}:${mapping.episode}`;
+  }
+  return null;
+};
+
+/**
+ * Mirrors the backend's ReleaseWarningEvaluator closely enough to exercise the
+ * UI: files across releases that resolve to the same request/season/episode (or
+ * movie request) are flagged. Keyed on request id rather than a resolved
+ * Sonarr/Radarr id, since the fixtures carry no such id.
+ */
+const computeMappingOverlapWarnings = (releases: Release[]): Map<string, ReleaseWarning[]> => {
+  const buckets = new Map<string, Array<{ releaseId: string; fileId: string }>>();
+
+  releases.forEach((release) => {
+    release.files.forEach((file) => {
+      const key = mappingTargetKey(file.request_mapping);
+      if (!key) return;
+      const bucket = buckets.get(key) ?? [];
+      bucket.push({ releaseId: release.id, fileId: file.id });
+      buckets.set(key, bucket);
+    });
+  });
+
+  const fileIdsByRelease = new Map<string, Set<string>>();
+  const relatedByRelease = new Map<string, Set<string>>();
+
+  buckets.forEach((entries) => {
+    if (entries.length < 2) return;
+    const releaseIds = new Set(entries.map((entry) => entry.releaseId));
+    entries.forEach(({ releaseId, fileId }) => {
+      if (!fileIdsByRelease.has(releaseId)) fileIdsByRelease.set(releaseId, new Set());
+      fileIdsByRelease.get(releaseId)!.add(fileId);
+      if (!relatedByRelease.has(releaseId)) relatedByRelease.set(releaseId, new Set());
+      releaseIds.forEach((id) => {
+        if (id !== releaseId) relatedByRelease.get(releaseId)!.add(id);
+      });
+    });
+  });
+
+  const warnings = new Map<string, ReleaseWarning[]>();
+  fileIdsByRelease.forEach((fileIds, releaseId) => {
+    warnings.set(releaseId, [
+      {
+        code: 'mapping_overlap',
+        file_ids: Array.from(fileIds).sort(),
+        related_release_ids: Array.from(relatedByRelease.get(releaseId) ?? []).sort(),
+        details: null,
+      },
+    ]);
+  });
+
+  return warnings;
 };
 
 export class MockStore {
@@ -344,6 +408,7 @@ export class MockStore {
     } = {},
   ): Promise<Release[]> {
     const releases = await this.ensureReleases();
+    const warningsByRelease = computeMappingOverlapWarnings(releases);
     let result = releases;
 
     if (filters.status) {
@@ -353,7 +418,9 @@ export class MockStore {
       result = result.filter((release) => release.request_ids.includes(filters.requestId!));
     }
 
-    return result.map((release) => clone(release));
+    return result.map((release) =>
+      clone({ ...release, warnings: warningsByRelease.get(release.id) ?? [] }),
+    );
   }
 
   async listRequestLogs(
@@ -420,7 +487,36 @@ export class MockStore {
   async getRelease(id: string): Promise<Release | null> {
     const releases = await this.ensureReleases();
     const release = releases.find((item) => item.id === id);
-    return release ? clone(release) : null;
+    if (!release) return null;
+    const warningsByRelease = computeMappingOverlapWarnings(releases);
+    return clone({ ...release, warnings: warningsByRelease.get(id) ?? [] });
+  }
+
+  /** Releases already linked to a request, before a new grab decides their fate. */
+  async existingReleasesFor(requestId: string): Promise<Release[]> {
+    const releases = await this.ensureReleases();
+    return releases
+      .filter((release) => release.request_ids.includes(requestId))
+      .map((release) => clone(release));
+  }
+
+  /**
+   * Apply a `replace` decision: a release grabbed only for this request is
+   * dropped entirely, one shared with other requests only loses this link.
+   */
+  async replaceExistingReleases(requestId: string, keepReleaseId: string): Promise<void> {
+    const releases = await this.ensureReleases();
+    for (let index = releases.length - 1; index >= 0; index -= 1) {
+      const release = releases[index];
+      if (release.id === keepReleaseId || !release.request_ids.includes(requestId)) {
+        continue;
+      }
+      if (release.request_ids.length === 1) {
+        releases.splice(index, 1);
+      } else {
+        release.request_ids = release.request_ids.filter((id) => id !== requestId);
+      }
+    }
   }
 
   async addRelease(payload: NewReleasePayload): Promise<Release> {
@@ -457,6 +553,7 @@ export class MockStore {
       request_ids: payload.request_ids,
       torrent_source: payload.source ?? 'manual',
       quality: payload.quality ?? 'unknown',
+      warnings: [],
     };
 
     releases.unshift(newRelease);
@@ -527,6 +624,7 @@ export class MockStore {
       quality: candidate.quality ?? 'unknown',
       info_url: candidate.info_url ?? null,
       published_date: candidate.publish_date ?? null,
+      warnings: [],
     };
 
     releases.unshift(newRelease);

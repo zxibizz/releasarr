@@ -1,23 +1,48 @@
-import { Paper, Stack, Tabs, Text } from '@mantine/core';
+import { Group, Paper, Stack, Tabs, Text, Tooltip } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { ResponsiveModal } from '@/components/ResponsiveModal';
 import { OtherFilesSection } from '@/features/releases/components/OtherFilesSection';
 import { FileMappingForm } from '@/features/releases/fileMapping/FileMappingForm';
 import type { MediaRequest, Release, ReleaseFile } from '@/types';
+import { overlapRelatedReleaseCount, overlappingFileIds } from '@/features/releases/warnings';
 import { formatEpisodeCode, splitVideoFiles } from '@/utils/files';
 import { formatFileSize } from '@/utils/formatters';
 
-function ReleaseFileCard({ file }: { file: ReleaseFile }) {
+function ReleaseFileCard({
+  file,
+  overlapping,
+  relatedReleaseCount,
+}: {
+  file: ReleaseFile;
+  overlapping: boolean;
+  relatedReleaseCount: number;
+}) {
   const { t } = useTranslation();
   const mapping = file.request_mapping;
 
   return (
     <Paper withBorder radius="md" p="md">
       <Stack gap={6}>
-        <Text fw={600} className="break-anywhere">
-          {file.name}
-        </Text>
+        <Group gap={6} wrap="nowrap" align="center">
+          <Text fw={600} className="break-anywhere" style={{ flex: 1 }}>
+            {file.name}
+          </Text>
+          {overlapping && (
+            <Tooltip
+              label={
+                relatedReleaseCount > 0
+                  ? t('releaseCard.overlapWarning.withOtherReleases', {
+                      count: relatedReleaseCount,
+                    })
+                  : t('releaseCard.overlapWarning.withinRelease')
+              }
+            >
+              <IconAlertTriangle size={16} color="var(--mantine-color-yellow-6)" />
+            </Tooltip>
+          )}
+        </Group>
         <Text size="sm" c="dimmed">
           {formatFileSize(file.size)}
         </Text>
@@ -56,6 +81,8 @@ export function ReleaseFilesModal({
   }
 
   const { video, other } = splitVideoFiles(release.files);
+  const overlappingIds = overlappingFileIds(release);
+  const relatedReleaseCount = overlapRelatedReleaseCount(release);
 
   return (
     <ResponsiveModal opened={opened} onClose={onClose} title={`📁 ${release.name}`}>
@@ -70,11 +97,21 @@ export function ReleaseFilesModal({
         <Tabs.Panel value="files" pt="md">
           <Stack gap="sm">
             {video.map((file) => (
-              <ReleaseFileCard key={file.id} file={file} />
+              <ReleaseFileCard
+                key={file.id}
+                file={file}
+                overlapping={overlappingIds.has(file.id)}
+                relatedReleaseCount={relatedReleaseCount}
+              />
             ))}
             <OtherFilesSection count={other.length}>
               {other.map((file) => (
-                <ReleaseFileCard key={file.id} file={file} />
+                <ReleaseFileCard
+                  key={file.id}
+                  file={file}
+                  overlapping={overlappingIds.has(file.id)}
+                  relatedReleaseCount={relatedReleaseCount}
+                />
               ))}
             </OtherFilesSection>
           </Stack>

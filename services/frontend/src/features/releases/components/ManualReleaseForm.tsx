@@ -5,9 +5,15 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  confirmExistingReleases,
+  existingReleaseIdsFromError,
+  isExistingReleasesDecisionRequired,
+} from '@/features/releases/existingReleases';
 import { releasesApi } from '@/features/releases/api';
+import { useReleasesByRequest } from '@/features/releases/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { ManualReleaseRequest } from '@/types';
+import type { AsyncOperationResponse, ExistingReleasesAction, ManualReleaseRequest } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
 /**
@@ -48,6 +54,7 @@ interface ManualReleaseFormProps {
 export function ManualReleaseForm({ requestId, onDownloadQueued }: ManualReleaseFormProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const { data: existingReleases } = useReleasesByRequest(requestId);
 
   const [file, setFile] = useState<File | null>(null);
   const [magnet, setMagnet] = useState('');
@@ -61,15 +68,50 @@ export function ManualReleaseForm({ requestId, onDownloadQueued }: ManualRelease
     setMagnet('');
   };
 
+  // Cancelling resolves with `null` rather than throwing, so it never shows as
+  // a failed grab - the user simply changed their mind.
   const submit = useMutation({
-    mutationFn: async (): Promise<ManualReleaseRequest> => {
+    mutationFn: async (): Promise<AsyncOperationResponse | null> => {
       const payload: ManualReleaseRequest = file
         ? { torrent_file_base64: await fileToBase64(file) }
         : { magnet_link: trimmedMagnet };
-      await releasesApi.queueManual(requestId, payload);
-      return payload;
+
+      const attempt = async (
+        decision?: ExistingReleasesAction,
+      ): Promise<AsyncOperationResponse | null> => {
+        try {
+          return await releasesApi.queueManual(requestId, {
+            ...payload,
+            existing_releases: decision,
+          });
+        } catch (error) {
+          // The cached release list can be stale; the server is the source of truth.
+          if (decision === undefined && isExistingReleasesDecisionRequired(error)) {
+            const releaseIds = existingReleaseIdsFromError(error);
+            const relevant = (existingReleases ?? []).filter((release) =>
+              releaseIds.includes(release.id),
+            );
+            const chosen = await confirmExistingReleases(
+              relevant.length > 0 ? relevant : (existingReleases ?? []),
+              t,
+            );
+            return chosen === null ? null : attempt(chosen);
+          }
+          throw error;
+        }
+      };
+
+      if ((existingReleases ?? []).length > 0) {
+        const chosen = await confirmExistingReleases(existingReleases ?? [], t);
+        return chosen === null ? null : attempt(chosen);
+      }
+
+      return attempt();
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      if (response === null) {
+        return;
+      }
       notifications.show({
         title: t('manualRelease.toasts.queuedTitle'),
         message: t('manualRelease.toasts.queuedDescription'),

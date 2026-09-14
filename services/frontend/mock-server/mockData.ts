@@ -303,6 +303,7 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/the-dark-knight-1080p',
     published_date: daysAgo(420),
+    warnings: [],
   },
   {
     id: 'r2',
@@ -367,6 +368,7 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/breaking-bad-s01',
     published_date: daysAgo(10),
+    warnings: [],
   },
   {
     id: 'r3',
@@ -394,6 +396,7 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/inception-1080p',
     published_date: daysAgo(2),
+    warnings: [],
   },
   {
     id: 'r4',
@@ -449,6 +452,7 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/marvel-collection',
     published_date: daysAgo(90),
+    warnings: [],
   },
   {
     id: 'r5',
@@ -496,6 +500,44 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/breaking-bad-complete',
     published_date: daysAgo(1),
+    warnings: [],
+  },
+  {
+    // A second, independent grab for the same season - overlaps r5's S02E01 so
+    // the mapping-overlap warning has something to show in the mock UI.
+    id: 'r6',
+    name: 'Breaking.Bad.S02E01.Seven.Thirty-Seven.WEB-DL-ALT',
+    hash: 'f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5',
+    size: 1903017984,
+    files: [
+      {
+        id: 'f15',
+        name: 'Breaking.Bad.S02E01.Seven.Thirty-Seven.WEB-DL-ALT.mkv',
+        size: 1903017984,
+        path: '/downloads/Breaking.Bad.S02E01.Seven.Thirty-Seven.WEB-DL-ALT/Breaking.Bad.S02E01.Seven.Thirty-Seven.WEB-DL-ALT.mkv',
+        request_mapping: {
+          request_id: '6',
+          request_title: 'Breaking Bad - Season 2',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+    ],
+    status: 'downloading',
+    progress: 41,
+    download_speed: 1572864,
+    upload_speed: 0,
+    seeders: 88,
+    leechers: 15,
+    ratio: 0,
+    added_date: '2024-01-13T09:05:00Z',
+    request_ids: ['6'],
+    torrent_source: 'ALT',
+    quality: '720p',
+    info_url: 'https://example.com/releases/breaking-bad-s02e01-alt',
+    published_date: daysAgo(1),
+    warnings: [],
   },
 ];
 

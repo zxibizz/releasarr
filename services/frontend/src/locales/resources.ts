@@ -321,6 +321,11 @@ export const resources = {
           description: 'We could not retrieve releases for this request.',
           fallbackTitle: 'Error loading releases',
         },
+        overlapWarning: {
+          title: 'Overlapping releases',
+          description:
+            'Two or more releases here map files to the same episode or movie. Only one will end up imported; the rest are wasted seeding.',
+        },
       },
       releaseSearch: {
         placeholder: 'Search release sources for "{{title}}"…',
@@ -459,6 +464,23 @@ export const resources = {
           body: 'This will remove the release and its file mappings from the request. Are you sure you want to continue?',
           confirm: 'Delete',
         },
+        overlapWarning: {
+          badge: 'Overlap',
+          withinRelease: 'Two or more files here map to the same episode or movie.',
+          withOtherReleases_one:
+            'Overlaps with {{count}} other release also mapped to the same episode or movie.',
+          withOtherReleases_other:
+            'Overlaps with {{count}} other releases also mapped to the same episode or movie.',
+        },
+      },
+      existingReleases: {
+        title: 'This request already has releases',
+        body_one:
+          'Keep the {{count}} existing release alongside the new one, or delete the ones grabbed only for this request.',
+        body_other:
+          'Keep the {{count}} existing releases alongside the new one, or delete the ones grabbed only for this request.',
+        keep: 'Keep both',
+        replace: 'Delete existing',
       },
       requestPage: {
         errors: {
@@ -1160,6 +1182,11 @@ export const resources = {
           description: 'Не удалось получить релизы для этого запроса.',
           fallbackTitle: 'Ошибка загрузки релизов',
         },
+        overlapWarning: {
+          title: 'Пересекающиеся релизы',
+          description:
+            'Два или более релиза сопоставлены с одним и тем же эпизодом или фильмом. Импортирован будет только один, остальные впустую раздаются.',
+        },
       },
       releaseSearch: {
         placeholder: 'Поиск релизов для «{{title}}»…',
@@ -1304,6 +1331,31 @@ export const resources = {
           body: 'Релиз и его связи с запросами будут удалены. Продолжить?',
           confirm: 'Удалить',
         },
+        overlapWarning: {
+          badge: 'Пересечение',
+          withinRelease: 'Два или более файла здесь сопоставлены с одним и тем же эпизодом или фильмом.',
+          withOtherReleases_one:
+            'Пересекается с {{count}} другим релизом, сопоставленным с тем же эпизодом или фильмом.',
+          withOtherReleases_few:
+            'Пересекается с {{count}} другими релизами, сопоставленными с тем же эпизодом или фильмом.',
+          withOtherReleases_many:
+            'Пересекается с {{count}} другими релизами, сопоставленными с тем же эпизодом или фильмом.',
+          withOtherReleases_other:
+            'Пересекается с {{count}} другими релизами, сопоставленными с тем же эпизодом или фильмом.',
+        },
+      },
+      existingReleases: {
+        title: 'У этого запроса уже есть релизы',
+        body_one:
+          'Оставить {{count}} существующий релиз вместе с новым или удалить те, что были скачаны только для этого запроса.',
+        body_few:
+          'Оставить {{count}} существующих релиза вместе с новым или удалить те, что были скачаны только для этого запроса.',
+        body_many:
+          'Оставить {{count}} существующих релизов вместе с новым или удалить те, что были скачаны только для этого запроса.',
+        body_other:
+          'Оставить {{count}} существующих релизов вместе с новым или удалить те, что были скачаны только для этого запроса.',
+        keep: 'Оставить оба',
+        replace: 'Удалить существующие',
       },
       requestPage: {
         errors: {

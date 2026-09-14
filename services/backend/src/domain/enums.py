@@ -33,6 +33,19 @@ class ReleaseStatus(StrEnum):
     FAILED = "failed"
 
 
+class ReleaseWarningCode(StrEnum):
+    """A condition worth surfacing on a release but not worth blocking on."""
+
+    MAPPING_OVERLAP = "mapping_overlap"
+
+
+class ExistingReleasesAction(StrEnum):
+    """What to do with a request's other releases when grabbing a new one."""
+
+    KEEP = "keep"
+    REPLACE = "replace"
+
+
 class EpisodeStatus(StrEnum):
     """Where a single episode of a requested season stands.
 

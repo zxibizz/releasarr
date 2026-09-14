@@ -44,7 +44,12 @@ function renderForm() {
 describe('ManualReleaseForm', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
-    vi.mocked(apiRequest).mockResolvedValue({ operation: 'queue_download', status: 'queued' });
+    vi.mocked(apiRequest).mockImplementation((path: string) => {
+      if (path === '/requests/req-1/releases') {
+        return Promise.resolve({ releases: [] }) as never;
+      }
+      return Promise.resolve({ operation: 'queue_download', status: 'queued' }) as never;
+    });
   });
 
   it('has nothing to submit until a file or magnet is supplied', () => {
@@ -109,7 +114,10 @@ describe('ManualReleaseForm', () => {
       screen.getByText('That is not a .torrent file. Pick the torrent itself, not the media.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: SUBMIT })).toBeDisabled();
-    expect(apiRequest).not.toHaveBeenCalled();
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.anything(),
+    );
   });
 
   it('refuses a link that is not a magnet', async () => {
@@ -119,7 +127,10 @@ describe('ManualReleaseForm', () => {
 
     expect(screen.getByText('A magnet link must start with "magnet:".')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: SUBMIT })).toBeDisabled();
-    expect(apiRequest).not.toHaveBeenCalled();
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.anything(),
+    );
   });
 
   it('drops a typed magnet once a file is picked, so only one is sent', async () => {
@@ -146,5 +157,78 @@ describe('ManualReleaseForm', () => {
     expect(await screen.findByText('Release already registered')).toBeInTheDocument();
     expect(screen.getByLabelText(MAGNET_FIELD)).toHaveValue(MAGNET);
     expect(onDownloadQueued).not.toHaveBeenCalled();
+  });
+});
+
+describe('ManualReleaseForm with existing releases', () => {
+  beforeEach(() => {
+    vi.mocked(apiRequest).mockReset();
+    vi.mocked(apiRequest).mockImplementation((path: string) => {
+      if (path === '/requests/req-1/releases') {
+        return Promise.resolve({
+          releases: [{ id: 'rel-existing', name: 'Existing.Release.mkv' }],
+        }) as never;
+      }
+      return Promise.resolve({ operation: 'queue_download', status: 'queued' }) as never;
+    });
+  });
+
+  it('asks what to do with existing releases before submitting', async () => {
+    renderForm();
+
+    await userEvent.type(screen.getByLabelText(MAGNET_FIELD), MAGNET);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT }));
+
+    expect(
+      await screen.findByText('This request already has releases'),
+    ).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.anything(),
+    );
+  });
+
+  it('sends "keep" when the user keeps both', async () => {
+    renderForm();
+
+    await userEvent.type(screen.getByLabelText(MAGNET_FIELD), MAGNET);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep both' }));
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.objectContaining({
+        body: { magnet_link: MAGNET, existing_releases: 'keep' },
+      }),
+    );
+  });
+
+  it('sends "replace" when the user deletes the existing releases', async () => {
+    renderForm();
+
+    await userEvent.type(screen.getByLabelText(MAGNET_FIELD), MAGNET);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete existing' }));
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.objectContaining({
+        body: { magnet_link: MAGNET, existing_releases: 'replace' },
+      }),
+    );
+  });
+
+  it('grabs nothing when the user cancels the dialog', async () => {
+    renderForm();
+
+    await userEvent.type(screen.getByLabelText(MAGNET_FIELD), MAGNET);
+    await userEvent.click(screen.getByRole('button', { name: SUBMIT }));
+    await screen.findByText('This request already has releases');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      '/requests/req-1/releases/manual',
+      expect.anything(),
+    );
   });
 });
