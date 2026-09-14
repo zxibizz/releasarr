@@ -1,7 +1,8 @@
-import { Button, Checkbox, Modal, PasswordInput, Select, Stack, TextInput } from '@mantine/core';
-import { type FormEvent, useState } from 'react';
+import { Button, Checkbox, Modal, PasswordInput, Select, Stack, Text, TextInput } from '@mantine/core';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useRootFolders } from '@/features/discover/queries';
 import { useCreateUser, useUpdateUser } from '@/features/users/queries';
 import type { User } from '@/types';
 
@@ -27,18 +28,45 @@ export function UserFormModal({ opened, onClose, user }: UserFormModalProps) {
   const [canAccessTasks, setCanAccessTasks] = useState(user?.can_access_tasks ?? false);
   const [canAccessIndexers, setCanAccessIndexers] = useState(user?.can_access_indexers ?? false);
   const [canAccessLogs, setCanAccessLogs] = useState(user?.can_access_logs ?? false);
-  const [allowedRootFolders, setAllowedRootFolders] = useState(
-    (user?.allowed_root_folders ?? []).join(', '),
+  const [allowedRootFolders, setAllowedRootFolders] = useState<string[]>(
+    user?.allowed_root_folders ?? [],
   );
+
+  // Sonarr and Radarr each expose their own root folders, but a user's
+  // allow-list is a single flat set of paths shared by both (see
+  // allowed_root_folders() on the backend).
+  const seriesFolders = useRootFolders('series', { enabled: opened });
+  const movieFolders = useRootFolders('movie', { enabled: opened });
+  const knownPaths = useMemo(() => {
+    const paths = new Set<string>();
+    for (const folder of seriesFolders.data?.folders ?? []) {
+      paths.add(folder.path);
+    }
+    for (const folder of movieFolders.data?.folders ?? []) {
+      paths.add(folder.path);
+    }
+    return paths;
+  }, [seriesFolders.data, movieFolders.data]);
+  // A path once granted but no longer reported by either *arr still needs to
+  // be shown (grayed out) so it can be unchecked, not just silently dropped.
+  const displayedPaths = useMemo(() => {
+    const paths = new Set(knownPaths);
+    for (const path of allowedRootFolders) {
+      paths.add(path);
+    }
+    return Array.from(paths).sort();
+  }, [knownPaths, allowedRootFolders]);
+
+  const toggleFolder = (path: string, checked: boolean) => {
+    setAllowedRootFolders((current) =>
+      checked ? [...current, path] : current.filter((p) => p !== path),
+    );
+  };
 
   const pending = createUser.isPending || updateUser.isPending;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const folders = allowedRootFolders
-      .split(',')
-      .map((folder) => folder.trim())
-      .filter(Boolean);
 
     if (isEditing && user) {
       await updateUser.mutateAsync({
@@ -52,7 +80,7 @@ export function UserFormModal({ opened, onClose, user }: UserFormModalProps) {
           can_access_tasks: canAccessTasks,
           can_access_indexers: canAccessIndexers,
           can_access_logs: canAccessLogs,
-          allowed_root_folders: folders,
+          allowed_root_folders: allowedRootFolders,
         },
       });
     } else {
@@ -66,7 +94,7 @@ export function UserFormModal({ opened, onClose, user }: UserFormModalProps) {
         can_access_tasks: canAccessTasks,
         can_access_indexers: canAccessIndexers,
         can_access_logs: canAccessLogs,
-        allowed_root_folders: folders,
+        allowed_root_folders: allowedRootFolders,
       });
     }
     onClose();
@@ -133,12 +161,32 @@ export function UserFormModal({ opened, onClose, user }: UserFormModalProps) {
             checked={canAccessLogs}
             onChange={(event) => setCanAccessLogs(event.currentTarget.checked)}
           />
-          <TextInput
-            label={t('users.form.allowedRootFolders')}
-            description={t('users.form.allowedRootFoldersHint')}
-            value={allowedRootFolders}
-            onChange={(event) => setAllowedRootFolders(event.currentTarget.value)}
-          />
+          <Stack gap={4}>
+            <Text size="sm" fw={500}>
+              {t('users.form.allowedRootFolders')}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t('users.form.allowedRootFoldersHint')}
+            </Text>
+            {displayedPaths.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                {t('users.form.allowedRootFoldersEmpty')}
+              </Text>
+            ) : (
+              displayedPaths.map((path) => (
+                <Checkbox
+                  key={path}
+                  label={
+                    <Text size="sm" c={knownPaths.has(path) ? undefined : 'dimmed'}>
+                      {path}
+                    </Text>
+                  }
+                  checked={allowedRootFolders.includes(path)}
+                  onChange={(event) => toggleFolder(path, event.currentTarget.checked)}
+                />
+              ))
+            )}
+          </Stack>
           <Button type="submit" loading={pending}>
             {t('common.save')}
           </Button>
