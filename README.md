@@ -132,7 +132,11 @@ git clone https://github.com/zxibizz/releasarr.git
 cd releasarr
 ```
 
-Create a `.env` next to `docker-compose.yaml`:
+Copy [`.env.example`](.env.example) to `.env` next to `docker-compose.yaml` and fill it in:
+
+```bash
+cp .env.example .env
+```
 
 ```ini
 RELEASARR_AUTH_SECRET=pick-something-long-and-random
