@@ -45,6 +45,12 @@ zero) and unaired (`total − aired`, clamped at zero) — in
 `aired_episodes` when a season stops being missing, since Sonarr only drops a season from that
 list once it has everything.
 
+Leaving Sonarr's missing list is not the same as being finished: a season that is still airing
+leaves it every week and returns when the next episode is wanted. A request is therefore only
+completed once there are neither pending nor unaired episodes left, and one with episodes still
+to air goes back to `pending` rather than closing — which is also what keeps it actionable for a
+release grabbed by hand, since `regrab` has no indexer result to refresh it from.
+
 `exported_at` is stamped by the `export` task at the moment Sonarr or Radarr accept a release's
 files for that request, and is what the request card shows on its left. It is deliberately set
 for partly-filled seasons too — the question it answers is "when did this last reach the arr",

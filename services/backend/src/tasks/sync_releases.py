@@ -24,6 +24,18 @@ ACTIVE_RELEASE_STATUSES = frozenset(
 )
 
 
+def _is_in_flight(release: models.Release) -> bool:
+    """Whether the release still has anything to do for its requests.
+
+    A release the export has already imported is done with: the torrent is only
+    still around because it seeds. Counting it as in flight would hold the request
+    on ``downloading`` for as long as qBittorrent keeps the torrent, and a request
+    held there is never searched again.
+    """
+
+    return release.last_exported_info_hash != release.info_hash
+
+
 @dataclass(slots=True)
 class SyncResult:
     """Result of a release sync operation."""
@@ -193,7 +205,7 @@ class SyncReleasesTask:
 
             for request in result.scalars():
                 derived = self._derive_request_status(
-                    [release.status for release in request.releases]
+                    [release.status for release in request.releases if _is_in_flight(release)]
                 )
                 if derived is None or derived == request.status:
                     continue
@@ -215,7 +227,13 @@ class SyncReleasesTask:
     def _derive_request_status(
         release_statuses: Sequence[ReleaseStatus],
     ) -> MediaRequestStatus | None:
-        """Status implied by a request's releases, or None to leave it untouched."""
+        """Status implied by a request's releases, or None to leave it untouched.
+
+        Only releases still in flight are passed in, so an empty sequence is a
+        request whose grabs have all been imported: there is nothing running to
+        derive from and the status is left as the request sync set it.
+        """
+
         if not release_statuses:
             return None
         if any(status in ACTIVE_RELEASE_STATUSES for status in release_statuses):
