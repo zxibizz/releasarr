@@ -1,9 +1,8 @@
-"""Input commands for user and service-key management use cases."""
+"""Input commands for user management use cases."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from src.application.utility.sentinels import UNSET, _Unset
 from src.domain.enums import UserRole
@@ -44,16 +43,8 @@ class ChangePasswordCommand:
     new_password: str
 
 
-@dataclass(slots=True)
-class CreateServiceKeyCommand:
-    name: str
-    user_id: str
-    expires_at: datetime | None = None
-
-
 __all__ = [
     "ChangePasswordCommand",
-    "CreateServiceKeyCommand",
     "CreateUserCommand",
     "UpdateUserCommand",
 ]

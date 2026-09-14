@@ -248,25 +248,12 @@ api.post('/users/me/password', (req, res) => {
   }
 });
 
-api.get('/service-keys', requireAdmin, (_req, res) => {
-  res.json({ service_keys: mockAuth.listServiceKeys() });
+api.get('/service-key', requireAdmin, (_req, res) => {
+  res.json(mockAuth.getOrCreateServiceKey());
 });
 
-api.post('/service-keys', requireAdmin, (req, res) => {
-  try {
-    res.status(201).json(mockAuth.createServiceKey(req.body ?? {}));
-  } catch (error) {
-    handleAuthError(error, res);
-  }
-});
-
-api.delete('/service-keys/:keyId', requireAdmin, (req, res) => {
-  try {
-    mockAuth.revokeServiceKey(String(req.params.keyId));
-    res.status(204).send();
-  } catch (error) {
-    handleAuthError(error, res);
-  }
+api.post('/service-key/regenerate', requireAdmin, (_req, res) => {
+  res.json(mockAuth.regenerateServiceKey());
 });
 
 const TASK_KINDS = ['sonarr_sync', 'radarr_sync', 'release_sync', 'export', 'regrab'] as const;

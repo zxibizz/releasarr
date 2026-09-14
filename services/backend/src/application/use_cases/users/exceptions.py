@@ -1,4 +1,4 @@
-"""Domain exceptions for user and service-key management."""
+"""Domain exceptions for user management."""
 
 from __future__ import annotations
 
@@ -20,10 +20,4 @@ class LastAdminError(Exception):
         super().__init__("Cannot remove or demote the last active admin")
 
 
-class ServiceKeyNotFoundError(Exception):
-    def __init__(self, key_id: str) -> None:
-        self.key_id = key_id
-        super().__init__(f"Service key '{key_id}' was not found")
-
-
-__all__ = ["LastAdminError", "ServiceKeyNotFoundError", "UserNotFoundError", "UsernameTakenError"]
+__all__ = ["LastAdminError", "UserNotFoundError", "UsernameTakenError"]

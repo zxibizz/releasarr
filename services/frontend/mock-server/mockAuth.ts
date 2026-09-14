@@ -2,11 +2,10 @@ import { randomUUID } from 'crypto';
 
 import type {
   ChangePasswordPayload,
-  CreateServiceKeyPayload,
   CreateUserPayload,
   LoginPayload,
-  ServiceApiKey,
   ServiceApiKeyCreated,
+  ServiceApiKeyInfo,
   SetupPayload,
   UpdateUserPayload,
   User,
@@ -28,17 +27,53 @@ interface MockUserRecord extends User {
   password: string;
 }
 
-interface MockServiceKeyRecord extends ServiceApiKey {
+interface MockServiceKeyRecord extends ServiceApiKeyInfo {
+  id: string;
   secret: string;
 }
 
 const users = new Map<string, MockUserRecord>();
-const serviceKeys = new Map<string, MockServiceKeyRecord>();
+// At most one: the service key isn't bound to a user, so it isn't stored per-user.
+let serviceKey: MockServiceKeyRecord | null = null;
 // token -> user id. Refresh tokens rotate; access tokens do not expire in the mock.
 const accessTokens = new Map<string, string>();
 const refreshTokens = new Map<string, string>();
 
 const now = () => new Date().toISOString();
+
+// The identity behind the service API key: always a full admin, mirroring the
+// backend's synthetic principal, never one of the accounts in `users`.
+const SERVICE_USER: User = {
+  id: 'service',
+  username: 'service',
+  display_name: 'Service API key',
+  role: 'admin',
+  is_active: true,
+  can_view_all_requests: true,
+  can_access_tasks: true,
+  can_access_indexers: true,
+  can_access_logs: true,
+  allowed_root_folders: [],
+  last_login_at: null,
+  created_at: now(),
+  updated_at: now(),
+};
+
+function generateServiceKey(): string {
+  return `rlsr_${randomUUID().replace(/-/g, '')}`;
+}
+
+function createServiceKeyRecord(): { record: MockServiceKeyRecord; plaintext: string } {
+  const plaintext = generateServiceKey();
+  const record: MockServiceKeyRecord = {
+    id: randomUUID(),
+    prefix: plaintext.slice(0, 12),
+    secret: plaintext,
+    last_used_at: null,
+    created_at: now(),
+  };
+  return { record, plaintext };
+}
 
 function seed() {
   const admin: MockUserRecord = {
@@ -84,11 +119,14 @@ if (process.env.MOCK_EMPTY_USERS !== '1') {
   seed();
 }
 
+// As with Sonarr/Radarr, the service key always exists; nothing has to create it.
+serviceKey = createServiceKeyRecord().record;
+
 function toPublicUser({ password: _password, ...rest }: MockUserRecord): User {
   return rest;
 }
 
-function toPublicKey({ secret: _secret, ...rest }: MockServiceKeyRecord): ServiceApiKey {
+function toPublicKey({ secret: _secret, id: _id, ...rest }: MockServiceKeyRecord): ServiceApiKeyInfo {
   return rest;
 }
 
@@ -192,9 +230,9 @@ export const mockAuth = {
       return users.get(userId) ?? null;
     }
     if (apiKeyHeader) {
-      const key = [...serviceKeys.values()].find((entry) => entry.secret === apiKeyHeader);
-      if (!key || !key.is_active) return null;
-      return users.get(key.user_id) ?? null;
+      if (!serviceKey || serviceKey.secret !== apiKeyHeader) return null;
+      serviceKey.last_used_at = now();
+      return SERVICE_USER;
     }
     return null;
   },
@@ -273,29 +311,16 @@ export const mockAuth = {
     user.updated_at = now();
   },
 
-  listServiceKeys: () => [...serviceKeys.values()].map(toPublicKey),
-
-  createServiceKey(payload: CreateServiceKeyPayload): ServiceApiKeyCreated {
-    requireUser(payload.user_id);
-    const secret = `rlsr_${randomUUID().replace(/-/g, '')}`;
-    const record: MockServiceKeyRecord = {
-      id: randomUUID(),
-      name: payload.name,
-      prefix: secret.slice(0, 12),
-      secret,
-      user_id: payload.user_id,
-      is_active: true,
-      expires_at: payload.expires_at ?? null,
-      last_used_at: null,
-      created_at: now(),
-    };
-    serviceKeys.set(record.id, record);
-    return { key: toPublicKey(record), plaintext: secret };
+  getOrCreateServiceKey(): ServiceApiKeyInfo {
+    if (!serviceKey) {
+      serviceKey = createServiceKeyRecord().record;
+    }
+    return toPublicKey(serviceKey);
   },
 
-  revokeServiceKey(keyId: string) {
-    if (!serviceKeys.delete(keyId)) {
-      throw new MockAuthError(404, 'service_key_not_found', `Service key '${keyId}' was not found`);
-    }
+  regenerateServiceKey(): ServiceApiKeyCreated {
+    const { record, plaintext } = createServiceKeyRecord();
+    serviceKey = record;
+    return { key: toPublicKey(record), plaintext };
   },
 };

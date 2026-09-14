@@ -94,13 +94,14 @@ class SqlAlchemyRefreshTokenRepository(BaseSqlAlchemyRepository, RefreshTokenRep
 
 @dataclass(slots=True)
 class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyRepository):
-    """Persist service API keys using SQLAlchemy sessions."""
+    """Persist the singleton service API key using SQLAlchemy sessions."""
 
-    async def list_keys(self) -> list[ServiceApiKeyRecord]:
+    async def get(self) -> ServiceApiKeyRecord | None:
         async with self.db.session() as session:
-            stmt = select(models.ServiceApiKey).order_by(models.ServiceApiKey.created_at.desc())
+            stmt = select(models.ServiceApiKey).limit(1)
             result = await session.execute(stmt)
-            return [self._to_record(key) for key in result.scalars().all()]
+            key = result.scalar_one_or_none()
+            return self._to_record(key) if key is not None else None
 
     async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
         async with self.db.session() as session:
@@ -109,30 +110,10 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
             key = result.scalar_one_or_none()
             return self._to_record(key) if key is not None else None
 
-    async def get_key(self, key_id: str) -> ServiceApiKeyRecord | None:
-        async with self.db.session() as session:
-            key = await session.get(models.ServiceApiKey, key_id)
-            return self._to_record(key) if key is not None else None
-
-    async def create_key(
-        self,
-        *,
-        id: str,
-        name: str,
-        prefix: str,
-        key_hash: str,
-        user_id: str,
-        expires_at: datetime | None,
-    ) -> ServiceApiKeyRecord:
+    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
         async with self.db.transaction() as session:
-            key = models.ServiceApiKey(
-                id=id,
-                name=name,
-                prefix=prefix,
-                key_hash=key_hash,
-                user_id=user_id,
-                expires_at=expires_at,
-            )
+            await session.execute(delete(models.ServiceApiKey))
+            key = models.ServiceApiKey(id=id, prefix=prefix, key_hash=key_hash)
             session.add(key)
             await session.flush()
             await session.refresh(key)
@@ -144,24 +125,12 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
             if key is not None:
                 key.last_used_at = at
 
-    async def delete_key(self, key_id: str) -> bool:
-        async with self.db.transaction() as session:
-            key = await session.get(models.ServiceApiKey, key_id)
-            if key is None:
-                return False
-            await session.delete(key)
-            return True
-
     @staticmethod
     def _to_record(key: models.ServiceApiKey) -> ServiceApiKeyRecord:
         return ServiceApiKeyRecord(
             id=key.id,
-            name=key.name,
             prefix=key.prefix,
             key_hash=key.key_hash,
-            user_id=key.user_id,
-            is_active=key.is_active,
-            expires_at=key.expires_at,
             last_used_at=key.last_used_at,
             created_at=key.created_at,
         )

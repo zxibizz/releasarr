@@ -214,7 +214,7 @@ their own username from `useAuth()` is enough, with no second fetch.
 
 `src/locales/resources.ts` holds both locales in one file, keyed by UI area (`nav.*`,
 `common.*`, `status.*`, `requestsList.*`, `requestPage.*`, `releaseSearch.*`, `discover.*`,
-`tasks.*`, `auth.*`, `users.*`, `serviceKeys.*`, `permissions.*`). **Every key must exist in both
+`tasks.*`, `auth.*`, `users.*`, `serviceKey.*`, `permissions.*`). **Every key must exist in both
 `en` and `ru`.**
 
 Plurals differ by language:

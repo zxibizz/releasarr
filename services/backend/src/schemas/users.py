@@ -76,45 +76,9 @@ class ChangePasswordPayload(APIModel):
     new_password: str
 
 
-class ServiceApiKey(APIModel):
-    id: str
-    name: str
-    prefix: str
-    user_id: str
-    is_active: bool
-    expires_at: datetime | None = None
-    last_used_at: datetime | None = None
-    created_at: datetime
-
-    @field_serializer("expires_at", "last_used_at", "created_at")
-    def _serialize_datetime(self, value: datetime | None) -> str | None:
-        return _to_utc_iso(value)
-
-
-class ServiceApiKeysResponse(APIModel):
-    service_keys: list[ServiceApiKey]
-
-
-class CreateServiceKeyPayload(APIModel):
-    name: str
-    user_id: str
-    expires_at: datetime | None = None
-
-
-class ServiceApiKeyCreated(APIModel):
-    """Returned exactly once: the plaintext key is never retrievable again."""
-
-    key: ServiceApiKey
-    plaintext: str
-
-
 __all__ = [
     "ChangePasswordPayload",
-    "CreateServiceKeyPayload",
     "CreateUserPayload",
-    "ServiceApiKey",
-    "ServiceApiKeyCreated",
-    "ServiceApiKeysResponse",
     "SessionUser",
     "UpdateUserPayload",
     "User",

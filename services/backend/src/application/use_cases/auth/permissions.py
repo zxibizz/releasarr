@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 
 from src.application.interfaces.users import UserRecord
@@ -97,11 +98,57 @@ class Principal:
     def scope(self) -> RequestScope:
         return RequestScope.for_user(self.user)
 
+    @property
+    def owner_id(self) -> str | None:
+        """User id to record as the owner of something this principal creates.
+
+        A service-key caller isn't a real ``users`` row, so anything it
+        creates is ownerless, the same as anything synced in directly from
+        Sonarr/Radarr.
+        """
+        return self.user.id if self.via == "session" else None
+
+
+# Fixed id for the identity behind the service API key: never a real ``users``
+# row, so it can't collide with one and must never be written to a user FK.
+SERVICE_PRINCIPAL_USER_ID = "service"
+
+
+def build_service_principal() -> Principal:
+    """The identity a service API key authenticates as: always a full admin.
+
+    Mirrors Sonarr/Radarr, where the API key isn't scoped to any particular
+    account — it simply has full access.
+    """
+
+    now = datetime.now(UTC)
+    user = UserRecord(
+        id=SERVICE_PRINCIPAL_USER_ID,
+        username="service",
+        display_name="Service API key",
+        password_hash="",
+        role=UserRole.ADMIN,
+        is_active=True,
+        can_view_all_requests=True,
+        can_access_tasks=True,
+        can_access_indexers=True,
+        can_access_logs=True,
+        allowed_root_folders=[],
+        failed_login_attempts=0,
+        locked_until=None,
+        last_login_at=None,
+        created_at=now,
+        updated_at=now,
+    )
+    return Principal(user=user, via="service")
+
 
 __all__ = [
+    "SERVICE_PRINCIPAL_USER_ID",
     "Permission",
     "Principal",
     "RequestScope",
     "allowed_root_folders",
+    "build_service_principal",
     "has_permission",
 ]

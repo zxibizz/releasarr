@@ -801,25 +801,27 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
-    "/service-keys": {
+    "/service-key": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List service API keys */
-        get: operations["listServiceKeys"];
+        /**
+         * Get the service API key
+         * @description There is exactly one service API key, generated automatically the first time it's requested (as Sonarr generates its API key on first run). Only its prefix and usage metadata are ever shown; the plaintext is not retrievable here.
+         */
+        get: operations["getServiceKey"];
         put?: never;
-        /** Create a service API key */
-        post: operations["createServiceKey"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/service-keys/{keyId}": {
+    "/service-key/regenerate": {
         parameters: {
             query?: never;
             header?: never;
@@ -828,9 +830,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
-        /** Revoke a service API key */
-        delete: operations["revokeServiceKey"];
+        /**
+         * Regenerate the service API key
+         * @description Replaces the service API key with a freshly generated one, invalidating the old one immediately. This is the only way to see the plaintext, which is shown once and cannot be retrieved again.
+         */
+        post: operations["regenerateServiceKey"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1558,32 +1563,16 @@ export interface components {
             current_password: string;
             new_password: string;
         };
-        ServiceApiKey: {
-            id: string;
-            name: string;
-            /** @description First characters of the key, shown so an admin can tell keys apart. */
+        ServiceApiKeyInfo: {
+            /** @description First characters of the key, shown so an admin can recognise it. */
             prefix: string;
-            /** @description The user identity this key acts as. If that user is an admin, the key may act as a different user via X-Act-As-User. */
-            user_id: string;
-            is_active: boolean;
-            /** Format: date-time */
-            expires_at?: string | null;
             /** Format: date-time */
             last_used_at?: string | null;
             /** Format: date-time */
             created_at: string;
         };
-        ServiceApiKeysResponse: {
-            service_keys: components["schemas"]["ServiceApiKey"][];
-        };
-        CreateServiceKeyPayload: {
-            name: string;
-            user_id: string;
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
         ServiceApiKeyCreated: {
-            key: components["schemas"]["ServiceApiKey"];
+            key: components["schemas"]["ServiceApiKeyInfo"];
             /** @description The key's plaintext. Shown exactly once and never retrievable again. */
             plaintext: string;
         };
@@ -1631,8 +1620,6 @@ export interface components {
         RequestOwner: string;
         /** @description Unique identifier for a user account. */
         UserId: string;
-        /** @description Unique identifier for a service API key. */
-        ServiceKeyId: string;
         /** @description Filter releases by lifecycle status. */
         ReleaseStatus: components["schemas"]["ReleaseStatus"];
         /** @description Optional media request identifier to filter results. */
@@ -4039,7 +4026,7 @@ export interface operations {
             };
         };
     };
-    listServiceKeys: {
+    getServiceKey: {
         parameters: {
             query?: never;
             header?: never;
@@ -4048,13 +4035,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every service API key. Only the prefix of each is ever shown. */
+            /** @description The service API key's metadata. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ServiceApiKeysResponse"];
+                    "application/json": components["schemas"]["ServiceApiKeyInfo"];
                 };
             };
             /** @description Authentication required. */
@@ -4077,21 +4064,17 @@ export interface operations {
             };
         };
     };
-    createServiceKey: {
+    regenerateServiceKey: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateServiceKeyPayload"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The created key, with its plaintext. The plaintext is shown here once and is not retrievable again. */
-            201: {
+            /** @description The new key, with its plaintext. The plaintext is shown here once and is not retrievable again. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4110,63 +4093,6 @@ export interface operations {
             };
             /** @description Administrator privileges are required. */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The user this key would act as does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    revokeServiceKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Unique identifier for a service API key. */
-                keyId: components["parameters"]["ServiceKeyId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Key revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Administrator privileges are required. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Service key not found. */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1757,18 +1757,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /service-keys:
+  /service-key:
     get:
-      tags: [Users]
-      summary: List service API keys
-      operationId: listServiceKeys
+      tags: [Auth]
+      summary: Get the service API key
+      description: >-
+        There is exactly one service API key, generated automatically the
+        first time it's requested (as Sonarr generates its API key on first
+        run). Only its prefix and usage metadata are ever shown; the
+        plaintext is not retrievable here.
+      operationId: getServiceKey
       responses:
         '200':
-          description: Every service API key. Only the prefix of each is ever shown.
+          description: The service API key's metadata.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServiceApiKeysResponse'
+                $ref: '#/components/schemas/ServiceApiKeyInfo'
         '401':
           description: Authentication required.
           content:
@@ -1781,21 +1786,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /service-key/regenerate:
     post:
-      tags: [Users]
-      summary: Create a service API key
-      operationId: createServiceKey
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateServiceKeyPayload'
+      tags: [Auth]
+      summary: Regenerate the service API key
+      description: >-
+        Replaces the service API key with a freshly generated one,
+        invalidating the old one immediately. This is the only way to see the
+        plaintext, which is shown once and cannot be retrieved again.
+      operationId: regenerateServiceKey
       responses:
-        '201':
+        '200':
           description: >-
-            The created key, with its plaintext. The plaintext is shown here
-            once and is not retrievable again.
+            The new key, with its plaintext. The plaintext is shown here once
+            and is not retrievable again.
           content:
             application/json:
               schema:
@@ -1812,40 +1816,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: The user this key would act as does not exist.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /service-keys/{keyId}:
-    delete:
-      tags: [Users]
-      summary: Revoke a service API key
-      operationId: revokeServiceKey
-      parameters:
-        - $ref: '#/components/parameters/ServiceKeyId'
-      responses:
-        '204':
-          description: Key revoked.
-        '401':
-          description: Authentication required.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Administrator privileges are required.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Service key not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     BearerAuth:
@@ -1858,9 +1828,9 @@ components:
       in: header
       name: X-API-Key
       description: >-
-        A service API key, acting as the user it is bound to. May be combined
-        with X-Act-As-User to act as a different user, when that bound user is
-        an admin.
+        The single service API key. It is not bound to any user account and
+        always authenticates with full administrator access.
+
   parameters:
     RequestId:
       in: path
@@ -1940,13 +1910,6 @@ components:
       schema:
         type: string
       description: Unique identifier for a user account.
-    ServiceKeyId:
-      in: path
-      name: keyId
-      required: true
-      schema:
-        type: string
-      description: Unique identifier for a service API key.
     ReleaseStatus:
       in: query
       name: status
@@ -3377,28 +3340,13 @@ components:
           type: string
         new_password:
           type: string
-    ServiceApiKey:
+    ServiceApiKeyInfo:
       type: object
-      required: [id, name, prefix, user_id, is_active, created_at]
+      required: [prefix, created_at]
       properties:
-        id:
-          type: string
-        name:
-          type: string
         prefix:
           type: string
-          description: First characters of the key, shown so an admin can tell keys apart.
-        user_id:
-          type: string
-          description: >-
-            The user identity this key acts as. If that user is an admin, the
-            key may act as a different user via X-Act-As-User.
-        is_active:
-          type: boolean
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
+          description: First characters of the key, shown so an admin can recognise it.
         last_used_at:
           type: string
           format: date-time
@@ -3406,32 +3354,12 @@ components:
         created_at:
           type: string
           format: date-time
-    ServiceApiKeysResponse:
-      type: object
-      required: [service_keys]
-      properties:
-        service_keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/ServiceApiKey'
-    CreateServiceKeyPayload:
-      type: object
-      required: [name, user_id]
-      properties:
-        name:
-          type: string
-        user_id:
-          type: string
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
     ServiceApiKeyCreated:
       type: object
       required: [key, plaintext]
       properties:
         key:
-          $ref: '#/components/schemas/ServiceApiKey'
+          $ref: '#/components/schemas/ServiceApiKeyInfo'
         plaintext:
           type: string
           description: The key's plaintext. Shown exactly once and never retrievable again.

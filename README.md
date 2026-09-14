@@ -267,9 +267,9 @@ one, so the first profile they report is used unless you pick one.
 ## Hooking up qBittorrent
 
 By default a finished torrent waits up to five minutes for the next export run. Point
-qBittorrent at Releasarr instead and it gets imported immediately. Create a service API key
-first (an admin, from **System → Users**), then in **Options → Downloads → Run external
-program on torrent finished**:
+qBittorrent at Releasarr instead and it gets imported immediately. Grab the service API key
+first (an admin, from **System → Users** — it always exists, generated automatically), then in
+**Options → Downloads → Run external program on torrent finished**:
 
 ```bash
 curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr/api/tasks/sync_downloads

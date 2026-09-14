@@ -436,24 +436,19 @@ class RefreshToken(Base):
 
 
 class ServiceApiKey(Base):
-    """A hashed key a service (e.g. the bot) authenticates with, acting as ``user_id``."""
+    """The single hashed API key for automation, always admin, never tied to a user.
+
+    Exactly one row ever exists (created and rotated by
+    ``SqlAlchemyServiceApiKeyRepository.replace``), the same way Sonarr and
+    Radarr each expose one always-present API key rather than per-user ones.
+    """
 
     __tablename__ = "service_api_keys"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    name: Mapped[str] = mapped_column(String(64), nullable=False)
-    # Shown in the UI so an admin can tell keys apart without ever seeing the rest.
+    # Shown in the UI so an admin can recognise it without ever seeing the rest.
     prefix: Mapped[str] = mapped_column(String(12), nullable=False)
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="1"
-    )
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

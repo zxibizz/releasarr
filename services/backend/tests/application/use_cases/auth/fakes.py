@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import fields
 
-from src.application.interfaces.auth import RefreshTokenRecord
+from src.application.interfaces.auth import RefreshTokenRecord, ServiceApiKeyRecord
 from src.application.interfaces.users import CreateUserData, UpdateUserData, UserRecord
 from src.application.utility.sentinels import UNSET
 from src.domain.models import utc_now
@@ -116,6 +116,33 @@ class InMemoryRefreshTokenRepository:
         for key in expired:
             del self.tokens[key]
         return len(expired)
+
+
+class InMemoryServiceApiKeyRepository:
+    def __init__(self) -> None:
+        self.key: ServiceApiKeyRecord | None = None
+
+    async def get(self) -> ServiceApiKeyRecord | None:
+        return self.key
+
+    async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
+        if self.key is not None and self.key.key_hash == key_hash:
+            return self.key
+        return None
+
+    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
+        self.key = ServiceApiKeyRecord(
+            id=id,
+            prefix=prefix,
+            key_hash=key_hash,
+            last_used_at=None,
+            created_at=utc_now(),
+        )
+        return self.key
+
+    async def touch_last_used(self, key_id: str, *, at) -> None:
+        if self.key is not None and self.key.id == key_id:
+            self.key.last_used_at = at
 
 
 __all__ = ["InMemoryRefreshTokenRepository", "InMemoryUserRepository"]

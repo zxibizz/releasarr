@@ -5,36 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServiceKeysPanel } from '@/features/users/components/ServiceKeysPanel';
 import { apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
-import type { ServiceApiKey, User } from '@/types';
+import type { ServiceApiKeyInfo } from '@/types';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
   return { ...actual, apiRequest: vi.fn() };
 });
 
-const bot: User = {
-  id: 'u-bot',
-  username: 'bot',
-  display_name: 'Bot Account',
-  role: 'user',
-  is_active: true,
-  can_view_all_requests: false,
-  can_access_tasks: false,
-  can_access_indexers: false,
-  can_access_logs: false,
-  allowed_root_folders: [],
-  last_login_at: null,
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
-};
-
-const existingKey: ServiceApiKey = {
-  id: 'key-1',
-  name: 'Existing key',
+const existingKey: ServiceApiKeyInfo = {
   prefix: 'rlsr_abcdef',
-  user_id: bot.id,
-  is_active: true,
-  expires_at: null,
   last_used_at: null,
   created_at: '2026-01-01T00:00:00Z',
 };
@@ -44,67 +23,35 @@ describe('ServiceKeysPanel', () => {
     vi.mocked(apiRequest).mockReset();
   });
 
-  it('lists existing keys by name and the user they act as', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({ service_keys: [existingKey] } as never);
+  it('shows the current key prefix', async () => {
+    vi.mocked(apiRequest).mockResolvedValue(existingKey as never);
 
-    renderWithProviders(<ServiceKeysPanel users={[bot]} />);
+    renderWithProviders(<ServiceKeysPanel />);
 
-    expect(await screen.findByText('Existing key')).toBeInTheDocument();
-    expect(screen.getByText('bot')).toBeInTheDocument();
+    expect(await screen.findByText('rlsr_abcdef…')).toBeInTheDocument();
   });
 
-  it('creates a key and shows the plaintext exactly once', async () => {
+  it('regenerates the key and shows the plaintext exactly once, only after confirming', async () => {
     vi.mocked(apiRequest).mockImplementation(async (path: string, options = {}) => {
-      if (path === '/service-keys' && options.method === 'POST') {
+      if (path === '/service-key/regenerate' && options.method === 'POST') {
         return {
-          key: { ...existingKey, id: 'key-2', name: 'Bot key' },
+          key: { prefix: 'rlsr_fedcba', last_used_at: null, created_at: '2026-01-02T00:00:00Z' },
           plaintext: 'rlsr_supersecretvalue',
         } as never;
       }
-      return { service_keys: [] } as never;
+      return existingKey as never;
     });
 
-    renderWithProviders(<ServiceKeysPanel users={[bot]} />);
-    await screen.findByText('No service keys yet.');
+    renderWithProviders(<ServiceKeysPanel />);
+    await screen.findByText('rlsr_abcdef…');
 
-    await userEvent.click(screen.getByRole('button', { name: 'New key' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText(/^name/i), 'Bot key');
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /^acts as/i }));
-    await userEvent.click(await screen.findByRole('option', { name: 'bot' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Regenerate' }));
 
     expect(await screen.findByText('rlsr_supersecretvalue')).toBeInTheDocument();
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(
-        '/service-keys',
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.objectContaining({ name: 'Bot key', user_id: 'u-bot' }),
-        }),
-      ),
-    );
-  });
-
-  it('revokes a key only once confirmed', async () => {
-    vi.mocked(apiRequest).mockImplementation(async (path: string, options = {}) => {
-      if (path === `/service-keys/${existingKey.id}` && options.method === 'DELETE') {
-        return undefined as never;
-      }
-      return { service_keys: [existingKey] } as never;
-    });
-
-    renderWithProviders(<ServiceKeysPanel users={[bot]} />);
-    await screen.findByText('Existing key');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Revoke' }));
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Revoke' }));
-
-    await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith(`/service-keys/${existingKey.id}`, {
-        method: 'DELETE',
-      }),
+      expect(apiRequest).toHaveBeenCalledWith('/service-key/regenerate', { method: 'POST' }),
     );
   });
 });

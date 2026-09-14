@@ -33,6 +33,9 @@ async def lifespan(_: FastAPI):
     except Exception as exc:
         raise RuntimeError("Database connection failed during startup") from exc
 
+    # As with Sonarr/Radarr, the service key always exists; nothing has to create it.
+    await container.use_cases.auth.service_key.execute()
+
     try:
         yield
     finally:
