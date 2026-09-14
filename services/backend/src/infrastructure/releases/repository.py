@@ -20,6 +20,7 @@ from src.application.interfaces.releases import (
     ReleaseRequestSnapshot,
 )
 from src.application.utility.magnet import parse_magnet
+from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository, Filter
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, ReleaseStatus
@@ -311,8 +312,8 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
         size_bytes = release.size_bytes or 0
         request_ids = [request.id for request in release.requests]
         requests_snapshot = [self._to_request_snapshot(request) for request in release.requests]
-        added_at = self._ensure_datetime(release.added_at) or datetime.now(UTC)
-        completed_at = self._ensure_datetime(release.completed_at)
+        added_at = as_utc(release.added_at) or datetime.now(UTC)
+        completed_at = as_utc(release.completed_at)
         torrent_source = release.torrent_source or None
         quality = release.quality or None
         return ReleaseRecord(
@@ -337,7 +338,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             last_exported_info_hash=release.last_exported_info_hash,
             export_failures_count=release.export_failures_count,
             info_url=release.info_url or None,
-            published_at=self._ensure_datetime(release.published_at),
+            published_at=as_utc(release.published_at),
         )
 
     def _to_file_record(self, file: models.ReleaseFile) -> ReleaseFileRecord:
@@ -357,13 +358,6 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             path=file.path,
             mapping=mapping,
         )
-
-    def _ensure_datetime(self, value: datetime | None) -> datetime | None:
-        if value is None:
-            return None
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value.astimezone(UTC)
 
 
 __all__ = ["SqlAlchemyReleaseRepository"]

@@ -13,6 +13,7 @@ from src.application.interfaces.auth import (
     ServiceApiKeyRecord,
     ServiceApiKeyRepository,
 )
+from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository
 from src.domain import models
 
@@ -80,15 +81,17 @@ class SqlAlchemyRefreshTokenRepository(BaseSqlAlchemyRepository, RefreshTokenRep
 
     @staticmethod
     def _to_record(token: models.RefreshToken) -> RefreshTokenRecord:
+        # Refreshing compares the expiry against ``datetime.now(UTC)``, so the
+        # timestamps have to leave the database aware.
         return RefreshTokenRecord(
             id=token.id,
             user_id=token.user_id,
             family_id=token.family_id,
             token_hash=token.token_hash,
             remember=token.remember,
-            issued_at=token.issued_at,
-            expires_at=token.expires_at,
-            revoked_at=token.revoked_at,
+            issued_at=as_utc(token.issued_at),
+            expires_at=as_utc(token.expires_at),
+            revoked_at=as_utc(token.revoked_at),
         )
 
 
@@ -130,8 +133,8 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
         return ServiceApiKeyRecord(
             id=key.id,
             key=key.key,
-            last_used_at=key.last_used_at,
-            created_at=key.created_at,
+            last_used_at=as_utc(key.last_used_at),
+            created_at=as_utc(key.created_at),
         )
 
 

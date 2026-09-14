@@ -13,6 +13,7 @@ from src.application.interfaces.users import (
     UserRepository,
 )
 from src.application.utility.sentinels import UNSET
+from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository
 from src.domain import models
 
@@ -103,10 +104,10 @@ class SqlAlchemyUserRepository(BaseSqlAlchemyRepository, UserRepository):
             can_access_logs=user.can_access_logs,
             allowed_root_folders=list(user.allowed_root_folders),
             failed_login_attempts=user.failed_login_attempts,
-            locked_until=user.locked_until,
-            last_login_at=user.last_login_at,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
+            locked_until=as_utc(user.locked_until),
+            last_login_at=as_utc(user.last_login_at),
+            created_at=as_utc(user.created_at),
+            updated_at=as_utc(user.updated_at),
         )
 
 
