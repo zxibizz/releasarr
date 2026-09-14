@@ -29,7 +29,6 @@ class CreateServiceKeyUseCase:
             prefix=plaintext[:12],
             key_hash=hash_token(plaintext),
             user_id=command.user_id,
-            can_impersonate=command.can_impersonate,
             expires_at=command.expires_at,
         )
         return record, plaintext

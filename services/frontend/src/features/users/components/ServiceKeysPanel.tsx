@@ -3,7 +3,6 @@ import {
   Alert,
   Badge,
   Button,
-  Checkbox,
   Group,
   Modal,
   Select,
@@ -37,14 +36,12 @@ export function ServiceKeysPanel({ users }: { users: User[] }) {
   const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  const [canImpersonate, setCanImpersonate] = useState(false);
 
   const closeModal = () => {
     formModal.close();
     setCreatedPlaintext(null);
     setName('');
     setUserId(null);
-    setCanImpersonate(false);
   };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
@@ -55,7 +52,6 @@ export function ServiceKeysPanel({ users }: { users: User[] }) {
     const result = await createKey.mutateAsync({
       name,
       user_id: userId,
-      can_impersonate: canImpersonate,
     });
     setCreatedPlaintext(result.plaintext);
   };
@@ -114,8 +110,17 @@ export function ServiceKeysPanel({ users }: { users: User[] }) {
                       {users.find((user) => user.id === key.user_id)?.username ?? key.user_id}
                     </Table.Td>
                     <Table.Td>
-                      <Badge color={key.can_impersonate ? 'grape' : 'gray'} variant="light">
-                        {key.can_impersonate ? t('common.yes') : t('common.no')}
+                      <Badge
+                        color={
+                          users.find((user) => user.id === key.user_id)?.role === 'admin'
+                            ? 'grape'
+                            : 'gray'
+                        }
+                        variant="light"
+                      >
+                        {users.find((user) => user.id === key.user_id)?.role === 'admin'
+                          ? t('common.yes')
+                          : t('common.no')}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
@@ -174,11 +179,9 @@ export function ServiceKeysPanel({ users }: { users: User[] }) {
                 value={userId}
                 onChange={setUserId}
               />
-              <Checkbox
-                label={t('serviceKeys.form.canImpersonate')}
-                checked={canImpersonate}
-                onChange={(event) => setCanImpersonate(event.currentTarget.checked)}
-              />
+              <Text size="xs" c="dimmed">
+                {t('serviceKeys.form.impersonateHint')}
+              </Text>
               <Button type="submit" loading={createKey.isPending}>
                 {t('common.save')}
               </Button>

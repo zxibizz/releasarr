@@ -55,7 +55,7 @@ class SetupAlreadyCompletedError(Exception):
 
 
 class ImpersonationNotAllowedError(Exception):
-    """Raised when a service key without ``can_impersonate`` sends ``X-Act-As-User``."""
+    """Raised when a non-admin service key sends ``X-Act-As-User``."""
 
     def __init__(self) -> None:
         super().__init__("This service key is not allowed to act as another user")

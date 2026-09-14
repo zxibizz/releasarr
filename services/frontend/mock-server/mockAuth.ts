@@ -284,7 +284,6 @@ export const mockAuth = {
       prefix: secret.slice(0, 12),
       secret,
       user_id: payload.user_id,
-      can_impersonate: payload.can_impersonate ?? false,
       is_active: true,
       expires_at: payload.expires_at ?? null,
       last_used_at: null,

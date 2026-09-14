@@ -158,9 +158,10 @@ rotation can preserve the original session length instead of collapsing it to a 
 
 A hashed key (`key_hash`, SHA-256) that authenticates as `user_id` via `X-API-Key`. `prefix`
 stores the key's first characters in the clear, so an admin can tell keys apart in the UI without
-ever seeing the rest. `can_impersonate` permits `X-Act-As-User` to substitute a different
-username for the key's own `user_id` at request time — intended for a single trusted integration
-(e.g. a bot) to act on behalf of whichever user asked it to.
+ever seeing the rest. If `user_id` refers to an admin, the key may also send `X-Act-As-User` to
+substitute a different username at request time — intended for a single trusted integration
+(e.g. a bot) to act on behalf of whichever user asked it to. A key bound to a non-admin user
+cannot impersonate at all.
 
 ## Ownership and permissions
 

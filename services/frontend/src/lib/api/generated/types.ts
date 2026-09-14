@@ -1563,10 +1563,8 @@ export interface components {
             name: string;
             /** @description First characters of the key, shown so an admin can tell keys apart. */
             prefix: string;
-            /** @description The user identity this key acts as. */
+            /** @description The user identity this key acts as. If that user is an admin, the key may act as a different user via X-Act-As-User. */
             user_id: string;
-            /** @description Whether this key may act as a different user via X-Act-As-User. */
-            can_impersonate: boolean;
             is_active: boolean;
             /** Format: date-time */
             expires_at?: string | null;
@@ -1581,8 +1579,6 @@ export interface components {
         CreateServiceKeyPayload: {
             name: string;
             user_id: string;
-            /** @default false */
-            can_impersonate: boolean;
             /** Format: date-time */
             expires_at?: string | null;
         };

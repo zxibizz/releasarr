@@ -1859,7 +1859,8 @@ components:
       name: X-API-Key
       description: >-
         A service API key, acting as the user it is bound to. May be combined
-        with X-Act-As-User to act as a different user, when the key allows it.
+        with X-Act-As-User to act as a different user, when that bound user is
+        an admin.
   parameters:
     RequestId:
       in: path
@@ -3378,7 +3379,7 @@ components:
           type: string
     ServiceApiKey:
       type: object
-      required: [id, name, prefix, user_id, can_impersonate, is_active, created_at]
+      required: [id, name, prefix, user_id, is_active, created_at]
       properties:
         id:
           type: string
@@ -3389,10 +3390,9 @@ components:
           description: First characters of the key, shown so an admin can tell keys apart.
         user_id:
           type: string
-          description: The user identity this key acts as.
-        can_impersonate:
-          type: boolean
-          description: Whether this key may act as a different user via X-Act-As-User.
+          description: >-
+            The user identity this key acts as. If that user is an admin, the
+            key may act as a different user via X-Act-As-User.
         is_active:
           type: boolean
         expires_at:
@@ -3422,9 +3422,6 @@ components:
           type: string
         user_id:
           type: string
-        can_impersonate:
-          type: boolean
-          default: false
         expires_at:
           type: string
           format: date-time

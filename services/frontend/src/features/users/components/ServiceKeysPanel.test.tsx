@@ -33,7 +33,6 @@ const existingKey: ServiceApiKey = {
   name: 'Existing key',
   prefix: 'rlsr_abcdef',
   user_id: bot.id,
-  can_impersonate: false,
   is_active: true,
   expires_at: null,
   last_used_at: null,

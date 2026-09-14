@@ -115,7 +115,7 @@ export const resources = {
           title: 'Create service key',
           name: 'Name',
           actsAs: 'Acts as',
-          canImpersonate: 'Can act as a different user (X-Act-As-User)',
+          impersonateHint: 'Keys bound to an admin can also act as a different user via X-Act-As-User.',
           onlyShownOnce: 'This key is shown only once. Copy it now; it cannot be retrieved again.',
           copy: 'Copy key',
         },
@@ -960,7 +960,8 @@ export const resources = {
           title: 'Создать сервисный ключ',
           name: 'Название',
           actsAs: 'От имени',
-          canImpersonate: 'Может действовать как другой пользователь (X-Act-As-User)',
+          impersonateHint:
+            'Ключи, привязанные к администратору, также могут действовать как другой пользователь через X-Act-As-User.',
           onlyShownOnce:
             'Этот ключ показывается один раз. Скопируйте его сейчас — повторно получить его не получится.',
           copy: 'Скопировать ключ',

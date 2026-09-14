@@ -86,7 +86,6 @@ async def create_service_key(
         CreateServiceKeyCommand(
             name=payload.name,
             user_id=payload.user_id,
-            can_impersonate=payload.can_impersonate,
             expires_at=payload.expires_at,
         )
     )

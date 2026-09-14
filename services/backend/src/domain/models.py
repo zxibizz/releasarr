@@ -450,9 +450,6 @@ class ServiceApiKey(Base):
         nullable=False,
         index=True,
     )
-    can_impersonate: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="1"
     )
