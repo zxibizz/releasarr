@@ -114,6 +114,7 @@ export function FileMappingForm({ releaseId, requestId, files }: FileMappingForm
       <FileMappingToolbar
         requests={availableRequests}
         requestsLoading={requestsLoading}
+        currentRequestId={requestId}
         canSuggest={(suggestions?.length ?? 0) > 0}
         canNumberEpisodes={form.canNumberEpisodes}
         hasChanges={hasChanges}

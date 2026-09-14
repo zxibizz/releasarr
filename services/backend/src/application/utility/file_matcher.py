@@ -14,6 +14,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.utility.release_parsing import (
     is_video_file,
+    loose_episode_candidates,
     movie_titles,
     natural_sort_key,
     normalize_title,
@@ -58,6 +59,7 @@ class ReleaseFileMatcher:
         sole_season = next(iter(by_season)) if len(by_season) == 1 else None
         movies = [request for request in candidates if request.media_type is MediaType.MOVIE]
         context = _Context(seasons={}, episodes={})
+        title_numbers = self._title_numbers(files)
         updates: list[FileMappingUpdateData] = []
         unresolved: list[ReleaseFileRecord] = []
 
@@ -69,7 +71,7 @@ class ReleaseFileMatcher:
                 unresolved.append(file)
                 continue
 
-            resolved = self._resolve(file, by_season, sole_season, context)
+            resolved = self._resolve(file, by_season, sole_season, context, title_numbers)
             if resolved is None:
                 if not self._is_episode_file(file):
                     unresolved.append(file)
@@ -120,12 +122,39 @@ class ReleaseFileMatcher:
         parsed = parse_episode(file.name, file.path)
         return parsed.season is not None and parsed.episode is not None
 
+    def _title_numbers(
+        self,
+        files: Sequence[ReleaseFileRecord],
+    ) -> dict[str, frozenset[int]]:
+        """Numbers every video file in a folder repeats, keyed by that folder.
+
+        A sequel number in the title ("Show 2 - 01.mkv", "Show 2 - 02.mkv") ties
+        with the real episode number in every file alike, so on its own the loose
+        parser can never tell them apart. A number the whole folder shares is the
+        title's, not any one episode's.
+        """
+
+        by_directory: dict[str, list[set[int]]] = {}
+        for file in files:
+            if not is_video_file(file.name):
+                continue
+            directory = os.path.dirname(file.path or file.name)
+            stem = os.path.splitext(os.path.basename(file.path or file.name))[0]
+            by_directory.setdefault(directory, []).append(loose_episode_candidates(stem))
+
+        return {
+            directory: frozenset(set.intersection(*candidate_sets))
+            for directory, candidate_sets in by_directory.items()
+            if len(candidate_sets) > 1 and set.intersection(*candidate_sets)
+        }
+
     def _resolve(
         self,
         file: ReleaseFileRecord,
         by_season: dict[int, ReleaseRequestSnapshot],
         sole_season: int | None,
         context: _Context,
+        title_numbers: dict[str, frozenset[int]],
     ) -> ReleaseFileMapping | None:
         directory = os.path.dirname(file.path or file.name)
         mapping = file.mapping
@@ -139,7 +168,12 @@ class ReleaseFileMatcher:
             context.seasons.get(directory),
             sole_season,
         )
-        parsed = parse_episode(file.name, file.path, season_hint=hint)
+        parsed = parse_episode(
+            file.name,
+            file.path,
+            season_hint=hint,
+            ignore_title_numbers=title_numbers.get(directory, frozenset()),
+        )
 
         season = self._first_of(mapping.season if mapping else None, parsed.season, hint)
         if season is None:

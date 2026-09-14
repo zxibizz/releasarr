@@ -88,6 +88,18 @@ describe('FileMappingForm', () => {
     expect(await screen.findByText(/2 unsaved change/)).toBeInTheDocument();
   });
 
+  it('shows the current request preselected in the apply-to-all field', async () => {
+    renderForm();
+
+    await screen.findByText('Severance.S02E01.1080p.mkv');
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: /apply request to all video files/i }),
+      ).toHaveValue('Severance (2022)');
+    });
+  });
+
   it('keeps non-video files behind a collapsed section', async () => {
     const user = userEvent.setup();
     renderForm();

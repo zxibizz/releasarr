@@ -79,6 +79,14 @@ nothing else. `_LOOSE_EPISODE_PATTERN` will read that, but only when the season 
 and only if **exactly one** candidate number survives. Two bare numbers is ambiguous and returns
 nothing.
 
+A release title containing its own number (`Show Name 2 - 01.mkv`) ties that number against the
+real episode in every file of the pack alike, which would otherwise leave the whole pack
+unreadable. `ReleaseFileMatcher` works around this per directory: `loose_episode_candidates`
+exposes the raw candidate set, and `parse_episode`'s `ignore_title_numbers` lets a caller
+discount whatever number every file in the folder has in common before checking for a single
+survivor. Discounting is only ever a tie-breaker — when it would empty the set the original
+wins, so a name whose real episode number happens to match still resolves.
+
 For this to work, quality tokens have to be stripped first, which is what `_RELEASE_TAGS` and
 `_JUNK_PATTERN` are for: resolutions (`1080p`, `1920x1080`), codecs (`x265`, `hevc`, `10bit`),
 audio (`ddp`, `atmos`, channel layouts), sources (`web-dl`, `bluray`, `amzn`), meta (`repack`,
