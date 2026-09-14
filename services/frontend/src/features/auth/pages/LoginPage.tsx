@@ -9,7 +9,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -18,7 +18,7 @@ import { ApiError } from '@/lib/api/client';
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { login, status } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,6 +27,17 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // This route sits outside RequireAuth's guard, so a tab left open on /login
+  // needs its own reaction to status changing underneath it (e.g. setup
+  // becoming required after the backend's data was reset).
+  useEffect(() => {
+    if (status === 'setup-required') {
+      navigate('/setup', { replace: true });
+    } else if (status === 'authenticated') {
+      navigate('/', { replace: true });
+    }
+  }, [status, navigate]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
