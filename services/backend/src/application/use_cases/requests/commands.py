@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 from src.application.interfaces.media_requests import MediaLocalization
 from src.application.utility.sentinels import UNSET, _Unset
@@ -70,10 +70,7 @@ class UpdateMediaRequestCommand:
     def is_empty(self) -> bool:
         """Return True when no field was supplied in the update payload."""
 
-        for value in self.__dict__.values():
-            if value is not UNSET:
-                return False
-        return True
+        return all(getattr(self, f.name) is UNSET for f in fields(self))
 
 
 __all__ = [

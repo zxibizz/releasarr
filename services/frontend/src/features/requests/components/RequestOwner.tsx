@@ -20,7 +20,10 @@ export function RequestOwner({ request }: { request: MediaRequest }) {
   if (!isAdmin) {
     // A restricted viewer only ever sees their own requests, so there is
     // nothing to resolve here beyond their own name, already in context.
-    const label = request.owner_user_id === user?.id ? user?.username : t('requestPage.owner.unowned');
+    const label =
+      request.owner_user_id === user?.id
+        ? user?.display_name || user?.username
+        : t('requestPage.owner.unowned');
     return (
       <Group gap={6}>
         <Text size="sm" c="dimmed">
@@ -43,7 +46,7 @@ export function RequestOwner({ request }: { request: MediaRequest }) {
         w={200}
         placeholder={t('requestPage.owner.unowned')}
         clearable
-        data={users.map((user) => ({ value: user.id, label: user.username }))}
+        data={users.map((user) => ({ value: user.id, label: user.display_name || user.username }))}
         value={request.owner_user_id ?? null}
         onChange={(value) => updateOwner.mutate(value)}
         disabled={updateOwner.isPending}
