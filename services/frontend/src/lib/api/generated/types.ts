@@ -810,7 +810,7 @@ export interface paths {
         };
         /**
          * Get the service API key
-         * @description There is exactly one service API key, generated automatically the first time it's requested (as Sonarr generates its API key on first run). Only its prefix and usage metadata are ever shown; the plaintext is not retrievable here.
+         * @description There is exactly one service API key, generated automatically the first time it's requested (as Sonarr generates its API key on first run). It is always retrievable in full, the same as Sonarr's own key.
          */
         get: operations["getServiceKey"];
         put?: never;
@@ -832,7 +832,7 @@ export interface paths {
         put?: never;
         /**
          * Regenerate the service API key
-         * @description Replaces the service API key with a freshly generated one, invalidating the old one immediately. This is the only way to see the plaintext, which is shown once and cannot be retrieved again.
+         * @description Replaces the service API key with a freshly generated one, invalidating the old one immediately.
          */
         post: operations["regenerateServiceKey"];
         delete?: never;
@@ -1563,18 +1563,13 @@ export interface components {
             current_password: string;
             new_password: string;
         };
-        ServiceApiKeyInfo: {
-            /** @description First characters of the key, shown so an admin can recognise it. */
-            prefix: string;
+        ServiceApiKey: {
+            /** @description The key's value. Always retrievable, like Sonarr/Radarr's own API key — this isn't a password. */
+            key: string;
             /** Format: date-time */
             last_used_at?: string | null;
             /** Format: date-time */
             created_at: string;
-        };
-        ServiceApiKeyCreated: {
-            key: components["schemas"]["ServiceApiKeyInfo"];
-            /** @description The key's plaintext. Shown exactly once and never retrievable again. */
-            plaintext: string;
         };
         SetupStatus: {
             /** @description Whether first-run setup must run before anything else. */
@@ -4035,13 +4030,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The service API key's metadata. */
+            /** @description The service API key. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ServiceApiKeyInfo"];
+                    "application/json": components["schemas"]["ServiceApiKey"];
                 };
             };
             /** @description Authentication required. */
@@ -4073,13 +4068,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The new key, with its plaintext. The plaintext is shown here once and is not retrievable again. */
+            /** @description The new service API key. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ServiceApiKeyCreated"];
+                    "application/json": components["schemas"]["ServiceApiKey"];
                 };
             };
             /** @description Authentication required. */

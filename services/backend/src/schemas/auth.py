@@ -33,10 +33,10 @@ class LoginResponse(APIModel):
     user: SessionUser
 
 
-class ServiceApiKeyInfo(APIModel):
-    """Metadata about the single service API key. The plaintext is never included here."""
+class ServiceApiKey(APIModel):
+    """The single service API key. Always retrievable, like Sonarr/Radarr's own key."""
 
-    prefix: str
+    key: str
     last_used_at: datetime | None = None
     created_at: datetime
 
@@ -49,18 +49,10 @@ class ServiceApiKeyInfo(APIModel):
         return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-class ServiceApiKeyCreated(APIModel):
-    """Returned only from regeneration: the plaintext is never retrievable again."""
-
-    key: ServiceApiKeyInfo
-    plaintext: str
-
-
 __all__ = [
     "LoginPayload",
     "LoginResponse",
-    "ServiceApiKeyCreated",
-    "ServiceApiKeyInfo",
+    "ServiceApiKey",
     "SetupPayload",
     "SetupStatus",
 ]

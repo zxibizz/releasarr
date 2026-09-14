@@ -79,10 +79,10 @@ has no `/api` prefix.
 ## Authentication and authorization
 
 Every request carries one of two credentials: an `Authorization: Bearer` access token (a human
-session, 15 minutes, issued by `/auth/login`) or an `X-API-Key` service key (long-lived, hashed,
-always admin — for the bot and similar integrations, not bound to any particular user). Both
-resolve to the same `Principal` (`src/application/use_cases/auth/permissions.py`), which is what
-every route depends on via `require_user` / `require_admin` / `require_permission(...)` — see
+session, 15 minutes, issued by `/auth/login`) or an `X-API-Key` service key (long-lived, always
+admin — for the bot and similar integrations, not bound to any particular user). Both resolve to
+the same `Principal` (`src/application/use_cases/auth/permissions.py`), which is what every route
+depends on via `require_user` / `require_admin` / `require_permission(...)` — see
 [`backend.md`](backend.md#auth-and-permissions).
 
 A session's refresh token is the one piece of this that is not a bearer token: it lives in an

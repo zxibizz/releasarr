@@ -125,16 +125,15 @@ class InMemoryServiceApiKeyRepository:
     async def get(self) -> ServiceApiKeyRecord | None:
         return self.key
 
-    async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
-        if self.key is not None and self.key.key_hash == key_hash:
+    async def get_by_key(self, key: str) -> ServiceApiKeyRecord | None:
+        if self.key is not None and self.key.key == key:
             return self.key
         return None
 
-    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
+    async def replace(self, *, id: str, key: str) -> ServiceApiKeyRecord:
         self.key = ServiceApiKeyRecord(
             id=id,
-            prefix=prefix,
-            key_hash=key_hash,
+            key=key,
             last_used_at=None,
             created_at=utc_now(),
         )
@@ -145,4 +144,8 @@ class InMemoryServiceApiKeyRepository:
             self.key.last_used_at = at
 
 
-__all__ = ["InMemoryRefreshTokenRepository", "InMemoryUserRepository"]
+__all__ = [
+    "InMemoryRefreshTokenRepository",
+    "InMemoryServiceApiKeyRepository",
+    "InMemoryUserRepository",
+]

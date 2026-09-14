@@ -156,13 +156,13 @@ rotation can preserve the original session length instead of collapsing it to a 
 
 ### `service_api_keys`
 
-At most one row: the single hashed key (`key_hash`, SHA-256) that authenticates via `X-API-Key`.
-`prefix` stores its first characters in the clear, so an admin can recognise it in the UI without
-ever seeing the rest. It is not bound to a user — authenticating with it always yields a full
-admin `Principal`, the same way Sonarr and Radarr's API keys aren't scoped to an account. It's
-generated automatically the first time it's needed (`GetOrCreateServiceApiKeyUseCase`, run at API
-startup) rather than created through the UI, and `RegenerateServiceApiKeyUseCase` replaces it
-outright — there is no per-key revoke, only rotation.
+At most one row: the single key (`key`) that authenticates via `X-API-Key`. Stored and shown in
+plaintext — it isn't a password, and an admin needs to read it back into whatever integration
+uses it, the same as Sonarr/Radarr's own API key. It is not bound to a user — authenticating with
+it always yields a full admin `Principal`, the same way Sonarr and Radarr's API keys aren't scoped
+to an account. It's generated automatically the first time it's needed
+(`GetOrCreateServiceApiKeyUseCase`, run at API startup) rather than created through the UI, and
+`RegenerateServiceApiKeyUseCase` replaces it outright — there is no per-key revoke, only rotation.
 
 ## Ownership and permissions
 

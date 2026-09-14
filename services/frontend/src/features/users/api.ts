@@ -1,8 +1,7 @@
 import { apiRequest } from '@/lib/api/client';
 import type {
   CreateUserPayload,
-  ServiceApiKeyCreated,
-  ServiceApiKeyInfo,
+  ServiceApiKey,
   UpdateUserPayload,
   User,
   UsersResponse,
@@ -22,8 +21,7 @@ export const usersApi = {
 };
 
 export const serviceKeyApi = {
-  get: (signal?: AbortSignal) => apiRequest<ServiceApiKeyInfo>('/service-key', { signal }),
+  get: (signal?: AbortSignal) => apiRequest<ServiceApiKey>('/service-key', { signal }),
 
-  regenerate: () =>
-    apiRequest<ServiceApiKeyCreated>('/service-key/regenerate', { method: 'POST' }),
+  regenerate: () => apiRequest<ServiceApiKey>('/service-key/regenerate', { method: 'POST' }),
 };

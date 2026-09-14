@@ -4,8 +4,7 @@ import type {
   ChangePasswordPayload,
   CreateUserPayload,
   LoginPayload,
-  ServiceApiKeyCreated,
-  ServiceApiKeyInfo,
+  ServiceApiKey,
   SetupPayload,
   UpdateUserPayload,
   User,
@@ -27,9 +26,8 @@ interface MockUserRecord extends User {
   password: string;
 }
 
-interface MockServiceKeyRecord extends ServiceApiKeyInfo {
+interface MockServiceKeyRecord extends ServiceApiKey {
   id: string;
-  secret: string;
 }
 
 const users = new Map<string, MockUserRecord>();
@@ -63,16 +61,13 @@ function generateServiceKey(): string {
   return `rlsr_${randomUUID().replace(/-/g, '')}`;
 }
 
-function createServiceKeyRecord(): { record: MockServiceKeyRecord; plaintext: string } {
-  const plaintext = generateServiceKey();
-  const record: MockServiceKeyRecord = {
+function createServiceKeyRecord(): MockServiceKeyRecord {
+  return {
     id: randomUUID(),
-    prefix: plaintext.slice(0, 12),
-    secret: plaintext,
+    key: generateServiceKey(),
     last_used_at: null,
     created_at: now(),
   };
-  return { record, plaintext };
 }
 
 function seed() {
@@ -120,13 +115,13 @@ if (process.env.MOCK_EMPTY_USERS !== '1') {
 }
 
 // As with Sonarr/Radarr, the service key always exists; nothing has to create it.
-serviceKey = createServiceKeyRecord().record;
+serviceKey = createServiceKeyRecord();
 
 function toPublicUser({ password: _password, ...rest }: MockUserRecord): User {
   return rest;
 }
 
-function toPublicKey({ secret: _secret, id: _id, ...rest }: MockServiceKeyRecord): ServiceApiKeyInfo {
+function toPublicKey({ id: _id, ...rest }: MockServiceKeyRecord): ServiceApiKey {
   return rest;
 }
 
@@ -230,7 +225,7 @@ export const mockAuth = {
       return users.get(userId) ?? null;
     }
     if (apiKeyHeader) {
-      if (!serviceKey || serviceKey.secret !== apiKeyHeader) return null;
+      if (!serviceKey || serviceKey.key !== apiKeyHeader) return null;
       serviceKey.last_used_at = now();
       return SERVICE_USER;
     }
@@ -311,16 +306,15 @@ export const mockAuth = {
     user.updated_at = now();
   },
 
-  getOrCreateServiceKey(): ServiceApiKeyInfo {
+  getOrCreateServiceKey(): ServiceApiKey {
     if (!serviceKey) {
-      serviceKey = createServiceKeyRecord().record;
+      serviceKey = createServiceKeyRecord();
     }
     return toPublicKey(serviceKey);
   },
 
-  regenerateServiceKey(): ServiceApiKeyCreated {
-    const { record, plaintext } = createServiceKeyRecord();
-    serviceKey = record;
-    return { key: toPublicKey(record), plaintext };
+  regenerateServiceKey(): ServiceApiKey {
+    serviceKey = createServiceKeyRecord();
+    return toPublicKey(serviceKey);
   },
 };

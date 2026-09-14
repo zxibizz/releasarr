@@ -11,7 +11,7 @@ from src.application.use_cases.auth import (
     RegenerateServiceApiKeyUseCase,
 )
 from src.core.container import AppContainer, get_container
-from src.schemas.auth import ServiceApiKeyCreated, ServiceApiKeyInfo
+from src.schemas.auth import ServiceApiKey
 
 router = APIRouter(prefix="/service-key", tags=["Auth"], dependencies=[Depends(require_admin)])
 
@@ -34,20 +34,20 @@ def _regenerate_use_case(
     return container.use_cases.auth.regenerate_service_key
 
 
-@router.get("", response_model=ServiceApiKeyInfo, responses=KEY_RESPONSES)
+@router.get("", response_model=ServiceApiKey, responses=KEY_RESPONSES)
 async def get_service_key(
     use_case: GetOrCreateServiceApiKeyUseCase = Depends(_get_use_case),
-) -> ServiceApiKeyInfo:
+) -> ServiceApiKey:
     record = await use_case.execute()
-    return ServiceApiKeyInfo.model_validate(record)
+    return ServiceApiKey.model_validate(record)
 
 
-@router.post("/regenerate", response_model=ServiceApiKeyCreated, responses=KEY_RESPONSES)
+@router.post("/regenerate", response_model=ServiceApiKey, responses=KEY_RESPONSES)
 async def regenerate_service_key(
     use_case: RegenerateServiceApiKeyUseCase = Depends(_regenerate_use_case),
-) -> ServiceApiKeyCreated:
-    record, plaintext = await use_case.execute()
-    return ServiceApiKeyCreated(key=ServiceApiKeyInfo.model_validate(record), plaintext=plaintext)
+) -> ServiceApiKey:
+    record = await use_case.execute()
+    return ServiceApiKey.model_validate(record)
 
 
 __all__ = ["router"]

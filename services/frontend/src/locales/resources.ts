@@ -103,10 +103,10 @@ export const resources = {
         title: 'Service API key',
         description:
           'A single, always-present key with full admin access, for the bot and similar integrations — not tied to any user account, the same as Sonarr and Radarr.',
+        label: 'Key',
         alwaysAdmin: 'Admin',
         lastUsed: 'Last used {{date}}',
         neverUsed: 'Never used yet',
-        onlyShownOnce: 'This key is shown only once. Copy it now; it cannot be retrieved again.',
         copy: 'Copy key',
         regenerate: {
           title: 'Regenerate service key',
@@ -937,11 +937,10 @@ export const resources = {
         title: 'Сервисный API-ключ',
         description:
           'Единственный, всегда существующий ключ с полным доступом администратора — для бота и подобных интеграций, не привязан ни к одной учётной записи, как в Sonarr и Radarr.',
+        label: 'Ключ',
         alwaysAdmin: 'Администратор',
         lastUsed: 'Последнее использование {{date}}',
         neverUsed: 'Ещё не использовался',
-        onlyShownOnce:
-          'Этот ключ показывается один раз. Скопируйте его сейчас — повторно получить его не получится.',
         copy: 'Скопировать ключ',
         regenerate: {
           title: 'Обновить сервисный ключ',

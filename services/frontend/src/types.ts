@@ -75,8 +75,7 @@ export type UsersResponse = Schemas['UsersResponse'];
 export type CreateUserPayload = Schemas['CreateUserPayload'];
 export type UpdateUserPayload = Schemas['UpdateUserPayload'];
 export type ChangePasswordPayload = Schemas['ChangePasswordPayload'];
-export type ServiceApiKeyInfo = Schemas['ServiceApiKeyInfo'];
-export type ServiceApiKeyCreated = Schemas['ServiceApiKeyCreated'];
+export type ServiceApiKey = Schemas['ServiceApiKey'];
 
 export type SetupStatus = Schemas['SetupStatus'];
 export type SetupPayload = Schemas['SetupPayload'];
