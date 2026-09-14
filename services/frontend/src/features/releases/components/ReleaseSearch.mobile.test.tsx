@@ -147,4 +147,40 @@ describe('ReleaseSearch on a phone', () => {
     expect(await screen.findByRole('combobox', { name: 'Sort by' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument();
   });
+
+  it('queues a selected release and clears the search results', async () => {
+    renderSearch();
+
+    await runSearch();
+    await userEvent.click(screen.getByRole('button', { name: `Queue download for ${LONG_NAME}` }));
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/requests/1/releases/download',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(await screen.findByRole('button', { name: 'Search' })).toBeInTheDocument();
+    expect(screen.queryByText(LONG_NAME)).not.toBeInTheDocument();
+  });
+
+  it('reseeds the query when the prefill changes', () => {
+    const { rerender } = renderWithProviders(
+      <ReleaseSearch
+        requestId="1"
+        requestTitle="Severance"
+        prefillQuery="Severance S02E01"
+        onDownloadQueued={() => {}}
+      />,
+    );
+
+    rerender(
+      <ReleaseSearch
+        requestId="1"
+        requestTitle="Severance"
+        prefillQuery="Severance Season 2"
+        onDownloadQueued={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText(FIELD_LABEL)).toHaveValue('Severance Season 2');
+  });
 });

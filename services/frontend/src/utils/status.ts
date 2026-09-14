@@ -63,6 +63,12 @@ export const INDEXER_LOG_LEVEL_COLOR: Record<IndexerLogLevel, string> = {
   fatal: 'red',
 };
 
+export const QUALITY_COLOR: Record<string, string> = {
+  '2160p': 'grape',
+  '1080p': 'blue',
+  '720p': 'teal',
+};
+
 /*
   Shared by the episode table and the request card. `pending` is not an
   `EpisodeStatus` — it is the card's word for a missing episode — but both
