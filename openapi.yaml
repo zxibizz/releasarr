@@ -2516,6 +2516,10 @@ components:
         quality:
           type: string
           nullable: true
+        info_url:
+          type: string
+          nullable: true
+          description: The tracker's own page for this release, when the indexer reported one.
     ReleaseFile:
       type: object
       required: [id, name, size, path]

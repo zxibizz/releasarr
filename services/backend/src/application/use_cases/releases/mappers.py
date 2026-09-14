@@ -67,6 +67,7 @@ def record_to_dto(record: ReleaseRecord) -> ReleaseDTO:
         request_ids=request_ids,
         torrent_source=record.torrent_source,
         quality=record.quality,
+        info_url=record.info_url,
     )
 
 

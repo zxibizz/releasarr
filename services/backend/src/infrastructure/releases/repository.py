@@ -84,6 +84,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 ratio=0.0,
                 torrent_source=torrent_source,
                 quality=quality,
+                info_url=data.info_url,
             )
             release_model.requests = []
             session.add(release_model)
@@ -305,6 +306,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             files=files,
             last_exported_info_hash=release.last_exported_info_hash,
             export_failures_count=release.export_failures_count,
+            info_url=release.info_url or None,
         )
 
     def _to_file_record(self, file: models.ReleaseFile) -> ReleaseFileRecord:

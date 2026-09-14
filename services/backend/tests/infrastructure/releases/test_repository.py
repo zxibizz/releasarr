@@ -90,6 +90,7 @@ async def test_create_release_persists_record(
         id="release-test-1",
         source="TestIndexer",
         quality="1080p",
+        info_url="https://tracker.example/release-test-1",
     )
 
     record = await repository.create_release(command)
@@ -98,6 +99,7 @@ async def test_create_release_persists_record(
     assert record.info_hash == "ABCDEF1234567890"
     assert set(record.request_ids) == {"req-1", "req-2"}
     assert record.status is ReleaseStatus.PENDING
+    assert record.info_url == "https://tracker.example/release-test-1"
 
 
 @pytest.mark.asyncio

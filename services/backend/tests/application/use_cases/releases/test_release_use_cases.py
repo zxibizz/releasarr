@@ -783,7 +783,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
         size="1 GB",
         magnet_link="magnet:?xt=urn:btih:ABC123",
         torrent_file_url=None,
-        info_url=None,
+        info_url="https://tracker.example/candidate-1",
         seeders=10,
         leechers=2,
         quality="1080p",
@@ -801,6 +801,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
     assert result.operation == "queue_download"
     # Ensure a new release was created and download was queued with the new identifier.
     assert repository.last_created is not None
+    assert repository.last_created.info_url == "https://tracker.example/candidate-1"
     created_release_id = download_service.calls[0][1]
     assert created_release_id in repository.releases
     assert download_service.calls[0][2] == "magnet:?xt=urn:btih:ABC123"

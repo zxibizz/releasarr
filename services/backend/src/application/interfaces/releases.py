@@ -72,6 +72,7 @@ class ReleaseRecord:
     files: list[ReleaseFileRecord]
     last_exported_info_hash: str | None
     export_failures_count: int
+    info_url: str | None = None
 
 
 @dataclass(slots=True)
@@ -85,6 +86,7 @@ class CreateReleaseData:
     source: str
     quality: str
     files: list[ReleaseFileRecord] | None = None
+    info_url: str | None = None
 
 
 @dataclass(slots=True)

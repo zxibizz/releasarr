@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Button,
   Card,
@@ -18,7 +19,6 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Release } from '@/types';
 import {
   calculateEta,
-  formatDateTime,
   formatFileSize,
   formatProgress,
   formatRatio,
@@ -110,6 +110,11 @@ export function ReleaseCard({
               <Text size="sm" c="dimmed" className="break-anywhere">
                 {t('releaseCard.source')}: {release.torrent_source}
               </Text>
+            )}
+            {release.info_url && (
+              <Anchor href={release.info_url} target="_blank" rel="noopener noreferrer" size="sm">
+                {t('releaseCard.links.tracker')}
+              </Anchor>
             )}
           </Stack>
 
@@ -207,16 +212,6 @@ export function ReleaseCard({
               {files.subtitle.length > 0 && (
                 <Text size="sm">
                   📝 {t('releaseCard.files.subtitle', { count: files.subtitle.length })}
-                </Text>
-              )}
-            </Group>
-            <Group gap="md" fz="xs" c="dimmed" wrap="wrap">
-              <Text size="xs">
-                {t('releaseCard.added', { date: formatDateTime(release.added_date) })}
-              </Text>
-              {release.completed_date && (
-                <Text size="xs">
-                  {t('releaseCard.completed', { date: formatDateTime(release.completed_date) })}
                 </Text>
               )}
             </Group>

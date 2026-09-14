@@ -1107,6 +1107,8 @@ export interface components {
             request_ids: string[];
             torrent_source?: string | null;
             quality?: string | null;
+            /** @description The tracker's own page for this release, when the indexer reported one. */
+            info_url?: string | null;
         };
         ReleaseFile: {
             id: string;

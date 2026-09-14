@@ -53,6 +53,7 @@ class ReleaseDTO:
     request_ids: list[str]
     torrent_source: str | None
     quality: str | None
+    info_url: str | None = None
 
 
 @dataclass(slots=True)
