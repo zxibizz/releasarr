@@ -122,7 +122,6 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
         prefix: str,
         key_hash: str,
         user_id: str,
-        can_impersonate: bool,
         expires_at: datetime | None,
     ) -> ServiceApiKeyRecord:
         async with self.db.transaction() as session:
@@ -132,7 +131,6 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
                 prefix=prefix,
                 key_hash=key_hash,
                 user_id=user_id,
-                can_impersonate=can_impersonate,
                 expires_at=expires_at,
             )
             session.add(key)
@@ -162,7 +160,6 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
             prefix=key.prefix,
             key_hash=key.key_hash,
             user_id=key.user_id,
-            can_impersonate=key.can_impersonate,
             is_active=key.is_active,
             expires_at=key.expires_at,
             last_used_at=key.last_used_at,

@@ -81,7 +81,6 @@ class ServiceApiKey(APIModel):
     name: str
     prefix: str
     user_id: str
-    can_impersonate: bool
     is_active: bool
     expires_at: datetime | None = None
     last_used_at: datetime | None = None
@@ -99,7 +98,6 @@ class ServiceApiKeysResponse(APIModel):
 class CreateServiceKeyPayload(APIModel):
     name: str
     user_id: str
-    can_impersonate: bool = False
     expires_at: datetime | None = None
 
 

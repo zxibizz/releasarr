@@ -63,7 +63,7 @@ These `_get_*` functions are also the seam the API tests override — see
 `src/api/dependencies/auth.py` resolves a `Principal` (`src/application/use_cases/auth/permissions.py`)
 from either an `Authorization: Bearer` access token (a session, from `/auth/login`) or an
 `X-API-Key` header (a service key, optionally with `X-Act-As-User` to impersonate — only if the
-key has `can_impersonate`). Three dependencies build on it:
+key is bound to an admin user). Three dependencies build on it:
 
 ```python
 require_user                              # any authenticated principal

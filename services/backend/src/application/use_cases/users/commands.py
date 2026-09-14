@@ -48,7 +48,6 @@ class ChangePasswordCommand:
 class CreateServiceKeyCommand:
     name: str
     user_id: str
-    can_impersonate: bool = False
     expires_at: datetime | None = None
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from src.application.interfaces.auth import AccessTokenCodec, ServiceApiKeyRepository
-from src.application.interfaces.users import UserRepository
+from src.application.interfaces.users import UserRecord, UserRepository
 from src.application.use_cases.auth.exceptions import (
     ImpersonationNotAllowedError,
     InactiveUserError,
@@ -13,6 +13,7 @@ from src.application.use_cases.auth.exceptions import (
 )
 from src.application.use_cases.auth.permissions import Principal
 from src.application.utility.secret_tokens import hash_token
+from src.domain.enums import UserRole
 
 
 class AuthenticatePrincipalUseCase:
@@ -45,18 +46,21 @@ class AuthenticatePrincipalUseCase:
         if record.expires_at is not None and record.expires_at <= datetime.now(UTC):
             raise InvalidAccessTokenError()
 
-        target_user_id = record.user_id
-        if act_as_username:
-            if not record.can_impersonate:
-                raise ImpersonationNotAllowedError()
-            target = await self._users.get_by_username(act_as_username)
-            if target is None:
-                raise InvalidAccessTokenError()
-            target_user_id = target.id
-
-        user = await self._users.get_user(target_user_id)
-        if user is None:
+        bound_user = await self._users.get_user(record.user_id)
+        if bound_user is None:
             raise InvalidAccessTokenError()
+
+        # Impersonation is a privilege of the identity a key is bound to, not a
+        # separate flag: only an admin key may act as someone else.
+        user: UserRecord = bound_user
+        if act_as_username:
+            if bound_user.role is not UserRole.ADMIN:
+                raise ImpersonationNotAllowedError()
+            impersonated = await self._users.get_by_username(act_as_username)
+            if impersonated is None:
+                raise InvalidAccessTokenError()
+            user = impersonated
+
         if not user.is_active:
             raise InactiveUserError()
 

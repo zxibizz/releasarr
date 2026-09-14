@@ -59,7 +59,6 @@ class ServiceApiKeyRecord:
     prefix: str
     key_hash: str
     user_id: str
-    can_impersonate: bool
     is_active: bool
     expires_at: datetime | None
     last_used_at: datetime | None
@@ -86,7 +85,6 @@ class ServiceApiKeyRepository(Protocol):
         prefix: str,
         key_hash: str,
         user_id: str,
-        can_impersonate: bool,
         expires_at: datetime | None,
     ) -> ServiceApiKeyRecord:
         """Persist a newly created service key."""
