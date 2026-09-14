@@ -8,7 +8,6 @@ from src.application.interfaces.auth import AccessTokenCodec, ServiceApiKeyRepos
 from src.application.interfaces.users import UserRepository
 from src.application.use_cases.auth.exceptions import InactiveUserError, InvalidAccessTokenError
 from src.application.use_cases.auth.permissions import Principal, build_service_principal
-from src.application.utility.secret_tokens import hash_token
 
 
 class AuthenticatePrincipalUseCase:
@@ -35,7 +34,7 @@ class AuthenticatePrincipalUseCase:
         return Principal(user=user, via="session")
 
     async def authenticate_service_key(self, key: str) -> Principal:
-        record = await self._service_api_keys.get_by_hash(hash_token(key))
+        record = await self._service_api_keys.get_by_key(key)
         if record is None:
             raise InvalidAccessTokenError()
 

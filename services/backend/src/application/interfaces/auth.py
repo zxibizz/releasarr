@@ -52,11 +52,10 @@ class RefreshTokenRepository(Protocol):
 
 @dataclass(slots=True)
 class ServiceApiKeyRecord:
-    """The single hashed service API key: always admin, never bound to a user."""
+    """The single service API key: always admin, never bound to a user, never hidden."""
 
     id: str
-    prefix: str
-    key_hash: str
+    key: str
     last_used_at: datetime | None
     created_at: datetime
 
@@ -67,10 +66,10 @@ class ServiceApiKeyRepository(Protocol):
     async def get(self) -> ServiceApiKeyRecord | None:
         """Fetch the current service key, if one has been created yet."""
 
-    async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
-        """Look up the service key by the hash of its plaintext."""
+    async def get_by_key(self, key: str) -> ServiceApiKeyRecord | None:
+        """Look up the service key by its value."""
 
-    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
+    async def replace(self, *, id: str, key: str) -> ServiceApiKeyRecord:
         """Replace the service key with a newly generated one, deleting any prior key."""
 
     async def touch_last_used(self, key_id: str, *, at: datetime) -> None:

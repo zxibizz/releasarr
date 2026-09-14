@@ -8,7 +8,7 @@ from src.application.use_cases.auth.service_key import (
     GetOrCreateServiceApiKeyUseCase,
     RegenerateServiceApiKeyUseCase,
 )
-from src.application.utility.secret_tokens import SERVICE_KEY_PREFIX, hash_token
+from src.application.utility.secret_tokens import SERVICE_KEY_PREFIX
 from tests.application.use_cases.auth.fakes import InMemoryServiceApiKeyRepository
 
 
@@ -19,7 +19,7 @@ async def test_get_or_create_generates_a_key_on_first_use() -> None:
 
     record = await use_case.execute()
 
-    assert record.prefix.startswith(SERVICE_KEY_PREFIX)
+    assert record.key.startswith(SERVICE_KEY_PREFIX)
     assert repo.key is record
 
 
@@ -32,7 +32,7 @@ async def test_get_or_create_returns_the_existing_key_on_later_calls() -> None:
     second = await use_case.execute()
 
     assert second.id == first.id
-    assert second.key_hash == first.key_hash
+    assert second.key == first.key
 
 
 @pytest.mark.asyncio
@@ -42,9 +42,9 @@ async def test_regenerate_replaces_the_key_and_invalidates_the_old_one() -> None
     regenerate = RegenerateServiceApiKeyUseCase(service_api_keys=repo)
 
     original = await use_case.execute()
-    new_record, plaintext = await regenerate.execute()
+    new_record = await regenerate.execute()
 
     assert new_record.id != original.id
-    assert new_record.key_hash == hash_token(plaintext)
-    assert await repo.get_by_hash(original.key_hash) is None
-    assert await repo.get_by_hash(new_record.key_hash) == new_record
+    assert new_record.key != original.key
+    assert await repo.get_by_key(original.key) is None
+    assert await repo.get_by_key(new_record.key) == new_record

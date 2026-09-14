@@ -103,21 +103,21 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
             key = result.scalar_one_or_none()
             return self._to_record(key) if key is not None else None
 
-    async def get_by_hash(self, key_hash: str) -> ServiceApiKeyRecord | None:
+    async def get_by_key(self, key: str) -> ServiceApiKeyRecord | None:
         async with self.db.session() as session:
-            stmt = select(models.ServiceApiKey).where(models.ServiceApiKey.key_hash == key_hash)
+            stmt = select(models.ServiceApiKey).where(models.ServiceApiKey.key == key)
             result = await session.execute(stmt)
-            key = result.scalar_one_or_none()
-            return self._to_record(key) if key is not None else None
+            record = result.scalar_one_or_none()
+            return self._to_record(record) if record is not None else None
 
-    async def replace(self, *, id: str, prefix: str, key_hash: str) -> ServiceApiKeyRecord:
+    async def replace(self, *, id: str, key: str) -> ServiceApiKeyRecord:
         async with self.db.transaction() as session:
             await session.execute(delete(models.ServiceApiKey))
-            key = models.ServiceApiKey(id=id, prefix=prefix, key_hash=key_hash)
-            session.add(key)
+            record = models.ServiceApiKey(id=id, key=key)
+            session.add(record)
             await session.flush()
-            await session.refresh(key)
-            return self._to_record(key)
+            await session.refresh(record)
+            return self._to_record(record)
 
     async def touch_last_used(self, key_id: str, *, at: datetime) -> None:
         async with self.db.transaction() as session:
@@ -129,8 +129,7 @@ class SqlAlchemyServiceApiKeyRepository(BaseSqlAlchemyRepository, ServiceApiKeyR
     def _to_record(key: models.ServiceApiKey) -> ServiceApiKeyRecord:
         return ServiceApiKeyRecord(
             id=key.id,
-            prefix=key.prefix,
-            key_hash=key.key_hash,
+            key=key.key,
             last_used_at=key.last_used_at,
             created_at=key.created_at,
         )

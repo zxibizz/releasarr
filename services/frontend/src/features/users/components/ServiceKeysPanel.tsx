@@ -1,7 +1,6 @@
-import { ActionIcon, Alert, Badge, Button, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Stack, Text, TextInput } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconCopy } from '@tabler/icons-react';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Panel } from '@/components/Panel';
@@ -13,7 +12,6 @@ export function ServiceKeysPanel() {
   const { t } = useTranslation();
   const { data: key, isLoading } = useServiceKey();
   const regenerate = useRegenerateServiceKey();
-  const [plaintext, setPlaintext] = useState<string | null>(null);
 
   const confirmRegenerate = () => {
     modals.openConfirmModal({
@@ -21,10 +19,7 @@ export function ServiceKeysPanel() {
       children: <Text size="sm">{t('serviceKey.regenerate.body')}</Text>,
       labels: { confirm: t('serviceKey.regenerate.action'), cancel: t('common.cancel') },
       confirmProps: { color: 'red' },
-      onConfirm: async () => {
-        const result = await regenerate.mutateAsync();
-        setPlaintext(result.plaintext);
-      },
+      onConfirm: () => regenerate.mutate(),
     });
   };
 
@@ -49,45 +44,34 @@ export function ServiceKeysPanel() {
 
       {!isLoading && key ? (
         <Panel>
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Text ff="monospace" size="sm">
-                {key.prefix}…
-              </Text>
+          <Stack gap="xs">
+            <TextInput
+              label={t('serviceKey.label')}
+              value={key.key}
+              readOnly
+              styles={{ input: { fontFamily: 'monospace' } }}
+              rightSection={
+                <ActionIcon
+                  variant="subtle"
+                  aria-label={t('serviceKey.copy')}
+                  onClick={() => void navigator.clipboard?.writeText(key.key)}
+                >
+                  <IconCopy size={16} />
+                </ActionIcon>
+              }
+            />
+            <Group justify="space-between">
               <Badge variant="light" color="grape">
                 {t('serviceKey.alwaysAdmin')}
               </Badge>
+              <Text size="xs" c="dimmed">
+                {key.last_used_at
+                  ? t('serviceKey.lastUsed', { date: formatDateTime(key.last_used_at) })
+                  : t('serviceKey.neverUsed')}
+              </Text>
             </Group>
-            <Text size="xs" c="dimmed">
-              {key.last_used_at
-                ? t('serviceKey.lastUsed', { date: formatDateTime(key.last_used_at) })
-                : t('serviceKey.neverUsed')}
-            </Text>
-          </Group>
+          </Stack>
         </Panel>
-      ) : null}
-
-      {plaintext ? (
-        <Alert
-          color="yellow"
-          variant="light"
-          withCloseButton
-          title={t('serviceKey.onlyShownOnce')}
-          onClose={() => setPlaintext(null)}
-        >
-          <Group gap="xs" wrap="nowrap" align="flex-start">
-            <Text ff="monospace" size="sm" style={{ wordBreak: 'break-all', flex: 1 }}>
-              {plaintext}
-            </Text>
-            <ActionIcon
-              variant="light"
-              aria-label={t('serviceKey.copy')}
-              onClick={() => void navigator.clipboard?.writeText(plaintext)}
-            >
-              <IconCopy size={16} />
-            </ActionIcon>
-          </Group>
-        </Alert>
       ) : null}
     </Stack>
   );
