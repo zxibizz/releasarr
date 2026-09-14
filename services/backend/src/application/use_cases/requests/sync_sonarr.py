@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 from uuid import uuid4
+
+from src.application.utility.metadata_cache import SupportsWarning
 
 from loguru._logger import Logger
 
@@ -21,6 +24,7 @@ from src.application.utility.localization import (
     LocalizationPicker,
     merge_default_localization,
 )
+from src.application.utility.metadata_cache import get_cached_metadata
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -236,24 +240,20 @@ class SyncSonarrMediaRequestsUseCase:
         return f"{series_title} - Season {season_number}"
 
     async def _load_tvdb_metadata(self, details: SeriesDetails) -> TvdbSeriesMetadata | None:
-        if self._tvdb is None or not details.tvdb_id:
+        if self._tvdb is None or details.tvdb_id is None:
             return None
-        cached = self._metadata_cache.get(details.tvdb_id)
-        if cached is not None or details.tvdb_id in self._metadata_cache:
-            return cached
-        try:
-            metadata = await self._tvdb.get_series(details.tvdb_id, self._metadata_languages)
-        except Exception as exc:  # pragma: no cover - defensive against HTTP failures
-            self._logger.warning(
-                "Failed to fetch TVDB metadata",
-                error=str(exc),
-                sonarr_series_id=details.id,
-                tvdb_id=details.tvdb_id,
-            )
-            self._metadata_cache[details.tvdb_id] = None
-            return None
-        self._metadata_cache[details.tvdb_id] = metadata
-        return metadata
+        tvdb = self._tvdb
+        tvdb_id = details.tvdb_id
+        return await get_cached_metadata(
+            cache=self._metadata_cache,
+            lookup_id=tvdb_id,
+            fetch=lambda: tvdb.get_series(tvdb_id, self._metadata_languages),
+            logger=cast(SupportsWarning, self._logger),
+            provider_name="sonarr_series_id",
+            entity_id=details.id,
+            lookup_field="tvdb_id",
+            warning_message="Failed to fetch TVDB metadata",
+        )
 
     def _build_localizations(
         self,
