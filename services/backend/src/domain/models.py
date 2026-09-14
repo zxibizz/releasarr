@@ -229,6 +229,9 @@ class Release(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     torrent_source: Mapped[str | None] = mapped_column(String(255))
     quality: Mapped[str | None] = mapped_column(String(128))
+    # The tracker's own page for this release, so a user can open it without
+    # re-running a search. Prowlarr calls it infoUrl; not every indexer sends one.
+    info_url: Mapped[str | None] = mapped_column(String(1024))
 
     requests: Mapped[list[MediaRequest]] = relationship(
         "MediaRequest",

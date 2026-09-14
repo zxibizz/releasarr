@@ -58,6 +58,7 @@ class Release(APIModel):
     request_ids: list[str]
     torrent_source: str | None = None
     quality: str | None = None
+    info_url: str | None = None
 
 
 class ReleasesResponse(PaginatedResponse):

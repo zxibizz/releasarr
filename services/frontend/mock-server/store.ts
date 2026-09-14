@@ -525,6 +525,7 @@ export class MockStore {
       request_ids: [payload.requestId],
       torrent_source: candidate.source ?? 'manual-search',
       quality: candidate.quality ?? 'unknown',
+      info_url: candidate.info_url ?? null,
     };
 
     releases.unshift(newRelease);

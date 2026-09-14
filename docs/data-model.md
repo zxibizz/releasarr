@@ -79,7 +79,8 @@ URL; `name` is `Text()` because tracker titles routinely exceed 255 characters o
 dubs, episode ranges, and release notes. Both widths were set by migration `e1f36b8ac704` after
 the originals overflowed.
 
-Identity: `info_hash`, `size_bytes`, `torrent_source`, `quality`.
+Identity: `info_hash`, `size_bytes`, `torrent_source`, `quality`, `info_url` (the tracker's own
+page for the release, when the indexer reported one; `regrab` refreshes it alongside `name`).
 Live stats, refreshed by `release_sync`: `status`, `progress`, `download_speed`, `upload_speed`,
 `seeders`, `leechers`, `ratio`, `added_at`, `completed_at`.
 Export bookkeeping: `last_exported_info_hash`, `export_failures_count`.

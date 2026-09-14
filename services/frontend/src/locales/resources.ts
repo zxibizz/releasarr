@@ -427,8 +427,9 @@ export const resources = {
         source: 'Source',
         progress: 'Progress',
         relatedRequests: 'Related requests',
-        added: 'Added {{date}}',
-        completed: 'Completed {{date}}',
+        links: {
+          tracker: 'Tracker page ↗',
+        },
         stats: {
           seeders: 'Seeders',
           leechers: 'Leechers',
@@ -1268,8 +1269,9 @@ export const resources = {
         source: 'Источник',
         progress: 'Прогресс',
         relatedRequests: 'Связанные запросы',
-        added: 'Добавлен {{date}}',
-        completed: 'Завершён {{date}}',
+        links: {
+          tracker: 'Страница на трекере ↗',
+        },
         stats: {
           seeders: 'Сиды',
           leechers: 'Личи',
