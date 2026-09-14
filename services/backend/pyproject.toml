@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "releasarr-backend-new"
+name = "releasarr-backend"
 version = "0.1.0"
 description = "Next-generation Releasarr backend aligned with the new frontend contract"
 requires-python = ">=3.12"
