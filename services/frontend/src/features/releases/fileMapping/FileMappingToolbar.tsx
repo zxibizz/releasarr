@@ -1,4 +1,5 @@
 import { Button, Group, Select } from '@mantine/core';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -7,6 +8,7 @@ import type { MediaRequest } from '@/types';
 interface FileMappingToolbarProps {
   requests: MediaRequest[];
   requestsLoading: boolean;
+  currentRequestId?: string;
   canSuggest: boolean;
   canNumberEpisodes: boolean;
   hasChanges: boolean;
@@ -19,6 +21,7 @@ interface FileMappingToolbarProps {
 export function FileMappingToolbar({
   requests,
   requestsLoading,
+  currentRequestId,
   canSuggest,
   canNumberEpisodes,
   hasChanges,
@@ -29,6 +32,8 @@ export function FileMappingToolbar({
 }: FileMappingToolbarProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  // Only a display default: picking a request still requires an explicit choice below.
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   const options = requests.map((request) => ({
     value: request.id,
@@ -55,8 +60,9 @@ export function FileMappingToolbar({
         data={options}
         disabled={requestsLoading || options.length === 0}
         searchable
-        value={null}
+        value={selectedRequestId ?? currentRequestId ?? null}
         onChange={(value) => {
+          setSelectedRequestId(value);
           const request = requests.find((item) => item.id === value);
           if (request) {
             onApplyToAll(request);

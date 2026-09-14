@@ -197,6 +197,27 @@ def test_a_name_carrying_two_bare_numbers_is_left_for_manual_mapping() -> None:
     assert files[0].mapping is None
 
 
+def test_a_title_number_repeated_across_the_folder_does_not_make_every_file_ambiguous() -> None:
+    """Every file ties its episode number against the same sequel number in the title."""
+
+    directory = "Seihantai na Kimi to Boku 2 - AniLiberty [WEB-DL 1080p HEVC]"
+    files = [
+        make_file("a", f"{directory}/Seihantai_na_Kimi_to_Boku_2_[01]_[HEVC].mkv"),
+        make_file("b", f"{directory}/Seihantai_na_Kimi_to_Boku_2_[02]_[HEVC].mkv"),
+        make_file("c", f"{directory}/Seihantai_na_Kimi_to_Boku_2_[03]_[HEVC].mkv"),
+        make_file("d", f"{directory}/Seihantai_na_Kimi_to_Boku_2_[04]_[HEVC].mkv"),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, [make_request("req-1", 1)])
+
+    assert placements(files) == [
+        ("req-1", 1, 1),
+        ("req-1", 1, 2),
+        ("req-1", 1, 3),
+        ("req-1", 1, 4),
+    ]
+
+
 def test_movie_requests_are_never_used_for_series_files() -> None:
     movie = ReleaseRequestSnapshot(
         id="req-movie",

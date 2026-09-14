@@ -6,6 +6,7 @@ import pytest
 
 from src.application.utility.release_parsing import (
     is_video_file,
+    loose_episode_candidates,
     movie_titles,
     natural_sort_key,
     normalize_title,
@@ -107,6 +108,27 @@ def test_a_hinted_season_is_not_reported_as_the_parsed_one() -> None:
 )
 def test_a_hinted_season_does_not_make_an_ambiguous_name_readable(path: str) -> None:
     assert parse_episode(path, season_hint=1).episode is None
+
+
+def test_loose_episode_candidates_reports_every_bare_number() -> None:
+    assert loose_episode_candidates("Seihantai_na_Kimi_to_Boku_2_[01]_[HEVC]") == {1, 2}
+
+
+def test_ignore_title_numbers_resolves_a_name_two_bare_numbers_left_ambiguous() -> None:
+    """A caller that already knows one number is title text can discount it."""
+
+    path = "Show Name 2 - 01.mkv"
+
+    assert parse_episode(path, season_hint=1).episode is None
+    assert parse_episode(path, season_hint=1, ignore_title_numbers=frozenset({2})).episode == 1
+
+
+def test_ignore_title_numbers_falls_back_when_it_would_empty_the_candidates() -> None:
+    """Discounting every remaining number would lose a genuine single-number name."""
+
+    path = "Show Name - 02.mkv"
+
+    assert parse_episode(path, season_hint=1, ignore_title_numbers=frozenset({2})).episode == 2
 
 
 def test_parse_seasons_collects_every_mentioned_season() -> None:

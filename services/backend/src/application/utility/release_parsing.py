@@ -169,6 +169,7 @@ def parse_episode(
     path: str | None = None,
     *,
     season_hint: int | None = None,
+    ignore_title_numbers: frozenset[int] = frozenset(),
 ) -> ParsedEpisode:
     """Recover season/episode numbers from a release file.
 
@@ -183,6 +184,10 @@ def parse_episode(
     that never mention one, as absolute-numbered releases tend not to. It is not
     reported back as the season: this returns what the name itself says, and
     resolving precedence stays with the caller.
+
+    ``ignore_title_numbers`` discounts candidates a caller already knows belong to
+    the title rather than the episode, such as a sequel number repeated across
+    every file of a pack.
     """
 
     segments = _segments(name)
@@ -204,7 +209,7 @@ def parse_episode(
     if episode is None:
         episode = _match_episode(stem)
     if episode is None and (season is not None or season_hint is not None):
-        episode = _match_loose_episode(stem)
+        episode = _match_loose_episode(stem, ignore_title_numbers)
 
     return _validated(season, episode)
 
@@ -259,11 +264,27 @@ def _match_episode(stem: str) -> int | None:
     return int(match.group("episode")) if match else None
 
 
-def _match_loose_episode(stem: str) -> int | None:
-    """Read a bare number as the episode, but only when it is unambiguous."""
+def loose_episode_candidates(stem: str) -> set[int]:
+    """Every bare number in a name that could be read as an episode."""
 
     cleaned = _JUNK_PATTERN.sub(" ", stem)
-    candidates = {int(match.group("episode")) for match in _LOOSE_EPISODE_PATTERN.finditer(cleaned)}
+    return {int(match.group("episode")) for match in _LOOSE_EPISODE_PATTERN.finditer(cleaned)}
+
+
+def _match_loose_episode(
+    stem: str,
+    ignore_title_numbers: frozenset[int] = frozenset(),
+) -> int | None:
+    """Read a bare number as the episode, but only when it is unambiguous.
+
+    A number every sibling file repeats is title text, not an episode: discount it,
+    but only if doing so leaves something, since a genuinely single-episode name
+    that happens to match must still resolve.
+    """
+
+    candidates = loose_episode_candidates(stem)
+    if ignore_title_numbers:
+        candidates = candidates - ignore_title_numbers or candidates
     if len(candidates) != 1:
         return None
     episode = candidates.pop()
@@ -304,6 +325,7 @@ __all__ = [
     "VIDEO_EXTENSIONS",
     "ParsedEpisode",
     "is_video_file",
+    "loose_episode_candidates",
     "movie_titles",
     "natural_sort_key",
     "normalize_title",
