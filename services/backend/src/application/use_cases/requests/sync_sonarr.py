@@ -72,10 +72,25 @@ class SyncSonarrMediaRequestsUseCase:
         existing = await self._repository.list_sonarr_requests()
         result.completed += await self._mark_completed(existing, missing_keys)
 
+        # A series' seasons are normally all requested by the same person, so a
+        # newly missing season under "monitor future seasons" should default to
+        # whoever already owns the series rather than come back unowned.
+        series_owners: dict[int, str] = {}
+        for record in sorted(existing, key=lambda r: r.created_at, reverse=True):
+            if (
+                record.sonarr_series_id is not None
+                and record.owner_user_id is not None
+                and record.sonarr_series_id not in series_owners
+            ):
+                series_owners[record.sonarr_series_id] = record.owner_user_id
+
         for series in missing_series:
             details = await self._sonarr.get_series(series.series_id)
+            owner_user_id = series_owners.get(series.series_id)
             for season_number in series.season_numbers:
-                updated = await self._sync_season(details, season_number)
+                updated = await self._sync_season(
+                    details, season_number, owner_user_id=owner_user_id
+                )
                 if updated == "created":
                     result.created += 1
                 elif updated == "updated":

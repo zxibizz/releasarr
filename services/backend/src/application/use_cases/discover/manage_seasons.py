@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from loguru._logger import Logger
 
-from src.application.interfaces.media_requests import MediaRequestRepository
+from src.application.interfaces.media_requests import MediaRequestRecord, MediaRequestRepository
 from src.application.interfaces.sonarr import SonarrService
 from src.application.use_cases.discover.dto import SeasonOptionDTO, SeriesSeasonsDTO
 from src.application.use_cases.discover.exceptions import (
@@ -28,8 +28,10 @@ class UpdateRequestSeasonsCommand:
     monitor_new_seasons: bool = False
 
 
-async def _resolve_series_id(repository: MediaRequestRepository, request_id: str) -> int:
-    """Return the Sonarr series a request belongs to.
+async def _resolve_series_request(
+    repository: MediaRequestRepository, request_id: str
+) -> tuple[MediaRequestRecord, int]:
+    """Return the request a series' seasons are reached through, and its series id.
 
     Seasons are reached through a request because that is the only handle the
     request page has: the row carries the Sonarr id the sync stamped on it, and
@@ -45,7 +47,7 @@ async def _resolve_series_id(repository: MediaRequestRepository, request_id: str
         raise SeasonsUnmanageableError(
             f"Request '{request_id}' is not linked to a series in Sonarr yet"
         )
-    return record.sonarr_series_id
+    return record, record.sonarr_series_id
 
 
 async def _describe_seasons(
@@ -92,7 +94,7 @@ class ListRequestSeasonsUseCase:
         self._sonarr = sonarr_service
 
     async def execute(self, request_id: str) -> SeriesSeasonsDTO:
-        series_id = await _resolve_series_id(self._repository, request_id)
+        _, series_id = await _resolve_series_request(self._repository, request_id)
         return await _describe_seasons(self._repository, self._sonarr, series_id)
 
 
@@ -134,7 +136,7 @@ class UpdateRequestSeasonsUseCase:
         request_id: str,
         command: UpdateRequestSeasonsCommand,
     ) -> SeriesSeasonsDTO:
-        series_id = await _resolve_series_id(self._repository, request_id)
+        record, series_id = await _resolve_series_request(self._repository, request_id)
         details = await self._sonarr.get_series(series_id)
         requested = (await requested_seasons_by_series(self._repository)).get(series_id, {})
 
@@ -165,7 +167,9 @@ class UpdateRequestSeasonsUseCase:
             # A season Sonarr has only just started monitoring can still be
             # short of episodes, and a request built now would record it empty.
             await self._sonarr.wait_for_series_episodes(series_id, added)
-            await self._sync_sonarr.sync_series(series_id, added)
+            await self._sync_sonarr.sync_series(
+                series_id, added, owner_user_id=record.owner_user_id
+            )
 
         # Only the seasons that had a request to begin with; the rest were
         # monitored without ever going missing.
