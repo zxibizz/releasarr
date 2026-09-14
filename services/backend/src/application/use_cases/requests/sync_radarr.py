@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 from uuid import uuid4
+
+from src.application.utility.metadata_cache import SupportsWarning
 
 from loguru._logger import Logger
 
@@ -21,6 +24,7 @@ from src.application.utility.localization import (
     LocalizationPicker,
     merge_default_localization,
 )
+from src.application.utility.metadata_cache import get_cached_metadata
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -194,23 +198,20 @@ class SyncRadarrMediaRequestsUseCase:
         return transitioned
 
     async def _load_tmdb_metadata(self, details: MovieDetails) -> TmdbMovieMetadata | None:
-        if self._tmdb is None or not details.tmdb_id:
+        if self._tmdb is None or details.tmdb_id is None:
             return None
-        if details.tmdb_id in self._metadata_cache:
-            return self._metadata_cache[details.tmdb_id]
-        try:
-            metadata = await self._tmdb.get_movie(details.tmdb_id, self._metadata_languages)
-        except Exception as exc:  # pragma: no cover - defensive against HTTP failures
-            self._logger.warning(
-                "Failed to fetch TMDB metadata",
-                error=str(exc),
-                radarr_movie_id=details.id,
-                tmdb_id=details.tmdb_id,
-            )
-            self._metadata_cache[details.tmdb_id] = None
-            return None
-        self._metadata_cache[details.tmdb_id] = metadata
-        return metadata
+        tmdb = self._tmdb
+        tmdb_id = details.tmdb_id
+        return await get_cached_metadata(
+            cache=self._metadata_cache,
+            lookup_id=tmdb_id,
+            fetch=lambda: tmdb.get_movie(tmdb_id, self._metadata_languages),
+            logger=cast(SupportsWarning, self._logger),
+            provider_name="radarr_movie_id",
+            entity_id=details.id,
+            lookup_field="tmdb_id",
+            warning_message="Failed to fetch TMDB metadata",
+        )
 
     def _build_localizations(
         self,
