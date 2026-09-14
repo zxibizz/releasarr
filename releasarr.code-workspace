@@ -9,9 +9,6 @@
 		},
 		{
 			"path": "services/backend",
-		},
-		{
-			"path": "services/bot",
 		}
 	]
 }
