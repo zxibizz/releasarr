@@ -54,6 +54,7 @@ class ReleaseDTO:
     torrent_source: str | None
     quality: str | None
     info_url: str | None = None
+    published_at: datetime | None = None
 
 
 @dataclass(slots=True)

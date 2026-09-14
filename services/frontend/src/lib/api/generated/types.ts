@@ -1109,6 +1109,11 @@ export interface components {
             quality?: string | null;
             /** @description The tracker's own page for this release, when the indexer reported one. */
             info_url?: string | null;
+            /**
+             * Format: date-time
+             * @description When the indexer says the release itself went up, when it reported one.
+             */
+            published_date?: string | null;
         };
         ReleaseFile: {
             id: string;

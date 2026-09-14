@@ -2520,6 +2520,11 @@ components:
           type: string
           nullable: true
           description: The tracker's own page for this release, when the indexer reported one.
+        published_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the indexer says the release itself went up, when it reported one.
     ReleaseFile:
       type: object
       required: [id, name, size, path]

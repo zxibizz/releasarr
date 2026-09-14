@@ -526,6 +526,7 @@ export class MockStore {
       torrent_source: candidate.source ?? 'manual-search',
       quality: candidate.quality ?? 'unknown',
       info_url: candidate.info_url ?? null,
+      published_date: candidate.publish_date ?? null,
     };
 
     releases.unshift(newRelease);

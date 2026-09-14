@@ -19,6 +19,8 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Release } from '@/types';
 import {
   calculateEta,
+  daysSince,
+  formatDateTime,
   formatFileSize,
   formatProgress,
   formatRatio,
@@ -74,6 +76,13 @@ export function ReleaseCard({
 
   const files = groupFilesByType(release.files ?? []);
   const health = healthScore(release);
+  const releaseAge = daysSince(release.published_date);
+  const publishedAt = release.published_date ? formatDateTime(release.published_date) : null;
+  const ageLabel = (days: number | null): string => {
+    if (days === null) return t('releaseSearch.age.unknown');
+    if (days < 1) return t('releaseSearch.age.today');
+    return t('releaseSearch.age.days', { count: Math.floor(days) });
+  };
 
   const relatedRequests = [...new Set(release.request_ids ?? [])].filter(
     (id) => id !== currentRequestId,
@@ -109,6 +118,11 @@ export function ReleaseCard({
             {release.torrent_source && (
               <Text size="sm" c="dimmed" className="break-anywhere">
                 {t('releaseCard.source')}: {release.torrent_source}
+              </Text>
+            )}
+            {release.published_date && (
+              <Text size="sm" c="dimmed" title={publishedAt ?? undefined}>
+                🕒 {ageLabel(releaseAge)}
               </Text>
             )}
             {release.info_url && (

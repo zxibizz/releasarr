@@ -232,6 +232,9 @@ class Release(Base):
     # The tracker's own page for this release, so a user can open it without
     # re-running a search. Prowlarr calls it infoUrl; not every indexer sends one.
     info_url: Mapped[str | None] = mapped_column(String(1024))
+    # When the indexer says the release itself went up, distinct from `added_at`
+    # (when releasarr grabbed it). Also not every indexer reports one.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     requests: Mapped[list[MediaRequest]] = relationship(
         "MediaRequest",

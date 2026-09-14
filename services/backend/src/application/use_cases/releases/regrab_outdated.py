@@ -102,6 +102,7 @@ class RegrabOutdatedReleasesUseCase:
                 last_exported_info_hash=None,  # Reset export
                 name=match.release_name,  # Update name in case of rename
                 info_url=match.info_url,
+                published_at=match.publish_date,
             )
 
     @staticmethod

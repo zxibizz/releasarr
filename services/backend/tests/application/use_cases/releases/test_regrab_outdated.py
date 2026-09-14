@@ -40,6 +40,7 @@ def make_release(*, name: str = "Old.Release.Name", info_hash: str = "OLDHASH") 
         last_exported_info_hash=None,
         export_failures_count=0,
         info_url="https://tracker.example/details/1",
+        published_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
 
@@ -48,6 +49,7 @@ def make_match(
     magnet_link: str | None = "magnet:?xt=urn:btih:NEWHASH",
     release_name: str = "New.Release.Name",
     info_url: str | None = "https://tracker.example/details/1-updated",
+    publish_date: datetime | None = datetime(2026, 2, 1, tzinfo=UTC),
 ) -> ReleaseSearchResultRecord:
     return ReleaseSearchResultRecord(
         release_id=RELEASE_ID,
@@ -61,6 +63,7 @@ def make_match(
         quality="1080p",
         source="prowlarr",
         request_id="req-1",
+        publish_date=publish_date,
     )
 
 
@@ -135,6 +138,7 @@ async def test_regrab_updates_name_and_info_url_when_hash_changed() -> None:
 
     assert repository.updates["name"] == match.release_name
     assert repository.updates["info_url"] == match.info_url
+    assert repository.updates["published_at"] == match.publish_date
     assert repository.updates["info_hash"] == "NEWHASH"
     assert len(download_service.calls) == 1
 

@@ -59,6 +59,7 @@ class Release(APIModel):
     torrent_source: str | None = None
     quality: str | None = None
     info_url: str | None = None
+    published_date: datetime | None = Field(default=None, validation_alias="published_at")
 
 
 class ReleasesResponse(PaginatedResponse):

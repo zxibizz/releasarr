@@ -79,3 +79,12 @@ export const formatDate = (value: string | number): string => safeFormat(value, 
 
 export const formatDateTime = (value: string | number): string =>
   safeFormat(value, dateTimeFormatter);
+
+const DAY_IN_MS = 86_400_000;
+
+export const daysSince = (value: string | number | null | undefined): number | null => {
+  if (value == null) return null;
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return null;
+  return Math.max(0, (Date.now() - timestamp) / DAY_IN_MS);
+};
