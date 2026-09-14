@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { authApi } from '@/features/auth/api';
 import { onAuthExpired, setAccessToken } from '@/lib/api/client';
+import { queryClient } from '@/lib/queryClient';
 import type { SessionUser } from '@/types';
 
 export type Permission = 'view_all_requests' | 'tasks' | 'indexers' | 'logs' | 'manage_users';
@@ -88,6 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(
     () =>
       onAuthExpired(() => {
+        // Whatever is cached (root folders, requests, ...) was fetched under
+        // the now-invalid session and must not be served to whoever logs in
+        // next in this tab.
+        queryClient.clear();
         setUser(null);
         setStatus('anonymous');
       }),
@@ -127,6 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(null);
           setUser(null);
           setStatus('anonymous');
+          // Otherwise the next login in this tab would see this user's
+          // cached responses (e.g. an admin's unrestricted root folders)
+          // before its own queries land.
+          queryClient.clear();
         }
       },
     }),
