@@ -22,6 +22,7 @@ class BaseMediaRequestDTO:
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
     exported_at: datetime | None = None
+    owner_user_id: str | None = None
 
 
 @dataclass(slots=True)

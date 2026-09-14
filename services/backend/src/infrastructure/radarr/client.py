@@ -351,5 +351,4 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         return await self._http.request_json(method, path, **kwargs)
 
 
-
 __all__ = ["RadarrHttpClient"]

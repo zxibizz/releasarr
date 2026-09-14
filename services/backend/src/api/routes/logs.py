@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_permission
 from src.api.errors import api_error
 from src.api.responses import error_responses
 from src.application.queries.logs import LogsPageResult
+from src.application.use_cases.auth import Permission
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.schemas.enums import LogService, RequestLogLevel, SyncJobKind
 from src.schemas.logs import LogsResponse, RequestLogEntry
 
-router = APIRouter(prefix="/logs", tags=["Logs"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/logs", tags=["Logs"], dependencies=[Depends(require_permission(Permission.LOGS))]
+)
 
 
 def _to_response(result: LogsPageResult) -> LogsResponse:

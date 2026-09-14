@@ -1,5 +1,4 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
-const API_KEY = import.meta.env.VITE_API_KEY ?? 'dev-secret';
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'The request was invalid. Please check the data and try again.',
@@ -63,11 +62,80 @@ const buildUrl = (path: string, query?: Record<string, QueryValue>): string => {
   return `${API_BASE_URL}${path}${queryString ? `?${queryString}` : ''}`;
 };
 
+// The access token lives in memory only, never in storage — an XSS payload can
+// still steal it for as long as the tab is open, but not after a reload, and
+// it never survives to be read back out of localStorage.
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+type AuthExpiredListener = () => void;
+const authExpiredListeners = new Set<AuthExpiredListener>();
+
+/** Subscribes to "the session could not be restored"; returns an unsubscribe function. */
+export function onAuthExpired(listener: AuthExpiredListener): () => void {
+  authExpiredListeners.add(listener);
+  return () => authExpiredListeners.delete(listener);
+}
+
+// These endpoints must never trigger a refresh attempt themselves, or a wrong
+// password would recurse into a second login call instead of just failing.
+const NEVER_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/setup', '/auth/logout'];
+
+const isAuthPath = (path: string): boolean =>
+  NEVER_REFRESH_PATHS.some((prefix) => path.startsWith(prefix));
+
+// Several requests can 401 at once when a token expires; this ensures they
+// share one refresh call instead of each racing the server with their own.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+          return false;
+        }
+        const body = (await response.json()) as { access_token?: string };
+        if (!body.access_token) {
+          return false;
+        }
+        setAccessToken(body.access_token);
+        return true;
+      } catch {
+        return false;
+      }
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 /**
  * Single entry point for every backend call. Returns parsed JSON, or undefined
  * for empty responses (204/205), and throws {@link ApiError} on failure.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return performRequest<T>(path, options, true);
+}
+
+async function performRequest<T>(
+  path: string,
+  options: RequestOptions,
+  allowRefresh: boolean,
+): Promise<T> {
   const { method = 'GET', body, query, signal } = options;
   const url = buildUrl(path, query);
 
@@ -75,8 +143,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
-  if (API_KEY) {
-    headers.set('X-API-Key', API_KEY);
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
   let response: Response;
@@ -85,6 +153,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       method,
       headers,
       signal,
+      credentials: 'include',
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
@@ -92,6 +161,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       throw new ApiError('The request was aborted.', { cause: error });
     }
     throw new ApiError('Network request failed.', { cause: error });
+  }
+
+  if (response.status === 401 && allowRefresh && !isAuthPath(path)) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return performRequest<T>(path, options, false);
+    }
+    setAccessToken(null);
+    authExpiredListeners.forEach((listener) => listener());
   }
 
   const raw = await response.text();

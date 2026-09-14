@@ -29,6 +29,7 @@ class BaseMediaRequest(APIModel):
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = Field(default_factory=dict)
     exported_at: datetime | None = None
+    owner_user_id: str | None = None
 
     @field_serializer("created_at", "updated_at", "exported_at")
     def _serialize_datetime(self, value: datetime | None) -> str | None:
@@ -113,6 +114,7 @@ class MediaRequestUpdate(APIModel):
     series_title: str | None = None
     series_year: int | None = None
     localizations: dict[str, MediaLocalization] | None = None
+    owner_user_id: str | None = None
 
 
 class RequestsResponse(PaginatedResponse):

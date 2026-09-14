@@ -12,6 +12,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.releases import (
     _create_use_case,
     _delete_use_case,
@@ -40,10 +41,9 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
-from src.core.container import get_container
 from src.domain.enums import ReleaseStatus
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 def make_release_dto() -> ReleaseDTO:
@@ -464,10 +464,11 @@ async def test_queue_manual_release_conflict_returns_409(api_client: AsyncClient
 
 @pytest.mark.asyncio
 async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.get("/releases")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {
         "code": "unauthorized",
-        "message": "Invalid API key",
+        "message": "Authentication required",
         "details": None,
     }

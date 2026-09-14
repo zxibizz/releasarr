@@ -38,6 +38,8 @@ const mockMovieRequests: MovieRequest[] = [
     created_at: '2024-01-16T09:15:00Z',
     updated_at: '2024-01-16T12:30:00Z',
     imdb_id: 'tt1375666',
+    // Owned by the restricted demo user, so its scoped view isn't empty.
+    owner_user_id: 'user-1',
   },
   {
     id: '3',
@@ -124,6 +126,7 @@ const mockSeriesRequests: SeriesRequest[] = [
         overview: 'Уолт и Джесси пытаются замести следы.',
       },
     },
+    owner_user_id: 'user-1',
   },
   {
     id: '7',

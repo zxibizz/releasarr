@@ -21,4 +21,20 @@ def error_responses(entries: dict[int, str]) -> ResponsesDoc:
     return {code: error_response(description) for code, description in entries.items()}
 
 
-__all__ = ["ResponsesDoc", "error_response", "error_responses"]
+# Shared with every route module: spread into a route's own status-to-description
+# dict before calling error_responses(), e.g.
+# ``error_responses({**ADMIN_REQUIRED_RESPONSES, 404: "..."})``.
+AUTH_REQUIRED_RESPONSES: dict[int, str] = {401: "Authentication required."}
+ADMIN_REQUIRED_RESPONSES: dict[int, str] = {
+    401: "Authentication required.",
+    403: "Administrator privileges are required.",
+}
+
+
+__all__ = [
+    "ADMIN_REQUIRED_RESPONSES",
+    "AUTH_REQUIRED_RESPONSES",
+    "ResponsesDoc",
+    "error_response",
+    "error_responses",
+]

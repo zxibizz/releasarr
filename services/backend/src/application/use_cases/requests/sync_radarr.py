@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from typing import cast
 from uuid import uuid4
 
-from src.application.utility.metadata_cache import SupportsWarning
-
 from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import (
@@ -24,7 +22,7 @@ from src.application.utility.localization import (
     LocalizationPicker,
     merge_default_localization,
 )
-from src.application.utility.metadata_cache import get_cached_metadata
+from src.application.utility.metadata_cache import SupportsWarning, get_cached_metadata
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -85,7 +83,9 @@ class SyncRadarrMediaRequestsUseCase:
         )
         return result
 
-    async def sync_movie_by_id(self, movie_id: int) -> str | None:
+    async def sync_movie_by_id(
+        self, movie_id: int, *, owner_user_id: str | None = None
+    ) -> str | None:
         """Create or refresh the request for a single movie.
 
         Serves the add-request flow, where the request has to exist by the time
@@ -96,12 +96,12 @@ class SyncRadarrMediaRequestsUseCase:
 
         self._metadata_cache.clear()
         details = await self._radarr.get_movie(movie_id)
-        await self._sync_movie(details)
+        await self._sync_movie(details, owner_user_id=owner_user_id)
 
         record = await self._repository.find_by_radarr(radarr_movie_id=movie_id)
         return None if record is None else record.id
 
-    async def _sync_movie(self, details: MovieDetails) -> str:
+    async def _sync_movie(self, details: MovieDetails, *, owner_user_id: str | None = None) -> str:
         """Create or update a Radarr-backed request for a single movie."""
 
         existing = await self._repository.find_by_radarr(radarr_movie_id=details.id)
@@ -134,6 +134,7 @@ class SyncRadarrMediaRequestsUseCase:
                 status=MediaRequestStatus.PENDING,
                 radarr_movie_id=details.id,
                 localizations=localizations,
+                owner_user_id=owner_user_id,
             )
             await self._repository.create_request(data)
             self._logger.debug(

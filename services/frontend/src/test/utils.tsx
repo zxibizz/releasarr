@@ -5,8 +5,10 @@ import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
+import { AuthContext, type AuthContextValue } from '@/features/auth/AuthProvider';
 import '@/lib/i18n';
 import { theme } from '@/theme';
+import type { SessionUser } from '@/types';
 
 /** Roughly an iPhone 14 in CSS pixels. */
 export const MOBILE_WIDTH = 390;
@@ -53,11 +55,48 @@ const createTestQueryClient = () =>
     },
   });
 
+/**
+ * Defaults every test to an authenticated, unrestricted admin — the same
+ * stance the old single-API-key world had — so tests that don't care about
+ * auth don't have to think about it. Pass `auth` to `renderWithProviders` to
+ * exercise a restricted user or a specific permission set instead.
+ */
+const TEST_ADMIN_USER: SessionUser = {
+  id: 'test-admin',
+  username: 'admin',
+  display_name: 'Test Admin',
+  role: 'admin',
+  is_active: true,
+  can_view_all_requests: true,
+  can_access_tasks: true,
+  can_access_indexers: true,
+  can_access_logs: true,
+  allowed_root_folders: [],
+  last_login_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
+export const TEST_AUTH_VALUE: AuthContextValue = {
+  status: 'authenticated',
+  user: TEST_ADMIN_USER,
+  isAdmin: true,
+  hasPermission: () => true,
+  login: async () => {},
+  completeSetup: async () => {},
+  logout: async () => {},
+};
+
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/', ...options }: RenderOptions & { route?: string } = {},
+  {
+    route = '/',
+    auth,
+    ...options
+  }: RenderOptions & { route?: string; auth?: Partial<AuthContextValue> } = {},
 ) {
   const queryClient = createTestQueryClient();
+  const authValue: AuthContextValue = { ...TEST_AUTH_VALUE, ...auth };
 
   // Mirrors the providers main.tsx mounts, so a component that opens a confirm
   // dialog through the modals manager has somewhere to render it.
@@ -65,7 +104,9 @@ export function renderWithProviders(
     <MantineProvider theme={theme} forceColorScheme="dark" env="test">
       <QueryClientProvider client={queryClient}>
         <ModalsProvider>
-          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          <AuthContext.Provider value={authValue}>
+            <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          </AuthContext.Provider>
         </ModalsProvider>
       </QueryClientProvider>
     </MantineProvider>

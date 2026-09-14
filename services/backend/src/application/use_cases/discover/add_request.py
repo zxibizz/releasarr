@@ -10,6 +10,7 @@ from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.radarr import RadarrService
 from src.application.interfaces.sonarr import SonarrService
 from src.application.use_cases.discover.exceptions import (
+    DisallowedRootFolderError,
     InvalidRootFolderError,
     MediaNotFoundError,
     NoQualityProfileError,
@@ -32,6 +33,9 @@ class AddMediaRequestCommand:
     root_folder_path: str
     season_numbers: list[int] = field(default_factory=list)
     monitor_new_seasons: bool = False
+    owner_user_id: str | None = None
+    # None means the caller is unrestricted; see allowed_root_folders().
+    allowed_root_folders: list[str] | None = None
 
 
 class AddMediaRequestUseCase:
@@ -87,7 +91,9 @@ class AddMediaRequestUseCase:
             # series monitoring nothing is not something anyone asked for.
             if not seasons:
                 raise SeasonSelectionError("At least one season must be selected")
-            await self._validate_root_folder(MediaType.SERIES, command.root_folder_path)
+            await self._validate_root_folder(
+                MediaType.SERIES, command.root_folder_path, command.allowed_root_folders
+            )
             series_id = await self._sonarr.add_series(
                 tvdb_id=command.provider_id,
                 root_folder_path=command.root_folder_path,
@@ -119,7 +125,9 @@ class AddMediaRequestUseCase:
         # now would record every one of its seasons as empty.
         await self._sonarr.wait_for_series_episodes(series_id, seasons)
 
-        request_ids = await self._sync_sonarr.sync_series(series_id, seasons)
+        request_ids = await self._sync_sonarr.sync_series(
+            series_id, seasons, owner_user_id=command.owner_user_id
+        )
         self._logger.info(
             "Added series requests",
             tvdb_id=command.provider_id,
@@ -139,7 +147,9 @@ class AddMediaRequestUseCase:
 
         movie_id = lookup.existing_movie_id
         if movie_id is None:
-            await self._validate_root_folder(MediaType.MOVIE, command.root_folder_path)
+            await self._validate_root_folder(
+                MediaType.MOVIE, command.root_folder_path, command.allowed_root_folders
+            )
             movie_id = await self._radarr.add_movie(
                 tmdb_id=command.provider_id,
                 root_folder_path=command.root_folder_path,
@@ -148,7 +158,9 @@ class AddMediaRequestUseCase:
         else:
             await self._radarr.set_movie_monitored(movie_id)
 
-        request_id = await self._sync_radarr.sync_movie_by_id(movie_id)
+        request_id = await self._sync_radarr.sync_movie_by_id(
+            movie_id, owner_user_id=command.owner_user_id
+        )
         self._logger.info(
             "Added movie request",
             tmdb_id=command.provider_id,
@@ -178,13 +190,20 @@ class AddMediaRequestUseCase:
             raise NoQualityProfileError(media_type)
         return profiles[0].id
 
-    async def _validate_root_folder(self, media_type: MediaType, root_folder_path: str) -> None:
+    async def _validate_root_folder(
+        self,
+        media_type: MediaType,
+        root_folder_path: str,
+        allowed_root_folders: list[str] | None,
+    ) -> None:
         if media_type == MediaType.SERIES:
             folders = await self._sonarr.get_root_folders()
         else:
             folders = await self._radarr.get_root_folders()
         if not any(folder.path == root_folder_path for folder in folders):
             raise InvalidRootFolderError(root_folder_path)
+        if allowed_root_folders is not None and root_folder_path not in allowed_root_folders:
+            raise DisallowedRootFolderError(root_folder_path)
 
     async def _load_requests(self, request_ids: list[str]) -> list[MediaRequestDTO]:
         requests: list[MediaRequestDTO] = []

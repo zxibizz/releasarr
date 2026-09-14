@@ -12,6 +12,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.discover import (
     _add_request_use_case,
     _root_folders_use_case,
@@ -33,11 +34,12 @@ from src.application.use_cases.discover.exceptions import (
     SeasonSelectionError,
 )
 from src.application.use_cases.requests.dto import MediaRequestDTO, SeriesRequestDTO
-from src.core.container import get_container
 from src.domain.enums import MediaRequestStatus, MediaType
 from src.infrastructure.http import HttpClientError
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+# Auth is satisfied globally by the conftest override; this header is unused
+# but kept so call sites do not need touching.
+API_KEY_HEADER: dict[str, str] = {}
 
 
 @contextmanager
@@ -91,7 +93,9 @@ class FakeRootFoldersUseCase:
         self._error = error
         self.calls: list[MediaType] = []
 
-    async def execute(self, media_type: MediaType) -> list[RootFolderDTO]:
+    async def execute(
+        self, media_type: MediaType, *, allowed_paths: list[str] | None = None
+    ) -> list[RootFolderDTO]:
         self.calls.append(media_type)
         if self._error is not None:
             raise self._error
@@ -474,6 +478,7 @@ async def test_discover_routes_require_an_api_key(
     method: str,
     path: str,
 ) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.request(method, path, json={})
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

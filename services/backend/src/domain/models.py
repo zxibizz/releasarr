@@ -8,6 +8,7 @@ from enum import Enum
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -35,6 +36,7 @@ from src.domain.enums import (
     SyncJobKind,
     SyncJobStatus,
     SyncJobTrigger,
+    UserRole,
 )
 
 JSONDict = MutableDict.as_mutable(JSON)
@@ -130,6 +132,11 @@ class MediaRequest(Base):
     # Set when a release's files are accepted by Sonarr or Radarr. Left null when
     # the arr filled the request by itself, which is not an export by releasarr.
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Null means the *arr sync created it with nobody behind it, not "deleted user".
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -337,11 +344,130 @@ class ScheduledTask(Base):
     last_error: Mapped[str | None] = mapped_column(Text())
 
 
+class User(Base):
+    """A human account. Created by an admin, or as the first-run bootstrap admin."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    display_name: Mapped[str | None] = mapped_column(String(64))
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        build_enum(UserRole, "user_role"),
+        nullable=False,
+        default=UserRole.USER,
+        server_default=UserRole.USER.value,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    can_view_all_requests: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    can_access_tasks: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    can_access_indexers: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    can_access_logs: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    # Empty means unrestricted; entries are Sonarr/Radarr root folder paths.
+    allowed_root_folders: Mapped[list[str]] = mapped_column(JSONList, nullable=False, default=list)
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class RefreshToken(Base):
+    """A rotated refresh token. Only the hash is stored; the cookie holds the plaintext."""
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (Index("ix_refresh_tokens_family_id", "family_id"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Every token born from the same login shares this id, so reuse of an
+    # already-rotated token can revoke the whole chain instead of just itself.
+    family_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    # Whether "remember me" was checked at login; each rotation keeps this so a
+    # remembered session does not shrink to a browser-session lifetime.
+    remember: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ServiceApiKey(Base):
+    """A hashed key a service (e.g. the bot) authenticates with, acting as ``user_id``."""
+
+    __tablename__ = "service_api_keys"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Shown in the UI so an admin can tell keys apart without ever seeing the rest.
+    prefix: Mapped[str] = mapped_column(String(12), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    can_impersonate: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 __all__ = [
     "RELEASE_REQUEST_LINKS",
     "MediaRequest",
+    "RefreshToken",
     "Release",
     "ReleaseFile",
     "ScheduledTask",
+    "ServiceApiKey",
     "SyncJob",
+    "User",
 ]

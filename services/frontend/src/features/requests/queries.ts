@@ -130,3 +130,24 @@ export function useRemoveRequest() {
     },
   });
 }
+
+export function useUpdateRequestOwner(id: string | undefined) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (ownerUserId: string | null) => requestsApi.updateOwner(id ?? '', ownerUserId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(requestKeys.detail(id ?? ''), updated);
+      notifications.show({ message: t('requestPage.owner.saved'), color: 'teal' });
+      void queryClient.invalidateQueries({ queryKey: requestKeys.lists() });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('requestPage.owner.saveFailed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}

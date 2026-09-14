@@ -11,12 +11,12 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.logs import _get_use_case
 from src.application.queries.logs import LogsPageResult
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
-from src.core.container import get_container
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 class FakeLogsUseCase(ListLogsUseCase):
@@ -179,10 +179,11 @@ async def test_list_logs_rejects_an_unknown_level(api_client: AsyncClient) -> No
 
 @pytest.mark.asyncio
 async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.get("/logs")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {
         "code": "unauthorized",
-        "message": "Invalid API key",
+        "message": "Authentication required",
         "details": None,
     }

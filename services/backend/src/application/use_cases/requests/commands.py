@@ -15,6 +15,9 @@ class ListRequestsOptions:
     per_page: int | None = None
     status: MediaRequestStatus | None = None
     media_type: MediaType | None = None
+    # Set by the route from the caller's scope (or an admin's explicit filter).
+    # None means unrestricted, not "owned by nobody".
+    owner_user_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -62,6 +65,7 @@ class UpdateMediaRequestCommand:
     series_title: str | None | _Unset = field(default=UNSET)
     series_year: int | None | _Unset = field(default=UNSET)
     localizations: dict[str, MediaLocalization] | None | _Unset = field(default=UNSET)
+    owner_user_id: str | None | _Unset = field(default=UNSET)
 
     def is_empty(self) -> bool:
         """Return True when no field was supplied in the update payload."""

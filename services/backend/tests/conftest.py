@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import os
+
+# Must be set before anything imports src.settings.config, since AppSettings is
+# read once and cached; a blank secret would otherwise fail container startup.
+os.environ.setdefault("RELEASARR_AUTH_SECRET", "test-secret")
+
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -16,9 +23,46 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
+from src.application.interfaces.users import UserRecord
+from src.application.use_cases.auth import Principal
 from src.db import Base
 from src.db.session import DBManager
 from src.domain import models  # noqa: F401  (ensures models register on the metadata)
+from src.domain.enums import UserRole
+
+# Every route used to accept any request carrying the single global API key.
+# Standing in for that here keeps every existing test authenticated as an
+# unrestricted admin by default; tests exercising auth itself remove the
+# override for the one call they care about.
+TEST_ADMIN_USER = UserRecord(
+    id="test-admin",
+    username="admin",
+    display_name="Test Admin",
+    password_hash="unused",
+    role=UserRole.ADMIN,
+    is_active=True,
+    can_view_all_requests=True,
+    can_access_tasks=True,
+    can_access_indexers=True,
+    can_access_logs=True,
+    allowed_root_folders=[],
+    failed_login_attempts=0,
+    locked_until=None,
+    last_login_at=None,
+    created_at=datetime.now(UTC),
+    updated_at=datetime.now(UTC),
+)
+TEST_ADMIN_PRINCIPAL = Principal(user=TEST_ADMIN_USER, via="session")
+
+
+@pytest.fixture(autouse=True)
+def _default_authenticated_principal() -> Iterator[None]:
+    app.dependency_overrides[get_principal] = lambda: TEST_ADMIN_PRINCIPAL
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_principal, None)
 
 
 @pytest.fixture()

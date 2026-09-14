@@ -16,6 +16,7 @@ from src.domain.enums import (
     SyncJobKind,
     SyncJobStatus,
     SyncJobTrigger,
+    UserRole,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "SyncJobKind",
     "SyncJobStatus",
     "SyncJobTrigger",
+    "UserRole",
 ]

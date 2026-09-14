@@ -11,9 +11,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_permission
 from src.api.responses import error_responses
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
+from src.application.use_cases.auth import Permission
 from src.application.use_cases.tasks.definitions import (
     SYNC_ALL_SEQUENCE,
     SYNC_DOWNLOADS_SEQUENCE,
@@ -36,7 +37,9 @@ from src.schemas.tasks import (
     SyncJobsResponse,
 )
 
-router = APIRouter(prefix="/tasks", tags=["Tasks"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/tasks", tags=["Tasks"], dependencies=[Depends(require_permission(Permission.TASKS))]
+)
 
 _SERVER_ERROR = "Unexpected server error."
 

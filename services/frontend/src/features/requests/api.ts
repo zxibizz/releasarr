@@ -14,6 +14,7 @@ export interface RequestListFilters {
   perPage?: number;
   status?: MediaRequestStatus;
   type?: MediaType;
+  owner?: string;
 }
 
 export const requestsApi = {
@@ -25,6 +26,7 @@ export const requestsApi = {
         per_page: filters.perPage,
         status: filters.status,
         type: filters.type,
+        owner: filters.owner,
       },
     }),
 
@@ -44,5 +46,11 @@ export const requestsApi = {
     apiRequest<SeriesSeasonsResponse>(`/requests/${encodeURIComponent(id)}/seasons`, {
       method: 'PUT',
       body: payload,
+    }),
+
+  updateOwner: (id: string, ownerUserId: string | null) =>
+    apiRequest<MediaRequest>(`/requests/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { owner_user_id: ownerUserId },
     }),
 };

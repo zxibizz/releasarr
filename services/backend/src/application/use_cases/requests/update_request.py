@@ -54,6 +54,8 @@ class UpdateMediaRequestUseCase:
             data.series_year = command.series_year
         if command.localizations is not UNSET:
             data.localizations = self._normalise_localizations(command.localizations)
+        if command.owner_user_id is not UNSET:
+            data.owner_user_id = command.owner_user_id
 
         record = await self._repository.update_request(request_id, data)
         if record is None:

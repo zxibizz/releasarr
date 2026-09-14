@@ -661,6 +661,181 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether first-run setup is required */
+        get: operations["getSetupStatus"];
+        put?: never;
+        /** Create the first admin account */
+        post: operations["completeSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log in with a username and password */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange the refresh cookie for a new access token */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current session */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's own profile and effective permissions */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user accounts */
+        get: operations["listUsers"];
+        put?: never;
+        /** Create a user account */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change the caller's own password */
+        post: operations["changeOwnPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Retrieve a single user account */
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
+        /** Delete a user account */
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        /** Update a user account */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/service-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List service API keys */
+        get: operations["listServiceKeys"];
+        put?: never;
+        /** Create a service API key */
+        post: operations["createServiceKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-keys/{keyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a service API key */
+        delete: operations["revokeServiceKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -801,6 +976,8 @@ export interface components {
              * @description When a release for this request was last accepted by Sonarr or Radarr.
              */
             exported_at?: string | null;
+            /** @description Identifier of the user this request belongs to. Null when unowned (e.g. auto-synced). */
+            owner_user_id?: string | null;
             /** @description Localized titles and overviews keyed by 3-letter language codes. */
             localizations?: {
                 [key: string]: components["schemas"]["MediaLocalization"];
@@ -899,6 +1076,8 @@ export interface components {
             localizations?: {
                 [key: string]: components["schemas"]["MediaLocalization"];
             } | null;
+            /** @description Reassign the request's owner. Admin only. */
+            owner_user_id?: string | null;
         };
         Release: {
             id: string;
@@ -1290,6 +1469,120 @@ export interface components {
             /** @description One request per requested season for a series, a single one for a movie. */
             requests: components["schemas"]["MediaRequest"][];
         };
+        /**
+         * @description Admin bypasses every per-user permission flag below.
+         * @enum {string}
+         */
+        UserRole: "admin" | "user";
+        User: {
+            id: string;
+            username: string;
+            display_name?: string | null;
+            role: components["schemas"]["UserRole"];
+            is_active: boolean;
+            /** @description See every request, not only ones owned by this user. */
+            can_view_all_requests: boolean;
+            can_access_tasks: boolean;
+            can_access_indexers: boolean;
+            can_access_logs: boolean;
+            /** @description Library root folders this user may add to. Empty means unrestricted. */
+            allowed_root_folders: string[];
+            /** Format: date-time */
+            last_login_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description The authenticated caller's own profile, as returned by GET /auth/me. */
+        SessionUser: components["schemas"]["User"];
+        UsersResponse: {
+            users: components["schemas"]["User"][];
+        };
+        CreateUserPayload: {
+            username: string;
+            password: string;
+            display_name?: string | null;
+            role?: components["schemas"]["UserRole"];
+            /** @default true */
+            is_active: boolean;
+            /** @default false */
+            can_view_all_requests: boolean;
+            /** @default false */
+            can_access_tasks: boolean;
+            /** @default false */
+            can_access_indexers: boolean;
+            /** @default false */
+            can_access_logs: boolean;
+            allowed_root_folders?: string[];
+        };
+        UpdateUserPayload: {
+            display_name?: string | null;
+            password?: string | null;
+            role?: components["schemas"]["UserRole"];
+            is_active?: boolean | null;
+            can_view_all_requests?: boolean | null;
+            can_access_tasks?: boolean | null;
+            can_access_indexers?: boolean | null;
+            can_access_logs?: boolean | null;
+            allowed_root_folders?: string[] | null;
+        };
+        ChangePasswordPayload: {
+            current_password: string;
+            new_password: string;
+        };
+        ServiceApiKey: {
+            id: string;
+            name: string;
+            /** @description First characters of the key, shown so an admin can tell keys apart. */
+            prefix: string;
+            /** @description The user identity this key acts as. */
+            user_id: string;
+            /** @description Whether this key may act as a different user via X-Act-As-User. */
+            can_impersonate: boolean;
+            is_active: boolean;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ServiceApiKeysResponse: {
+            service_keys: components["schemas"]["ServiceApiKey"][];
+        };
+        CreateServiceKeyPayload: {
+            name: string;
+            user_id: string;
+            /** @default false */
+            can_impersonate: boolean;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        ServiceApiKeyCreated: {
+            key: components["schemas"]["ServiceApiKey"];
+            /** @description The key's plaintext. Shown exactly once and never retrievable again. */
+            plaintext: string;
+        };
+        SetupStatus: {
+            /** @description Whether first-run setup must run before anything else. */
+            required: boolean;
+        };
+        SetupPayload: {
+            username: string;
+            password: string;
+            display_name?: string | null;
+        };
+        LoginPayload: {
+            username: string;
+            password: string;
+            /** @default false */
+            remember_me: boolean;
+        };
+        LoginResponse: {
+            access_token: string;
+            user: components["schemas"]["SessionUser"];
+        };
     };
     responses: never;
     parameters: {
@@ -1311,6 +1604,12 @@ export interface components {
         RequestStatus: components["schemas"]["MediaRequestStatus"];
         /** @description Filter requests by media type. */
         RequestType: components["schemas"]["MediaType"];
+        /** @description Filter requests by owner user id. Only callers with view_all_requests (or an admin) may use this; others are restricted to their own. */
+        RequestOwner: string;
+        /** @description Unique identifier for a user account. */
+        UserId: string;
+        /** @description Unique identifier for a service API key. */
+        ServiceKeyId: string;
         /** @description Filter releases by lifecycle status. */
         ReleaseStatus: components["schemas"]["ReleaseStatus"];
         /** @description Optional media request identifier to filter results. */
@@ -1352,6 +1651,8 @@ export interface operations {
                 status?: components["parameters"]["RequestStatus"];
                 /** @description Filter requests by media type. */
                 type?: components["parameters"]["RequestType"];
+                /** @description Filter requests by owner user id. Only callers with view_all_requests (or an admin) may use this; others are restricted to their own. */
+                owner?: components["parameters"]["RequestOwner"];
             };
             header?: never;
             path?: never;
@@ -1370,6 +1671,15 @@ export interface operations {
             };
             /** @description Invalid pagination or filter parameters. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller is restricted to their own requests and may not filter by owner. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3200,6 +3510,640 @@ export interface operations {
             };
             /** @description Prowlarr is not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSetupStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether an admin account still needs to be created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+        };
+    };
+    completeSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupPayload"];
+            };
+        };
+        responses: {
+            /** @description The admin account was created and a session started. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Setup has already been completed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginPayload"];
+            };
+        };
+        responses: {
+            /** @description Access token, plus a refresh cookie (Set-Cookie, httpOnly). The cookie's lifetime follows `remember_me`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Invalid username or password. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Account is temporarily locked due to repeated failed logins. */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A new access token and a rotated refresh cookie. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Refresh cookie is missing, invalid, or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended and the refresh cookie cleared. Idempotent, and works with no cookie at all. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authenticated user's profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionUser"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every user account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsersResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserPayload"];
+            };
+        };
+        responses: {
+            /** @description The created user. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Username is already taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    changeOwnPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordPayload"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required, or the current password was wrong. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a user account. */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description User not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a user account. */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description User not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This change would remove the last active admin. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a user account. */
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserPayload"];
+            };
+        };
+        responses: {
+            /** @description The updated user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description User not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This change would remove the last active admin. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listServiceKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every service API key. Only the prefix of each is ever shown. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceApiKeysResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createServiceKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServiceKeyPayload"];
+            };
+        };
+        responses: {
+            /** @description The created key, with its plaintext. The plaintext is shown here once and is not retrievable again. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceApiKeyCreated"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The user this key would act as does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeServiceKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a service API key. */
+                keyId: components["parameters"]["ServiceKeyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service key not found. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

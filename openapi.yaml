@@ -14,7 +14,8 @@ servers:
   - url: http://localhost:8001/api
     description: Local development server
 security:
-  - ApiKeyAuth: []
+  - BearerAuth: []
+  - ServiceKeyAuth: []
 paths:
   /requests:
     get:
@@ -26,6 +27,7 @@ paths:
         - $ref: '#/components/parameters/PerPage'
         - $ref: '#/components/parameters/RequestStatus'
         - $ref: '#/components/parameters/RequestType'
+        - $ref: '#/components/parameters/RequestOwner'
       responses:
         '200':
           description: Paged list of media requests.
@@ -35,6 +37,12 @@ paths:
                 $ref: '#/components/schemas/RequestsResponse'
         '400':
           description: Invalid pagination or filter parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The caller is restricted to their own requests and may not filter by owner.
           content:
             application/json:
               schema:
@@ -1416,13 +1424,436 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /auth/setup:
+    get:
+      tags: [Auth]
+      summary: Whether first-run setup is required
+      operationId: getSetupStatus
+      security: []
+      responses:
+        '200':
+          description: Whether an admin account still needs to be created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatus'
+    post:
+      tags: [Auth]
+      summary: Create the first admin account
+      operationId: completeSetup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupPayload'
+      responses:
+        '201':
+          description: The admin account was created and a session started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '409':
+          description: Setup has already been completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with a username and password
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginPayload'
+      responses:
+        '200':
+          description: >-
+            Access token, plus a refresh cookie (Set-Cookie, httpOnly). The
+            cookie's lifetime follows `remember_me`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid username or password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Account is temporarily locked due to repeated failed logins.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange the refresh cookie for a new access token
+      operationId: refreshSession
+      security: []
+      responses:
+        '200':
+          description: A new access token and a rotated refresh cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Refresh cookie is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: End the current session
+      operationId: logout
+      security: []
+      responses:
+        '204':
+          description: Session ended and the refresh cookie cleared. Idempotent, and works with no cookie at all.
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: The caller's own profile and effective permissions
+      operationId: getMe
+      responses:
+        '200':
+          description: The authenticated user's profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users:
+    get:
+      tags: [Users]
+      summary: List user accounts
+      operationId: listUsers
+      responses:
+        '200':
+          description: Every user account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Users]
+      summary: Create a user account
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserPayload'
+      responses:
+        '201':
+          description: The created user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username is already taken.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/me/password:
+    post:
+      tags: [Users]
+      summary: Change the caller's own password
+      operationId: changeOwnPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordPayload'
+      responses:
+        '204':
+          description: Password changed.
+        '401':
+          description: Authentication required, or the current password was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Retrieve a single user account
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: The requested user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Users]
+      summary: Update a user account
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserPayload'
+      responses:
+        '200':
+          description: The updated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: This change would remove the last active admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Users]
+      summary: Delete a user account
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: User deleted.
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: This change would remove the last active admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /service-keys:
+    get:
+      tags: [Users]
+      summary: List service API keys
+      operationId: listServiceKeys
+      responses:
+        '200':
+          description: Every service API key. Only the prefix of each is ever shown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceApiKeysResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Users]
+      summary: Create a service API key
+      operationId: createServiceKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceKeyPayload'
+      responses:
+        '201':
+          description: >-
+            The created key, with its plaintext. The plaintext is shown here
+            once and is not retrievable again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceApiKeyCreated'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The user this key would act as does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /service-keys/{keyId}:
+    delete:
+      tags: [Users]
+      summary: Revoke a service API key
+      operationId: revokeServiceKey
+      parameters:
+        - $ref: '#/components/parameters/ServiceKeyId'
+      responses:
+        '204':
+          description: Key revoked.
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Service key not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    ApiKeyAuth:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Short-lived access token obtained from /auth/login or /auth/refresh.
+    ServiceKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
-      description: API key required to authorize requests.
+      description: >-
+        A service API key, acting as the user it is bound to. May be combined
+        with X-Act-As-User to act as a different user, when the key allows it.
   parameters:
     RequestId:
       in: path
@@ -1487,6 +1918,28 @@ components:
       schema:
         $ref: '#/components/schemas/MediaType'
       description: Filter requests by media type.
+    RequestOwner:
+      in: query
+      name: owner
+      schema:
+        type: string
+      description: >-
+        Filter requests by owner user id. Only callers with view_all_requests
+        (or an admin) may use this; others are restricted to their own.
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a user account.
+    ServiceKeyId:
+      in: path
+      name: keyId
+      required: true
+      schema:
+        type: string
+      description: Unique identifier for a service API key.
     ReleaseStatus:
       in: query
       name: status
@@ -1795,6 +2248,10 @@ components:
           format: date-time
           nullable: true
           description: When a release for this request was last accepted by Sonarr or Radarr.
+        owner_user_id:
+          type: string
+          nullable: true
+          description: Identifier of the user this request belongs to. Null when unowned (e.g. auto-synced).
         localizations:
           type: object
           description: Localized titles and overviews keyed by 3-letter language codes.
@@ -1986,6 +2443,10 @@ components:
           description: Replace or clear localized metadata when provided.
           additionalProperties:
             $ref: '#/components/schemas/MediaLocalization'
+        owner_user_id:
+          type: string
+          nullable: true
+          description: Reassign the request's owner. Admin only.
     Release:
       type: object
       required:
@@ -2723,3 +3184,239 @@ components:
           description: One request per requested season for a series, a single one for a movie.
           items:
             $ref: '#/components/schemas/MediaRequest'
+    UserRole:
+      type: string
+      enum: [admin, user]
+      description: Admin bypasses every per-user permission flag below.
+    User:
+      type: object
+      required:
+        - id
+        - username
+        - role
+        - is_active
+        - can_view_all_requests
+        - can_access_tasks
+        - can_access_indexers
+        - can_access_logs
+        - allowed_root_folders
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+        can_view_all_requests:
+          type: boolean
+          description: See every request, not only ones owned by this user.
+        can_access_tasks:
+          type: boolean
+        can_access_indexers:
+          type: boolean
+        can_access_logs:
+          type: boolean
+        allowed_root_folders:
+          type: array
+          items:
+            type: string
+          description: Library root folders this user may add to. Empty means unrestricted.
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SessionUser:
+      allOf:
+        - $ref: '#/components/schemas/User'
+      description: The authenticated caller's own profile, as returned by GET /auth/me.
+    UsersResponse:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    CreateUserPayload:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+          default: true
+        can_view_all_requests:
+          type: boolean
+          default: false
+        can_access_tasks:
+          type: boolean
+          default: false
+        can_access_indexers:
+          type: boolean
+          default: false
+        can_access_logs:
+          type: boolean
+          default: false
+        allowed_root_folders:
+          type: array
+          items:
+            type: string
+    UpdateUserPayload:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+          nullable: true
+        can_view_all_requests:
+          type: boolean
+          nullable: true
+        can_access_tasks:
+          type: boolean
+          nullable: true
+        can_access_indexers:
+          type: boolean
+          nullable: true
+        can_access_logs:
+          type: boolean
+          nullable: true
+        allowed_root_folders:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ChangePasswordPayload:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
+    ServiceApiKey:
+      type: object
+      required: [id, name, prefix, user_id, can_impersonate, is_active, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        prefix:
+          type: string
+          description: First characters of the key, shown so an admin can tell keys apart.
+        user_id:
+          type: string
+          description: The user identity this key acts as.
+        can_impersonate:
+          type: boolean
+          description: Whether this key may act as a different user via X-Act-As-User.
+        is_active:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    ServiceApiKeysResponse:
+      type: object
+      required: [service_keys]
+      properties:
+        service_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceApiKey'
+    CreateServiceKeyPayload:
+      type: object
+      required: [name, user_id]
+      properties:
+        name:
+          type: string
+        user_id:
+          type: string
+        can_impersonate:
+          type: boolean
+          default: false
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    ServiceApiKeyCreated:
+      type: object
+      required: [key, plaintext]
+      properties:
+        key:
+          $ref: '#/components/schemas/ServiceApiKey'
+        plaintext:
+          type: string
+          description: The key's plaintext. Shown exactly once and never retrievable again.
+    SetupStatus:
+      type: object
+      required: [required]
+      properties:
+        required:
+          type: boolean
+          description: Whether first-run setup must run before anything else.
+    SetupPayload:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+    LoginPayload:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        remember_me:
+          type: boolean
+          default: false
+    LoginResponse:
+      type: object
+      required: [access_token, user]
+      properties:
+        access_token:
+          type: string
+        user:
+          $ref: '#/components/schemas/SessionUser'

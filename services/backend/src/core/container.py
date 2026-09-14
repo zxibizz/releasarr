@@ -18,6 +18,15 @@ from src.application.interfaces.releases import (
 )
 from src.application.queries.logs import ListLogsQuery
 from src.application.queries.releases import ReleaseSummaryQuery
+from src.application.use_cases.auth import (
+    AuthenticatePrincipalUseCase,
+    BootstrapAdminUseCase,
+    GetSetupStatusUseCase,
+    LoginUseCase,
+    LogoutUseCase,
+    RefreshSessionUseCase,
+    SessionIssuer,
+)
 from src.application.use_cases.discover.add_request import AddMediaRequestUseCase
 from src.application.use_cases.discover.list_root_folders import ListRootFoldersUseCase
 from src.application.use_cases.discover.list_season_options import ListSeasonOptionsUseCase
@@ -70,9 +79,26 @@ from src.application.use_cases.tasks.get_sync_job import (
     ListScheduledTasksUseCase,
     ListSyncJobsUseCase,
 )
+from src.application.use_cases.users import (
+    ChangePasswordUseCase,
+    CreateServiceKeyUseCase,
+    CreateUserUseCase,
+    DeleteUserUseCase,
+    GetUserUseCase,
+    ListServiceKeysUseCase,
+    ListUsersUseCase,
+    RevokeServiceKeyUseCase,
+    UpdateUserUseCase,
+)
 from src.core.logging import configure_logging, logger
 from src.db.session import DBManager, get_db_manager
 from src.domain.enums import LogService
+from src.infrastructure.auth import (
+    Argon2PasswordHasher,
+    JwtAccessTokenCodec,
+    SqlAlchemyRefreshTokenRepository,
+    SqlAlchemyServiceApiKeyRepository,
+)
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests import SqlAlchemyMediaRequestRepository
 from src.infrastructure.prowlarr import ProwlarrIndexerDirectory, ProwlarrReleaseSearchService
@@ -95,6 +121,7 @@ from src.infrastructure.sync_jobs import (
 )
 from src.infrastructure.tmdb import TmdbHttpClient
 from src.infrastructure.tvdb import TvdbHttpClient
+from src.infrastructure.users import SqlAlchemyUserRepository
 from src.settings.config import AppSettings, get_settings
 
 if TYPE_CHECKING:
@@ -122,10 +149,30 @@ class RepositoryContainer:
     def scheduled_tasks(self) -> SqlAlchemyScheduledTaskRepository:
         return SqlAlchemyScheduledTaskRepository(db=self._container.db_manager)
 
+    @cached_property
+    def users(self) -> SqlAlchemyUserRepository:
+        return SqlAlchemyUserRepository(db=self._container.db_manager)
+
+    @cached_property
+    def refresh_tokens(self) -> SqlAlchemyRefreshTokenRepository:
+        return SqlAlchemyRefreshTokenRepository(db=self._container.db_manager)
+
+    @cached_property
+    def service_api_keys(self) -> SqlAlchemyServiceApiKeyRepository:
+        return SqlAlchemyServiceApiKeyRepository(db=self._container.db_manager)
+
 
 @dataclass
 class ServiceContainer:
     _container: AppContainer
+
+    @cached_property
+    def password_hasher(self) -> Argon2PasswordHasher:
+        return Argon2PasswordHasher()
+
+    @cached_property
+    def access_token_codec(self) -> JwtAccessTokenCodec:
+        return JwtAccessTokenCodec(secret=self._container.settings.auth_secret.get_secret_value())
 
     @cached_property
     def release_lifecycle(self) -> ReleaseLifecycleService:
@@ -253,6 +300,14 @@ class UseCaseContainer:
     _container: AppContainer
 
     @cached_property
+    def auth(self) -> AuthUseCases:
+        return AuthUseCases(self._container)
+
+    @cached_property
+    def users(self) -> UserUseCases:
+        return UserUseCases(self._container)
+
+    @cached_property
     def discover(self) -> DiscoverUseCases:
         return DiscoverUseCases(self._container)
 
@@ -275,6 +330,122 @@ class UseCaseContainer:
     @cached_property
     def tasks(self) -> TaskUseCases:
         return TaskUseCases(self._container)
+
+
+@dataclass
+class AuthUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def _session_issuer(self) -> SessionIssuer:
+        settings = self._container.settings
+        return SessionIssuer(
+            refresh_tokens=self._container.repositories.refresh_tokens,
+            access_tokens=self._container.services.access_token_codec,
+            access_token_ttl_seconds=settings.auth_access_token_ttl_seconds,
+            session_ttl_seconds=settings.auth_refresh_token_ttl_seconds,
+            remember_ttl_seconds=settings.auth_refresh_remember_ttl_seconds,
+        )
+
+    @cached_property
+    def login(self) -> LoginUseCase:
+        settings = self._container.settings
+        return LoginUseCase(
+            users=self._container.repositories.users,
+            password_hasher=self._container.services.password_hasher,
+            session_issuer=self._session_issuer,
+            max_failed_logins=settings.auth_max_failed_logins,
+            lockout_seconds=settings.auth_lockout_seconds,
+        )
+
+    @cached_property
+    def refresh(self) -> RefreshSessionUseCase:
+        return RefreshSessionUseCase(
+            users=self._container.repositories.users,
+            refresh_tokens=self._container.repositories.refresh_tokens,
+            session_issuer=self._session_issuer,
+        )
+
+    @cached_property
+    def logout(self) -> LogoutUseCase:
+        return LogoutUseCase(refresh_tokens=self._container.repositories.refresh_tokens)
+
+    @cached_property
+    def authenticate(self) -> AuthenticatePrincipalUseCase:
+        return AuthenticatePrincipalUseCase(
+            users=self._container.repositories.users,
+            service_api_keys=self._container.repositories.service_api_keys,
+            access_tokens=self._container.services.access_token_codec,
+        )
+
+    @cached_property
+    def bootstrap_admin(self) -> BootstrapAdminUseCase:
+        return BootstrapAdminUseCase(
+            users=self._container.repositories.users,
+            password_hasher=self._container.services.password_hasher,
+            session_issuer=self._session_issuer,
+        )
+
+    @cached_property
+    def setup_status(self) -> GetSetupStatusUseCase:
+        return GetSetupStatusUseCase(users=self._container.repositories.users)
+
+
+@dataclass
+class UserUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def list(self) -> ListUsersUseCase:
+        return ListUsersUseCase(users=self._container.repositories.users)
+
+    @cached_property
+    def get(self) -> GetUserUseCase:
+        return GetUserUseCase(users=self._container.repositories.users)
+
+    @cached_property
+    def create(self) -> CreateUserUseCase:
+        return CreateUserUseCase(
+            users=self._container.repositories.users,
+            password_hasher=self._container.services.password_hasher,
+        )
+
+    @cached_property
+    def update(self) -> UpdateUserUseCase:
+        return UpdateUserUseCase(
+            users=self._container.repositories.users,
+            password_hasher=self._container.services.password_hasher,
+        )
+
+    @cached_property
+    def delete(self) -> DeleteUserUseCase:
+        return DeleteUserUseCase(users=self._container.repositories.users)
+
+    @cached_property
+    def change_password(self) -> ChangePasswordUseCase:
+        return ChangePasswordUseCase(
+            users=self._container.repositories.users,
+            password_hasher=self._container.services.password_hasher,
+        )
+
+    @cached_property
+    def create_service_key(self) -> CreateServiceKeyUseCase:
+        return CreateServiceKeyUseCase(
+            service_api_keys=self._container.repositories.service_api_keys,
+            users=self._container.repositories.users,
+        )
+
+    @cached_property
+    def list_service_keys(self) -> ListServiceKeysUseCase:
+        return ListServiceKeysUseCase(
+            service_api_keys=self._container.repositories.service_api_keys
+        )
+
+    @cached_property
+    def revoke_service_key(self) -> RevokeServiceKeyUseCase:
+        return RevokeServiceKeyUseCase(
+            service_api_keys=self._container.repositories.service_api_keys
+        )
 
 
 @dataclass
@@ -597,6 +768,10 @@ class AppContainer:
         """
 
         configure_logging(self.settings, service=service)
+        if not self.settings.auth_secret.get_secret_value():
+            # A blank signing secret would mean any deployment's tokens are
+            # forgeable from the (public) source, not merely misconfigured.
+            raise RuntimeError("RELEASARR_AUTH_SECRET must be set to a non-empty value")
         return None
 
     async def shutdown(self) -> None:
