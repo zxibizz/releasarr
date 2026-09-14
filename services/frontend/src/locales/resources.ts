@@ -52,6 +52,8 @@ export const resources = {
         save: 'Save',
         edit: 'Edit',
         delete: 'Delete',
+        yes: 'Yes',
+        no: 'No',
       },
       permissions: {
         viewAllRequests: 'View all requests',
@@ -94,6 +96,32 @@ export const resources = {
           title: 'Delete user',
           body: 'Remove {{username}}? This cannot be undone.',
           confirm: 'Delete',
+        },
+      },
+      serviceKeys: {
+        title: 'Service API keys',
+        newKey: 'New key',
+        description:
+          'Lets an external service (such as a bot) call the API as a specific user. The key is shown once, at creation.',
+        empty: 'No service keys yet.',
+        columns: {
+          name: 'Name',
+          key: 'Key',
+          actsAs: 'Acts as',
+          impersonate: 'Can impersonate',
+        },
+        form: {
+          title: 'Create service key',
+          name: 'Name',
+          actsAs: 'Acts as',
+          canImpersonate: 'Can act as a different user (X-Act-As-User)',
+          onlyShownOnce: 'This key is shown only once. Copy it now; it cannot be retrieved again.',
+          copy: 'Copy key',
+        },
+        revoke: {
+          title: 'Revoke service key',
+          body: 'Revoke {{name}}? Anything using it will stop working immediately.',
+          action: 'Revoke',
         },
       },
       mediaType: {
@@ -153,6 +181,8 @@ export const resources = {
           anyStatus: 'Any',
           movies: 'Movies',
           series: 'Series',
+          ownerLabel: 'Owner',
+          ownerAny: 'Anyone',
         },
         sort: {
           created_desc: 'Newest first',
@@ -842,6 +872,8 @@ export const resources = {
         save: 'Сохранить',
         edit: 'Изменить',
         delete: 'Удалить',
+        yes: 'Да',
+        no: 'Нет',
       },
       permissions: {
         viewAllRequests: 'Просмотр всех запросов',
@@ -884,6 +916,33 @@ export const resources = {
           title: 'Удалить пользователя',
           body: 'Удалить {{username}}? Это действие нельзя отменить.',
           confirm: 'Удалить',
+        },
+      },
+      serviceKeys: {
+        title: 'Сервисные API-ключи',
+        newKey: 'Новый ключ',
+        description:
+          'Позволяет внешнему сервису (например, боту) обращаться к API от имени определённого пользователя. Ключ показывается один раз, при создании.',
+        empty: 'Пока нет сервисных ключей.',
+        columns: {
+          name: 'Название',
+          key: 'Ключ',
+          actsAs: 'От имени',
+          impersonate: 'Может действовать как другой',
+        },
+        form: {
+          title: 'Создать сервисный ключ',
+          name: 'Название',
+          actsAs: 'От имени',
+          canImpersonate: 'Может действовать как другой пользователь (X-Act-As-User)',
+          onlyShownOnce:
+            'Этот ключ показывается один раз. Скопируйте его сейчас — повторно получить его не получится.',
+          copy: 'Скопировать ключ',
+        },
+        revoke: {
+          title: 'Отозвать сервисный ключ',
+          body: 'Отозвать {{name}}? Всё, что использует его, немедленно перестанет работать.',
+          action: 'Отозвать',
         },
       },
       mediaType: {
@@ -953,6 +1012,8 @@ export const resources = {
           anyStatus: 'Любой',
           movies: 'Фильмы',
           series: 'Сериалы',
+          ownerLabel: 'Владелец',
+          ownerAny: 'Любой',
         },
         sort: {
           created_desc: 'Сначала новые',

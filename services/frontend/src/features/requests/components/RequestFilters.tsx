@@ -82,6 +82,10 @@ export interface RequestFiltersProps {
   setSearch: (value: string) => void;
   sort: SortKey;
   setSort: (value: SortKey) => void;
+  /** Only callers with view_all_requests get an owner to filter by. */
+  owner?: string | null;
+  setOwner?: (value: string | null) => void;
+  ownerOptions?: { value: string; label: string }[];
 }
 
 export function RequestFilters({
@@ -95,12 +99,16 @@ export function RequestFilters({
   setSearch,
   sort,
   setSort,
+  owner = null,
+  setOwner,
+  ownerOptions,
 }: RequestFiltersProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [expanded, { toggle }] = useDisclosure(false);
 
-  const adjusted = type !== DEFAULT_TYPE || status !== DEFAULT_STATUS || sort !== DEFAULT_SORT;
+  const adjusted =
+    type !== DEFAULT_TYPE || status !== DEFAULT_STATUS || sort !== DEFAULT_SORT || Boolean(owner);
   return (
     <Stack gap="xs">
       <Group gap="xs" wrap="nowrap" align={isMobile ? 'center' : 'flex-end'}>
@@ -143,6 +151,17 @@ export function RequestFilters({
               label={statusLabel}
             />
           </FilterRow>
+          {ownerOptions && setOwner ? (
+            <Select
+              label={t('requestsList.filters.ownerLabel')}
+              placeholder={t('requestsList.filters.ownerAny')}
+              clearable
+              value={owner}
+              onChange={setOwner}
+              data={ownerOptions}
+              w={{ base: '100%', sm: 200 }}
+            />
+          ) : null}
           <Select
             label={t('requestsList.sortAriaLabel')}
             value={sort}

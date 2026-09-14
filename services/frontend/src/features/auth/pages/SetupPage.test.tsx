@@ -24,18 +24,19 @@ describe('SetupPage', () => {
   it('rejects a blank username without calling the backend', async () => {
     renderWithProviders(<SetupPage />);
 
-    await userEvent.type(screen.getByLabelText('Password'), 'a-long-password');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'a-long-password');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
-    expect(await screen.findByText('A username is required.')).toBeInTheDocument();
+    // The username input is HTML-required, so the browser's own constraint
+    // validation blocks the submit before the component's handler ever runs.
     expect(completeSetup).not.toHaveBeenCalled();
   });
 
   it('rejects a short password without calling the backend', async () => {
     renderWithProviders(<SetupPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'root');
-    await userEvent.type(screen.getByLabelText('Password'), 'short');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'root');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'short');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
     expect(
@@ -48,8 +49,8 @@ describe('SetupPage', () => {
     completeSetup.mockResolvedValueOnce(undefined);
     renderWithProviders(<SetupPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'root');
-    await userEvent.type(screen.getByLabelText('Password'), 'a-long-password');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'root');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'a-long-password');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
     await waitFor(() =>
@@ -62,8 +63,8 @@ describe('SetupPage', () => {
     completeSetup.mockRejectedValueOnce(new Error('setup already complete'));
     renderWithProviders(<SetupPage />);
 
-    await userEvent.type(screen.getByLabelText('Username'), 'root');
-    await userEvent.type(screen.getByLabelText('Password'), 'a-long-password');
+    await userEvent.type(screen.getByLabelText(/^username/i), 'root');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'a-long-password');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
     expect(

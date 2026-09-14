@@ -76,6 +76,32 @@ Note the prefix asymmetry: the spec's `servers` entry is `/api` because that is 
 serves under, but FastAPI mounts routes at `/requests`, `/discover`, and so on. The app itself
 has no `/api` prefix.
 
+## Authentication and authorization
+
+Every request carries one of two credentials: an `Authorization: Bearer` access token (a human
+session, 15 minutes, issued by `/auth/login`) or an `X-API-Key` service key (long-lived, hashed,
+bound to one user — for the future bot, not a person). Both resolve to the same `Principal`
+(`src/application/use_cases/auth/permissions.py`), which is what every route depends on via
+`require_user` / `require_admin` / `require_permission(...)` — see
+[`backend.md`](backend.md#auth-and-permissions).
+
+A session's refresh token is the one piece of this that is not a bearer token: it lives in an
+httpOnly cookie (`releasarr_refresh`, path `/api/auth`, set by `POST /auth/login|refresh`), so
+`services/frontend/src/lib/api/client.ts` never touches it directly. It reads the access token
+from memory instead, and reacts to a `401` by refreshing once (a single shared attempt for any
+number of concurrent 401s) and retrying — see [`frontend.md`](frontend.md#auth).
+
+Permissions are flat and per-user, not role hierarchies: `role` is `admin` or `user`, and four
+independent booleans (`view all requests`, `tasks`, `indexers`, `logs`) plus a root-folder
+allow-list apply only to `user`. An admin bypasses every one of them. `media_requests.owner_user_id`
+is the one piece of data this all gates — NULL for a request no human owns (everything
+`sonarr_sync`/`radarr_sync` create), set once at creation for anything added through the UI, and
+reassignable afterwards only by an admin. See [`data-model.md`](data-model.md#ownership-and-permissions).
+
+Before any of this exists, `GET /auth/setup` reports whether a first admin still needs to be
+created; the frontend's `RequireAuth` sends a browser there instead of `/login` until one has
+been.
+
 ## Backend layers
 
 Dependencies point inward. Nothing in `application/` may import FastAPI, SQLAlchemy models, or

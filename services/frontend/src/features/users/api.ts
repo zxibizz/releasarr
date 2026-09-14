@@ -1,5 +1,13 @@
 import { apiRequest } from '@/lib/api/client';
-import type { CreateUserPayload, UpdateUserPayload, User, UsersResponse } from '@/types';
+import type {
+  CreateServiceKeyPayload,
+  CreateUserPayload,
+  ServiceApiKeyCreated,
+  ServiceApiKeysResponse,
+  UpdateUserPayload,
+  User,
+  UsersResponse,
+} from '@/types';
 
 export const usersApi = {
   list: (signal?: AbortSignal) => apiRequest<UsersResponse>('/users', { signal }),
@@ -12,4 +20,15 @@ export const usersApi = {
 
   remove: (id: string) =>
     apiRequest<void>(`/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
+export const serviceKeysApi = {
+  list: (signal?: AbortSignal) =>
+    apiRequest<ServiceApiKeysResponse>('/service-keys', { signal }),
+
+  create: (payload: CreateServiceKeyPayload) =>
+    apiRequest<ServiceApiKeyCreated>('/service-keys', { method: 'POST', body: payload }),
+
+  revoke: (id: string) =>
+    apiRequest<void>(`/service-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

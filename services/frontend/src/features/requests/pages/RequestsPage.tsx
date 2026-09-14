@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { RequestCard } from '@/features/requests/components/RequestCard';
 import { RequestFilters } from '@/features/requests/components/RequestFilters';
 import { RequestsSkeleton } from '@/features/requests/components/RequestsSkeleton';
@@ -27,6 +28,7 @@ import {
 import { localizeRequest, useMetadataLanguage } from '@/features/requests/localization';
 import { useRequestsList } from '@/features/requests/queries';
 import { useRequestFilters } from '@/features/requests/useRequestFilters';
+import { useUsersList } from '@/features/users/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -50,9 +52,12 @@ const HEADING_KEYS: Partial<Record<StatusFilter, string>> = {
 export function RequestsPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const { type, status, sort, search, setType, setStatus, setSort, setSearch } =
+  const { hasPermission } = useAuth();
+  const canFilterByOwner = hasPermission('view_all_requests');
+  const { type, status, sort, search, owner, setType, setStatus, setSort, setSearch, setOwner } =
     useRequestFilters();
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
+  const { users } = useUsersList({ enabled: canFilterByOwner });
   const metadataLanguage = useMetadataLanguage();
 
   const localizedRequests = useMemo(
@@ -61,8 +66,15 @@ export function RequestsPage() {
   );
 
   const visibleRequests = useMemo(
-    () => filterAndSortRequests(localizedRequests, { type, status, sort, search }),
-    [localizedRequests, type, status, sort, search],
+    () =>
+      filterAndSortRequests(localizedRequests, {
+        type,
+        status,
+        sort,
+        search,
+        owner: canFilterByOwner ? owner : null,
+      }),
+    [localizedRequests, type, status, sort, search, owner, canFilterByOwner],
   );
 
   const typeLabel = (key: TypeFilter) => t(TYPE_LABEL_KEYS[key]);
@@ -155,6 +167,13 @@ export function RequestsPage() {
         setSearch={setSearch}
         sort={sort}
         setSort={setSort}
+        owner={canFilterByOwner ? owner : undefined}
+        setOwner={canFilterByOwner ? setOwner : undefined}
+        ownerOptions={
+          canFilterByOwner
+            ? users.map((user) => ({ value: user.id, label: user.username }))
+            : undefined
+        }
       />
 
       <Group justify="space-between" align="center">

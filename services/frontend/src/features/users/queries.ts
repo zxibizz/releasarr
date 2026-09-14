@@ -1,13 +1,18 @@
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { usersApi } from '@/features/users/api';
+import { serviceKeysApi, usersApi } from '@/features/users/api';
 import { getErrorMessage } from '@/utils/errors';
-import type { CreateUserPayload, UpdateUserPayload } from '@/types';
+import type { CreateServiceKeyPayload, CreateUserPayload, UpdateUserPayload } from '@/types';
 
 export const userKeys = {
   all: ['users'] as const,
   list: () => [...userKeys.all, 'list'] as const,
+};
+
+export const serviceKeyKeys = {
+  all: ['service-keys'] as const,
+  list: () => [...serviceKeyKeys.all, 'list'] as const,
 };
 
 export const usersListQuery = () => ({
@@ -59,6 +64,51 @@ export function useDeleteUser() {
     },
     onError: (error: unknown) => {
       notifications.show({ title: 'Could not delete user', message: getErrorMessage(error, ''), color: 'red' });
+    },
+  });
+}
+
+export const serviceKeysListQuery = () => ({
+  queryKey: serviceKeyKeys.list(),
+  queryFn: ({ signal }: { signal: AbortSignal }) => serviceKeysApi.list(signal),
+});
+
+export function useServiceKeysList() {
+  const query = useQuery(serviceKeysListQuery());
+  return { ...query, serviceKeys: query.data?.service_keys ?? [] };
+}
+
+export function useCreateServiceKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateServiceKeyPayload) => serviceKeysApi.create(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: serviceKeyKeys.list() });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: 'Could not create service key',
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}
+
+export function useRevokeServiceKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => serviceKeysApi.revoke(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: serviceKeyKeys.list() });
+      notifications.show({ message: 'Service key revoked', color: 'teal' });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: 'Could not revoke service key',
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
     },
   });
 }

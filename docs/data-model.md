@@ -12,6 +12,10 @@ media_requests ──┬── release_request_links ──┬── releases �
                  └───────────────────────────────── mapped_request_id
                      (SET NULL)
 
+users ──┬── media_requests.owner_user_id      (SET NULL)
+         ├── refresh_tokens.user_id           (CASCADE)
+         └── service_api_keys.user_id         (CASCADE)
+
 sync_jobs         standalone: one row per on-demand task run
 scheduled_tasks   one row per task kind, holding its schedule state
 ```
@@ -58,6 +62,15 @@ Constraints, and what they mean:
 `localizations` is `{ "eng": {"title": …, "overview": …}, "rus": {…} }`, populated from TVDB/TMDB
 according to `RELEASARR_METADATA_LANGUAGES`. The frontend reads it per UI locale and does not
 fall back across languages.
+
+`owner_user_id` is a nullable FK to `users.id` (`SET NULL`). NULL means the request has no
+owning user — the state every request created by `sonarr_sync`/`radarr_sync` starts in and stays
+in unless an admin reassigns it, or a human added it themselves through `/discover/requests`, in
+which case it is set once, at creation, and never overwritten by a later sync (see
+`sync_sonarr.py`/`sync_radarr.py`'s `owner_user_id` parameter, applied only on the
+`existing is None` branch). A request without an owner is visible only to a caller whose
+effective scope is unrestricted (an admin, or a user with `can_view_all_requests`) — see
+"Ownership and permissions" below.
 
 ### `releases`
 
@@ -120,6 +133,42 @@ Separate from `sync_jobs` so a 30-second task does not write thousands of rows a
 schedule survives a restart: each interval is measured from `last_execution`, not from process
 start.
 
+### `users`
+
+`id` is a UUID hex string. `username` is unique and always stored lower-cased. `password_hash`
+is an Argon2 hash (`pwdlib`) — never the plaintext, never logged. `role` is `admin` or `user`;
+an admin bypasses every flag below unconditionally (`has_permission()` in
+`application/use_cases/auth/permissions.py`). The four `can_access_*` / `can_view_all_requests`
+booleans gate one `Permission` each. `allowed_root_folders` is a JSON list of paths; **empty
+means unrestricted**, not "nothing allowed" — the same convention `RequestScope` and
+`ListRootFoldersUseCase` use. `failed_login_attempts` and `locked_until` back the login lockout
+(`RELEASARR_AUTH_MAX_FAILED_LOGINS` / `RELEASARR_AUTH_LOCKOUT_SECONDS`).
+
+### `refresh_tokens`
+
+One row per issued refresh token; only `token_hash` (SHA-256 of the opaque token) is stored, so a
+database leak alone cannot mint a session. `family_id` is shared by every token born from one
+login: rotating keeps the family id, and presenting an already-rotated (`revoked_at` set) token
+revokes the whole family — the standard response to refresh-token reuse, which most plausibly
+means the token was stolen. `remember` records whether "remember me" was checked at login, so
+rotation can preserve the original session length instead of collapsing it to a browser session.
+
+### `service_api_keys`
+
+A hashed key (`key_hash`, SHA-256) that authenticates as `user_id` via `X-API-Key`. `prefix`
+stores the key's first characters in the clear, so an admin can tell keys apart in the UI without
+ever seeing the rest. `can_impersonate` permits `X-Act-As-User` to substitute a different
+username for the key's own `user_id` at request time — intended for a single trusted integration
+(e.g. a bot) to act on behalf of whichever user asked it to.
+
+## Ownership and permissions
+
+`RequestScope` (`application/use_cases/auth/permissions.py`) is the one thing that decides which
+media requests a caller may see: `unrestricted()` for an admin or `can_view_all_requests`, else
+`owned_by(user.id)`. It is threaded into `MediaRequestRepository.list_requests` as
+`owner_user_id`, and checked after a single-resource fetch via `scope.permits(owner_user_id)`.
+An out-of-scope request 404s rather than 403s — a 403 would confirm the row exists.
+
 ## Enums
 
 Stored as their string values, not member names, via `build_enum()` in `models.py`.
@@ -134,6 +183,7 @@ Stored as their string values, not member names, via `build_enum()` in `models.p
 | `SyncJobStatus` | `queued`, `running`, `completed`, `failed` |
 | `SyncJobTrigger` | `api`, `download_client`, `schedule` |
 | `RequestLogLevel` | `info`, `warning`, `error` |
+| `UserRole` | `admin`, `user` |
 
 `EpisodeStatus.MISSING` is the only one of its three that is actionable: it has aired and Sonarr
 holds no file, which is exactly what a release is grabbed to fix.
@@ -154,6 +204,8 @@ one is a four-place change plus a migration.
 | `e1f36b8ac704` | Widen release text columns |
 | `c58f2a91d374` | Add `scheduled_tasks` and per-task jobs |
 | `d3e9a17c5b42` | Repair the `sync_job_kind` enum |
+| `1c2d3e4f5a6b` | Create `users`, `refresh_tokens`, `service_api_keys` |
+| `2d3e4f5a6b7c` | Add `media_requests.owner_user_id` |
 
 ## The enum migration trap
 

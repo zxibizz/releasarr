@@ -22,15 +22,18 @@ The full checklist, in dependency order. Skip the steps that do not apply.
 
 ### Routers
 
-One file per domain in `src/api/routes/`. Auth is applied at router level, so every route in it
-requires `X-API-Key`:
+One file per domain in `src/api/routes/`. Auth is applied at router level (or per-route, where
+one router mixes public and gated endpoints — see `routes/users.py`):
 
 ```python
-router = APIRouter(prefix="/requests", tags=["Requests"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/requests", tags=["Requests"], dependencies=[Depends(require_user)])
 ```
 
-Collection handlers use `""` as their path, not `"/"`. Tags must match the tag names in
-`openapi.yaml`. Path params that are camelCase in the spec get an alias:
+`require_user` accepts either a bearer access token or a service API key (see "Auth and
+permissions" below); routes that need more than "authenticated" use `require_admin` or
+`require_permission(Permission.X)` instead. Collection handlers use `""` as their path, not
+`"/"`. Tags must match the tag names in `openapi.yaml`. Path params that are camelCase in the
+spec get an alias:
 
 ```python
 RequestIdParam = Annotated[str, Path(..., alias="requestId")]
@@ -54,6 +57,37 @@ def _get_list_use_case(
 
 These `_get_*` functions are also the seam the API tests override — see
 [`testing.md`](testing.md).
+
+### Auth and permissions
+
+`src/api/dependencies/auth.py` resolves a `Principal` (`src/application/use_cases/auth/permissions.py`)
+from either an `Authorization: Bearer` access token (a session, from `/auth/login`) or an
+`X-API-Key` header (a service key, optionally with `X-Act-As-User` to impersonate — only if the
+key has `can_impersonate`). Three dependencies build on it:
+
+```python
+require_user                              # any authenticated principal
+require_admin                             # principal.user.role == UserRole.ADMIN
+require_permission(Permission.TASKS)      # admin, or the matching per-user flag
+```
+
+`Permission` is a flat enum (`view_all_requests`, `tasks`, `indexers`, `logs`, `manage_users`);
+`has_permission()` gives admins every permission unconditionally. A route needing more than one
+check (e.g. an admin-only field on an otherwise self-service endpoint) takes `principal:
+Principal = Depends(require_user)` and checks `principal.is_admin` / `principal.has(...)` itself
+— see `owner_user_id` handling in `update_request` in `routes/requests.py`.
+
+Ownership follows the same principal: `RequestScope.for_user(principal.user)` is `unrestricted()`
+for an admin or anyone with `view_all_requests`, otherwise `owned_by(user.id)`. Pass
+`scope.owner_user_id` into `ListRequestsOptions`, and for a single-resource route, only pay for
+the extra fetch needed to check ownership when `principal.scope.is_restricted` — an unrestricted
+caller (the common case) makes one repository call, not two. An out-of-scope request raises the
+same `MediaRequestNotFoundError` as a truly missing one: a 403 would confirm the row exists.
+
+Root-folder restriction works the same way: `allowed_root_folders(principal.user)` returns
+`None` for an unrestricted caller (including an empty allow-list, which means "no restriction",
+not "nothing allowed") or the user's list otherwise, passed to `ListRootFoldersUseCase.execute`
+and `AddMediaRequestCommand.allowed_root_folders`.
 
 ### Handlers
 
@@ -280,16 +314,20 @@ per dependency.
 ```
 AppContainer
 ├── settings, db_manager
-├── repositories    → media_requests, releases, sync_jobs, scheduled_tasks
+├── repositories    → media_requests, releases, sync_jobs, scheduled_tasks,
+│                     users, refresh_tokens, service_api_keys
 ├── services        → sonarr, radarr, tvdb, tmdb, qbittorrent_client,
-│                     release_search, release_download, release_lifecycle
+│                     release_search, release_download, release_lifecycle,
+│                     password_hasher, access_token_codec
 ├── queries
-├── use_cases       → discover, logs, media_requests, releases, tasks
+├── use_cases       → auth, discover, logs, media_requests, releases, tasks, users
 └── infrastructure  → log_reader
 ```
 
-`get_container()` is `@lru_cache`d. `startup()` configures logging; `shutdown()` calls `aclose()`
-on any service that has it and flushes Loguru.
+`get_container()` is `@lru_cache`d. `startup()` configures logging and refuses to boot if
+`auth_secret` is empty (a blank signing secret would mean any deployment's tokens are forgeable
+from the public source); `shutdown()` calls `aclose()` on any service that has it and flushes
+Loguru.
 
 Optional integrations degrade here rather than at the call site:
 
@@ -320,6 +358,10 @@ prowlarr_timeout: float = Field(default=20.0)   # RELEASARR_PROWLARR_TIMEOUT
 
 Read them from `container.settings` when wiring, or take `settings: AppSettings | None = None`
 in a use case and default to `get_settings()`. Document new variables in the `README.md` tables.
+
+`auth_secret` has no usable default (an empty string), on purpose \u2014 see `AppContainer.startup`.
+`auth_cookie_path` must be the path the *browser* sends the cookie on, not the FastAPI route:
+nginx and the Vite dev proxy both strip a leading `/api`, so it is `/api/auth`.
 
 ## Migrations
 

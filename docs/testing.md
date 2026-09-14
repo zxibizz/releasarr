@@ -50,7 +50,7 @@ Override the route module's `_get_*_use_case` function with a fake, using FastAP
 callables rather than inline lambdas.
 
 ```python
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}  # auth is overridden globally for tests; see conftest.py
 
 
 class FakeGetUseCase(GetMediaRequestUseCase):
@@ -76,7 +76,27 @@ Fakes subclass the real use case and override `execute`, which keeps the signatu
 the domain exception from the fake to assert the error mapping, rather than asserting on
 `DOMAIN_ERROR_MAP` directly.
 
-Remember the API key header — every router carries `Depends(require_api_key)`.
+### Auth in tests
+
+An autouse fixture in `tests/conftest.py` overrides `get_principal`
+(`src/api/dependencies/auth.py`) to a fixed, unrestricted admin `Principal` for every test, so
+existing route tests do not have to think about auth — this mirrors the single global API key
+the suite used before per-user auth existed. A test exercising the unauthenticated path pops the
+override for that one call:
+
+```python
+app.dependency_overrides.pop(get_principal, None)
+response = await api_client.get("/requests")
+assert response.status_code == status.HTTP_401_UNAUTHORIZED
+```
+
+For a *restricted* principal (to test ownership scoping or a missing permission), override
+`get_principal` with a `Principal` built from a `UserRecord` with the relevant flags unset,
+rather than hitting real login. New auth-specific use case tests
+(`tests/application/use_cases/auth/`) use the real `Argon2PasswordHasher` and
+`JwtAccessTokenCodec` — both are fast and deterministic — against in-memory
+`InMemoryUserRepository` / `InMemoryRefreshTokenRepository` fakes, so no fake crypto layer is
+needed.
 
 ### The contract test
 
@@ -165,6 +185,28 @@ beforeEach(() => {
 
 Spreading `actual` matters: `ApiError` must stay real so error-path tests can construct and
 match it.
+
+### Auth in component tests
+
+`renderWithProviders` wraps the tree in the real `AuthContext.Provider`, defaulted to
+`TEST_AUTH_VALUE` — an authenticated, unrestricted admin, so a component that calls `useAuth()`
+works without extra setup. Pass `auth` to exercise a restricted user or a specific permission:
+
+```typescript
+renderWithProviders(<RequestOwner request={request} />, {
+  auth: { isAdmin: false, hasPermission: () => false },
+});
+```
+
+For router guards (`RequireAuth`, `RequirePermission`), render a `<Routes>` tree as the `ui` so
+`<Outlet />` has somewhere to go, and set `auth.status` / `auth.hasPermission` per case rather
+than mocking `useAuth` — the real context plumbing is what is under test.
+
+**Required-field labels are not exact matches.** Mantine appends a literal ` *` to the label of
+any `required` input, so `getByLabelText('Username')` fails — use `getByLabelText(/^username/i)`
+or `{ exact: false }`. For a `PasswordInput` specifically, prefer the regex: its
+"Toggle password visibility" button's `aria-label` contains "password", so a plain
+`{ exact: false }` substring match finds two elements.
 
 ### Mobile tests
 

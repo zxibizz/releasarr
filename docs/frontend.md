@@ -27,11 +27,18 @@ apiRequest<T>(path: string, options?: {
 }): Promise<T>
 ```
 
-It resolves the base URL from `VITE_API_URL` (default `http://localhost:8001/api`), sets
-`X-API-Key` from `VITE_API_KEY` (default `dev-secret`), drops empty query values, and normalizes
-every failure into an `ApiError` carrying `status` and `details`. An empty body yields
-`undefined`, so `apiRequest<void>(…)` works for 204s; a 202 is an ordinary success whose JSON
-body is returned.
+It resolves the base URL from `VITE_API_URL` (default `http://localhost:8001/api`), attaches
+`Authorization: Bearer <token>` from an in-memory access token (never `localStorage` — see
+"Auth" below), sends `credentials: 'include'` so the httpOnly refresh cookie travels with every
+request, drops empty query values, and normalizes every failure into an `ApiError` carrying
+`status` and `details`. An empty body yields `undefined`, so `apiRequest<void>(…)` works for
+204s; a 202 is an ordinary success whose JSON body is returned.
+
+A 401 from anything other than `/auth/login|refresh|setup|logout` triggers exactly one shared
+`POST /auth/refresh` (concurrent 401s share the same in-flight promise), then retries the
+original request once. If the refresh itself fails, the token is cleared and every
+`onAuthExpired` subscriber fires — `AuthProvider` is the only current subscriber, and drops the
+session to `anonymous`.
 
 In the UI, surface errors with `getErrorMessage(error, fallback)` from `src/utils/errors.ts`
 rather than reading `error.message` directly.
@@ -137,18 +144,22 @@ file.
 
 ## Routing
 
-`src/router.tsx` defines six routes plus a catch-all, all nested under `AppLayout` with
-`RouteErrorBoundary`:
+`src/router.tsx` defines `/login` and `/setup` as standalone routes (no shell, no auth guard),
+and nests everything else under `RequireAuth` → `AppLayout`, with per-branch `RequirePermission`
+for the admin-only sections:
 
-| Path | Component | Loading |
-| --- | --- | --- |
-| `/` | `RequestsPage` | eager |
-| `/request/:id` | `RequestDetailPage` | lazy |
-| `/add` | `AddRequestPage` | lazy |
-| `/system/tasks` | `TasksPage` | lazy |
-| `/system/indexers` | `IndexersPage` | lazy |
-| `/system/logs` | `LogsPage` | lazy |
-| `*` | `NotFound` | eager |
+| Path | Component | Loading | Guard |
+| --- | --- | --- | --- |
+| `/login` | `LoginPage` | eager | none |
+| `/setup` | `SetupPage` | eager | none |
+| `/` | `RequestsPage` | eager | `RequireAuth` |
+| `/request/:id` | `RequestDetailPage` | lazy | `RequireAuth` |
+| `/add` | `AddRequestPage` | lazy | `RequireAuth` |
+| `/system/tasks` | `TasksPage` | lazy | `RequireAuth` + `RequirePermission('tasks')` |
+| `/system/indexers` | `IndexersPage` | lazy | `RequireAuth` + `RequirePermission('indexers')` |
+| `/system/logs` | `LogsPage` | lazy | `RequireAuth` + `RequirePermission('logs')` |
+| `/system/users` | `UsersPage` | lazy | `RequireAuth` + `RequirePermission('manage_users')` |
+| `*` | `NotFound` | eager | `RequireAuth` |
 
 Loaders warm the cache with `ensureQueryData` so pages paint with data. Note the deliberate
 split on the detail route: it blocks on the request, but only *prefetches* releases.
@@ -172,13 +183,39 @@ two, and it renders nothing on error — an unconfigured Prowlarr must not leave
 warning in the header.
 
 Filter state on `/` is URL-synced via `features/requests/useRequestFilters.ts`
-(`?type=&status=&sort=&q=`). Keep new filters in the URL rather than component state.
+(`?type=&status=&sort=&q=&owner=`). Keep new filters in the URL rather than component state. The
+`owner` filter and its `Select` in `RequestFilters` only render for a caller with
+`view_all_requests` (or an admin); a restricted user's request list is already scoped
+server-side, so there is nothing for them to filter by owner.
+
+## Auth
+
+`src/features/auth/AuthProvider.tsx` is the single source of truth for who is signed in. On
+mount it checks `GET /auth/setup`, and failing that tries `POST /auth/refresh` to restore a
+remembered session before the app renders anything — `status` is `'loading' | 'setup-required' |
+'anonymous' | 'authenticated'`. `useAuth()` exposes `user`, `isAdmin`, `hasPermission(permission)`,
+and the `login` / `completeSetup` / `logout` actions; `Permission` mirrors the backend's flat
+enum (`view_all_requests`, `tasks`, `indexers`, `logs`, `manage_users`) and an admin passes every
+check.
+
+`RequireAuth` (`features/auth/components/`) gates the whole shell — it sits *above* `AppLayout`
+in the route tree, not below, so a logged-out visitor never sees the nav flash before the
+redirect. `RequirePermission` gates an individual branch and redirects home rather than to
+`/login`, since the visitor is already authenticated. `App.tsx`'s `NAV_ITEMS` carry an optional
+`permission` and are filtered through `hasPermission` before rendering, so a restricted user
+never sees a link to a page they cannot open.
+
+A request's owner is not enriched server-side into a `{id, username}` object; the UI resolves
+`owner_user_id` against `features/users/queries.ts`'s `useUsersList()` only when the viewer is an
+admin (`RequestOwner` component) — a restricted viewer only ever sees their own requests, so
+their own username from `useAuth()` is enough, with no second fetch.
 
 ## i18n
 
 `src/locales/resources.ts` holds both locales in one file, keyed by UI area (`nav.*`,
 `common.*`, `status.*`, `requestsList.*`, `requestPage.*`, `releaseSearch.*`, `discover.*`,
-`tasks.*`). **Every key must exist in both `en` and `ru`.**
+`tasks.*`, `auth.*`, `users.*`, `serviceKeys.*`, `permissions.*`). **Every key must exist in both
+`en` and `ru`.**
 
 Plurals differ by language:
 
@@ -244,6 +281,7 @@ optional upkeep — UI work and every screenshot in the README run against it.
 | --- | --- |
 | `index.ts` | Express app; routes mount on an `api` router at `/api`; serves `../../openapi.yaml` |
 | `store.ts` | `MockStore` — in-memory state, simulated latency, job lifecycle transitions |
+| `mockAuth.ts` | Users, sessions, and service keys — see below |
 | `mockData.ts` | Seed requests, releases, search candidates, mapping suggestions |
 | `mockDiscover.ts` | Discover catalogue and root folders |
 | `mockLogs.ts` | Log entry generation |
@@ -251,6 +289,14 @@ optional upkeep — UI work and every screenshot in the README run against it.
 Handlers are thin and delegate to `mockStore`; errors match the contract's `{ code, message }`
 shape. Sync jobs auto-advance `queued → running → completed` on timers, which is what makes the
 tasks page and `useSyncWatcher` demonstrable without a backend.
+
+`mockAuth.ts` seeds two accounts on startup — `admin`/`admin` (full access) and `user`/`user`
+(restricted: no tasks/indexers/logs, `allowed_root_folders: ['/media/movies']`, and it owns two
+of the seeded requests in `mockData.ts` so its scoped view isn't empty). Set
+`MOCK_EMPTY_USERS=1` to start with no users at all and exercise the first-run setup screen. An
+`api.use()` middleware resolves the bearer token (or `X-API-Key`) before every route except
+`/auth/setup|login|refresh|logout`, attaching the resolved user to `res.locals.user`; route
+handlers read it directly rather than re-deriving it.
 
 One quirk to know when testing by hand: release search matches a plain substring against the
 scene-style dotted name, so `The Dark Knight` finds nothing while `The.Dark.Knight` returns

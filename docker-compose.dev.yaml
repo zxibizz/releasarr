@@ -73,7 +73,6 @@ services:
       # Same-origin /api as in production, except Vite does the proxying.
       VITE_API_URL: /api
       VITE_API_PROXY_TARGET: http://backend:8000
-      VITE_API_KEY: ${RELEASARR_API_KEY:-dev-secret}
       VITE_WATCH_POLLING: "true"
     volumes:
       - ./services/frontend:/app

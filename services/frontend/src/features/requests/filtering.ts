@@ -63,6 +63,9 @@ const matchesSearch = (request: MediaRequest, search: string): boolean => {
   return haystack.some((value) => value?.toLowerCase().includes(search));
 };
 
+const matchesOwner = (request: MediaRequest, owner: string | null): boolean =>
+  !owner || request.owner_user_id === owner;
+
 export const filterAndSortRequests = (
   requests: MediaRequest[],
   {
@@ -70,7 +73,14 @@ export const filterAndSortRequests = (
     status,
     sort,
     search,
-  }: { type: TypeFilter; status: StatusFilter; sort: SortKey; search: string },
+    owner = null,
+  }: {
+    type: TypeFilter;
+    status: StatusFilter;
+    sort: SortKey;
+    search: string;
+    owner?: string | null;
+  },
 ): MediaRequest[] => {
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -79,7 +89,8 @@ export const filterAndSortRequests = (
       (request) =>
         matchesType(request, type) &&
         matchesStatus(request, status) &&
-        matchesSearch(request, normalizedSearch),
+        matchesSearch(request, normalizedSearch) &&
+        matchesOwner(request, owner),
     )
     .sort(SORTERS[sort]);
 };

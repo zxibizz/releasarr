@@ -71,8 +71,9 @@ describe('UsersPage', () => {
     await screen.findByText('admin');
 
     await userEvent.click(screen.getByRole('button', { name: 'New user' }));
-    await userEvent.type(await screen.findByLabelText('Username'), 'newuser');
-    await userEvent.type(screen.getByLabelText('Password'), 'a-long-password');
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText(/^username/i), 'newuser');
+    await userEvent.type(screen.getByLabelText(/^password/i), 'a-long-password');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
