@@ -59,6 +59,14 @@ class InvalidRootFolderError(ValueError):
         self.root_folder_path = root_folder_path
 
 
+class DisallowedRootFolderError(PermissionError):
+    """Raised when a caller's allowed-folder list excludes the requested path."""
+
+    def __init__(self, root_folder_path: str) -> None:
+        super().__init__(f"'{root_folder_path}' is not permitted for this user")
+        self.root_folder_path = root_folder_path
+
+
 class SeasonSelectionError(ValueError):
     """Raised when the requested seasons do not fit the picked media."""
 

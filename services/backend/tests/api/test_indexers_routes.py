@@ -12,6 +12,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.indexers import (
     _history_use_case,
     _list_use_case,
@@ -29,11 +30,10 @@ from src.application.use_cases.indexers.dto import (
     IndexerTestResultDTO,
 )
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
-from src.core.container import get_container
 from src.domain.enums import IndexerEventType, IndexerHealth, IndexerLogLevel
 from src.infrastructure.http import HttpClientError
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 @contextmanager
@@ -206,6 +206,7 @@ async def test_list_indexers_reports_an_unreachable_prowlarr_as_bad_gateway(
 
 @pytest.mark.asyncio
 async def test_list_indexers_requires_the_api_key(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.get("/indexers")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

@@ -5,6 +5,7 @@ import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
 
+import { MockAuthError, mockAuth } from './mockAuth';
 import { mockStore } from './store';
 import type { IndexerEventType, MediaRequest, MediaType, Release } from '../src/types';
 
@@ -64,7 +65,9 @@ const buildAsyncResponse = (
 };
 
 const app = express();
-app.use(cors());
+// Credentials mode needs a reflected origin, not `*`, and the refresh cookie
+// only round-trips at all if the browser is allowed to send it cross-origin.
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -72,6 +75,33 @@ app.use((req, _res, next) => {
   console.log(`${req.method} ${req.originalUrl}`);
   next();
 });
+
+/** Express ships the `cookie` package but not a parser; this is all we need. */
+const parseCookies = (header: string | undefined): Record<string, string> => {
+  const cookies: Record<string, string> = {};
+  (header ?? '').split(';').forEach((part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (key) {
+      cookies[key] = decodeURIComponent(rest.join('='));
+    }
+  });
+  return cookies;
+};
+
+const REFRESH_COOKIE = 'releasarr_refresh';
+
+const setRefreshCookie = (res: express.Response, token: string) => {
+  res.cookie(REFRESH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const clearRefreshCookie = (res: express.Response) => {
+  res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+};
 
 const contractPath = path.resolve(process.cwd(), '../../openapi.yaml');
 app.get('/openapi.yaml', (_req, res, next) => {
@@ -87,6 +117,157 @@ app.get('/__health', (_req, res) => {
 });
 
 const api = express.Router();
+
+// Paths that must work with no session at all, mirroring the real backend's
+// `security: []` overrides in openapi.yaml.
+const OPEN_AUTH_PATHS = new Set(['/auth/setup', '/auth/login', '/auth/refresh', '/auth/logout']);
+
+api.use((req, res, next) => {
+  if (req.method === 'GET' && req.path === '/auth/setup') {
+    return next();
+  }
+  if (OPEN_AUTH_PATHS.has(req.path)) {
+    return next();
+  }
+  const user = mockAuth.authenticate(
+    req.headers.authorization,
+    req.headers['x-api-key'] as string | undefined,
+  );
+  if (!user) {
+    return res.status(401).json({ code: 'unauthorized', message: 'Authentication required' });
+  }
+  res.locals.user = user;
+  next();
+});
+
+const requireAdmin = (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.locals.user?.role !== 'admin') {
+    return res
+      .status(403)
+      .json({ code: 'forbidden', message: 'Administrator privileges are required' });
+  }
+  next();
+};
+
+const handleAuthError = (error: unknown, res: express.Response) => {
+  if (error instanceof MockAuthError) {
+    return res.status(error.status).json({ code: error.code, message: error.message });
+  }
+  return res.status(500).json({ code: 'internal_error', message: 'Unexpected server error' });
+};
+
+api.get('/auth/setup', (_req, res) => {
+  res.json({ required: mockAuth.setupRequired() });
+});
+
+api.post('/auth/setup', (req, res) => {
+  try {
+    const session = mockAuth.completeSetup(req.body ?? {});
+    setRefreshCookie(res, session.refresh_token);
+    res.status(201).json({ access_token: session.access_token, user: session.user });
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.post('/auth/login', (req, res) => {
+  try {
+    const session = mockAuth.login(req.body ?? {});
+    setRefreshCookie(res, session.refresh_token);
+    res.json({ access_token: session.access_token, user: session.user });
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.post('/auth/refresh', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  try {
+    const session = mockAuth.refresh(cookies[REFRESH_COOKIE]);
+    setRefreshCookie(res, session.refresh_token);
+    res.json({ access_token: session.access_token, user: session.user });
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.post('/auth/logout', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  mockAuth.logout(cookies[REFRESH_COOKIE]);
+  clearRefreshCookie(res);
+  res.status(204).send();
+});
+
+api.get('/auth/me', (_req, res) => {
+  res.json(res.locals.user);
+});
+
+api.get('/users', requireAdmin, (_req, res) => {
+  res.json({ users: mockAuth.listUsers() });
+});
+
+api.post('/users', requireAdmin, (req, res) => {
+  try {
+    res.status(201).json(mockAuth.createUser(req.body ?? {}));
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.get('/users/:userId', requireAdmin, (req, res) => {
+  try {
+    res.json(mockAuth.getUser(String(req.params.userId)));
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.patch('/users/:userId', requireAdmin, (req, res) => {
+  try {
+    res.json(mockAuth.updateUser(String(req.params.userId), req.body ?? {}));
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.delete('/users/:userId', requireAdmin, (req, res) => {
+  try {
+    mockAuth.deleteUser(String(req.params.userId));
+    res.status(204).send();
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.post('/users/me/password', (req, res) => {
+  try {
+    mockAuth.changeOwnPassword(res.locals.user.id, req.body ?? {});
+    res.status(204).send();
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.get('/service-keys', requireAdmin, (_req, res) => {
+  res.json({ service_keys: mockAuth.listServiceKeys() });
+});
+
+api.post('/service-keys', requireAdmin, (req, res) => {
+  try {
+    res.status(201).json(mockAuth.createServiceKey(req.body ?? {}));
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
+
+api.delete('/service-keys/:keyId', requireAdmin, (req, res) => {
+  try {
+    mockAuth.revokeServiceKey(String(req.params.keyId));
+    res.status(204).send();
+  } catch (error) {
+    handleAuthError(error, res);
+  }
+});
 
 const TASK_KINDS = ['sonarr_sync', 'radarr_sync', 'release_sync', 'export', 'regrab'] as const;
 type TaskKind = (typeof TASK_KINDS)[number];
@@ -113,7 +294,18 @@ api.get('/requests', async (req, res) => {
   const typeParam = req.query.type as string | undefined;
   const type = typeParam === 'movie' || typeParam === 'series' ? typeParam : undefined;
 
-  const filtered = await mockStore.listRequests({ status, type });
+  const user = res.locals.user as { id: string; can_view_all_requests: boolean };
+  const requestedOwner = req.query.owner as string | undefined;
+  if (requestedOwner && !user.can_view_all_requests) {
+    return res
+      .status(403)
+      .json({ code: 'forbidden', message: 'You may not filter requests by owner' });
+  }
+  const ownerFilter = user.can_view_all_requests ? requestedOwner : user.id;
+
+  const filtered = (await mockStore.listRequests({ status, type })).filter(
+    (request) => !ownerFilter || (request as { owner_user_id?: string }).owner_user_id === ownerFilter,
+  );
   const total = filtered.length;
   const start = (page - 1) * perPage;
   const paginated = filtered.slice(start, start + perPage);
@@ -310,7 +502,13 @@ api.get('/discover/root-folders', async (req, res) => {
   if (!type) {
     return res.status(422).json({ message: 'Query parameter type must be movie or series' });
   }
-  res.json({ folders: await mockStore.listDiscoverRootFolders(type) });
+  const folders = await mockStore.listDiscoverRootFolders(type);
+  const user = res.locals.user as { role: string; allowed_root_folders: string[] };
+  const allowed =
+    user.role === 'admin' || user.allowed_root_folders.length === 0
+      ? null
+      : new Set(user.allowed_root_folders);
+  res.json({ folders: allowed ? folders.filter((folder) => allowed.has(folder.path)) : folders });
 });
 
 api.post('/discover/requests', async (req, res) => {

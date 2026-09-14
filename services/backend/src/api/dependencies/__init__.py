@@ -1,5 +1,5 @@
 """API dependency exports."""
 
-from src.api.dependencies.auth import require_api_key
+from src.api.dependencies.auth import get_principal, require_admin, require_permission, require_user
 
-__all__ = ["require_api_key"]
+__all__ = ["get_principal", "require_admin", "require_permission", "require_user"]

@@ -65,3 +65,20 @@ export type IndexerHistoryResponse = Schemas['IndexerHistoryResponse'];
 export type IndexerLogLevel = Schemas['IndexerLogLevel'];
 export type IndexerLogEntry = Schemas['IndexerLogEntry'];
 export type IndexerLogsResponse = Schemas['IndexerLogsResponse'];
+
+export type UserRole = Schemas['UserRole'];
+export type User = Schemas['User'];
+export type SessionUser = Schemas['SessionUser'];
+export type UsersResponse = Schemas['UsersResponse'];
+export type CreateUserPayload = Schemas['CreateUserPayload'];
+export type UpdateUserPayload = Schemas['UpdateUserPayload'];
+export type ChangePasswordPayload = Schemas['ChangePasswordPayload'];
+export type ServiceApiKey = Schemas['ServiceApiKey'];
+export type ServiceApiKeysResponse = Schemas['ServiceApiKeysResponse'];
+export type CreateServiceKeyPayload = Schemas['CreateServiceKeyPayload'];
+export type ServiceApiKeyCreated = Schemas['ServiceApiKeyCreated'];
+
+export type SetupStatus = Schemas['SetupStatus'];
+export type SetupPayload = Schemas['SetupPayload'];
+export type LoginPayload = Schemas['LoginPayload'];
+export type LoginResponse = Schemas['LoginResponse'];

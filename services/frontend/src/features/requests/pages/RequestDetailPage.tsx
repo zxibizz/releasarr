@@ -16,6 +16,7 @@ import { releaseKeys } from '@/features/releases/queries';
 import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
+import { RequestOwner } from '@/features/requests/components/RequestOwner';
 import { SeasonEpisodes } from '@/features/requests/components/SeasonEpisodes';
 import {
   localizeRequest,
@@ -164,6 +165,8 @@ export function RequestDetailPage() {
         request={localizedRequest}
         onManageSeasons={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
       />
+
+      <RequestOwner request={localizedRequest} />
 
       {localizedRequest.type === 'series' && <SeasonEpisodes requestId={localizedRequest.id} />}
 

@@ -37,6 +37,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
             runtime=record.runtime_minutes or 0,
             imdb_id=imdb_id,
             radarr_movie_id=record.radarr_movie_id,
+            owner_user_id=record.owner_user_id,
         )
 
     # Derive episode counts when Sonarr-provided aired/downloaded values exist.
@@ -73,6 +74,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
         imdb_id=imdb_id,
         sonarr_series_id=record.sonarr_series_id,
         episode_counts=episode_counts,
+        owner_user_id=record.owner_user_id,
     )
 
 

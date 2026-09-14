@@ -1,10 +1,12 @@
 import {
   AppShell,
+  Avatar,
   Burger,
   Container,
   Divider,
   Drawer,
   Group,
+  Menu,
   Stack,
   Text,
   UnstyledButton,
@@ -12,9 +14,10 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { type Permission, useAuth } from '@/features/auth/AuthProvider';
 import { IndexerAlertBadge } from '@/features/indexers/components/IndexerAlertBadge';
 import { useSyncWatcher } from '@/features/tasks/queries';
 
@@ -22,6 +25,8 @@ interface NavItem {
   to: string;
   labelKey: string;
   isActive: (pathname: string) => boolean;
+  /** Hidden unless the signed-in user has this permission (admins always see it). */
+  permission?: Permission;
   /** Rendered beside the label, for items that can demand attention. */
   badge?: () => ReactNode;
 }
@@ -41,17 +46,26 @@ const NAV_ITEMS: NavItem[] = [
     to: '/system/tasks',
     labelKey: 'nav.tasks',
     isActive: (pathname) => pathname.startsWith('/system/tasks'),
+    permission: 'tasks',
   },
   {
     to: '/system/indexers',
     labelKey: 'nav.indexers',
     isActive: (pathname) => pathname.startsWith('/system/indexers'),
     badge: () => <IndexerAlertBadge />,
+    permission: 'indexers',
   },
   {
     to: '/system/logs',
     labelKey: 'nav.logs',
     isActive: (pathname) => pathname.startsWith('/system/logs'),
+    permission: 'logs',
+  },
+  {
+    to: '/system/users',
+    labelKey: 'nav.users',
+    isActive: (pathname) => pathname.startsWith('/system/users'),
+    permission: 'manage_users',
   },
 ];
 
@@ -65,9 +79,51 @@ function Logo() {
   );
 }
 
+function useVisibleNavItems(): NavItem[] {
+  const { hasPermission } = useAuth();
+  return NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+}
+
+function UserMenu() {
+  const { t } = useTranslation();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user) {
+    return null;
+  }
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
+  return (
+    <Menu position="bottom-end" withArrow>
+      <Menu.Target>
+        <UnstyledButton>
+          <Group gap={6} wrap="nowrap">
+            <Avatar size="sm" radius="xl" color="blue">
+              {user.username.slice(0, 1).toUpperCase()}
+            </Avatar>
+            <Text size="sm" fw={600} visibleFrom="sm">
+              {user.display_name || user.username}
+            </Text>
+          </Group>
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>{user.username}</Menu.Label>
+        <Menu.Item onClick={handleLogout}>{t('auth.logout')}</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOpened: boolean }) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
+  const visibleItems = useVisibleNavItems();
 
   return (
     <Container size="lg" h="100%" className="safe-area-inline">
@@ -75,7 +131,7 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
         <Logo />
 
         <Group component="nav" gap="lg" wrap="nowrap" visibleFrom="sm">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const active = item.isActive(pathname);
             return (
               <Group key={item.to} gap={6} wrap="nowrap">
@@ -95,6 +151,7 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
             );
           })}
           <LanguageSwitcher />
+          <UserMenu />
         </Group>
 
         <Burger
@@ -112,6 +169,15 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
 function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const visibleItems = useVisibleNavItems();
+
+  const handleLogout = async () => {
+    onClose();
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <Drawer
@@ -124,7 +190,7 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
       zIndex={300}
     >
       <Stack gap="xs" component="nav">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = item.isActive(pathname);
           return (
             <UnstyledButton
@@ -158,6 +224,15 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
           </Text>
           <LanguageSwitcher size="sm" w="100%" />
         </Stack>
+
+        {user ? (
+          <>
+            <Divider my="sm" />
+            <UnstyledButton px="md" py="sm" onClick={handleLogout}>
+              <Text fw={600}>{t('auth.logout')}</Text>
+            </UnstyledButton>
+          </>
+        ) : null}
       </Stack>
     </Drawer>
   );

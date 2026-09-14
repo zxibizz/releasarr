@@ -31,6 +31,7 @@ class ListMediaRequestsUseCase:
             per_page=per_page,
             status=opts.status,
             media_type=opts.media_type,
+            owner_user_id=opts.owner_user_id,
         )
 
         return records_to_page(records, total=total, page=page, per_page=per_page)

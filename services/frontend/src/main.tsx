@@ -10,6 +10,7 @@ import '@mantine/notifications/styles.css';
 import '@/styles/global.css';
 
 import { AppNotifications } from '@/components/AppNotifications';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 import '@/lib/i18n';
 import { queryClient } from '@/lib/queryClient';
 import { router } from '@/router';
@@ -26,7 +27,9 @@ createRoot(container).render(
       <QueryClientProvider client={queryClient}>
         <ModalsProvider>
           <AppNotifications />
-          <RouterProvider router={router} />
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
         </ModalsProvider>
       </QueryClientProvider>
     </MantineProvider>

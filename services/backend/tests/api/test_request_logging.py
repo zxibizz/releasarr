@@ -12,9 +12,10 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from src.core.container import get_container
+from src.api.app import app
+from src.api.dependencies.auth import get_principal
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 @pytest.mark.asyncio
@@ -36,6 +37,7 @@ async def test_a_rejected_request_records_its_status(
 ) -> None:
     """A request that never reaches a route is still worth a line."""
 
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.get("/logs")
 
     assert response.status_code == 401

@@ -568,5 +568,4 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         return await self._http.request_json(method, path, **kwargs)
 
 
-
 __all__ = ["SonarrHttpClient"]

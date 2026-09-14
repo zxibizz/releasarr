@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_permission
 from src.api.responses import error_responses
+from src.application.use_cases.auth import Permission
 from src.application.use_cases.indexers.dto import (
     IndexerDTO,
     IndexerHistoryPageDTO,
@@ -34,7 +35,11 @@ from src.schemas.indexers import (
     IndexerTestResults,
 )
 
-router = APIRouter(prefix="/indexers", tags=["Indexers"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/indexers",
+    tags=["Indexers"],
+    dependencies=[Depends(require_permission(Permission.INDEXERS))],
+)
 
 _SERVER_ERROR = "Unexpected server error."
 _UPSTREAM_ERROR = "Prowlarr could not be reached."

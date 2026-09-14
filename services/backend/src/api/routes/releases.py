@@ -9,7 +9,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_user
 from src.api.errors import api_error
 from src.api.responses import error_responses
 from src.application.use_cases.releases.commands import (
@@ -61,9 +61,9 @@ from src.schemas.releases import (
     ReleasesResponse,
 )
 
-router = APIRouter(prefix="/releases", tags=["Releases"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/releases", tags=["Releases"], dependencies=[Depends(require_user)])
 request_releases_router = APIRouter(
-    prefix="/requests", tags=["Releases"], dependencies=[Depends(require_api_key)]
+    prefix="/requests", tags=["Releases"], dependencies=[Depends(require_user)]
 )
 
 

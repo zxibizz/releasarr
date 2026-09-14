@@ -30,6 +30,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
         per_page: int,
         status: MediaRequestStatus | None,
         media_type: MediaType | None,
+        owner_user_id: str | None = None,
     ) -> tuple[list[MediaRequestRecord], int]:
         async with self.db.session() as session:
             filters: list[Filter] = []
@@ -37,6 +38,8 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 filters.append(models.MediaRequest.status == status)
             if media_type is not None:
                 filters.append(models.MediaRequest.media_type == media_type)
+            if owner_user_id is not None:
+                filters.append(models.MediaRequest.owner_user_id == owner_user_id)
 
             total = await self._count(session, models.MediaRequest.id, filters)
 
@@ -74,6 +77,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 sonarr_series_id=data.sonarr_series_id,
                 radarr_movie_id=data.radarr_movie_id,
                 exported_at=data.exported_at,
+                owner_user_id=data.owner_user_id,
             )
             session.add(request)
             await session.flush()
@@ -187,6 +191,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             sonarr_series_id=request.sonarr_series_id,
             radarr_movie_id=request.radarr_movie_id,
             exported_at=request.exported_at,
+            owner_user_id=request.owner_user_id,
             created_at=request.created_at,
             updated_at=request.updated_at,
         )

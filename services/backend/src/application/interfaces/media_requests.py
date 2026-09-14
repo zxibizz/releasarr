@@ -44,6 +44,7 @@ class MediaRequestRecord:
     aired_episodes: int | None = None
     downloaded_episodes: int | None = None
     exported_at: datetime | None = None
+    owner_user_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -70,6 +71,7 @@ class CreateMediaRequestData:
     aired_episodes: int | None = None
     downloaded_episodes: int | None = None
     exported_at: datetime | None = None
+    owner_user_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -98,6 +100,7 @@ class UpdateMediaRequestData:
     radarr_movie_id: int | None | _Unset = UNSET
     localizations: dict[str, MediaLocalization] | _Unset = UNSET
     exported_at: datetime | None | _Unset = UNSET
+    owner_user_id: str | None | _Unset = UNSET
 
 
 class MediaRequestRepository(Protocol):
@@ -110,8 +113,13 @@ class MediaRequestRepository(Protocol):
         per_page: int,
         status: MediaRequestStatus | None,
         media_type: MediaType | None,
+        owner_user_id: str | None = None,
     ) -> tuple[list[MediaRequestRecord], int]:
-        """Return paginated media requests matching the provided filters."""
+        """Return paginated media requests matching the provided filters.
+
+        ``owner_user_id``, when set, restricts the results to that owner's
+        requests; otherwise every request is eligible regardless of owner.
+        """
 
     async def create_request(self, data: CreateMediaRequestData) -> MediaRequestRecord:
         """Persist a new media request and return the stored record."""

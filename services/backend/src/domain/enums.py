@@ -79,6 +79,13 @@ class IndexerHealth(StrEnum):
     DISABLED = "disabled"
 
 
+class UserRole(StrEnum):
+    """A user's role. Admin bypasses every per-user permission flag."""
+
+    ADMIN = "admin"
+    USER = "user"
+
+
 class IndexerEventType(StrEnum):
     """What an indexer was asked to do, in Prowlarr's own history.
 

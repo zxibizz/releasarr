@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
@@ -15,9 +16,23 @@ class AppSettings(BaseSettings):
     api_version: str = Field(default="0.1.0")
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)
-    api_key: SecretStr = Field(default=SecretStr("dev-secret"))
 
     database_url: str = Field(default="sqlite+aiosqlite:///./releasarr.db")
+
+    # Signs access tokens; left empty deliberately so a real deployment cannot
+    # boot without setting it. See AppContainer.startup for the check.
+    auth_secret: SecretStr = Field(default=SecretStr(""))
+    auth_access_token_ttl_seconds: int = Field(default=900)
+    auth_refresh_token_ttl_seconds: int = Field(default=86400)
+    auth_refresh_remember_ttl_seconds: int = Field(default=2_592_000)
+    auth_cookie_name: str = Field(default="releasarr_refresh")
+    # Browser-facing path: nginx and the Vite dev proxy both strip the leading
+    # /api, so this must be the path the client actually sees, not the FastAPI route.
+    auth_cookie_path: str = Field(default="/api/auth")
+    auth_cookie_secure: bool = Field(default=True)
+    auth_cookie_samesite: Literal["lax", "strict", "none"] = Field(default="lax")
+    auth_max_failed_logins: int = Field(default=10)
+    auth_lockout_seconds: int = Field(default=900)
 
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)

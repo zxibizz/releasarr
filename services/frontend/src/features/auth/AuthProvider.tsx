@@ -1,0 +1,145 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import { authApi } from '@/features/auth/api';
+import { onAuthExpired, setAccessToken } from '@/lib/api/client';
+import type { SessionUser } from '@/types';
+
+export type Permission = 'view_all_requests' | 'tasks' | 'indexers' | 'logs' | 'manage_users';
+
+/** Mirrors the backend's Permission model: admin bypasses every flag. */
+export function userHasPermission(user: SessionUser | null, permission: Permission): boolean {
+  if (!user) {
+    return false;
+  }
+  if (user.role === 'admin') {
+    return true;
+  }
+  switch (permission) {
+    case 'view_all_requests':
+      return user.can_view_all_requests;
+    case 'tasks':
+      return user.can_access_tasks;
+    case 'indexers':
+      return user.can_access_indexers;
+    case 'logs':
+      return user.can_access_logs;
+    case 'manage_users':
+      return false;
+    default:
+      return false;
+  }
+}
+
+export type AuthStatus = 'loading' | 'setup-required' | 'anonymous' | 'authenticated';
+
+export interface AuthContextValue {
+  status: AuthStatus;
+  user: SessionUser | null;
+  isAdmin: boolean;
+  hasPermission: (permission: Permission) => boolean;
+  login: (username: string, password: string, rememberMe: boolean) => Promise<void>;
+  completeSetup: (username: string, password: string, displayName?: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  // Runs once: is there anyone to create, and failing that, does a remembered
+  // session still exist behind the (httpOnly, invisible-to-JS) refresh cookie.
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const setup = await authApi.setupStatus();
+        if (setup.required) {
+          if (!cancelled) {
+            setStatus('setup-required');
+          }
+          return;
+        }
+      } catch {
+        // A failed setup-status check should not itself block trying a session.
+      }
+
+      try {
+        const session = await authApi.refresh();
+        setAccessToken(session.access_token);
+        if (!cancelled) {
+          setUser(session.user);
+          setStatus('authenticated');
+        }
+      } catch {
+        if (!cancelled) {
+          setStatus('anonymous');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(
+    () =>
+      onAuthExpired(() => {
+        setUser(null);
+        setStatus('anonymous');
+      }),
+    [],
+  );
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      status,
+      user,
+      isAdmin: user?.role === 'admin',
+      hasPermission: (permission) => userHasPermission(user, permission),
+      login: async (username, password, rememberMe) => {
+        const session = await authApi.login({
+          username,
+          password,
+          remember_me: rememberMe,
+        });
+        setAccessToken(session.access_token);
+        setUser(session.user);
+        setStatus('authenticated');
+      },
+      completeSetup: async (username, password, displayName) => {
+        const session = await authApi.completeSetup({
+          username,
+          password,
+          display_name: displayName || undefined,
+        });
+        setAccessToken(session.access_token);
+        setUser(session.user);
+        setStatus('authenticated');
+      },
+      logout: async () => {
+        try {
+          await authApi.logout();
+        } finally {
+          setAccessToken(null);
+          setUser(null);
+          setStatus('anonymous');
+        }
+      },
+    }),
+    [status, user],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

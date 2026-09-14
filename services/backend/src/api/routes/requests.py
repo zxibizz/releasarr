@@ -6,11 +6,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_user
 from src.api.errors import api_error
 from src.api.responses import error_responses
 from src.api.routes.discover import seasons_to_schema
 from src.application.interfaces.media_requests import MediaLocalization as MediaLocalizationData
+from src.application.use_cases.auth import Principal
 from src.application.use_cases.discover import (
     ListRequestSeasonsUseCase,
     UpdateRequestSeasonsCommand,
@@ -26,6 +27,7 @@ from src.application.use_cases.requests import (
     ListRequestEpisodesUseCase,
     ListRequestsOptions,
     MediaRequestDTO,
+    MediaRequestNotFoundError,
     MediaRequestsPageDTO,
     MovieRequestDTO,
     SeasonEpisodesDTO,
@@ -52,7 +54,7 @@ from src.schemas.requests import (
     MediaLocalization as MediaLocalizationSchema,
 )
 
-router = APIRouter(prefix="/requests", tags=["Requests"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/requests", tags=["Requests"], dependencies=[Depends(require_user)])
 
 
 def _get_container() -> AppContainer:
@@ -113,6 +115,7 @@ _NO_EPISODES = "The request has no season in Sonarr whose episodes can be listed
 LIST_REQUESTS_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Invalid pagination or filter parameters.",
+        status.HTTP_403_FORBIDDEN: "Restricted callers may not filter requests by owner.",
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -191,6 +194,16 @@ def _dto_to_schema(dto: MediaRequestDTO) -> MediaRequest:
     raise TypeError("Unsupported DTO type")
 
 
+def _guard_scope(principal: Principal, request_id: str, owner_user_id: str | None) -> None:
+    """Raise ``MediaRequestNotFoundError`` for a request outside the caller's scope.
+
+    Not-found rather than forbidden: a 403 would confirm the request exists.
+    """
+
+    if not principal.scope.permits(owner_user_id):
+        raise MediaRequestNotFoundError(request_id)
+
+
 def _episodes_to_schema(dto: SeasonEpisodesDTO) -> SeasonEpisodesResponse:
     return SeasonEpisodesResponse(
         season_number=dto.season_number,
@@ -216,11 +229,13 @@ def _page_to_response(page: MediaRequestsPageDTO) -> RequestsResponse:
 
 @router.get("", response_model=RequestsResponse, responses=LIST_REQUESTS_RESPONSES)
 async def list_requests(
+    principal: Principal = Depends(require_user),
     list_use_case: ListMediaRequestsUseCase = Depends(_get_list_use_case),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1),
     status_filter: str | None = Query(default=None, alias="status"),
     type_filter: str | None = Query(default=None, alias="type"),
+    owner: str | None = Query(default=None),
 ) -> RequestsResponse:
     status_value: MediaRequestStatus | None = None
     if status_filter:
@@ -236,11 +251,19 @@ async def list_requests(
         except ValueError as exc:
             raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_type_filter", str(exc)) from exc
 
+    scope = principal.scope
+    if owner is not None and scope.is_restricted:
+        raise api_error(
+            status.HTTP_403_FORBIDDEN, "forbidden", "You may not filter requests by owner"
+        )
+    owner_filter = scope.owner_user_id if scope.is_restricted else owner
+
     options = ListRequestsOptions(
         page=page,
         per_page=per_page,
         status=status_value,
         media_type=media_type,
+        owner_user_id=owner_filter,
     )
     result = await list_use_case.execute(options)
     return _page_to_response(result)
@@ -268,9 +291,11 @@ async def create_request(
 )
 async def get_request(
     request_id: RequestIdParam,
+    principal: Principal = Depends(require_user),
     get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
 ) -> MediaRequest:
     dto = await get_use_case.execute(request_id)
+    _guard_scope(principal, request_id, dto.owner_user_id)
     return _dto_to_schema(dto)
 
 
@@ -282,8 +307,17 @@ async def get_request(
 async def update_request(
     request_id: RequestIdParam,
     payload: MediaRequestUpdate,
+    principal: Principal = Depends(require_user),
+    get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
     update_use_case: UpdateMediaRequestUseCase = Depends(_get_update_use_case),
 ) -> MediaRequest:
+    if "owner_user_id" in payload.model_fields_set and not principal.is_admin:
+        raise api_error(
+            status.HTTP_403_FORBIDDEN, "forbidden", "Only an admin may reassign a request's owner"
+        )
+    if principal.scope.is_restricted:
+        existing = await get_use_case.execute(request_id)
+        _guard_scope(principal, request_id, existing.owner_user_id)
     command = _build_update_command(payload)
     dto = await update_use_case.execute(request_id, command)
     return _dto_to_schema(dto)
@@ -296,8 +330,13 @@ async def update_request(
 )
 async def delete_request(
     request_id: RequestIdParam,
+    principal: Principal = Depends(require_user),
+    get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
     delete_use_case: DeleteMediaRequestUseCase = Depends(_get_delete_use_case),
 ) -> Response:
+    if principal.scope.is_restricted:
+        existing = await get_use_case.execute(request_id)
+        _guard_scope(principal, request_id, existing.owner_user_id)
     await delete_use_case.execute(request_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

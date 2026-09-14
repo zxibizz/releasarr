@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from src.api.dependencies import require_api_key
+from src.api.dependencies import require_user
 from src.api.responses import error_responses
+from src.application.use_cases.auth import Principal, allowed_root_folders
 from src.application.use_cases.discover import (
     AddMediaRequestCommand,
     AddMediaRequestUseCase,
@@ -36,7 +37,7 @@ from src.schemas.discover import (
 )
 from src.schemas.requests import MediaRequest, MovieRequest, SeriesRequest
 
-router = APIRouter(prefix="/discover", tags=["Discover"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/discover", tags=["Discover"], dependencies=[Depends(require_user)])
 
 
 def _get_container() -> AppContainer:
@@ -145,10 +146,13 @@ async def list_series_seasons(
 
 @router.get("/root-folders", response_model=RootFoldersResponse, responses=ROOT_FOLDERS_RESPONSES)
 async def list_root_folders(
+    principal: Principal = Depends(require_user),
     root_folders_use_case: ListRootFoldersUseCase = Depends(_root_folders_use_case),
     media_type: MediaType = Query(..., alias="type"),
 ) -> RootFoldersResponse:
-    folders = await root_folders_use_case.execute(media_type)
+    folders = await root_folders_use_case.execute(
+        media_type, allowed_paths=allowed_root_folders(principal.user)
+    )
     return RootFoldersResponse(
         folders=[RootFolder(path=folder.path, free_space=folder.free_space) for folder in folders]
     )
@@ -162,6 +166,7 @@ async def list_root_folders(
 )
 async def add_request(
     payload: AddRequestPayload,
+    principal: Principal = Depends(require_user),
     add_request_use_case: AddMediaRequestUseCase = Depends(_add_request_use_case),
 ) -> AddRequestResponse:
     command = AddMediaRequestCommand(
@@ -170,6 +175,8 @@ async def add_request(
         root_folder_path=payload.root_folder_path,
         season_numbers=list(payload.season_numbers or []),
         monitor_new_seasons=payload.monitor_new_seasons,
+        owner_user_id=principal.user.id,
+        allowed_root_folders=allowed_root_folders(principal.user),
     )
     requests = await add_request_use_case.execute(command)
     return AddRequestResponse(requests=[_dto_to_schema(dto) for dto in requests])

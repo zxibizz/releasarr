@@ -12,6 +12,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.requests import (
     _get_create_use_case,
     _get_delete_use_case,
@@ -52,10 +53,9 @@ from src.application.use_cases.requests.dto import (
     SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
-from src.core.container import get_container
 from src.domain.enums import EpisodeStatus, MediaRequestStatus
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 class FakeListUseCase(ListMediaRequestsUseCase):
@@ -451,10 +451,11 @@ async def test_updating_seasons_accepts_an_empty_selection(api_client: AsyncClie
 
 @pytest.mark.asyncio
 async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.get("/requests")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {
         "code": "unauthorized",
-        "message": "Invalid API key",
+        "message": "Authentication required",
         "details": None,
     }

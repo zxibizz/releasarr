@@ -12,6 +12,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
+from src.api.dependencies.auth import get_principal
 from src.api.routes.tasks import (
     _enqueue_use_case,
     _get_job_use_case,
@@ -21,10 +22,9 @@ from src.api.routes.tasks import (
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
 from src.application.use_cases.tasks.dto import ScheduledTaskDTO
 from src.application.use_cases.tasks.exceptions import SyncJobNotFoundError
-from src.core.container import get_container
 from src.domain.enums import SyncJobKind, SyncJobStatus, SyncJobTrigger
 
-API_KEY_HEADER = {"X-API-Key": get_container().settings.api_key.get_secret_value()}
+API_KEY_HEADER: dict[str, str] = {}
 
 
 def make_job(
@@ -166,6 +166,7 @@ async def test_reused_jobs_are_reported_as_not_created(api_client: AsyncClient) 
 
 @pytest.mark.asyncio
 async def test_sync_all_requires_the_api_key(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
     response = await api_client.post("/tasks/sync_all")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

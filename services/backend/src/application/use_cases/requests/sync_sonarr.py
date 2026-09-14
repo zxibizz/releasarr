@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from typing import cast
 from uuid import uuid4
 
-from src.application.utility.metadata_cache import SupportsWarning
-
 from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import (
@@ -24,7 +22,7 @@ from src.application.utility.localization import (
     LocalizationPicker,
     merge_default_localization,
 )
-from src.application.utility.metadata_cache import get_cached_metadata
+from src.application.utility.metadata_cache import SupportsWarning, get_cached_metadata
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -91,7 +89,13 @@ class SyncSonarrMediaRequestsUseCase:
         )
         return result
 
-    async def sync_series(self, series_id: int, season_numbers: Sequence[int]) -> list[str]:
+    async def sync_series(
+        self,
+        series_id: int,
+        season_numbers: Sequence[int],
+        *,
+        owner_user_id: str | None = None,
+    ) -> list[str]:
         """Create or refresh requests for named seasons of a single series.
 
         Serves the add-request flow, where the seasons to cover are known and the
@@ -105,7 +109,7 @@ class SyncSonarrMediaRequestsUseCase:
 
         request_ids: list[str] = []
         for season_number in sorted(set(season_numbers)):
-            await self._sync_season(details, season_number)
+            await self._sync_season(details, season_number, owner_user_id=owner_user_id)
             record = await self._repository.find_by_sonarr(
                 sonarr_series_id=series_id,
                 season_number=season_number,
@@ -114,7 +118,9 @@ class SyncSonarrMediaRequestsUseCase:
                 request_ids.append(record.id)
         return request_ids
 
-    async def _sync_season(self, details: SeriesDetails, season_number: int) -> str:
+    async def _sync_season(
+        self, details: SeriesDetails, season_number: int, *, owner_user_id: str | None = None
+    ) -> str:
         """Create or update a Sonarr-backed request for a specific season."""
 
         existing = await self._repository.find_by_sonarr(
@@ -159,6 +165,7 @@ class SyncSonarrMediaRequestsUseCase:
                 status=MediaRequestStatus.PENDING,
                 sonarr_series_id=details.id,
                 localizations=localizations,
+                owner_user_id=owner_user_id,
             )
             await self._repository.create_request(data)
             self._logger.debug(
