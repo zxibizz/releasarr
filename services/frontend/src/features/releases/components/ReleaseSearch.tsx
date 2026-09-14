@@ -293,7 +293,6 @@ export function ReleaseSearch({
                   sourceFilter={sourceFilter}
                   setSourceFilter={setSourceFilter}
                   expanded={filtersExpanded}
-                  setExpanded={setFiltersExpanded}
                 />
 
                 <ReleaseResults
