@@ -350,30 +350,6 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             raise HttpClientError("Radarr API key is not configured; set RELEASARR_RADARR_API_KEY")
         return await self._http.request_json(method, path, **kwargs)
 
-    def _extract_poster_url(self, images: list[dict[str, object]]) -> str | None:
-        for image in images:
-            if str(image.get("coverType") or "").lower() == "poster":
-                remote = self._safe_str(image.get("remoteUrl"))
-                if remote:
-                    return remote
-                local = self._safe_str(image.get("url"))
-                if local:
-                    return local
-        return None
-
-    def _safe_int(self, value: object) -> int | None:
-        if not isinstance(value, int | float | str):
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    def _safe_str(self, value: object) -> str | None:
-        if value is None:
-            return None
-        result = str(value)
-        return result or None
 
 
 __all__ = ["RadarrHttpClient"]
