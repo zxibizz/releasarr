@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 
 import {
   DEFAULT_SOURCE_FILTER,
-  DEFAULT_SORT_FIELD,
   NATURAL_SORT_ORDER,
   SORT_FIELDS,
   type SortField,
@@ -21,7 +20,6 @@ interface ReleaseFiltersProps {
   sourceFilter: string;
   setSourceFilter: (source: string) => void;
   expanded: boolean;
-  setExpanded: (expanded: boolean) => void;
 }
 
 export function ReleaseFilters({
@@ -34,13 +32,8 @@ export function ReleaseFilters({
   sourceFilter,
   setSourceFilter,
   expanded,
-  setExpanded,
 }: ReleaseFiltersProps) {
   const { t } = useTranslation();
-  const adjusted =
-    sortField !== DEFAULT_SORT_FIELD ||
-    sortOrder !== NATURAL_SORT_ORDER[DEFAULT_SORT_FIELD] ||
-    sourceFilter !== DEFAULT_SOURCE_FILTER;
 
   const controls = (
     <Group gap="sm" wrap="wrap">
