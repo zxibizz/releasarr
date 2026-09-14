@@ -8,13 +8,19 @@ picked up here.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from loguru._logger import Logger
+from loguru import logger
 
 from src.application.interfaces.sync_jobs import SyncJobRecord, SyncJobRepository
 from src.core.logging import get_logger
 from src.domain.enums import SyncJobStatus
 from src.tasks.sync_steps import SyncSteps
+
+if TYPE_CHECKING:
+    from loguru import Logger
+else:
+    Logger = logger.__class__
 
 
 @dataclass(slots=True)

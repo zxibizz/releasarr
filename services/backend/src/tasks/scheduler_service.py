@@ -17,6 +17,7 @@ import asyncio
 import signal
 import time
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
@@ -25,6 +26,11 @@ from src.core.container import AppContainer, get_container
 from src.domain.enums import LogService, SyncJobKind, SyncJobStatus
 from src.tasks.sync_jobs import SyncJobRunner
 from src.tasks.sync_steps import SyncSteps
+
+if TYPE_CHECKING:
+    from loguru import Logger
+else:
+    Logger = logger.__class__
 
 JOB_POLL_INTERVAL = 5
 # Upper bound on retained job history, trimmed after each drained job.
@@ -38,7 +44,7 @@ class SchedulerService:
         self._shutdown = False
         self.container = container or get_container()
         self.container.startup(service=LogService.SCHEDULER)
-        self.logger = logger
+        self.logger: Logger = logger
         self.steps = SyncSteps(container=self.container)
 
     async def start(self) -> None:

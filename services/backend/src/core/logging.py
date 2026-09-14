@@ -15,6 +15,11 @@ from src.domain.enums import LogService
 from src.settings.config import AppSettings
 
 if TYPE_CHECKING:
+    from loguru import Logger
+else:
+    Logger = logger.__class__
+
+if TYPE_CHECKING:
     from loguru import Record
 
 # Credentials that upstream libraries put in the query string of a logged URL.
@@ -140,7 +145,7 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
-def get_logger(**extra: object):
+def get_logger(**extra: object) -> Logger:
     """Return a Loguru logger bound with optional context."""
 
     return logger.bind(**extra)
