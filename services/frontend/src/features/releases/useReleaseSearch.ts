@@ -230,6 +230,8 @@ export function useReleaseSearch({
     setSourceFilter(DEFAULT_SOURCE_FILTER);
   };
 
+  const dismissFailedIndexers = () => setFailedIndexers([]);
+
   return {
     activeTab,
     setActiveTab,
@@ -237,6 +239,7 @@ export function useReleaseSearch({
     setQuery,
     results,
     failedIndexers,
+    dismissFailedIndexers,
     searchedQuery,
     sortField,
     setSortField,

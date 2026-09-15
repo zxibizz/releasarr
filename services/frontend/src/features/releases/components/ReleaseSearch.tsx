@@ -68,6 +68,7 @@ export function ReleaseSearch({
     setQuery,
     results,
     failedIndexers,
+    dismissFailedIndexers,
     searchedQuery,
     sortField,
     setSortField,
@@ -251,7 +252,13 @@ export function ReleaseSearch({
             )}
 
             {failedIndexers.length > 0 && (
-              <Alert color="yellow" radius="md" title={t('releaseSearch.indexerFailures.title')}>
+              <Alert
+                color="yellow"
+                radius="md"
+                title={t('releaseSearch.indexerFailures.title')}
+                withCloseButton
+                onClose={dismissFailedIndexers}
+              >
                 {t('releaseSearch.indexerFailures.description', {
                   count: failedIndexers.length,
                   names: failedIndexers.map((indexer) => indexer.name).join(', '),
