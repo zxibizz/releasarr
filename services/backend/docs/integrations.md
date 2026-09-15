@@ -10,10 +10,10 @@ unconfigured. Adapters live in `src/infrastructure/<service>/`; the ports they i
 | --- | --- | --- | --- | --- |
 | Sonarr | `RELEASARR_SONARR_URL` | `http://localhost:8989/api/v3` | `/api/v3` | Client exists, errors on first call |
 | Radarr | `RELEASARR_RADARR_URL` | `http://localhost:7878/api/v3` | `/api/v3` | Client exists, errors on first call |
-| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | `InMemoryReleaseSearchService`; indexer directory is `None` |
+| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | `InMemoryReleaseSearchService`; indexer directory reports `is_configured = False` |
 | qBittorrent | `RELEASARR_QBITTORRENT_URL` | *(empty)* | `/api/v2` | In-memory download + lifecycle stubs |
-| TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | v4 root | `None`; use cases degrade |
-| TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | `/3` | `None`; use cases degrade |
+| TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | v4 root | reports `is_configured = False`; use cases degrade |
+| TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | `/3` | reports `is_configured = False`; use cases degrade |
 
 **Base URLs are passed through verbatim.** `ProwlarrReleaseSearchService` requests `/search`
 and `QbittorrentClient` requests `/torrents/add`, so the configured value must already carry
@@ -22,6 +22,12 @@ error.
 
 Degradation is decided once, in `src/core/container.py`, not at the call site. This is why the
 app boots with nothing configured.
+
+Where a provider is optional per deployment the port itself says so: `IndexerDirectory`,
+`TvdbService` and `TmdbService` each declare `is_configured`, and the adapter answers from the
+settings it was built with, so a caller branches on a value instead of on an absent object. What
+counts as configured differs per service — Prowlarr needs both URL and key, TVDB and TMDB need
+only the key, since their base URLs always have a default.
 
 ## The shared HTTP client
 

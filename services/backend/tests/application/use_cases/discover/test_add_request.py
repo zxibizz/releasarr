@@ -29,6 +29,8 @@ from tests.fakes import (
     FakeMediaRequestRepository,
     FakeRadarrService,
     FakeSonarrService,
+    FakeTmdbService,
+    FakeTvdbService,
     make_movie_details,
     make_record,
     make_series_details,
@@ -52,12 +54,12 @@ def build_use_case(
         sync_sonarr=SyncSonarrMediaRequestsUseCase(
             repository=repository,
             sonarr_service=sonarr,
-            tvdb_service=None,
+            tvdb_service=FakeTvdbService(is_configured=False),
         ),
         sync_radarr=SyncRadarrMediaRequestsUseCase(
             repository=repository,
             radarr_service=radarr,
-            tmdb_service=None,
+            tmdb_service=FakeTmdbService(is_configured=False),
         ),
         sonarr_quality_profile_id=sonarr_quality_profile_id,
         radarr_quality_profile_id=radarr_quality_profile_id,

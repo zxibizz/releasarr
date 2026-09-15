@@ -16,7 +16,7 @@ logger = get_logger(component="indexers")
 class ListIndexerLogsUseCase:
     def __init__(
         self,
-        directory: IndexerDirectory | None,
+        directory: IndexerDirectory,
         settings: AppSettings | None = None,
     ) -> None:
         self._directory = directory
@@ -28,7 +28,7 @@ class ListIndexerLogsUseCase:
         per_page: int | None = None,
         min_level: IndexerLogLevel | None = None,
     ) -> IndexerLogsPageDTO:
-        if self._directory is None:
+        if not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
         page = normalise_page(page, self._settings)

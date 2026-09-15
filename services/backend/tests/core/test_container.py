@@ -98,9 +98,27 @@ def test_container_provides_the_indexer_directory_when_prowlarr_is_configured() 
     assert directory is container.services.indexer_directory
 
 
-def test_container_has_no_indexer_directory_without_prowlarr() -> None:
-    """The indexer use cases report the missing configuration rather than fake it."""
+def test_container_reports_an_unconfigured_indexer_directory_without_prowlarr() -> None:
+    """Nothing is absent: the directory stays and answers for itself."""
 
     container = AppContainer(settings=AppSettings(prowlarr_url="", prowlarr_api_key=SecretStr("")))
 
-    assert container.services.indexer_directory is None
+    assert container.services.indexer_directory.is_configured is False
+
+
+def test_container_reports_unconfigured_metadata_providers_without_keys() -> None:
+    container = AppContainer(
+        settings=AppSettings(tvdb_api_key=SecretStr(""), tmdb_api_key=SecretStr(""))
+    )
+
+    assert container.services.tvdb.is_configured is False
+    assert container.services.tmdb.is_configured is False
+
+
+def test_container_reports_configured_metadata_providers_with_keys() -> None:
+    container = AppContainer(
+        settings=AppSettings(tvdb_api_key=SecretStr("tvdb"), tmdb_api_key=SecretStr("tmdb"))
+    )
+
+    assert container.services.tvdb.is_configured is True
+    assert container.services.tmdb.is_configured is True

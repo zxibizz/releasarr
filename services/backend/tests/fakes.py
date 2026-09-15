@@ -17,6 +17,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.indexers import (
+    IndexerEventPage,
+    IndexerLogPage,
+    IndexerRecord,
+    IndexerTestResultRecord,
+)
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
     MediaRequestRecord,
@@ -35,7 +41,7 @@ from src.application.interfaces.sonarr import (
 from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbSearchResult
 from src.application.interfaces.tvdb import TvdbSearchResult, TvdbSeriesMetadata
 from src.application.utility.sentinels import UNSET
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import IndexerEventType, IndexerLogLevel, MediaRequestStatus, MediaType
 
 
 class UnusedSonarrLibraryCalls:
@@ -132,6 +138,43 @@ class UnusedTmdbSearch:
         limit: int = 20,
         languages: Sequence[str] | None = None,
     ) -> list[TmdbSearchResult]:
+        raise NotImplementedError
+
+
+class UnusedIndexerDirectoryCalls:
+    """Every ``IndexerDirectory`` call a test might not drive.
+
+    The release fan-out only lists indexers and the indexers page only inspects
+    them, so each fake implements the one or two calls it needs and inherits the
+    rest. Reaching an inherited one fails loudly rather than answering emptily.
+    """
+
+    async def list_indexers(self) -> Sequence[IndexerRecord]:
+        raise NotImplementedError
+
+    async def list_history(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        indexer_id: int | None = None,
+        event_type: IndexerEventType | None = None,
+    ) -> IndexerEventPage:
+        raise NotImplementedError
+
+    async def list_logs(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        min_level: IndexerLogLevel | None = None,
+    ) -> IndexerLogPage:
+        raise NotImplementedError
+
+    async def test_indexer(self, indexer_id: int) -> IndexerTestResultRecord:
+        raise NotImplementedError
+
+    async def test_all_indexers(self) -> Sequence[IndexerTestResultRecord]:
         raise NotImplementedError
 
 
@@ -435,10 +478,12 @@ class FakeTvdbService:
         search_results: list[TvdbSearchResult] | None = None,
         metadata: dict[int, TvdbSeriesMetadata] | None = None,
         search_error: Exception | None = None,
+        is_configured: bool = True,
     ) -> None:
         self._search_results = search_results or []
         self._metadata = metadata or {}
         self._search_error = search_error
+        self.is_configured = is_configured
         self.search_languages: list[list[str]] = []
 
     async def get_series(
@@ -467,10 +512,12 @@ class FakeTmdbService:
         search_results: list[TmdbSearchResult] | None = None,
         metadata: dict[int, TmdbMovieMetadata] | None = None,
         search_error: Exception | None = None,
+        is_configured: bool = True,
     ) -> None:
         self._search_results = search_results or []
         self._metadata = metadata or {}
         self._search_error = search_error
+        self.is_configured = is_configured
         self.search_languages: list[list[str]] = []
 
     async def get_movie(
@@ -550,6 +597,7 @@ __all__ = [
     "FakeSonarrService",
     "FakeTmdbService",
     "FakeTvdbService",
+    "UnusedIndexerDirectoryCalls",
     "UnusedRadarrLibraryCalls",
     "UnusedSonarrLibraryCalls",
     "UnusedTmdbSearch",

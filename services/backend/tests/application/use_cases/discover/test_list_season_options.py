@@ -26,7 +26,7 @@ def build_use_case(
     return ListSeasonOptionsUseCase(
         repository=repository or FakeMediaRequestRepository(),
         sonarr_service=sonarr or FakeSonarrService(),
-        tvdb_service=tvdb,
+        tvdb_service=tvdb if tvdb is not None else FakeTvdbService(is_configured=False),
         metadata_languages=("eng",),
     )
 

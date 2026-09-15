@@ -92,6 +92,7 @@ class TvdbHttpClient(TvdbService):
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._api_token = api_token
         self._auth = _TvdbAuth(base_url=self._base_url, api_token=api_token)
         self._client = build_async_client(
             base_url=self._base_url,
@@ -107,6 +108,10 @@ class TvdbHttpClient(TvdbService):
             fragment=None,
         )
         self._logger = get_logger(component="tvdb")
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self._api_token)
 
     async def get_series(
         self,

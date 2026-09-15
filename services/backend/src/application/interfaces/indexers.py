@@ -98,7 +98,16 @@ class IndexerLogPage:
 
 
 class IndexerDirectory(Protocol):
-    """Read and test the indexers a search provider is configured with."""
+    """Read and test the indexers a search provider is configured with.
+
+    An implementation is always injected, even where no provider backs it:
+    ``is_configured`` is how a caller tells the two apart, so nothing has to be
+    absent from the type.
+    """
+
+    @property
+    def is_configured(self) -> bool:
+        """Whether a provider backs this directory and can be reached."""
 
     async def list_indexers(self) -> Sequence[IndexerRecord]:
         """Return every known indexer, including the ones switched off."""

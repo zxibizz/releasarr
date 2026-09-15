@@ -53,6 +53,10 @@ class TvdbSearchResult:
 class TvdbService(Protocol):
     """Protocol describing required TVDB operations."""
 
+    @property
+    def is_configured(self) -> bool:
+        """Whether an API token is set. The base URL always has a default."""
+
     async def get_series(
         self,
         tvdb_id: int,

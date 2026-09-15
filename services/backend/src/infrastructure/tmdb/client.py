@@ -34,6 +34,7 @@ class TmdbHttpClient(TmdbService):
         # TMDB hands out a v3 key and a v4 read access token; the latter is a JWT
         # and goes in the Authorization header, the former in the query string.
         # Accepting both saves callers from having to know which one they copied.
+        self._api_token = api_token
         headers: dict[str, str] = {}
         self._auth_params: dict[str, str] = {}
         if "." in api_token:
@@ -47,6 +48,10 @@ class TmdbHttpClient(TmdbService):
             timeout=timeout_seconds,
             transport=transport,
         )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self._api_token)
 
     async def aclose(self) -> None:
         await self._http.aclose()

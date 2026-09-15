@@ -16,6 +16,7 @@ from src.application.interfaces.releases import (
 from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 from src.domain.enums import ReleaseStatus, RequestWarningCode
 from tests.builders import stub_recompute_state, stub_warning_repository
+from tests.fakes import UnusedIndexerDirectoryCalls
 
 RELEASE_ID = "https://tracker.example/details/1"
 
@@ -158,6 +159,7 @@ def build_use_case(
 ) -> RegrabOutdatedReleasesUseCase:
     overrides.setdefault("warning_repository", stub_warning_repository())
     overrides.setdefault("recompute_state", stub_recompute_state())
+    overrides.setdefault("directory", FakeIndexerDirectory([]))
     return RegrabOutdatedReleasesUseCase(repository, search_service, download_service, **overrides)
 
 
@@ -205,32 +207,22 @@ async def test_regrab_skips_releases_with_no_matching_indexer_result() -> None:
     assert download_service.calls == []
 
 
-class FakeIndexerDirectory:
+class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
     def __init__(
         self,
         indexers: list[IndexerRecord],
         *,
         error: Exception | None = None,
+        is_configured: bool = True,
     ) -> None:
         self._indexers = indexers
         self._error = error
+        self.is_configured = is_configured
 
     async def list_indexers(self) -> list[IndexerRecord]:
         if self._error is not None:
             raise self._error
         return self._indexers
-
-    async def list_history(self, **kwargs: object) -> object:
-        raise AssertionError("not used in this test")
-
-    async def list_logs(self, **kwargs: object) -> object:
-        raise AssertionError("not used in this test")
-
-    async def test_indexer(self, indexer_id: int) -> object:
-        raise AssertionError("not used in this test")
-
-    async def test_all_indexers(self) -> object:
-        raise AssertionError("not used in this test")
 
 
 async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
@@ -332,6 +324,23 @@ async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> No
     await use_case.execute()
 
     assert search_service.indexer_ids == [None]
+
+
+async def test_regrab_falls_back_to_unscoped_search_without_prowlarr() -> None:
+    """An unconfigured directory has no indexer names to scope a release to."""
+
+    release = make_release()
+    match = make_match()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(match)
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory([], is_configured=False)
+
+    use_case = build_use_case(repository, search_service, download_service, directory=directory)
+    await use_case.execute()
+
+    assert search_service.indexer_ids == [None]
+    assert len(download_service.calls) == 1
 
 
 async def test_regrab_falls_back_to_unscoped_search_when_directory_fails() -> None:

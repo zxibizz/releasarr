@@ -158,8 +158,8 @@ async def test_searching_without_a_metadata_provider_is_reported() -> None:
         repository=FakeMediaRequestRepository(),
         sonarr_service=FakeSonarrService(),
         radarr_service=FakeRadarrService(),
-        tvdb_service=None,
-        tmdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
+        tmdb_service=FakeTmdbService(is_configured=False),
         metadata_languages=("eng",),
     )
 
@@ -302,7 +302,7 @@ async def test_a_combined_search_uses_whichever_provider_is_configured() -> None
         repository=FakeMediaRequestRepository(),
         sonarr_service=FakeSonarrService(),
         radarr_service=FakeRadarrService(),
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
         tmdb_service=FakeTmdbService(search_results=MOVIE_MATCHES),
         metadata_languages=("eng",),
     )
@@ -318,8 +318,8 @@ async def test_a_combined_search_with_no_provider_names_both() -> None:
         repository=FakeMediaRequestRepository(),
         sonarr_service=FakeSonarrService(),
         radarr_service=FakeRadarrService(),
-        tvdb_service=None,
-        tmdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
+        tmdb_service=FakeTmdbService(is_configured=False),
         metadata_languages=("eng",),
     )
 

@@ -66,8 +66,8 @@ class SearchMediaUseCase:
         repository: MediaRequestRepository,
         sonarr_service: SonarrService,
         radarr_service: RadarrService,
-        tvdb_service: TvdbService | None,
-        tmdb_service: TmdbService | None,
+        tvdb_service: TvdbService,
+        tmdb_service: TmdbService,
         metadata_languages: Sequence[str] | None = None,
         logger: Logger | None = None,
     ) -> None:
@@ -123,9 +123,9 @@ class SearchMediaUseCase:
         languages: Sequence[str],
     ) -> list[MediaSearchResultDTO]:
         searches: list[tuple[MediaType, Coroutine[None, None, list[_Ranked]]]] = []
-        if self._tvdb is not None:
+        if self._tvdb.is_configured:
             searches.append((MediaType.SERIES, self._search_series(term, languages)))
-        if self._tmdb is not None:
+        if self._tmdb.is_configured:
             searches.append((MediaType.MOVIE, self._search_movies(term, languages)))
         if not searches:
             raise MetadataProviderUnavailableError(MediaType.SERIES, MediaType.MOVIE)
@@ -211,7 +211,7 @@ class SearchMediaUseCase:
         term: str,
         languages: Sequence[str],
     ) -> list[_Ranked]:
-        if self._tvdb is None:
+        if not self._tvdb.is_configured:
             raise MetadataProviderUnavailableError(MediaType.SERIES)
 
         # The two searches answer different questions about the same term, so
@@ -233,7 +233,7 @@ class SearchMediaUseCase:
         term: str,
         languages: Sequence[str],
     ) -> list[_Ranked]:
-        if self._tmdb is None:
+        if not self._tmdb.is_configured:
             raise MetadataProviderUnavailableError(MediaType.MOVIE)
 
         matches, lookups = await asyncio.gather(
