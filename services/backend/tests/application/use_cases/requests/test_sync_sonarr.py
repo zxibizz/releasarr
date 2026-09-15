@@ -207,9 +207,21 @@ def make_existing_records() -> dict[str, MediaRequestRecord]:
 
 
 class FakeTvdbService(UnusedTvdbSearch, TvdbService):
-    def __init__(self, metadata: dict[int, TvdbSeriesMetadata]) -> None:
-        self._metadata = metadata
+    def __init__(
+        self,
+        metadata: dict[int, TvdbSeriesMetadata] | None = None,
+        *,
+        is_configured: bool = True,
+    ) -> None:
+        self._metadata = metadata or {}
+        self._is_configured = is_configured
         self.calls: list[tuple[int, tuple[str, ...]]] = []
+
+    @property
+    def is_configured(self) -> bool:
+        # Declared as a property on the protocol, so an instance attribute
+        # cannot shadow it.
+        return self._is_configured
 
     async def get_series(
         self,
@@ -328,7 +340,7 @@ async def test_sync_sonarr_logs_a_completion_against_the_request(
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=FakeSonarrService([], {}),
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -359,7 +371,7 @@ async def test_sync_sonarr_preserves_in_flight_status() -> None:
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -440,7 +452,7 @@ async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     result = await use_case.execute()
 
@@ -529,7 +541,7 @@ async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> No
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -565,7 +577,7 @@ async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     result = await use_case.execute()
 
@@ -586,7 +598,7 @@ async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
-        tvdb_service=None,
+        tvdb_service=FakeTvdbService(is_configured=False),
     )
     await use_case.execute()
 

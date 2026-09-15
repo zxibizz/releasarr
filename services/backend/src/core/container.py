@@ -205,17 +205,15 @@ class ServiceContainer:
         return InMemoryReleaseSearchService()
 
     @cached_property
-    def indexer_directory(self) -> ProwlarrIndexerDirectory | None:
-        """Prowlarr's indexer view, or None when Prowlarr is not configured.
+    def indexer_directory(self) -> ProwlarrIndexerDirectory:
+        """Prowlarr's indexer view, whether or not Prowlarr is set up.
 
-        Unlike release search there is no in-memory stand-in: the endpoints that
-        use this report the missing configuration instead of pretending there
-        are no indexers.
+        Built regardless, so a caller has one type to handle and asks it whether
+        it can work: an absent object would push the same question onto every
+        call site, one `if` at a time.
         """
 
         settings = self._container.settings
-        if not (settings.prowlarr_url and settings.prowlarr_api_key.get_secret_value()):
-            return None
         return ProwlarrIndexerDirectory(
             base_url=settings.prowlarr_url,
             api_key=settings.prowlarr_api_key.get_secret_value(),
@@ -271,20 +269,16 @@ class ServiceContainer:
         )
 
     @cached_property
-    def tvdb(self) -> TvdbHttpClient | None:
+    def tvdb(self) -> TvdbHttpClient:
         settings = self._container.settings
-        if not settings.tvdb_api_key.get_secret_value():
-            return None
         return TvdbHttpClient(
             base_url=settings.tvdb_base_url,
             api_token=settings.tvdb_api_key.get_secret_value(),
         )
 
     @cached_property
-    def tmdb(self) -> TmdbHttpClient | None:
+    def tmdb(self) -> TmdbHttpClient:
         settings = self._container.settings
-        if not settings.tmdb_api_key.get_secret_value():
-            return None
         return TmdbHttpClient(
             base_url=settings.tmdb_base_url,
             api_token=settings.tmdb_api_key.get_secret_value(),

@@ -11,11 +11,19 @@ from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredE
 from src.application.use_cases.indexers.list_history import ListIndexerHistoryUseCase
 from src.domain.enums import IndexerEventType
 from src.settings.config import get_settings
+from tests.fakes import UnusedIndexerDirectoryCalls
 
 
-class FakeDirectory:
-    def __init__(self, events: tuple[IndexerEventRecord, ...] = (), total: int = 0) -> None:
+class FakeDirectory(UnusedIndexerDirectoryCalls):
+    def __init__(
+        self,
+        events: tuple[IndexerEventRecord, ...] = (),
+        total: int = 0,
+        *,
+        is_configured: bool = True,
+    ) -> None:
         self._page = IndexerEventPage(events=events, total=total)
+        self.is_configured = is_configured
         self.calls: list[dict[str, object]] = []
 
     async def list_history(
@@ -120,7 +128,9 @@ async def test_an_oversized_page_is_capped_rather_than_forwarded() -> None:
 
 
 async def test_history_without_prowlarr_configured_is_an_error_not_an_empty_page() -> None:
-    use_case = ListIndexerHistoryUseCase(directory=None, settings=get_settings())
+    use_case = ListIndexerHistoryUseCase(
+        directory=FakeDirectory(is_configured=False), settings=get_settings()
+    )
 
     with pytest.raises(ProwlarrNotConfiguredError):
         await use_case.execute()

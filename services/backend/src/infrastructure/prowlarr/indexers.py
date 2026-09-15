@@ -80,6 +80,10 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
             transport=self._transport,
         )
 
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.base_url and self.api_key)
+
     async def aclose(self) -> None:
         await self._http.aclose()
 

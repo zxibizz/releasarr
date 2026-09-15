@@ -37,14 +37,14 @@ def derive_health(record: IndexerRecord, now: datetime) -> IndexerHealth:
 class ListIndexersUseCase:
     def __init__(
         self,
-        directory: IndexerDirectory | None,
+        directory: IndexerDirectory,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._directory = directory
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def execute(self) -> list[IndexerDTO]:
-        if self._directory is None:
+        if not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
         now = self._clock()

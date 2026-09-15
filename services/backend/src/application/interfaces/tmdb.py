@@ -45,6 +45,10 @@ class TmdbSearchResult:
 class TmdbService(Protocol):
     """Protocol describing required TMDB operations."""
 
+    @property
+    def is_configured(self) -> bool:
+        """Whether an API token is set. The base URL always has a default."""
+
     async def get_movie(
         self,
         tmdb_id: int,

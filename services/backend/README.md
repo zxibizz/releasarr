@@ -24,9 +24,9 @@ uv run python -m src.tasks.cli scheduler
 ```
 
 Nothing here needs Sonarr, Radarr, Prowlarr, or qBittorrent to boot. Unconfigured integrations
-degrade to in-memory stubs or `None`, so the app starts and the API answers; only the parts that
-talk to those services are inert. See [`docs/integrations.md`](docs/integrations.md) for exactly
-what happens per service.
+degrade — to in-memory stubs, or to a client that reports `is_configured = False` — so the app
+starts and the API answers; only the parts that talk to those services are inert. See
+[`docs/integrations.md`](docs/integrations.md) for exactly what happens per service.
 
 With no `.env`, the database is SQLite at `./releasarr.db`, the API logs to
 `.logs/backend.log` and the scheduler to `.logs/scheduler.log`.

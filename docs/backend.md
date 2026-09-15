@@ -341,7 +341,9 @@ def release_search(self) -> ReleaseSearchService:
 ```
 
 qBittorrent returns `None` when unconfigured, and the download/lifecycle services fall back to
-in-memory stubs. TVDB and TMDB return `None`, and the use cases accept `TvdbService | None`.
+in-memory stubs. The indexer directory and the metadata clients are built either way instead:
+their ports declare `is_configured`, the adapter answers it from the settings it was given, and a
+caller that cannot work without one reports that rather than the container handing back nothing.
 Sonarr and Radarr are always constructed and fail at request time if the key is missing.
 
 To add a dependency: implement it, export it from its package `__init__.py`, add a

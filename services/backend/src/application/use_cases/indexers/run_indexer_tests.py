@@ -24,11 +24,11 @@ def _to_dto(record: IndexerTestResultRecord) -> IndexerTestResultDTO:
 
 
 class RunIndexerTestUseCase:
-    def __init__(self, directory: IndexerDirectory | None) -> None:
+    def __init__(self, directory: IndexerDirectory) -> None:
         self._directory = directory
 
     async def execute(self, indexer_id: int) -> IndexerTestResultDTO:
-        if self._directory is None:
+        if not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
         result = await self._directory.test_indexer(indexer_id)
@@ -37,11 +37,11 @@ class RunIndexerTestUseCase:
 
 
 class RunAllIndexerTestsUseCase:
-    def __init__(self, directory: IndexerDirectory | None) -> None:
+    def __init__(self, directory: IndexerDirectory) -> None:
         self._directory = directory
 
     async def execute(self) -> list[IndexerTestResultDTO]:
-        if self._directory is None:
+        if not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
         results = [_to_dto(record) for record in await self._directory.test_all_indexers()]

@@ -46,7 +46,7 @@ class SearchReleaseSourcesUseCase:
         self,
         search_service: ReleaseSearchService,
         *,
-        directory: IndexerDirectory | None = None,
+        directory: IndexerDirectory,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         retries: int = DEFAULT_RETRIES,
         concurrency: int = DEFAULT_CONCURRENCY,
@@ -62,7 +62,7 @@ class SearchReleaseSourcesUseCase:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def execute(self, command: SearchReleaseSourcesCommand) -> ReleaseSearchResponseDTO:
-        if self._directory is None:
+        if not self._directory.is_configured:
             # No Prowlarr configured: the search service is the in-memory
             # stand-in, which has no per-indexer notion to fan out over.
             results = await self._search_service.search(

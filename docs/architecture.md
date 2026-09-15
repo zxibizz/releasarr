@@ -134,9 +134,10 @@ src/
 
 Two properties this buys, both load-bearing:
 
-**Integrations degrade rather than crash.** Because ports are `Protocol`s, `core/container.py`
-can return an in-memory stub when Prowlarr or qBittorrent is unconfigured. The app boots and
-the UI works; only grabbing and downloading are inert.
+**Integrations degrade rather than crash.** Because ports are `Protocol`s, an unconfigured
+provider still arrives as an object — one that reports `is_configured`, or that `core/container.py`
+replaces with an in-memory stub — so no call site handles `None`. The app boots and the UI works;
+only grabbing and downloading are inert.
 
 **Use cases are testable without HTTP or a database.** `tests/fakes.py` provides protocol
 implementations backed by dicts, so use case tests construct the class directly.

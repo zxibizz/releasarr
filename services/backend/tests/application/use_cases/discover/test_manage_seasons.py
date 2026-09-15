@@ -19,6 +19,7 @@ from src.domain.enums import MediaType
 from tests.fakes import (
     FakeMediaRequestRepository,
     FakeSonarrService,
+    FakeTvdbService,
     make_record,
     make_series_details,
 )
@@ -45,7 +46,7 @@ def build_update_use_case(
         sync_sonarr=SyncSonarrMediaRequestsUseCase(
             repository=repository,
             sonarr_service=sonarr,
-            tvdb_service=None,
+            tvdb_service=FakeTvdbService(is_configured=False),
         ),
     )
 

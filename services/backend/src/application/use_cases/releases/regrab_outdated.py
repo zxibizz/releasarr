@@ -36,7 +36,7 @@ class RegrabOutdatedReleasesUseCase:
         download_service: ReleaseDownloadService,
         warning_repository: RequestWarningRepository,
         recompute_state: RecomputeRequestStateUseCase,
-        directory: IndexerDirectory | None = None,
+        directory: IndexerDirectory,
         logger: Logger | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -78,7 +78,7 @@ class RegrabOutdatedReleasesUseCase:
         it just falls back to the unscoped search for that release.
         """
 
-        if self._directory is None:
+        if not self._directory.is_configured:
             return {}
         try:
             indexers = await self._directory.list_indexers()

@@ -10,13 +10,15 @@ from src.application.interfaces.indexers import IndexerRecord
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.indexers.list_indexers import ListIndexersUseCase
 from src.domain.enums import IndexerHealth
+from tests.fakes import UnusedIndexerDirectoryCalls
 
 NOW = datetime(2026, 3, 4, 12, 0, tzinfo=UTC)
 
 
-class FakeDirectory:
-    def __init__(self, records: list[IndexerRecord]) -> None:
+class FakeDirectory(UnusedIndexerDirectoryCalls):
+    def __init__(self, records: list[IndexerRecord], *, is_configured: bool = True) -> None:
         self._records = records
+        self.is_configured = is_configured
 
     async def list_indexers(self) -> list[IndexerRecord]:
         return self._records
@@ -124,7 +126,7 @@ async def test_every_field_is_carried_through() -> None:
 async def test_listing_without_prowlarr_configured_is_an_error_not_an_empty_list() -> None:
     """An empty list would read as "no indexers" rather than "no Prowlarr"."""
 
-    use_case = ListIndexersUseCase(directory=None)
+    use_case = ListIndexersUseCase(directory=FakeDirectory([], is_configured=False))
 
     with pytest.raises(ProwlarrNotConfiguredError):
         await use_case.execute()

@@ -45,7 +45,7 @@ class SyncSonarrMediaRequestsUseCase:
         *,
         repository: MediaRequestRepository,
         sonarr_service: SonarrService,
-        tvdb_service: TvdbService | None,
+        tvdb_service: TvdbService,
         metadata_languages: Sequence[str] | None = None,
         logger: Logger | None = None,
     ) -> None:
@@ -367,7 +367,7 @@ class SyncSonarrMediaRequestsUseCase:
         return f"{series_title} - Season {season_number}"
 
     async def _load_tvdb_metadata(self, details: SeriesDetails) -> TvdbSeriesMetadata | None:
-        if self._tvdb is None or details.tvdb_id is None:
+        if not self._tvdb.is_configured or details.tvdb_id is None:
             return None
         tvdb = self._tvdb
         tvdb_id = details.tvdb_id

@@ -16,7 +16,7 @@ logger = get_logger(component="indexers")
 class ListIndexerHistoryUseCase:
     def __init__(
         self,
-        directory: IndexerDirectory | None,
+        directory: IndexerDirectory,
         settings: AppSettings | None = None,
     ) -> None:
         self._directory = directory
@@ -29,7 +29,7 @@ class ListIndexerHistoryUseCase:
         indexer_id: int | None = None,
         event_type: IndexerEventType | None = None,
     ) -> IndexerHistoryPageDTO:
-        if self._directory is None:
+        if not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
         page = normalise_page(page, self._settings)

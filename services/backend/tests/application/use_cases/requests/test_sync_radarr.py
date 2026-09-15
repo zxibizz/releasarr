@@ -108,9 +108,21 @@ class FakeRadarrService(UnusedRadarrLibraryCalls):
 
 
 class FakeTmdbService(UnusedTmdbSearch, TmdbService):
-    def __init__(self, metadata: dict[int, TmdbMovieMetadata]) -> None:
-        self._metadata = metadata
+    def __init__(
+        self,
+        metadata: dict[int, TmdbMovieMetadata] | None = None,
+        *,
+        is_configured: bool = True,
+    ) -> None:
+        self._metadata = metadata or {}
+        self._is_configured = is_configured
         self.calls: list[tuple[int, tuple[str, ...]]] = []
+
+    @property
+    def is_configured(self) -> bool:
+        # Declared as a property on the protocol, so an instance attribute
+        # cannot shadow it.
+        return self._is_configured
 
     async def get_movie(
         self,
@@ -246,7 +258,7 @@ async def test_sync_radarr_logs_a_completion_against_the_request(
     use_case = SyncRadarrMediaRequestsUseCase(
         repository=repository,
         radarr_service=FakeRadarrService([]),
-        tmdb_service=None,
+        tmdb_service=FakeTmdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -269,7 +281,7 @@ async def test_sync_radarr_keeps_routine_refreshes_out_of_the_activity_view(
     use_case = SyncRadarrMediaRequestsUseCase(
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
-        tmdb_service=None,
+        tmdb_service=FakeTmdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -287,7 +299,7 @@ async def test_sync_radarr_preserves_in_flight_status() -> None:
     use_case = SyncRadarrMediaRequestsUseCase(
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
-        tmdb_service=None,
+        tmdb_service=FakeTmdbService(is_configured=False),
     )
     await use_case.execute()
 
@@ -308,7 +320,7 @@ async def test_sync_radarr_falls_back_to_radarr_metadata_without_tmdb() -> None:
     use_case = SyncRadarrMediaRequestsUseCase(
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
-        tmdb_service=None,
+        tmdb_service=FakeTmdbService(is_configured=False),
         metadata_languages=("rus", "eng"),
     )
     await use_case.execute()

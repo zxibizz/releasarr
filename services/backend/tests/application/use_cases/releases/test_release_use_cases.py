@@ -71,6 +71,7 @@ from tests.builders import (
     stub_recompute_state,
     stub_warning_repository,
 )
+from tests.fakes import UnusedIndexerDirectoryCalls
 
 
 def stub_parse_torrent(monkeypatch, info: TorrentInfo) -> None:
@@ -1112,7 +1113,9 @@ async def test_search_release_sources_maps_results() -> None:
         total_results=1,
     )
     search_service = FakeSearchService(results)
-    use_case = SearchReleaseSourcesUseCase(search_service)
+    use_case = SearchReleaseSourcesUseCase(
+        search_service, directory=FakeIndexerDirectory([], is_configured=False)
+    )
     command = SearchReleaseSourcesCommand(query="test", request_id="req-1")
 
     response = await use_case.execute(command)
@@ -1122,7 +1125,7 @@ async def test_search_release_sources_maps_results() -> None:
     assert search_service.calls == [("test", "req-1")]
 
 
-class FakeIndexerDirectory:
+class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
     """Scripted `list_indexers()` for the search fan-out tests."""
 
     def __init__(
@@ -1130,26 +1133,16 @@ class FakeIndexerDirectory:
         indexers: Sequence[IndexerRecord],
         *,
         error: Exception | None = None,
+        is_configured: bool = True,
     ) -> None:
         self._indexers = list(indexers)
         self._error = error
+        self.is_configured = is_configured
 
     async def list_indexers(self) -> Sequence[IndexerRecord]:
         if self._error is not None:
             raise self._error
         return self._indexers
-
-    async def list_history(self, **kwargs: object) -> object:
-        raise AssertionError("not used in this test")
-
-    async def list_logs(self, **kwargs: object) -> object:
-        raise AssertionError("not used in this test")
-
-    async def test_indexer(self, indexer_id: int) -> object:
-        raise AssertionError("not used in this test")
-
-    async def test_all_indexers(self) -> object:
-        raise AssertionError("not used in this test")
 
 
 class FakePerIndexerSearchService:

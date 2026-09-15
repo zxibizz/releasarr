@@ -10,11 +10,18 @@ from src.application.use_cases.indexers.run_indexer_tests import (
     RunAllIndexerTestsUseCase,
     RunIndexerTestUseCase,
 )
+from tests.fakes import UnusedIndexerDirectoryCalls
 
 
-class FakeDirectory:
-    def __init__(self, results: list[IndexerTestResultRecord]) -> None:
-        self._results = results
+class FakeDirectory(UnusedIndexerDirectoryCalls):
+    def __init__(
+        self,
+        results: list[IndexerTestResultRecord] | None = None,
+        *,
+        is_configured: bool = True,
+    ) -> None:
+        self._results = results or []
+        self.is_configured = is_configured
         self.tested: list[int] = []
         self.tested_all = 0
 
@@ -58,8 +65,10 @@ async def test_all_results_are_mapped() -> None:
 
 
 async def test_testing_without_prowlarr_configured_raises() -> None:
-    with pytest.raises(ProwlarrNotConfiguredError):
-        await RunIndexerTestUseCase(directory=None).execute(1)
+    unconfigured = FakeDirectory(is_configured=False)
 
     with pytest.raises(ProwlarrNotConfiguredError):
-        await RunAllIndexerTestsUseCase(directory=None).execute()
+        await RunIndexerTestUseCase(directory=unconfigured).execute(1)
+
+    with pytest.raises(ProwlarrNotConfiguredError):
+        await RunAllIndexerTestsUseCase(directory=unconfigured).execute()

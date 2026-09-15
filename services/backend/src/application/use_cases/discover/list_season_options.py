@@ -27,7 +27,7 @@ class ListSeasonOptionsUseCase:
         *,
         repository: MediaRequestRepository,
         sonarr_service: SonarrService,
-        tvdb_service: TvdbService | None,
+        tvdb_service: TvdbService,
         metadata_languages: Sequence[str] | None = None,
     ) -> None:
         self._repository = repository
@@ -81,7 +81,7 @@ class ListSeasonOptionsUseCase:
         such a series pickable; the add itself still has to go through Sonarr.
         """
 
-        if self._tvdb is None:
+        if not self._tvdb.is_configured:
             raise MediaNotFoundError(MediaType.SERIES, tvdb_id)
 
         metadata = await self._tvdb.get_series(tvdb_id, self._metadata_languages)

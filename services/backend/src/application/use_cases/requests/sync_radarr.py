@@ -45,7 +45,7 @@ class SyncRadarrMediaRequestsUseCase:
         *,
         repository: MediaRequestRepository,
         radarr_service: RadarrService,
-        tmdb_service: TmdbService | None,
+        tmdb_service: TmdbService,
         metadata_languages: Sequence[str] | None = None,
         logger: Logger | None = None,
     ) -> None:
@@ -199,7 +199,7 @@ class SyncRadarrMediaRequestsUseCase:
         return transitioned
 
     async def _load_tmdb_metadata(self, details: MovieDetails) -> TmdbMovieMetadata | None:
-        if self._tmdb is None or details.tmdb_id is None:
+        if not self._tmdb.is_configured or details.tmdb_id is None:
             return None
         tmdb = self._tmdb
         tmdb_id = details.tmdb_id
