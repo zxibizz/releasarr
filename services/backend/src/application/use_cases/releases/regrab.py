@@ -30,7 +30,7 @@ from src.application.interfaces.request_warnings import (
 from src.application.use_cases.indexers.list_indexers import derive_health
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
-from src.domain.enums import IndexerHealth, RequestWarningCode
+from src.domain.enums import IndexerHealth, ReleaseStatus, RequestWarningCode
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -240,6 +240,14 @@ class ReleaseRegrapper:
             name=match.release_name,  # Update name in case of rename
             info_url=match.info_url,
             published_at=match.publish_date,
+            # The replacement is the same release downloaded again, so the row
+            # cannot go on calling itself finished: `completed` is what the export
+            # queue imports from, and the files are being replaced underneath it.
+            # Reading the client back is what settles the real status, so this is
+            # only the state the queued download starts in.
+            status=ReleaseStatus.DOWNLOADING,
+            progress=0.0,
+            completed_at=None,
         )
 
         self._log_for_requests(

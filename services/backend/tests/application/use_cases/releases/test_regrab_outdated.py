@@ -187,6 +187,11 @@ async def test_regrab_updates_name_and_info_url_when_hash_changed() -> None:
     assert repository.updates["info_url"] == match.info_url
     assert repository.updates["published_at"] == match.publish_date
     assert repository.updates["info_hash"] == "NEWHASH"
+    # The replacement is a fresh download, so the release cannot go on counting
+    # as finished while its files are being replaced.
+    assert repository.updates["status"] == ReleaseStatus.DOWNLOADING
+    assert repository.updates["progress"] == 0.0
+    assert repository.updates["completed_at"] is None
     assert len(download_service.calls) == 1
 
 

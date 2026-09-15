@@ -205,12 +205,15 @@ import shows up in the UI without every page polling.
    stamped with an `exported_at`, including the ones that stay open because the release only
    covered part of a season.
 6. **`regrab`** re-searches Prowlarr for tracked releases, compares info hashes, and
-   re-downloads when the indexer has replaced the torrent (repacks). The check on one release
-   lives in `ReleaseRegrapper` (`application/use_cases/releases/regrab.py`), which the sweep runs
-   over every candidate and `POST /requests/{id}/releases/refresh` runs over one request's —
-   together with reading that request's in-flight releases back from qBittorrent. Refresh is
-   what both halves of a release's life need, scoped to a request and without waiting out the
-   task intervals; it needs both integrations, so it answers 503 rather than doing half the job.
+   re-downloads when the indexer has replaced the torrent (repacks), putting the release back to
+   `downloading` so the export queue cannot import the files the replacement is still replacing.
+   The check on one release lives in `ReleaseRegrapper`
+   (`application/use_cases/releases/regrab.py`), which the sweep runs over every candidate and
+   `POST /requests/{id}/releases/refresh` runs over one request's — together with reading that
+   request's releases back from qBittorrent, and settling its status, freshness and overlap
+   warnings. Refresh is what both halves of a release's life need, scoped to a request and
+   without waiting out the task intervals; it needs both integrations, so it answers 503 rather
+   than doing half the job.
 
 Ordering matters: `export` can only import what `release_sync` has already marked completed,
 which is why `sync_downloads` queues the two together and in that order.
