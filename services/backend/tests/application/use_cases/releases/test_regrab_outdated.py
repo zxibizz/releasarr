@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from src.application.interfaces.indexers import IndexerRecord
 from src.application.interfaces.releases import (
     QueuedDownload,
     ReleaseRecord,
@@ -84,6 +85,7 @@ class FakeSearchService:
     def __init__(self, match: ReleaseSearchResultRecord | None) -> None:
         self._match = match
         self.queries: list[str] = []
+        self.indexer_ids: list[int | None] = []
 
     async def search(
         self,
@@ -92,6 +94,7 @@ class FakeSearchService:
         indexer_id: int | None = None,
     ) -> ReleaseSearchResults:
         self.queries.append(query)
+        self.indexer_ids.append(indexer_id)
         results = [self._match] if self._match else []
         return ReleaseSearchResults(results=results, query=query, total_results=len(results))
 
@@ -173,3 +176,85 @@ async def test_regrab_skips_releases_with_no_matching_indexer_result() -> None:
 
     assert repository.updates == {}
     assert download_service.calls == []
+
+
+class FakeIndexerDirectory:
+    def __init__(
+        self,
+        indexers: list[IndexerRecord],
+        *,
+        error: Exception | None = None,
+    ) -> None:
+        self._indexers = indexers
+        self._error = error
+
+    async def list_indexers(self) -> list[IndexerRecord]:
+        if self._error is not None:
+            raise self._error
+        return self._indexers
+
+    async def list_history(self, **kwargs: object) -> object:
+        raise AssertionError("not used in this test")
+
+    async def list_logs(self, **kwargs: object) -> object:
+        raise AssertionError("not used in this test")
+
+    async def test_indexer(self, indexer_id: int) -> object:
+        raise AssertionError("not used in this test")
+
+    async def test_all_indexers(self) -> object:
+        raise AssertionError("not used in this test")
+
+
+async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
+    release = make_release()  # torrent_source="prowlarr"
+    match = make_match()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(match)
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory(
+        [IndexerRecord(indexer_id=7, name="Prowlarr", enabled=True, supports_search=True)]
+    )
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository, search_service, download_service, directory=directory
+    )
+    await use_case.execute()
+
+    assert search_service.indexer_ids == [7]
+    assert len(download_service.calls) == 1
+
+
+async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> None:
+    release = make_release()  # torrent_source="prowlarr"
+    match = make_match()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(match)
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory(
+        [IndexerRecord(indexer_id=9, name="SomeOtherIndexer", enabled=True, supports_search=True)]
+    )
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository, search_service, download_service, directory=directory
+    )
+    await use_case.execute()
+
+    assert search_service.indexer_ids == [None]
+
+
+async def test_regrab_falls_back_to_unscoped_search_when_directory_fails() -> None:
+    release = make_release()
+    match = make_match()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(match)
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory([], error=RuntimeError("prowlarr unreachable"))
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository, search_service, download_service, directory=directory
+    )
+    await use_case.execute()
+
+    assert search_service.indexer_ids == [None]
+    assert len(download_service.calls) == 1

@@ -734,6 +734,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             search_service=self._container.services.release_search,
             download_service=self._container.services.release_download,
+            directory=self._container.services.indexer_directory,
         )
 
 

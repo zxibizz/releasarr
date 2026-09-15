@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 from loguru._logger import Logger
 from torrentool.api import Torrent
 
+from src.application.interfaces.indexers import IndexerDirectory
 from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseRepository,
@@ -23,20 +24,23 @@ class RegrabOutdatedReleasesUseCase:
         repository: ReleaseRepository,
         search_service: ReleaseSearchService,
         download_service: ReleaseDownloadService,
+        directory: IndexerDirectory | None = None,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._search_service = search_service
         self._download_service = download_service
+        self._directory = directory
         self._logger = logger or get_logger(component="regrab_outdated_releases")
 
     async def execute(self) -> None:
         """Process potential outdated releases."""
         releases = await self._repository.get_potential_outdated_releases()
+        indexer_ids_by_name = await self._indexer_ids_by_name()
 
         for release in releases:
             try:
-                await self._process_release(release)
+                await self._process_release(release, indexer_ids_by_name)
             except Exception as exc:
                 self._logger.opt(exception=exc).error(
                     "Failed to check for updates",
@@ -45,10 +49,33 @@ class RegrabOutdatedReleasesUseCase:
                     error=str(exc),
                 )
 
-    async def _process_release(self, release) -> None:
-        # Search Prowlarr for the specific release
+    async def _indexer_ids_by_name(self) -> dict[str, int]:
+        """Map a release's stored indexer name back to Prowlarr's own id.
+
+        Best-effort: a release older than the indexer list, or Prowlarr being
+        briefly unreachable, should not stop every regrab check from running -
+        it just falls back to the unscoped search for that release.
+        """
+
+        if self._directory is None:
+            return {}
+        try:
+            indexers = await self._directory.list_indexers()
+        except Exception as exc:
+            self._logger.warning("Failed to list indexers for regrab scoping", error=str(exc))
+            return {}
+        return {indexer.name.lower(): indexer.indexer_id for indexer in indexers}
+
+    async def _process_release(self, release, indexer_ids_by_name: dict[str, int]) -> None:
+        # Search Prowlarr for the specific release, scoped to the indexer it
+        # originally came from when that indexer is still known to Prowlarr.
         # We rely on the release name (torrent name) to find it again.
-        results = await self._search_service.search(release.name)
+        indexer_id = (
+            indexer_ids_by_name.get(release.torrent_source.lower())
+            if release.torrent_source
+            else None
+        )
+        results = await self._search_service.search(release.name, indexer_id=indexer_id)
 
         # Find the result that matches our current GUID (Release.id)
         match = next((r for r in results.results if r.release_id == release.id), None)
