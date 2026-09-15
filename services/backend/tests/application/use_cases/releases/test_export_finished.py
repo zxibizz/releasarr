@@ -154,6 +154,8 @@ class FakeMediaRequestRepository:
 
 
 class FakeDownloadService:
+    is_configured = True
+
     def __init__(self, directory: str | None = DOWNLOAD_DIR) -> None:
         self.directory = directory
         self.lookups: list[str] = []

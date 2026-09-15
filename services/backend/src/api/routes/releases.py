@@ -128,6 +128,8 @@ def _queue_manual_use_case(
 
 
 _SERVER_ERROR = "Unexpected server error."
+_QBITTORRENT_NOT_CONFIGURED = "qBittorrent is not configured."
+_PROWLARR_NOT_CONFIGURED = "Prowlarr is not configured."
 
 RELEASE_LIST_RESPONSES = error_responses(
     {
@@ -164,6 +166,7 @@ PAUSE_RELEASE_RESPONSES = error_responses(
         status.HTTP_400_BAD_REQUEST: "Release cannot be paused because the request was invalid.",
         status.HTTP_404_NOT_FOUND: "Release not found.",
         status.HTTP_409_CONFLICT: "Release is not in a pausable state.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: _QBITTORRENT_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -173,6 +176,7 @@ RESUME_RELEASE_RESPONSES = error_responses(
         status.HTTP_400_BAD_REQUEST: "Release cannot be resumed because the request was invalid.",
         status.HTTP_404_NOT_FOUND: "Release not found.",
         status.HTTP_409_CONFLICT: "Release is not in a resumable state.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: _QBITTORRENT_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -195,6 +199,7 @@ SUGGEST_MAPPINGS_RESPONSES = error_responses(
 SEARCH_RELEASES_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Malformed search query.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: _PROWLARR_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -215,6 +220,9 @@ QUEUE_DOWNLOAD_RESPONSES = error_responses(
             "Request already has an active download, or already has releases and "
             "existing_releases was not supplied."
         ),
+        status.HTTP_503_SERVICE_UNAVAILABLE: (
+            "Prowlarr or qBittorrent is not configured."
+        ),
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -226,6 +234,7 @@ MANUAL_RELEASE_RESPONSES = error_responses(
             "The release is already registered, or the request already has releases "
             "and existing_releases was not supplied."
         ),
+        status.HTTP_503_SERVICE_UNAVAILABLE: _QBITTORRENT_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )

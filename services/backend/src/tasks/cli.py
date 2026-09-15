@@ -79,7 +79,7 @@ def sync_releases_command() -> None:
         container = get_container()
         container.startup(service=LogService.SCHEDULER)
         client = container.services.qbittorrent_client
-        if client is None:
+        if not client.is_configured:
             typer.echo("qBittorrent not configured. Set RELEASARR_QBITTORRENT_* env vars.")
             raise typer.Exit(code=1)
         try:

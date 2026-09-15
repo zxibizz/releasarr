@@ -334,17 +334,14 @@ Optional integrations degrade here rather than at the call site:
 ```python
 @cached_property
 def release_search(self) -> ReleaseSearchService:
-    settings = self._container.settings
-    if settings.prowlarr_url and settings.prowlarr_api_key.get_secret_value():
-        return ProwlarrReleaseSearchService(...)
-    return InMemoryReleaseSearchService()
+    return ProwlarrReleaseSearchService(base_url=settings.prowlarr_url, ...)
 ```
 
-qBittorrent returns `None` when unconfigured, and the download/lifecycle services fall back to
-in-memory stubs. The indexer directory and the metadata clients are built either way instead:
-their ports declare `is_configured`, the adapter answers it from the settings it was given, and a
-caller that cannot work without one reports that rather than the container handing back nothing.
-Sonarr and Radarr are always constructed and fail at request time if the key is missing.
+Every provider is built either way, configured or not: nothing is `None`, and nothing stands in
+for a missing one. Their ports declare `is_configured`, the adapter answers it from the settings
+it was given, and a caller that cannot work without one reports that rather than receiving a stub
+that cannot do the job. A public endpoint turns that into a 503; a background step skips. Sonarr
+and Radarr are always constructed and fail at request time if the key is missing.
 
 To add a dependency: implement it, export it from its package `__init__.py`, add a
 `@cached_property` to the appropriate group, and wire its own dependencies inside that property.

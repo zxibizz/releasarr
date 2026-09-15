@@ -549,6 +549,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: qBittorrent is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Unexpected server error.
           content:
@@ -589,6 +595,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Release is not in a resumable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: qBittorrent is not configured.
           content:
             application/json:
               schema:
@@ -698,6 +710,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Unexpected server error.
           content:
@@ -751,6 +769,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr or qBittorrent is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Unexpected server error.
           content:
@@ -799,6 +823,12 @@ paths:
             The release is already registered, or the request already has
             releases and `existing_releases` was not supplied
             (`existing_releases_decision_required`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: qBittorrent is not configured.
           content:
             application/json:
               schema:

@@ -7,13 +7,20 @@ the request flows need - and a fake for one job still has to satisfy the whole
 protocol, so the mixins supply the other half and fail loudly if it is reached.
 The rest are working fakes, holding their library or their requests in a dict
 and recording the calls that change it.
+
+The ``InMemory*`` release services are complete stand-ins for the three release
+ports. They were the container's fallback until an unconfigured provider began
+reporting ``is_configured``, which left them with no production caller; a test
+that wants a release flow to run without a download client is what they are for.
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections.abc import Sequence
-from dataclasses import fields
+from dataclasses import dataclass, field, fields
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
@@ -30,6 +37,14 @@ from src.application.interfaces.media_requests import (
     UpdateMediaRequestData,
 )
 from src.application.interfaces.radarr import MovieDetails, MovieImportFile, MovieLookup
+from src.application.interfaces.releases import (
+    QueuedDownload,
+    ReleaseDownloadService,
+    ReleaseLifecycleService,
+    ReleaseSearchResultRecord,
+    ReleaseSearchResults,
+    ReleaseSearchService,
+)
 from src.application.interfaces.sonarr import (
     ManualImportFile,
     MissingSeriesRecord,
@@ -246,10 +261,10 @@ class FakeMediaRequestRepository(MediaRequestRepository):
         record = self.records.get(request_id)
         if record is None:
             return None
-        for field in fields(UpdateMediaRequestData):
-            value = getattr(data, field.name)
+        for data_field in fields(UpdateMediaRequestData):
+            value = getattr(data, data_field.name)
             if value is not UNSET:
-                setattr(record, field.name, value)
+                setattr(record, data_field.name, value)
         return record
 
     async def delete_request(self, request_id: str) -> bool:
@@ -591,12 +606,132 @@ def make_movie_details(movie_id: int = 31) -> MovieDetails:
     )
 
 
+@dataclass(slots=True)
+class InMemoryReleaseLifecycleService(ReleaseLifecycleService):
+    """Stateful lifecycle stand-in that toggles paused releases in memory."""
+
+    is_configured = True
+    paused_releases: set[str] = field(default_factory=set)
+
+    async def pause(self, release_id: str) -> bool:
+        if release_id in self.paused_releases:
+            return False
+        self.paused_releases.add(release_id)
+        return True
+
+    async def resume(self, release_id: str) -> bool:
+        if release_id not in self.paused_releases:
+            return False
+        self.paused_releases.remove(release_id)
+        return True
+
+
+@dataclass(slots=True)
+class InMemoryReleaseSearchService(ReleaseSearchService):
+    """Search stand-in returning pre-registered results per query."""
+
+    is_configured = True
+    _registry: dict[tuple[str, str | None], list[ReleaseSearchResultRecord]] = field(
+        default_factory=dict,
+    )
+    _cache: dict[str, ReleaseSearchResultRecord] = field(default_factory=dict)
+    _torrents: dict[str, bytes] = field(default_factory=dict)
+
+    def register_results(
+        self,
+        query: str,
+        *,
+        request_id: str | None,
+        results: list[ReleaseSearchResultRecord],
+    ) -> None:
+        self._registry[(query, request_id)] = list(results)
+        for result in results:
+            self._cache[result.release_id] = result
+
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
+        matches = self._registry.get((query, request_id), [])
+        return ReleaseSearchResults(results=list(matches), query=query, total_results=len(matches))
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        return self._cache.get(release_id)
+
+    def register_torrent(self, release_id: str, data: bytes) -> None:
+        self._torrents[release_id] = data
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        if url.startswith("memory://"):
+            release_id = url.removeprefix("memory://")
+            if release_id in self._torrents:
+                return self._torrents[release_id]
+        raise FileNotFoundError(f"Torrent data not registered for URL '{url}'")
+
+
+@dataclass(slots=True)
+class InMemoryReleaseDownloadService(ReleaseDownloadService):
+    """Download stand-in that writes the magnet where a client would put it."""
+
+    is_configured = True
+    download_dir: Path = field(
+        default_factory=lambda: Path(tempfile.gettempdir()) / "releasarr-downloads"
+    )
+    downloads: list[tuple[str, str, Path]] = field(default_factory=list)
+
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        try:
+            self.download_dir.mkdir(parents=True, exist_ok=True)
+            file_path = self.download_dir / f"{release_id}.torrent"
+            file_path.write_text(magnet_link, encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                f"Failed to download torrent for release '{release_id}': {exc}"
+            ) from exc
+
+        self.downloads.append((request_id, release_id, file_path))
+        details: dict[str, object] = {
+            "request_id": request_id,
+            "release_id": release_id,
+            "file_path": str(file_path),
+            "ingest_source": "magnet",
+        }
+        if torrent_bytes is not None:
+            details["torrent_bytes_len"] = len(torrent_bytes)
+        return QueuedDownload(
+            operation="queue_download",
+            status="completed",
+            operation_id=f"download:{request_id}:{release_id}",
+            location=None,
+            message=None,
+            resource_id=release_id,
+            details=details,
+        )
+
+    async def delete_download(self, release_id: str) -> None:
+        self.downloads = [entry for entry in self.downloads if entry[1] != release_id]
+
+    async def get_download_directory(self, info_hash: str) -> str | None:
+        return str(self.download_dir)
+
+
 __all__ = [
     "FakeMediaRequestRepository",
     "FakeRadarrService",
     "FakeSonarrService",
     "FakeTmdbService",
     "FakeTvdbService",
+    "InMemoryReleaseDownloadService",
+    "InMemoryReleaseLifecycleService",
+    "InMemoryReleaseSearchService",
     "UnusedIndexerDirectoryCalls",
     "UnusedRadarrLibraryCalls",
     "UnusedSonarrLibraryCalls",

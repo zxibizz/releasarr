@@ -117,6 +117,8 @@ class StubEmptyReleaseRepository:
 
 
 class StubSearchService:
+    is_configured = True
+
     def __init__(self, candidate: ReleaseSearchResultRecord) -> None:
         self._candidate = candidate
 
@@ -125,6 +127,8 @@ class StubSearchService:
 
 
 class FailingDownloadService:
+    is_configured = True
+
     async def queue_download(
         self,
         request_id: str,

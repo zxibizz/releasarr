@@ -91,6 +91,8 @@ class FakeReleaseRepository:
 
 
 class FakeSearchService:
+    is_configured = True
+
     def __init__(
         self,
         match: ReleaseSearchResultRecord | None,
@@ -123,6 +125,8 @@ class FakeSearchService:
 
 
 class FakeDownloadService:
+    is_configured = True
+
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
 

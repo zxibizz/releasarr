@@ -114,12 +114,7 @@ from src.infrastructure.qbittorrent import (
     QbittorrentReleaseLifecycleService,
 )
 from src.infrastructure.radarr import RadarrHttpClient
-from src.infrastructure.releases import (
-    InMemoryReleaseDownloadService,
-    InMemoryReleaseLifecycleService,
-    InMemoryReleaseSearchService,
-    SqlAlchemyReleaseRepository,
-)
+from src.infrastructure.releases import SqlAlchemyReleaseRepository
 from src.infrastructure.request_warnings import SqlAlchemyRequestWarningRepository
 from src.infrastructure.sonarr import SonarrHttpClient
 from src.infrastructure.sync_jobs import (
@@ -187,22 +182,17 @@ class ServiceContainer:
 
     @cached_property
     def release_lifecycle(self) -> ReleaseLifecycleService:
-        client = self.qbittorrent_client
-        if client is not None:
-            return QbittorrentReleaseLifecycleService(client=client)
-        return InMemoryReleaseLifecycleService()
+        return QbittorrentReleaseLifecycleService(client=self.qbittorrent_client)
 
     @cached_property
     def release_search(self) -> ReleaseSearchService:
         settings = self._container.settings
-        if settings.prowlarr_url and settings.prowlarr_api_key.get_secret_value():
-            return ProwlarrReleaseSearchService(
-                base_url=settings.prowlarr_url,
-                api_key=settings.prowlarr_api_key.get_secret_value(),
-                timeout_seconds=settings.prowlarr_timeout,
-                categories=settings.prowlarr_categories,
-            )
-        return InMemoryReleaseSearchService()
+        return ProwlarrReleaseSearchService(
+            base_url=settings.prowlarr_url,
+            api_key=settings.prowlarr_api_key.get_secret_value(),
+            timeout_seconds=settings.prowlarr_timeout,
+            categories=settings.prowlarr_categories,
+        )
 
     @cached_property
     def indexer_directory(self) -> ProwlarrIndexerDirectory:
@@ -223,28 +213,25 @@ class ServiceContainer:
     @cached_property
     def release_download(self) -> ReleaseDownloadService:
         settings = self._container.settings
-        client = self.qbittorrent_client
-        if client is not None:
-            return QbittorrentReleaseDownloadService(
-                client=client,
-                save_path=settings.qbittorrent_save_path,
-                category=settings.qbittorrent_category,
-                tag_prefix=settings.qbittorrent_tag_prefix,
-                paused=settings.qbittorrent_paused,
-            )
-        return InMemoryReleaseDownloadService()
+        return QbittorrentReleaseDownloadService(
+            client=self.qbittorrent_client,
+            save_path=settings.qbittorrent_save_path,
+            category=settings.qbittorrent_category,
+            tag_prefix=settings.qbittorrent_tag_prefix,
+            paused=settings.qbittorrent_paused,
+        )
 
     @cached_property
-    def qbittorrent_client(self) -> QbittorrentClient | None:
-        """Single shared qBittorrent client, or None when not configured."""
+    def qbittorrent_client(self) -> QbittorrentClient:
+        """Single shared qBittorrent client, whether or not it is set up.
+
+        Nothing stands in when the settings are incomplete: a stand-in cannot
+        download, and pretending otherwise turned a misconfigured deployment into
+        one that silently reported success. `is_configured` is what callers read
+        instead.
+        """
 
         settings = self._container.settings
-        if not (
-            settings.qbittorrent_url
-            and settings.qbittorrent_username
-            and settings.qbittorrent_password.get_secret_value()
-        ):
-            return None
         return QbittorrentClient(
             base_url=settings.qbittorrent_url,
             username=settings.qbittorrent_username,

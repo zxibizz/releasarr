@@ -78,7 +78,7 @@ class SyncSteps:
 
         client = self.container.services.qbittorrent_client
         result = None
-        if client is not None:
+        if client.is_configured:
             task = SyncReleasesTask(
                 db=self.container.db_manager,
                 client=client,

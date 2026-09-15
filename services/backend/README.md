@@ -23,9 +23,9 @@ terminal when you need background work:
 uv run python -m src.tasks.cli scheduler
 ```
 
-Nothing here needs Sonarr, Radarr, Prowlarr, or qBittorrent to boot. Unconfigured integrations
-degrade — to in-memory stubs, or to a client that reports `is_configured = False` — so the app
-starts and the API answers; only the parts that talk to those services are inert. See
+Nothing here needs Sonarr, Radarr, Prowlarr, or qBittorrent to boot. An unconfigured integration
+is a client that reports `is_configured = False`, so the app starts and the API answers; only the
+parts that talk to those services are inert, and they say so rather than pretending. See
 [`docs/integrations.md`](docs/integrations.md) for exactly what happens per service.
 
 With no `.env`, the database is SQLite at `./releasarr.db`, the API logs to

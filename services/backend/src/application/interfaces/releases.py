@@ -215,6 +215,10 @@ class ReleaseRepository(Protocol):
 class ReleaseLifecycleService(Protocol):
     """Control operations for pausing/resuming release downloads."""
 
+    @property
+    def is_configured(self) -> bool:
+        """Whether a download client backs this service and can be reached."""
+
     async def pause(self, release_id: str) -> bool:
         """Attempt to pause a release download. Returns True when applied."""
 
@@ -228,6 +232,10 @@ class ReleaseSearchUnavailableError(RuntimeError):
 
 class ReleaseSearchService(Protocol):
     """External search interface for release sources."""
+
+    @property
+    def is_configured(self) -> bool:
+        """Whether a provider is set up to answer searches."""
 
     async def search(
         self,
@@ -250,6 +258,10 @@ class ReleaseSearchService(Protocol):
 
 class ReleaseDownloadService(Protocol):
     """Queue releases for download operations."""
+
+    @property
+    def is_configured(self) -> bool:
+        """Whether a download client backs this service and can be reached."""
 
     async def queue_download(
         self,

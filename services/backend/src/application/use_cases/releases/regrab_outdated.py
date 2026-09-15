@@ -51,6 +51,12 @@ class RegrabOutdatedReleasesUseCase:
 
     async def execute(self) -> None:
         """Process potential outdated releases."""
+        if not self._search_service.is_configured or not self._download_service.is_configured:
+            # A re-grab is a search plus a download, so there is nothing to check
+            # and nothing to reach for when either side is missing.
+            self._logger.info("Skipping re-grab: Prowlarr or qBittorrent is not configured")
+            return
+
         releases = await self._repository.get_potential_outdated_releases()
         indexers_by_name = await self._indexers_by_name()
 

@@ -38,6 +38,7 @@ from src.application.use_cases.discover.exceptions import (
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
+    QbittorrentNotConfiguredError,
     ReleaseActionNotAllowedError,
     ReleaseConflictError,
     ReleaseDownloadConflictError,
@@ -86,6 +87,10 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     SeasonSelectionError: (status.HTTP_400_BAD_REQUEST, "invalid_season_selection"),
     SeasonsUnmanageableError: (status.HTTP_409_CONFLICT, "seasons_unmanageable"),
     IndexerNotFoundError: (status.HTTP_404_NOT_FOUND, "indexer_not_found"),
+    QbittorrentNotConfiguredError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "qbittorrent_not_configured",
+    ),
     ProwlarrNotConfiguredError: (
         status.HTTP_503_SERVICE_UNAVAILABLE,
         "prowlarr_not_configured",
