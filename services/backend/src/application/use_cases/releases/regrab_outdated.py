@@ -84,6 +84,24 @@ class RegrabOutdatedReleasesUseCase:
             return {}
         return {indexer.name.lower(): indexer for indexer in indexers}
 
+    def _unusable_reason(self, indexer: IndexerRecord | None) -> str | None:
+        """Why this indexer cannot answer a search right now, or None if it can.
+
+        An unknown indexer is not reported: the search falls back to Prowlarr's
+        unscoped sweep, which may still find the release elsewhere.
+        """
+
+        if indexer is None:
+            return None
+        health = derive_health(indexer, self._clock())
+        if health is IndexerHealth.DISABLED:
+            return f"indexer {indexer.name} is disabled in Prowlarr"
+        if health is IndexerHealth.BLOCKED:
+            return f"indexer {indexer.name} is blocked by Prowlarr until {indexer.disabled_till}"
+        if not indexer.supports_search:
+            return f"indexer {indexer.name} does not support search"
+        return None
+
     async def _process_release(self, release, indexers_by_name: dict[str, IndexerRecord]) -> None:
         # Search Prowlarr for the specific release, scoped to the indexer it
         # originally came from when that indexer is still known to Prowlarr.
@@ -92,20 +110,20 @@ class RegrabOutdatedReleasesUseCase:
             indexers_by_name.get(release.torrent_source.lower()) if release.torrent_source else None
         )
 
-        if indexer is not None and derive_health(indexer, self._clock()) is IndexerHealth.BLOCKED:
-            # Prowlarr is already backing this indexer off: querying it anyway
-            # would just eat the timeout budget on a search it will refuse, the
-            # same reasoning the fan-out search applies before ever calling out.
-            reason = f"indexer {indexer.name} blocked by Prowlarr until {indexer.disabled_till}"
+        unusable = self._unusable_reason(indexer)
+        if unusable is not None:
+            # Prowlarr will refuse the query either way, so spending the timeout
+            # budget on it only delays the rest of the sweep.
             for request_id in release.request_ids or ["unknown"]:
                 self._logger.warning(
-                    "Could not check for updates: indexer blocked by Prowlarr",
+                    "Could not check for updates: indexer unusable",
                     request_id=request_id,
                     release_id=release.id,
                     release_name=release.name,
-                    disabled_till=indexer.disabled_till,
+                    indexer=release.torrent_source,
+                    reason=unusable,
                 )
-            await self._write_regrab_warning(release, reason=reason)
+            await self._write_regrab_warning(release, reason=unusable)
             return
 
         indexer_id = indexer.indexer_id if indexer is not None else None

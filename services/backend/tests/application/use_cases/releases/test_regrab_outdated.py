@@ -42,7 +42,7 @@ def make_release(
         completed_at=now,
         request_ids=request_ids if request_ids is not None else ["req-1"],
         requests=[],
-        torrent_source="prowlarr",
+        torrent_source="RuTracker",
         quality="1080p",
         files=[],
         last_exported_info_hash=None,
@@ -222,13 +222,13 @@ class FakeIndexerDirectory:
 
 
 async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
-    release = make_release()  # torrent_source="prowlarr"
+    release = make_release()  # torrent_source="RuTracker"
     match = make_match()
     repository = FakeReleaseRepository(release)
     search_service = FakeSearchService(match)
     download_service = FakeDownloadService()
     directory = FakeIndexerDirectory(
-        [IndexerRecord(indexer_id=7, name="Prowlarr", enabled=True, supports_search=True)]
+        [IndexerRecord(indexer_id=7, name="RuTracker", enabled=True, supports_search=True)]
     )
 
     use_case = RegrabOutdatedReleasesUseCase(
@@ -241,7 +241,7 @@ async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
 
 
 async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -> None:
-    release = make_release()  # torrent_source="prowlarr"
+    release = make_release()  # torrent_source="RuTracker"
     repository = FakeReleaseRepository(release)
     search_service = FakeSearchService(make_match())
     download_service = FakeDownloadService()
@@ -250,7 +250,7 @@ async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -
         [
             IndexerRecord(
                 indexer_id=7,
-                name="Prowlarr",
+                name="RuTracker",
                 enabled=True,
                 supports_search=True,
                 disabled_till=datetime(2026, 1, 1, 1, tzinfo=UTC),
@@ -278,8 +278,38 @@ async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -
     assert "blocked by Prowlarr" in rows[0].details["reason"]
 
 
+async def test_regrab_warns_when_the_indexer_is_disabled_in_prowlarr() -> None:
+    """A cleared enable flag never expires, so it must warn rather than be searched."""
+
+    release = make_release()  # torrent_source="RuTracker"
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory(
+        [IndexerRecord(indexer_id=7, name="RuTracker", enabled=False, supports_search=True)]
+    )
+    warning_repository = FakeRequestWarningRepository()
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository,
+        search_service,
+        download_service,
+        directory=directory,
+        warning_repository=warning_repository,
+    )
+    await use_case.execute()
+
+    assert search_service.queries == []
+    assert download_service.calls == []
+    code, release_ids, rows = warning_repository.calls[0]
+    assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
+    assert release_ids == [RELEASE_ID]
+    assert [row.request_id for row in rows] == ["req-1"]
+    assert "disabled in Prowlarr" in rows[0].details["reason"]
+
+
 async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> None:
-    release = make_release()  # torrent_source="prowlarr"
+    release = make_release()  # torrent_source="RuTracker"
     match = make_match()
     repository = FakeReleaseRepository(release)
     search_service = FakeSearchService(match)

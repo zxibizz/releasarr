@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.application.interfaces.releases import (
+    MANUAL_SOURCE,
     CreateReleaseData,
     FileMappingUpdateData,
     ReleaseFileMapping,
@@ -262,3 +263,44 @@ async def test_delete_release_removes_row(
 
     assert await repository.delete_release("rel-1") is True
     assert await repository.get_release("rel-1") is None
+
+
+@pytest.mark.asyncio
+async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
+    repository: SqlAlchemyReleaseRepository,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+    db_manager: DBManager,
+) -> None:
+    """`torrent_source` holds an indexer name, so only manual uploads are excluded."""
+
+    await seed_requests(["req-1"])
+
+    async def _add(release_id: str, source: str | None, status: ReleaseStatus) -> None:
+        async with db_manager.transaction() as session:
+            release = models.Release(
+                id=release_id,
+                name=release_id,
+                info_hash=release_id.upper(),
+                size_bytes=100,
+                status=status,
+                progress=1.0,
+                download_speed=0.0,
+                upload_speed=0.0,
+                seeders=1,
+                leechers=0,
+                ratio=1.0,
+                torrent_source=source,
+            )
+            request = await session.get(models.MediaRequest, "req-1")
+            assert request is not None
+            release.requests = [request]
+            session.add(release)
+
+    await _add("from-indexer", "RuTracker", ReleaseStatus.COMPLETED)
+    await _add("from-manual", MANUAL_SOURCE, ReleaseStatus.COMPLETED)
+    await _add("no-source", None, ReleaseStatus.COMPLETED)
+    await _add("still-downloading", "RuTracker", ReleaseStatus.DOWNLOADING)
+
+    candidates = await repository.get_potential_outdated_releases()
+
+    assert [record.id for record in candidates] == ["from-indexer"]

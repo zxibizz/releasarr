@@ -6,6 +6,7 @@ from loguru import logger
 
 from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.releases import (
+    MANUAL_SOURCE,
     CreateReleaseData,
     ReleaseDownloadService,
     ReleaseFileRecord,
@@ -27,8 +28,6 @@ from src.application.use_cases.releases.warnings import RequestWarningSynchroniz
 from src.application.utility.magnet import parse_magnet
 from src.application.utility.torrent import decode_torrent_base64, parse_torrent
 from src.domain.enums import ExistingReleasesAction
-
-MANUAL_SOURCE = "manual"
 
 
 class QueueManualReleaseUseCase:
