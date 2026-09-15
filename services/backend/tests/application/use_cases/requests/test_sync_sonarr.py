@@ -451,6 +451,129 @@ async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
     assert result.completed == 0
 
 
+def make_season_details(*, aired: int, total: int, files: int) -> SeriesDetails:
+    """Series 10, season 1, with Sonarr's numbers for it supplied by the test."""
+
+    return SeriesDetails(
+        id=10,
+        title="Example Show",
+        year=2020,
+        overview=None,
+        poster_url=None,
+        imdb_id=None,
+        tvdb_id=555,
+        genres=[],
+        seasons={
+            1: SeriesSeasonDetails(
+                season_number=1,
+                episode_count=aired,
+                total_episode_count=total,
+                episode_file_count=files,
+            )
+        },
+    )
+
+
+def make_counted_record(
+    *,
+    status: MediaRequestStatus,
+    total_episodes: int,
+    aired_episodes: int,
+    downloaded_episodes: int,
+) -> MediaRequestRecord:
+    now = datetime.now(UTC)
+    return MediaRequestRecord(
+        id="req-1",
+        media_type=MediaType.SERIES,
+        status=status,
+        title="Example Show - Season 1",
+        year=2020,
+        overview=None,
+        poster_url=None,
+        genres=[],
+        runtime_minutes=None,
+        imdb_id=None,
+        season_number=1,
+        total_episodes=total_episodes,
+        aired_episodes=aired_episodes,
+        downloaded_episodes=downloaded_episodes,
+        series_title="Example Show",
+        series_year=2020,
+        sonarr_series_id=10,
+        created_at=now,
+        updated_at=now,
+        localizations={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> None:
+    """Leaving the missing list freezes the counts, and the card derives from them.
+
+    Sonarr files the last aired episode and drops the season, which is the point
+    at which nothing writes the request's counts again -- so it goes on claiming
+    an episode is pending while Sonarr holds every episode that has aired.
+    """
+
+    record = make_counted_record(
+        status=MediaRequestStatus.MONITORING,
+        total_episodes=8,
+        aired_episodes=7,
+        downloaded_episodes=6,
+    )
+    repository = FakeMediaRequestRepository(records={"req-1": record})
+    sonarr = FakeSonarrService(
+        missing=[], catalogue={10: make_season_details(aired=7, total=8, files=7)}
+    )
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=None,
+    )
+    await use_case.execute()
+
+    assert record.downloaded_episodes == 7
+    # The season is still airing, so the request stays open on the status the
+    # release side gave it rather than being completed or reopened.
+    assert record.status == MediaRequestStatus.MONITORING
+    _, update = repository.updated[0]
+    assert update.status is UNSET
+
+    # The corrected counts settle the question, so the next sync asks again
+    # nowhere and writes nothing.
+    repository.updated.clear()
+    await use_case.execute()
+    assert repository.updated == []
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
+    """Completing a season writes the numbers Sonarr just reported for it."""
+
+    record = make_counted_record(
+        status=MediaRequestStatus.MONITORING,
+        total_episodes=8,
+        aired_episodes=8,
+        downloaded_episodes=6,
+    )
+    repository = FakeMediaRequestRepository(records={"req-1": record})
+    sonarr = FakeSonarrService(
+        missing=[], catalogue={10: make_season_details(aired=8, total=8, files=8)}
+    )
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=None,
+    )
+    result = await use_case.execute()
+
+    assert record.status == MediaRequestStatus.COMPLETED
+    assert record.downloaded_episodes == 8
+    assert result.completed == 1
+
+
 @pytest.mark.asyncio
 async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
     """An in-flight status belongs to the release sync, episodes to come or not."""

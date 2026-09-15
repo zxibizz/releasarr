@@ -44,15 +44,22 @@ so the API never has to ask Sonarr for them, and nullable so rows that predate t
 report `episode_counts: null` instead of a misleading "nothing downloaded". The API derives the
 three numbers the UI shows from them — downloaded, pending (`aired − downloaded`, clamped at
 zero) and unaired (`total − aired`, clamped at zero) — in
-`application/use_cases/requests/mappers.py`. `downloaded_episodes` is also set to
-`aired_episodes` when a season stops being missing, since Sonarr only drops a season from that
-list once it has everything.
+`application/use_cases/requests/mappers.py`. The missing-seasons refresh is not the only writer:
+the sweep that settles a season Sonarr no longer reports as missing stores Sonarr's own
+`episode_count` and `episode_file_count` in the same pass that decides its status, since leaving
+the missing list is what stops the counts being refreshed — and `pending` is derived from them,
+so a stale `downloaded_episodes` reads as an episode still to fetch. Where the sweep has no
+answer for a season, the stored counts stand and `downloaded_episodes` falls back to
+`aired_episodes`, because Sonarr only drops a season from that list once it has everything.
 
 Leaving Sonarr's missing list is not the same as being finished: a season that is still airing
 leaves it every week and returns when the next episode is wanted. A request is therefore only
 completed once there are neither pending nor unaired episodes left, and one with episodes still
 to air goes back to `pending` rather than closing — which is also what keeps it actionable for a
-release grabbed by hand, since `regrab` has no indexer result to refresh it from.
+release grabbed by hand, since `regrab` has no indexer result to refresh it from. An
+`ArrCompletion` carries `has_unaired` for exactly that reason: both arrs call a season complete
+once its aired episodes hold files, so a verdict that admits unaired episodes is not taken as
+final and falls through to the release rules instead.
 
 `status` has exactly one place that decides what a request's releases and its arr imply:
 `RequestStateDeriver` (`application/use_cases/requests/state.py`), invoked through

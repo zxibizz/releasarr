@@ -29,6 +29,8 @@ class ArrCompletion:
     """What Sonarr/Radarr reports about a request, independent of torrent state."""
 
     is_complete: bool
+    # An arr only ever counts episodes that have aired, so a season that is still
+    # running reads as complete every week between airings.
     has_unaired: bool = False
 
 
@@ -65,9 +67,16 @@ class RequestStateDeriver:
         Sonarr/Radarr are the only authority on `COMPLETED`: a torrent finishing
         or continuing to seed must never move a request into or out of it. With
         no verdict at all, a currently completed request is left untouched.
+
+        `has_unaired` is part of that verdict and not a rule of its own: both arrs
+        call a season complete once every episode that has aired holds a file,
+        which is true of any season still running. Completing on that alone would
+        close a request that has an episode yet to come, so a verdict carrying
+        unaired episodes falls through to the release rules below -- monitoring
+        for a release an indexer could improve on, pending otherwise.
         """
         if arr is not None:
-            if arr.is_complete:
+            if arr.is_complete and not arr.has_unaired:
                 return MediaRequestStatus.COMPLETED
             if record.status is MediaRequestStatus.COMPLETED:
                 return MediaRequestStatus.PENDING
