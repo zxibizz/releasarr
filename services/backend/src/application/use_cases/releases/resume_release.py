@@ -5,6 +5,7 @@ from __future__ import annotations
 from src.application.interfaces.releases import ReleaseLifecycleService, ReleaseRepository
 from src.application.use_cases.releases.dto import AsyncOperationDTO
 from src.application.use_cases.releases.exceptions import (
+    QbittorrentNotConfiguredError,
     ReleaseActionNotAllowedError,
     ReleaseNotFoundError,
 )
@@ -22,6 +23,9 @@ class ResumeReleaseUseCase:
         self._lifecycle_service = lifecycle_service
 
     async def execute(self, release_id: str) -> AsyncOperationDTO:
+        if not self._lifecycle_service.is_configured:
+            raise QbittorrentNotConfiguredError
+
         release = await self._repository.get_release(release_id)
         if release is None:
             raise ReleaseNotFoundError(release_id)

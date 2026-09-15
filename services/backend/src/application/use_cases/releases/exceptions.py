@@ -73,8 +73,25 @@ class ExistingReleasesDecisionRequiredError(RuntimeError):
         self.details = {"release_ids": release_ids}
 
 
+class QbittorrentNotConfiguredError(RuntimeError):
+    """Raised when an operation needs qBittorrent and no client is set up.
+
+    The metadata providers are optional because a sync has something to fall back
+    on. These operations do not: every one of them is about a torrent, so with no
+    client there is nothing to queue, pause, resume or delete, and reporting
+    success would be a lie rather than a degraded answer.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "qBittorrent is not configured; set RELEASARR_QBITTORRENT_URL, "
+            "RELEASARR_QBITTORRENT_USERNAME and RELEASARR_QBITTORRENT_PASSWORD"
+        )
+
+
 __all__ = [
     "ExistingReleasesDecisionRequiredError",
+    "QbittorrentNotConfiguredError",
     "ReleaseActionNotAllowedError",
     "ReleaseConflictError",
     "ReleaseDownloadConflictError",

@@ -23,6 +23,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchUnavailableError,
 )
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
@@ -255,6 +256,8 @@ class FakeReleaseRepository:
 
 
 class FakeLifecycleService:
+    is_configured = True
+
     def __init__(self, *, pause_result: bool = True, resume_result: bool = True) -> None:
         self.pause_result = pause_result
         self.resume_result = resume_result
@@ -271,6 +274,8 @@ class FakeLifecycleService:
 
 
 class FakeDownloadService:
+    is_configured = True
+
     def __init__(self, queued: QueuedDownload | None = None) -> None:
         self.queued = queued or QueuedDownload(
             operation="queue_download",
@@ -323,6 +328,8 @@ class FakeDownloadService:
 
 
 class FakeSearchService:
+    is_configured = True
+
     def __init__(self, results: ReleaseSearchResults, torrent_bytes: bytes | None = None) -> None:
         self.results = results
         self.calls: list[tuple[str, str | None]] = []
@@ -1092,37 +1099,20 @@ async def test_queue_release_download_replace_unlinks_shared_release() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_release_sources_maps_results() -> None:
-    results = ReleaseSearchResults(
-        results=[
-            ReleaseSearchResultRecord(
-                release_id="rel-1",
-                release_name="Test Release",
-                size="1 GB",
-                magnet_link="magnet:?xt=urn:btih:test",
-                torrent_file_url=None,
-                info_url="http://example.test",
-                seeders=10,
-                leechers=2,
-                quality="1080p",
-                source="indexer",
-                request_id="req-1",
-            )
-        ],
-        query="test",
-        total_results=1,
+async def test_search_release_sources_reports_an_unconfigured_prowlarr() -> None:
+    """Nothing stands in for the provider, so an empty page would be a lie."""
+
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[], query="test", total_results=0)
     )
-    search_service = FakeSearchService(results)
     use_case = SearchReleaseSourcesUseCase(
         search_service, directory=FakeIndexerDirectory([], is_configured=False)
     )
-    command = SearchReleaseSourcesCommand(query="test", request_id="req-1")
 
-    response = await use_case.execute(command)
+    with pytest.raises(ProwlarrNotConfiguredError):
+        await use_case.execute(SearchReleaseSourcesCommand(query="test", request_id="req-1"))
 
-    assert response.total_results == 1
-    assert response.results[0].release_id == "rel-1"
-    assert search_service.calls == [("test", "req-1")]
+    assert search_service.calls == []
 
 
 class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
@@ -1147,6 +1137,8 @@ class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
 
 class FakePerIndexerSearchService:
     """Scripted per-indexer search, standing in for `ProwlarrReleaseSearchService`."""
+
+    is_configured = True
 
     def __init__(
         self,

@@ -12,6 +12,10 @@ from src.application.interfaces.releases import QueuedDownload, ReleaseDownloadS
 class QbittorrentClientPort(Protocol):
     """Subset of the qBittorrent client used by the download service."""
 
+    @property
+    def is_configured(self) -> bool:
+        """Whether the client has the URL and credentials it needs."""
+
     async def add_magnet(
         self,
         magnet_link: str,
@@ -46,6 +50,10 @@ class QbittorrentReleaseDownloadService(ReleaseDownloadService):
     category: str | None = None
     tag_prefix: str | None = None
     paused: bool = False
+
+    @property
+    def is_configured(self) -> bool:
+        return self.client.is_configured
 
     async def queue_download(
         self,

@@ -10,8 +10,8 @@ unconfigured. Adapters live in `src/infrastructure/<service>/`; the ports they i
 | --- | --- | --- | --- | --- |
 | Sonarr | `RELEASARR_SONARR_URL` | `http://localhost:8989/api/v3` | `/api/v3` | Client exists, errors on first call |
 | Radarr | `RELEASARR_RADARR_URL` | `http://localhost:7878/api/v3` | `/api/v3` | Client exists, errors on first call |
-| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | `InMemoryReleaseSearchService`; indexer directory reports `is_configured = False` |
-| qBittorrent | `RELEASARR_QBITTORRENT_URL` | *(empty)* | `/api/v2` | In-memory download + lifecycle stubs |
+| Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | reports `is_configured = False`; the indexer endpoints and release search raise |
+| qBittorrent | `RELEASARR_QBITTORRENT_URL` | *(empty)* | `/api/v2` | reports `is_configured = False`; the release operations raise, the scheduler's steps skip |
 | TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | v4 root | reports `is_configured = False`; use cases degrade |
 | TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | `/3` | reports `is_configured = False`; use cases degrade |
 
@@ -24,10 +24,16 @@ Degradation is decided once, in `src/core/container.py`, not at the call site. T
 app boots with nothing configured.
 
 Where a provider is optional per deployment the port itself says so: `IndexerDirectory`,
-`TvdbService` and `TmdbService` each declare `is_configured`, and the adapter answers from the
-settings it was built with, so a caller branches on a value instead of on an absent object. What
-counts as configured differs per service — Prowlarr needs both URL and key, TVDB and TMDB need
-only the key, since their base URLs always have a default.
+`TvdbService`, `TmdbService`, `ReleaseSearchService`, `ReleaseDownloadService` and
+`ReleaseLifecycleService` each declare `is_configured`, and the adapter answers from the
+settings it was built with, so a caller branches on a value instead of on an absent object.
+
+Nothing stands in for a provider that is missing. A stub cannot download, and one that
+answered successfully made a misconfigured deployment look like a working one, so a public
+endpoint reports the missing configuration instead and a background step skips its work.
+What counts as configured differs per service: Prowlarr needs both URL and key; TVDB and TMDB
+need only the key, since their base URLs always have a default; qBittorrent needs URL,
+username and password.
 
 ## The shared HTTP client
 
@@ -176,8 +182,9 @@ i.e. `disabled_till` in the future) is reported as failed **without being querie
 Prowlarr would refuse it anyway, so attempting it would only spend the timeout budget. A
 `DEGRADED` indexer (past failures, not currently backed off) is still attempted.
 
-When Prowlarr is not configured (`indexer_directory` is `None`), the use case falls back to a
-single call to the search service directly, matching the pre-fan-out behaviour.
+When Prowlarr is not configured, the use case raises `ProwlarrNotConfiguredError` (503). There is
+no stand-in search service to answer instead, and an empty result set would read as "no results"
+rather than "no Prowlarr".
 
 `RegrabOutdatedReleasesUseCase` scopes the same way: it maps a release's stored
 `torrent_source` (the indexer name Prowlarr reported at grab time) back to an indexer id via
@@ -228,9 +235,9 @@ Four things about this pair of endpoints are easy to get wrong:
   timestamps; `derive_health` compares `disabled_till` against now. A cleared `enable` outranks
   the failure log, because that is a deliberate choice rather than a back-off that expires.
 
-Unlike release search, **an unconfigured Prowlarr raises** `ProwlarrNotConfiguredError` (503)
-instead of falling back to an in-memory stub. This page exists to answer "are my indexers
-working", and an empty list reads as "no indexers" rather than "no Prowlarr".
+**An unconfigured Prowlarr raises** `ProwlarrNotConfiguredError` (503), here and on release
+search. This page exists to answer "are my indexers working", and an empty list reads as "no
+indexers" rather than "no Prowlarr".
 
 ## qBittorrent
 
@@ -275,8 +282,10 @@ block the database from being tidied: `pause`/`resume` return `False`, `get_torr
 `None`, `list_torrents` returns `[]`, and `delete_torrent` swallows errors including 404. Only
 `add` raises.
 
-When the client is `None`, the scheduler skips release sync entirely and records
-`reason: qbittorrent_not_configured` rather than failing the job.
+When the client reports itself unconfigured, the scheduler skips release sync entirely and
+records `reason: qbittorrent_not_configured` rather than failing the job. The public release
+operations instead raise `QbittorrentNotConfiguredError` (503): a pause or a grab that quietly
+did nothing is worse than one that says why it could not.
 
 ## TVDB
 

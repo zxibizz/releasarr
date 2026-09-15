@@ -13,12 +13,12 @@ from src.core.container import AppContainer, get_container
 from src.infrastructure.logs import LogFileReader
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
 from src.infrastructure.prowlarr import ProwlarrIndexerDirectory, ProwlarrReleaseSearchService
-from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
-from src.infrastructure.releases.services import (
-    InMemoryReleaseDownloadService,
-    InMemoryReleaseLifecycleService,
-    InMemoryReleaseSearchService,
+from src.infrastructure.qbittorrent import (
+    QbittorrentClient,
+    QbittorrentReleaseDownloadService,
+    QbittorrentReleaseLifecycleService,
 )
+from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
 from src.settings.config import AppSettings
 
 
@@ -49,9 +49,9 @@ def test_container_provides_singletons() -> None:
 
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
-    assert isinstance(lifecycle_service, InMemoryReleaseLifecycleService)
-    assert isinstance(search_service, InMemoryReleaseSearchService)
-    assert isinstance(download_service, InMemoryReleaseDownloadService)
+    assert isinstance(lifecycle_service, QbittorrentReleaseLifecycleService)
+    assert isinstance(search_service, ProwlarrReleaseSearchService)
+    assert isinstance(download_service, QbittorrentReleaseDownloadService)
     assert isinstance(log_reader, LogFileReader)
     assert isinstance(logs_query, ListLogsQuery)
     assert isinstance(logs_use_case, ListLogsUseCase)
@@ -122,3 +122,38 @@ def test_container_reports_configured_metadata_providers_with_keys() -> None:
 
     assert container.services.tvdb.is_configured is True
     assert container.services.tmdb.is_configured is True
+
+
+def test_container_reports_an_unconfigured_qbittorrent_client() -> None:
+    """The client is built either way, so the release services still exist."""
+
+    container = AppContainer(
+        settings=AppSettings(
+            qbittorrent_url="",
+            qbittorrent_username="",
+            qbittorrent_password=SecretStr(""),
+        )
+    )
+
+    assert isinstance(container.services.qbittorrent_client, QbittorrentClient)
+    assert container.services.qbittorrent_client.is_configured is False
+    assert container.services.release_download.is_configured is False
+    assert container.services.release_lifecycle.is_configured is False
+    assert container.services.release_search.is_configured is False
+
+
+def test_container_reports_a_configured_qbittorrent_client() -> None:
+    container = AppContainer(
+        settings=AppSettings(
+            qbittorrent_url="http://qbittorrent.example/api/v2",
+            qbittorrent_username="admin",
+            qbittorrent_password=SecretStr("secret"),
+            prowlarr_url="https://prowlarr.example/api/v1",
+            prowlarr_api_key=SecretStr("token"),
+        )
+    )
+
+    assert container.services.qbittorrent_client.is_configured is True
+    assert container.services.release_download.is_configured is True
+    assert container.services.release_lifecycle.is_configured is True
+    assert container.services.release_search.is_configured is True

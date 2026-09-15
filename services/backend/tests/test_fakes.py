@@ -1,11 +1,11 @@
-"""Tests for in-memory release service adapters."""
+"""Tests for the shared in-memory release service doubles."""
 
 from __future__ import annotations
 
 import pytest
 
 from src.application.interfaces.releases import ReleaseSearchResultRecord, ReleaseSearchResults
-from src.infrastructure.releases.services import (
+from tests.fakes import (
     InMemoryReleaseDownloadService,
     InMemoryReleaseLifecycleService,
     InMemoryReleaseSearchService,

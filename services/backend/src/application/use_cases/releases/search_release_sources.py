@@ -15,6 +15,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchService,
     ReleaseSearchUnavailableError,
 )
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.indexers.list_indexers import derive_health
 from src.application.use_cases.releases.commands import SearchReleaseSourcesCommand
 from src.application.use_cases.releases.dto import (
@@ -62,13 +63,8 @@ class SearchReleaseSourcesUseCase:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def execute(self, command: SearchReleaseSourcesCommand) -> ReleaseSearchResponseDTO:
-        if not self._directory.is_configured:
-            # No Prowlarr configured: the search service is the in-memory
-            # stand-in, which has no per-indexer notion to fan out over.
-            results = await self._search_service.search(
-                command.query, request_id=command.request_id
-            )
-            return search_results_to_dto(results)
+        if not self._search_service.is_configured or not self._directory.is_configured:
+            raise ProwlarrNotConfiguredError
 
         candidates = [
             indexer

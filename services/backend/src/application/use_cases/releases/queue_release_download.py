@@ -11,11 +11,13 @@ from src.application.interfaces.releases import (
     ReleaseRepository,
     ReleaseSearchService,
 )
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.commands import QueueReleaseDownloadCommand
 from src.application.use_cases.releases.dto import AsyncOperationDTO
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
+    QbittorrentNotConfiguredError,
     ReleaseDownloadConflictError,
     ReleaseDownloadFailedError,
     ReleaseNotFoundError,
@@ -56,6 +58,14 @@ class QueueReleaseDownloadUseCase:
         # request_id, so an unlogged failure leaves no trace of the attempt.
         effective_request_id = command.request_id
         try:
+            # The two providers are what the grab is made of: a candidate comes
+            # from the search, the torrent goes to the client. Checked here so the
+            # failure is logged against the request like any other.
+            if not self._search_service.is_configured:
+                raise ProwlarrNotConfiguredError
+            if not self._download_service.is_configured:
+                raise QbittorrentNotConfiguredError
+
             release = await self._repository.get_release(command.release_id)
             if release is not None:
                 raise ReleaseDownloadConflictError(command.request_id, command.release_id)

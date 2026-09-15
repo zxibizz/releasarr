@@ -17,6 +17,7 @@ from src.application.use_cases.releases.commands import QueueManualReleaseComman
 from src.application.use_cases.releases.dto import AsyncOperationDTO
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
+    QbittorrentNotConfiguredError,
     ReleaseDownloadConflictError,
     ReleaseDownloadFailedError,
 )
@@ -53,6 +54,9 @@ class QueueManualReleaseUseCase:
         return await self._existing_release_replacer.existing_for(request_id)
 
     async def execute(self, command: QueueManualReleaseCommand) -> AsyncOperationDTO:
+        if not self._download_service.is_configured:
+            raise QbittorrentNotConfiguredError
+
         if not command.request_id:
             raise ValueError("request_id must be supplied")
 

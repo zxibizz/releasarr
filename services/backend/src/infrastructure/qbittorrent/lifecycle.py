@@ -19,6 +19,10 @@ class QbittorrentReleaseLifecycleService(ReleaseLifecycleService):
 
     client: QbittorrentClient
 
+    @property
+    def is_configured(self) -> bool:
+        return self.client.is_configured
+
     async def pause(self, release_id: str) -> bool:
         """Pause a release download by its info hash.
 

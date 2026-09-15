@@ -30,6 +30,10 @@ class QbittorrentClient:
             transport=self._transport,
         )
 
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.base_url and self.username and self.password)
+
     async def close(self) -> None:
         await self._client.aclose()
 

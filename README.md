@@ -144,8 +144,9 @@ completed.
 ## Getting started
 
 You will need Docker, plus Sonarr and/or Radarr already running. Prowlarr and qBittorrent are
-optional — without them Releasarr falls back to in-memory stubs, which is enough to look around
-but not to download anything.
+still worth configuring — without them Releasarr boots and you can look around, but searching
+indexers and grabbing releases report themselves as unavailable rather than silently doing
+nothing.
 
 ```bash
 git clone https://github.com/zxibizz/releasarr.git
@@ -279,7 +280,7 @@ one, so the first profile they report is used unless you pick one.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_PROWLARR_URL` | *(empty — search is stubbed)* | Prowlarr API base, including the `/api/v1` suffix |
+| `RELEASARR_PROWLARR_URL` | *(empty — required to search)* | Prowlarr API base, including the `/api/v1` suffix |
 | `RELEASARR_PROWLARR_API_KEY` | *(empty)* | Prowlarr API key |
 | `RELEASARR_PROWLARR_CATEGORIES` | *(all)* | Indexer category IDs to restrict searches to |
 | `RELEASARR_PROWLARR_TIMEOUT` | `20.0` | Request timeout in seconds |
@@ -291,7 +292,7 @@ one, so the first profile they report is used unless you pick one.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_QBITTORRENT_URL` | *(empty — downloads are stubbed)* | qBittorrent Web API base, including the `/api/v2` suffix |
+| `RELEASARR_QBITTORRENT_URL` | *(empty — required to download)* | qBittorrent Web API base, including the `/api/v2` suffix |
 | `RELEASARR_QBITTORRENT_USERNAME` | *(empty)* | Web UI username |
 | `RELEASARR_QBITTORRENT_PASSWORD` | *(empty)* | Web UI password |
 | `RELEASARR_QBITTORRENT_SAVE_PATH` | *(client default)* | Override where torrents are saved |
@@ -417,10 +418,11 @@ tasks/           Standalone task runners, the scheduler worker, and a Typer CLI
 core/            Dependency-injection container and Loguru setup
 ```
 
-Two consequences worth calling out. Integrations are addressed through protocols, so an absent
-Prowlarr or qBittorrent degrades to an in-memory stub rather than a crash. And the scheduler
-lives outside the ASGI app entirely: the API only ever writes rows to `sync_jobs`, and the
-worker claims them within a few seconds.
+Two consequences worth calling out. Integrations are addressed through protocols, so a Prowlarr
+or qBittorrent that is not set up degrades rather than crashing the app — it reports
+`is_configured` and the endpoint that needs it says so. And the scheduler lives outside the ASGI
+app entirely: the API only ever writes rows to `sync_jobs`, and the worker claims them within a
+few seconds.
 
 The frontend is feature-sliced — `auth`, `requests`, `releases`, `discover`, `tasks`,
 `indexers`, `logs`, `users` — with each feature owning its API calls and its React Query keys,

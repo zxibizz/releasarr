@@ -135,9 +135,9 @@ src/
 Two properties this buys, both load-bearing:
 
 **Integrations degrade rather than crash.** Because ports are `Protocol`s, an unconfigured
-provider still arrives as an object — one that reports `is_configured`, or that `core/container.py`
-replaces with an in-memory stub — so no call site handles `None`. The app boots and the UI works;
-only grabbing and downloading are inert.
+provider still arrives as an object that reports `is_configured`, so no call site handles `None`
+and nothing pretends to work in its place. The app boots and the UI works; only grabbing and
+downloading are inert, and they say so.
 
 **Use cases are testable without HTTP or a database.** `tests/fakes.py` provides protocol
 implementations backed by dicts, so use case tests construct the class directly.

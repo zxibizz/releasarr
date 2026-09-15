@@ -73,6 +73,13 @@ class ExportFinishedReleasesUseCase:
     async def execute(self) -> ExportFinishedResult:
         """Process all finished but not yet exported releases."""
 
+        if not self._download_service.is_configured:
+            # Every export resolves through the client's own view of where it put
+            # the payload, so there is no path to import without one. Failing each
+            # release instead would inflate their export_failures_count.
+            self._logger.info("Skipping export: qBittorrent is not configured")
+            return ExportFinishedResult()
+
         releases = await self._repository.get_finished_not_exported()
         result = ExportFinishedResult()
 

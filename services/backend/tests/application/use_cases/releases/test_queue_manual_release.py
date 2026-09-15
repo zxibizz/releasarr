@@ -115,6 +115,8 @@ class FakeReleaseRepository:
 
 
 class FakeDownloadService:
+    is_configured = True
+
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str, bytes | None]] = []
         self.deleted: list[str] = []
