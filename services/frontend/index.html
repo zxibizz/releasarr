@@ -3,12 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1220" />
+    <!-- Kept identical to `background_color` in vite.config.ts and to the body
+         background in styles/global.css, so the status bar and the splash screen
+         run into the app rather than flashing a different colour. -->
+    <meta name="theme-color" content="#0f172a" />
     <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Releasarr" />
+    <!-- No manifest link here: the PWA plugin injects it during a build, and
+         nothing serves a manifest in dev. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Releasarr</title>
   </head>
   <body>

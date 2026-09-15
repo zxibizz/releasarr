@@ -19,6 +19,19 @@ export const resources = {
           ru: 'Русский',
         },
       },
+      pwa: {
+        updateAvailable: {
+          title: 'Update available',
+          description: 'A newer version of Releasarr is ready.',
+          action: 'Reload',
+        },
+      },
+      offline: {
+        title: 'Cannot reach Releasarr',
+        description: 'The app could not reach the server. Check your connection, then try again.',
+        notice: 'Your connection dropped. Data may be out of date.',
+        reload: 'Reload',
+      },
       auth: {
         logout: 'Sign out',
         login: {
@@ -867,6 +880,19 @@ export const resources = {
           en: 'Английский',
           ru: 'Русский',
         },
+      },
+      pwa: {
+        updateAvailable: {
+          title: 'Доступно обновление',
+          description: 'Готова новая версия Releasarr.',
+          action: 'Перезагрузить',
+        },
+      },
+      offline: {
+        title: 'Нет связи с Releasarr',
+        description: 'Не удалось связаться с сервером. Проверьте подключение и попробуйте снова.',
+        notice: 'Соединение потеряно. Данные могли устареть.',
+        reload: 'Перезагрузить',
       },
       auth: {
         logout: 'Выйти',

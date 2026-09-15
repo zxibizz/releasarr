@@ -203,6 +203,13 @@ restarted on its own, and a failed migration stops the container instead of leav
 Every line in `docker logs releasarr` is tagged with the service that wrote it — `[api]`,
 `[scheduler]`, or `[nginx]`.
 
+Releasarr also **installs as an app**. Use *Install* in Chrome on Android or *Add to Home Screen*
+in Safari on iOS, and it launches in its own window and opens without a connection. Two caveats
+worth knowing: a service worker only runs in a secure context, so installation and offline support
+need `https://` — a TLS reverse proxy in front of the container — or `http://localhost`; on a plain
+`http://<lan-ip>:8050` the app works but the manifest is inert. And no API response is ever cached,
+so offline means the app shell and an explanation, not your requests.
+
 A few things worth knowing before you point it at real data:
 
 - **Releasarr must see the same paths as Sonarr and Radarr.** Imports are handed over as

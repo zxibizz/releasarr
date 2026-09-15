@@ -44,6 +44,15 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * True when the request never reached the server at all. `fetch` rejects with a
+ * `TypeError` for that and for nothing else here, which is what separates "no
+ * connection" from the 4xx and 5xx failures that always carry a status.
+ */
+export function isNetworkError(error: unknown): boolean {
+  return error instanceof ApiError && error.cause instanceof TypeError;
+}
+
 type QueryValue = string | number | boolean | undefined | null;
 
 export interface RequestOptions {

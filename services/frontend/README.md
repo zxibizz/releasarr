@@ -35,6 +35,7 @@ root.
 | `npm test`            | Run the Vitest suite once                                    |
 | `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config      |
 | `npm run codegen`     | Regenerate API types from `../../openapi.yaml`               |
+| `npm run pwa:assets`  | Regenerate the app icons from `public/favicon.svg`           |
 | `npm run screenshots` | Recapture the root README's screenshots against the mock API |
 
 ## Environment
@@ -71,6 +72,7 @@ src/
     logs/          Request activity logs
   hooks/
     useIsMobile.ts The one place the mobile breakpoint is read in JS
+    useOnlineStatus.ts navigator.onLine as a subscribable value
   lib/
     api/client.ts  The single fetch wrapper used by every request
     api/generated/ Types generated from the OpenAPI contract (do not edit)
@@ -78,6 +80,8 @@ src/
     queryClient.ts TanStack Query defaults
   locales/
     resources.ts   All UI strings, en and ru
+  pwa/
+    UpdatePrompt.tsx  Announce a waiting service worker, and look for one
   styles/          global.css
   test/utils.tsx   renderWithProviders and viewport helpers
   utils/           Formatters, file helpers, error helpers, status colors
@@ -93,8 +97,13 @@ A few conventions worth knowing:
   run `npm run codegen` after `../../openapi.yaml` changes rather than hand-editing types.
 - **Status colors live in one place.** `utils/status.ts` maps a status to a Mantine color
   and icon, and `StatusBadge` is the only component that renders them.
-- **Route loaders warm the cache.** `router.tsx` uses `ensureQueryData` so pages have data
-  on first paint; components then read the same query keys.
+- **Route loaders warm the cache.** `router.tsx` uses `ensureQueryData` through
+  `prefetchWhenOnline` so pages have data on first paint; components then read the same query
+  keys. The wrapper is not optional — a loader that awaits a query React Query has paused
+  offline never settles, and the router then never renders.
+- **The PWA is build-time only.** `vite-plugin-pwa` writes the manifest and the service worker
+  during `npm run build` and does nothing in dev. Nothing under `/api` is ever cached — read
+  [`docs/pwa.md`](docs/pwa.md) before touching the worker.
 - **Every route below `/` requires a session.** `RequireAuth` wraps the whole shell;
   `RequirePermission` further gates `/system/tasks`, `/system/indexers`, `/system/logs`, and
   `/system/users` by the signed-in user's permissions.

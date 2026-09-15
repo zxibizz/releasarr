@@ -44,6 +44,7 @@ Narrower docs live next to the code they describe:
 | [`services/backend/docs/file-mapping.md`](services/backend/docs/file-mapping.md) | Release-name parsing, the file matcher, auto-mapping, import |
 | [`services/frontend/README.md`](services/frontend/README.md) | Running the frontend; routing, i18n, mobile |
 | [`services/frontend/docs/file-mapping.md`](services/frontend/docs/file-mapping.md) | The mapping editor's state model and bulk actions |
+| [`services/frontend/docs/pwa.md`](services/frontend/docs/pwa.md) | The service worker, the manifest, offline behaviour, regenerating icons |
 | [`services/frontend/docs/mock-server.md`](services/frontend/docs/mock-server.md) | Adding or changing a mock endpoint |
 | [`services/frontend/docs/screenshots.md`](services/frontend/docs/screenshots.md) | Regenerating or adding a README screenshot |
 
@@ -79,6 +80,16 @@ Violating these produces changes that look fine and break something elsewhere.
     `media_requests` row must be checked against the caller's `RequestScope` before the row is
     returned; an out-of-scope row is a 404, not a 403. See
     [`docs/architecture.md`](docs/architecture.md#authentication-and-authorization).
+11. **Never cache `/api` in the service worker.** There is no `runtimeCaching` block today, and
+    adding one looks harmless and is not: every response is authenticated and the refresh cookie
+    at `/api/auth` rotates exactly once per use, so a replayed response reaches the backend as a
+    rotated token — which is what token theft looks like. `navigateFallbackDenylist` keeps `/api`
+    out of the SPA fallback for the same reason. See
+    [`services/frontend/docs/pwa.md`](services/frontend/docs/pwa.md).
+12. **Route loaders prefetch through `prefetchWhenOnline`.** React Query pauses a query instead of
+    failing it while the browser is offline, so a loader awaiting one never settles and the router
+    then never renders the app. Any new `ensureQueryData` in `services/frontend/src/router.tsx`
+    goes inside that wrapper.
 
 ## Commands
 

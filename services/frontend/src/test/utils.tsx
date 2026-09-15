@@ -47,6 +47,19 @@ export function setViewportWidth(width: number) {
   }) as unknown as typeof window.matchMedia;
 }
 
+/**
+ * jsdom reports `navigator.onLine` as true and never fires the connection
+ * events itself, so a component that watches them has to be moved between
+ * states by hand.
+ */
+export function setOnlineStatus(isOnline: boolean) {
+  Object.defineProperty(window.navigator, 'onLine', {
+    configurable: true,
+    get: () => isOnline,
+  });
+  window.dispatchEvent(new Event(isOnline ? 'online' : 'offline'));
+}
+
 const createTestQueryClient = () =>
   new QueryClient({
     defaultOptions: {

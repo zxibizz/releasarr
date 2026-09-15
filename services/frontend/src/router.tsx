@@ -1,3 +1,4 @@
+import { Center, Loader } from '@mantine/core';
 import { createBrowserRouter, type LoaderFunctionArgs } from 'react-router-dom';
 
 import AppLayout from '@/App';
@@ -9,10 +10,10 @@ import { SetupPage } from '@/features/auth/pages/SetupPage';
 import { releasesByRequestQuery } from '@/features/releases/queries';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { requestDetailQuery, requestsListQuery } from '@/features/requests/queries';
-import { queryClient } from '@/lib/queryClient';
+import { prefetchWhenOnline, queryClient } from '@/lib/queryClient';
 
 const requestsLoader = async () => {
-  await queryClient.ensureQueryData(requestsListQuery());
+  await prefetchWhenOnline(() => queryClient.ensureQueryData(requestsListQuery()));
   return null;
 };
 
@@ -26,8 +27,10 @@ const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
   }
 
   // The detail must resolve (it drives the page); releases can arrive later.
-  await queryClient.ensureQueryData(requestDetailQuery(id));
-  void queryClient.prefetchQuery(releasesByRequestQuery(id));
+  await prefetchWhenOnline(async () => {
+    await queryClient.ensureQueryData(requestDetailQuery(id));
+    void queryClient.prefetchQuery(releasesByRequestQuery(id));
+  });
 
   return null;
 };
@@ -41,6 +44,16 @@ export const router = createBrowserRouter([
     // confirmed, so a logged-out visitor never sees so much as the nav flash.
     element: <RequireAuth />,
     errorElement: <RouteErrorBoundary />,
+    /*
+     * Rendered while the first loader is in flight. React Router otherwise
+     * shows nothing at all until it settles, which is a blank page for as long
+     * as the request takes.
+     */
+    hydrateFallbackElement: (
+      <Center mih="60vh">
+        <Loader />
+      </Center>
+    ),
     children: [
       {
         element: <AppLayout />,

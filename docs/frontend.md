@@ -164,13 +164,18 @@ for the admin-only sections:
 | `/system/users` | `UsersPage` | lazy | `RequireAuth` + `RequirePermission('manage_users')` |
 | `*` | `NotFound` | eager | `RequireAuth` |
 
-Loaders warm the cache with `ensureQueryData` so pages paint with data. Note the deliberate
-split on the detail route: it blocks on the request, but only *prefetches* releases.
+Loaders warm the cache with `ensureQueryData` so pages paint with data, and they run it through
+`prefetchWhenOnline`. That wrapper is not decoration: a loader that awaits a query React Query
+has paused because the browser is offline never settles, and the router then shows its hydration
+fallback forever instead of the offline screen below the loaders. Note the deliberate split on the
+detail route: it blocks on the request, but only *prefetches* releases.
 
 ```typescript
 const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
-  await queryClient.ensureQueryData(requestDetailQuery(params.id));
-  void queryClient.prefetchQuery(releasesByRequestQuery(params.id));
+  await prefetchWhenOnline(async () => {
+    await queryClient.ensureQueryData(requestDetailQuery(params.id));
+    void queryClient.prefetchQuery(releasesByRequestQuery(params.id));
+  });
   return null;
 };
 ```
@@ -256,6 +261,7 @@ under. `useRequestTitles` exposes both titles so release search can switch betwe
 | `components/ResponsiveModal` | Modals — full-screen on mobile automatically. |
 | `components/Panel` | Section containers; drops its border on mobile. |
 | `components/EmptyState` | Empty/zero-result states. |
+| `components/OfflineState` | The "cannot reach the server" screen; the route error boundary renders it too. |
 | `components/DataField` | Label/value pairs in mobile card layouts. |
 | `utils/status.ts` | `getStatusPresentation` — the single status color/icon table. |
 | `utils/formatters.ts` | `formatFileSize`, `formatSpeed`, `formatDate`, `formatDuration`. |
@@ -272,6 +278,23 @@ express — full-screen modals, conditional borders, input vs textarea.
 Established mobile patterns: filters and sort controls collapse behind a toggle; tables become
 cards; notifications move to top-center; long untrusted strings (release names, file paths) get
 `className="break-anywhere"`.
+
+## PWA and offline
+
+`vite-plugin-pwa` generates the manifest and a Workbox service worker from `vite.config.ts`, and
+only during `npm run build` — dev, tests and the screenshot harness run without a worker. The
+precache covers the built shell and every hashed chunk, which is what lets a deep link open
+offline.
+
+Nothing under `/api` is cached, in the precache or at runtime. Responses are authenticated and
+the refresh cookie rotates exactly once per use, so a replayed response is indistinguishable from
+a stolen token. Offline therefore means the shell plus an explanation rather than data:
+`useOnlineStatus` drives a standing notification, `RequireAuth` shows the offline screen instead
+of a sign-in form that could not submit, and `RouteErrorBoundary` recognises a request that never
+reached the server through `isNetworkError`, which is an `ApiError` whose cause is a `TypeError`.
+
+Full detail — the loader trap above, the two halves of the update flow, and how the icons are
+regenerated — is in [`../services/frontend/docs/pwa.md`](../services/frontend/docs/pwa.md).
 
 ## Styling
 

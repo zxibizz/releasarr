@@ -8,6 +8,9 @@
 /dist
 /build
 
+# service worker written by `vite dev` when devOptions is enabled
+/dev-dist
+
 # misc
 .DS_Store
 .env.local
