@@ -210,6 +210,20 @@ const computeMappingOverlapWarnings = (releases: Release[]): Map<string, Release
   return warnings;
 };
 
+/**
+ * Combines the freshly computed `mapping_overlap` warning with any other code
+ * already seeded on the release (e.g. `regrab_indexer_unavailable`), the same
+ * way the backend's `rows_to_release_warnings` merges both codes from the
+ * `request_warnings` table.
+ */
+const mergeReleaseWarnings = (
+  release: Release,
+  overlapWarnings: Map<string, ReleaseWarning[]>,
+): ReleaseWarning[] => [
+  ...(release.warnings ?? []).filter((warning) => warning.code !== 'mapping_overlap'),
+  ...(overlapWarnings.get(release.id) ?? []),
+];
+
 export class MockStore {
   private requestsCache: MediaRequest[] | null = null;
   private releasesCache: Release[] | null = null;
@@ -424,7 +438,7 @@ export class MockStore {
     }
 
     return result.map((release) =>
-      clone({ ...release, warnings: warningsByRelease.get(release.id) ?? [] }),
+      clone({ ...release, warnings: mergeReleaseWarnings(release, warningsByRelease) }),
     );
   }
 
@@ -494,7 +508,7 @@ export class MockStore {
     const release = releases.find((item) => item.id === id);
     if (!release) return null;
     const warningsByRelease = computeMappingOverlapWarnings(releases);
-    return clone({ ...release, warnings: warningsByRelease.get(id) ?? [] });
+    return clone({ ...release, warnings: mergeReleaseWarnings(release, warningsByRelease) });
   }
 
   /** Releases already linked to a request, before a new grab decides their fate. */

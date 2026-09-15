@@ -2553,9 +2553,9 @@ components:
       type: object
       required: [code, file_ids, related_release_ids]
       description: >-
-        A warning as it appears on a release. Only `mapping_overlap` shows up
-        here - other codes are request-level concerns without a file list to
-        report.
+        A warning as it appears on a release. `mapping_overlap` populates
+        `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` leaves
+        both empty and puts its reason in `details` instead.
       properties:
         code:
           $ref: '#/components/schemas/RequestWarningCode'

@@ -27,7 +27,11 @@ import {
   formatSpeed,
 } from '@/utils/formatters';
 import { groupFilesByType } from '@/utils/files';
-import { hasMappingOverlap, overlapRelatedReleaseCount } from '@/features/releases/warnings';
+import {
+  hasMappingOverlap,
+  overlapRelatedReleaseCount,
+  regrabUnavailableReason,
+} from '@/features/releases/warnings';
 
 interface ReleaseCardProps {
   release: Release;
@@ -152,6 +156,18 @@ export function ReleaseCard({
                   leftSection={<IconAlertTriangle size={12} />}
                 >
                   {t('releaseCard.overlapWarning.badge')}
+                </Badge>
+              </Tooltip>
+            )}
+            {regrabUnavailableReason(release) && (
+              <Tooltip label={regrabUnavailableReason(release)}>
+                <Badge
+                  variant="light"
+                  color="yellow"
+                  radius="sm"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  {t('releaseCard.regrabWarning.badge')}
                 </Badge>
               </Tooltip>
             )}

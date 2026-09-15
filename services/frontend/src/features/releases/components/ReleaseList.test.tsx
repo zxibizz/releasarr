@@ -107,4 +107,33 @@ describe('ReleaseList', () => {
 
     expect(screen.queryByText('Overlapping releases')).not.toBeInTheDocument();
   });
+
+  it('shows an indexer-unavailable badge on the release card after a failed regrab', async () => {
+    vi.mocked(apiRequest).mockImplementation(
+      (path: string) =>
+        Promise.resolve(
+          path.endsWith('/releases')
+            ? {
+                releases: [
+                  {
+                    ...release(41),
+                    warnings: [
+                      {
+                        code: 'regrab_indexer_unavailable',
+                        file_ids: [],
+                        related_release_ids: [],
+                        details: { reason: 'indexer banned' },
+                      },
+                    ],
+                  },
+                ],
+              }
+            : { requests: [], total: 0 },
+        ) as never,
+    );
+
+    renderList();
+
+    expect(await screen.findByText('Indexer unavailable')).toBeInTheDocument();
+  });
 });

@@ -555,6 +555,44 @@ const mockReleases: Release[] = [
     published_date: daysAgo(1),
     warnings: [],
   },
+  {
+    id: 'r7',
+    name: 'The.Last.of.Us.S01.1080p.WEB-DL-BANNED',
+    hash: 'g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6',
+    size: 15000000000,
+    files: [
+      {
+        id: 'f16',
+        name: 'The.Last.of.Us.S01E01.1080p.WEB-DL-BANNED.mkv',
+        size: 15000000000,
+        path: '/downloads/The.Last.of.Us.S01.1080p.WEB-DL-BANNED/The.Last.of.Us.S01E01.1080p.WEB-DL-BANNED.mkv',
+      },
+    ],
+    status: 'completed',
+    progress: 100,
+    download_speed: 0,
+    upload_speed: 0,
+    seeders: 12,
+    leechers: 2,
+    ratio: 0.4,
+    added_date: '2024-01-14T13:35:00Z',
+    completed_date: '2024-01-14T15:40:00Z',
+    request_ids: ['7'],
+    torrent_source: 'BANNED',
+    quality: '1080p',
+    info_url: 'https://example.com/releases/the-last-of-us-s01-banned',
+    published_date: daysAgo(30),
+    // Same regrab-unavailable condition as the request-level warning above -
+    // release-scoped so the release card can show it without a real regrab run.
+    warnings: [
+      {
+        code: 'regrab_indexer_unavailable',
+        file_ids: [],
+        related_release_ids: [],
+        details: { reason: 'indexer banned' },
+      },
+    ],
+  },
 ];
 
 export const getMockReleases = async (): Promise<Release[]> => {
