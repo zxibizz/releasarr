@@ -425,11 +425,10 @@ export const resources = {
         },
       },
       releaseCard: {
-        source: 'Source',
         progress: 'Progress',
         relatedRequests: 'Related requests',
         links: {
-          tracker: 'Tracker page ↗',
+          tracker: 'Tracker page',
         },
         stats: {
           seeders: 'Seeders',
@@ -1297,11 +1296,10 @@ export const resources = {
         },
       },
       releaseCard: {
-        source: 'Источник',
         progress: 'Прогресс',
         relatedRequests: 'Связанные запросы',
         links: {
-          tracker: 'Страница на трекере ↗',
+          tracker: 'Страница на трекере',
         },
         stats: {
           seeders: 'Сиды',
