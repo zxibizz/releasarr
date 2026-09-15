@@ -111,6 +111,9 @@ export const shots: Shot[] = [
 async function searchDiscover(page: Page): Promise<void> {
   await page.getByPlaceholder(/Search movies and series/i).fill('Breaking Bad');
   await page.getByRole('button', { name: 'Search', exact: true }).first().click();
-  await page.getByRole('button', { name: /Choose seasons/i }).first().waitFor();
+  await page
+    .getByRole('button', { name: /Choose seasons/i })
+    .first()
+    .waitFor();
   await settle(page);
 }

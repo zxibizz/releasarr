@@ -17,11 +17,7 @@ interface IndexersTableProps {
 export function IndexersTable({ indexers }: IndexersTableProps) {
   const isMobile = useIsMobile();
 
-  return isMobile ? (
-    <IndexersCards indexers={indexers} />
-  ) : (
-    <IndexersGrid indexers={indexers} />
-  );
+  return isMobile ? <IndexersCards indexers={indexers} /> : <IndexersGrid indexers={indexers} />;
 }
 
 function IndexersGrid({ indexers }: IndexersTableProps) {

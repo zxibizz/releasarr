@@ -17,7 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { type Permission, useAuth } from '@/features/auth/AuthProvider';
+import type { Permission } from '@/features/auth/permissions';
+import { useAuth } from '@/features/auth/useAuth';
 import { IndexerAlertBadge } from '@/features/indexers/components/IndexerAlertBadge';
 import { useSyncWatcher } from '@/features/tasks/queries';
 

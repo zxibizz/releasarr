@@ -34,7 +34,9 @@ export function RequestWarnings({ warnings }: RequestWarningsProps) {
             color="yellow"
             icon={<IconAlertTriangle size={16} />}
           >
-            {t(messageKey(warning.code), { reason: reason ?? t('requestPage.warnings.unknownReason') })}
+            {t(messageKey(warning.code), {
+              reason: reason ?? t('requestPage.warnings.unknownReason'),
+            })}
           </Alert>
         );
       })}

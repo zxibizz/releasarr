@@ -16,7 +16,10 @@ import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { ManualReleaseForm } from '@/features/releases/components/ManualReleaseForm';
-import { ReleaseFilters, ReleaseFiltersToggle } from '@/features/releases/components/ReleaseFilters';
+import {
+  ReleaseFilters,
+  ReleaseFiltersToggle,
+} from '@/features/releases/components/ReleaseFilters';
 import { ReleaseResults } from '@/features/releases/components/ReleaseResults';
 import {
   DEFAULT_SOURCE_FILTER,
@@ -36,7 +39,6 @@ import { getErrorMessage } from '@/utils/errors';
  * and at `compact-xs` they read as loud as the Search button beside them.
  */
 const HINT_SIZE = { h: 20, px: 7, fz: 11 } as const;
-
 
 interface ReleaseSearchProps {
   requestId: string;

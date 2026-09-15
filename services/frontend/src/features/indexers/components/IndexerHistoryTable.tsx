@@ -69,7 +69,9 @@ function HistoryGrid({ entries }: { entries: IndexerHistoryEntry[] }) {
                 style={{ cursor: view.hasDetails ? 'pointer' : 'default' }}
               >
                 <Table.Td>
-                  {view.hasDetails && <ExpandToggle open={open} onToggle={() => toggle(entry.id)} />}
+                  {view.hasDetails && (
+                    <ExpandToggle open={open} onToggle={() => toggle(entry.id)} />
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" c="dimmed" ff="monospace">

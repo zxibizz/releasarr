@@ -77,4 +77,3 @@ async def test_per_call_retries_overrides_client_default() -> None:
 
     assert response.status_code == 503
     assert calls["n"] == 1
-

@@ -5,7 +5,7 @@ import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
-import { AuthContext, type AuthContextValue } from '@/features/auth/AuthProvider';
+import { AuthContext, type AuthContextValue } from '@/features/auth/context';
 import '@/lib/i18n';
 import { theme } from '@/theme';
 import type { SessionUser } from '@/types';

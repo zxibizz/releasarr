@@ -243,13 +243,18 @@ export const mockAuth = {
     return null;
   },
 
-  listUsers: () => [...users.values()].sort((a, b) => a.username.localeCompare(b.username)).map(toPublicUser),
+  listUsers: () =>
+    [...users.values()].sort((a, b) => a.username.localeCompare(b.username)).map(toPublicUser),
 
   getUser: (userId: string) => toPublicUser(requireUser(userId)),
 
   createUser(payload: CreateUserPayload) {
     if (findByUsername(payload.username)) {
-      throw new MockAuthError(409, 'username_taken', `Username '${payload.username}' is already taken`);
+      throw new MockAuthError(
+        409,
+        'username_taken',
+        `Username '${payload.username}' is already taken`,
+      );
     }
     const user: MockUserRecord = {
       id: randomUUID(),
@@ -282,11 +287,15 @@ export const mockAuth = {
       ...(payload.can_view_all_requests !== undefined
         ? { can_view_all_requests: payload.can_view_all_requests }
         : {}),
-      ...(payload.can_access_tasks !== undefined ? { can_access_tasks: payload.can_access_tasks } : {}),
+      ...(payload.can_access_tasks !== undefined
+        ? { can_access_tasks: payload.can_access_tasks }
+        : {}),
       ...(payload.can_access_indexers !== undefined
         ? { can_access_indexers: payload.can_access_indexers }
         : {}),
-      ...(payload.can_access_logs !== undefined ? { can_access_logs: payload.can_access_logs } : {}),
+      ...(payload.can_access_logs !== undefined
+        ? { can_access_logs: payload.can_access_logs }
+        : {}),
       ...(payload.allowed_root_folders !== undefined
         ? { allowed_root_folders: payload.allowed_root_folders }
         : {}),
@@ -299,7 +308,8 @@ export const mockAuth = {
     const user = requireUser(userId);
     if (user.role === 'admin') {
       const remainingAdmins = [...users.values()].filter(
-        (candidate) => candidate.id !== user.id && candidate.role === 'admin' && candidate.is_active,
+        (candidate) =>
+          candidate.id !== user.id && candidate.role === 'admin' && candidate.is_active,
       );
       if (remainingAdmins.length === 0) {
         throw new MockAuthError(409, 'last_admin', 'Cannot remove the last active admin');

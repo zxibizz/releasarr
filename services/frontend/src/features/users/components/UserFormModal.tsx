@@ -1,4 +1,13 @@
-import { Button, Checkbox, Modal, PasswordInput, Select, Stack, Text, TextInput } from '@mantine/core';
+import {
+  Button,
+  Checkbox,
+  Modal,
+  PasswordInput,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
 import { type FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,7 +33,9 @@ export function UserFormModal({ opened, onClose, user }: UserFormModalProps) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>(user?.role ?? 'user');
   const [isActive, setIsActive] = useState(user?.is_active ?? true);
-  const [canViewAllRequests, setCanViewAllRequests] = useState(user?.can_view_all_requests ?? false);
+  const [canViewAllRequests, setCanViewAllRequests] = useState(
+    user?.can_view_all_requests ?? false,
+  );
   const [canAccessTasks, setCanAccessTasks] = useState(user?.can_access_tasks ?? false);
   const [canAccessIndexers, setCanAccessIndexers] = useState(user?.can_access_indexers ?? false);
   const [canAccessLogs, setCanAccessLogs] = useState(user?.can_access_logs ?? false);

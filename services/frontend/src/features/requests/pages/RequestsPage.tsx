@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
-import { useAuth } from '@/features/auth/AuthProvider';
+import { useAuth } from '@/features/auth/useAuth';
 import { RequestCard } from '@/features/requests/components/RequestCard';
 import { RequestFilters } from '@/features/requests/components/RequestFilters';
 import { RequestsSkeleton } from '@/features/requests/components/RequestsSkeleton';
@@ -54,8 +54,20 @@ export function RequestsPage() {
   const isMobile = useIsMobile();
   const { hasPermission } = useAuth();
   const canFilterByOwner = hasPermission('view_all_requests');
-  const { type, status, sort, search, owner, hasWarnings, setType, setStatus, setSort, setSearch, setOwner, setHasWarnings } =
-    useRequestFilters();
+  const {
+    type,
+    status,
+    sort,
+    search,
+    owner,
+    hasWarnings,
+    setType,
+    setStatus,
+    setSort,
+    setSearch,
+    setOwner,
+    setHasWarnings,
+  } = useRequestFilters();
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
   const { users } = useUsersList({ enabled: canFilterByOwner });
   const metadataLanguage = useMetadataLanguage();

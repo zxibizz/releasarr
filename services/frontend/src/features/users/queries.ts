@@ -34,7 +34,11 @@ export function useCreateUser() {
       notifications.show({ message: 'User created', color: 'teal' });
     },
     onError: (error: unknown) => {
-      notifications.show({ title: 'Could not create user', message: getErrorMessage(error, ''), color: 'red' });
+      notifications.show({
+        title: 'Could not create user',
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
     },
   });
 }
@@ -49,7 +53,11 @@ export function useUpdateUser() {
       notifications.show({ message: 'User updated', color: 'teal' });
     },
     onError: (error: unknown) => {
-      notifications.show({ title: 'Could not update user', message: getErrorMessage(error, ''), color: 'red' });
+      notifications.show({
+        title: 'Could not update user',
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
     },
   });
 }
@@ -63,7 +71,11 @@ export function useDeleteUser() {
       notifications.show({ message: 'User deleted', color: 'teal' });
     },
     onError: (error: unknown) => {
-      notifications.show({ title: 'Could not delete user', message: getErrorMessage(error, ''), color: 'red' });
+      notifications.show({
+        title: 'Could not delete user',
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
     },
   });
 }

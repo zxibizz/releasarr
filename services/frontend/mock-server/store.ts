@@ -288,7 +288,7 @@ export class MockStore {
       result = result.filter((request) => request.type === type);
     }
     if (hasWarnings !== undefined) {
-      result = result.filter((request) => ((request.warnings?.length ?? 0) > 0) === hasWarnings);
+      result = result.filter((request) => (request.warnings?.length ?? 0) > 0 === hasWarnings);
     }
 
     return Promise.all(result.map((request) => this.cloneWithReleaseAge(request)));

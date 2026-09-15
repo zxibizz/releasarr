@@ -141,7 +141,12 @@ export function UsersPage() {
 
       <ServiceKeysPanel />
 
-      <UserFormModal key={formKey} opened={formOpened} onClose={formModal.close} user={editingUser} />
+      <UserFormModal
+        key={formKey}
+        opened={formOpened}
+        onClose={formModal.close}
+        user={editingUser}
+      />
     </>
   );
 }

@@ -1,15 +1,8 @@
 import { apiRequest } from '@/lib/api/client';
-import type {
-  LoginPayload,
-  LoginResponse,
-  SessionUser,
-  SetupPayload,
-  SetupStatus,
-} from '@/types';
+import type { LoginPayload, LoginResponse, SessionUser, SetupPayload, SetupStatus } from '@/types';
 
 export const authApi = {
-  setupStatus: (signal?: AbortSignal) =>
-    apiRequest<SetupStatus>('/auth/setup', { signal }),
+  setupStatus: (signal?: AbortSignal) => apiRequest<SetupStatus>('/auth/setup', { signal }),
 
   completeSetup: (payload: SetupPayload) =>
     apiRequest<LoginResponse>('/auth/setup', { method: 'POST', body: payload }),

@@ -1,7 +1,7 @@
 import { Center, Loader } from '@mantine/core';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
-import { useAuth } from '@/features/auth/AuthProvider';
+import { useAuth } from '@/features/auth/useAuth';
 
 /** Gates every route behind an authenticated session, or sends the visitor to set one up. */
 export function RequireAuth() {

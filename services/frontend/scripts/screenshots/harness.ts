@@ -262,8 +262,5 @@ export async function scrollTextIntoView(page: Page, text: string, offset = 90):
   await target.evaluate((element, top: number) => {
     window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - top });
   }, offset);
-  await page.evaluate(
-    () => new Promise((resolve) => requestAnimationFrame(() => resolve(null))),
-  );
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
 }
-

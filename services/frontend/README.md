@@ -12,9 +12,9 @@ npm run dev:mock
 
 `dev:mock` starts two processes:
 
-| Process | Port | Description                                        |
-| ------- | ---- | -------------------------------------------------- |
-| `mock`  | 8001 | Express mock API serving the OpenAPI contract       |
+| Process | Port | Description                                            |
+| ------- | ---- | ------------------------------------------------------ |
+| `mock`  | 8001 | Express mock API serving the OpenAPI contract          |
 | `app`   | 3000 | Vite dev server pointed at `http://localhost:8001/api` |
 
 Open http://localhost:3000 once both are up.
@@ -25,17 +25,17 @@ root.
 
 ## Scripts
 
-| Script                | Purpose                                                        |
-| --------------------- | -------------------------------------------------------------- |
-| `npm run dev`         | Vite dev server only (uses `VITE_API_URL` from `.env`)          |
-| `npm run dev:mock`    | Dev server + mock API together                                  |
-| `npm run mock:server` | Mock API only                                                   |
-| `npm run build`       | Typecheck then production build into `dist/`                    |
-| `npm run preview`     | Serve the production build                                      |
-| `npm test`            | Run the Vitest suite once                                       |
-| `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config         |
-| `npm run codegen`     | Regenerate API types from `../../openapi.yaml`                     |
-| `npm run screenshots` | Recapture the root README's screenshots against the mock API    |
+| Script                | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `npm run dev`         | Vite dev server only (uses `VITE_API_URL` from `.env`)       |
+| `npm run dev:mock`    | Dev server + mock API together                               |
+| `npm run mock:server` | Mock API only                                                |
+| `npm run build`       | Typecheck then production build into `dist/`                 |
+| `npm run preview`     | Serve the production build                                   |
+| `npm test`            | Run the Vitest suite once                                    |
+| `npm run lint`        | ESLint over `src/`, `mock-server/`, and the Vite config      |
+| `npm run codegen`     | Regenerate API types from `../../openapi.yaml`               |
+| `npm run screenshots` | Recapture the root README's screenshots against the mock API |
 
 ## Environment
 
@@ -190,11 +190,11 @@ whatever `RELEASARR_CHROMIUM` points at.
 
 ## Docs
 
-| Doc | Covers |
-| --- | --- |
+| Doc                                            | Covers                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
 | [`docs/file-mapping.md`](docs/file-mapping.md) | The mapping editor: draft state, season-pack routing, bulk actions, save, known gaps |
-| [`docs/mock-server.md`](docs/mock-server.md) | The mock API: layout, state, simulated jobs, adding endpoints |
-| [`docs/screenshots.md`](docs/screenshots.md) | Adding a shot, and the waiting rules that keep captures stable |
+| [`docs/mock-server.md`](docs/mock-server.md)   | The mock API: layout, state, simulated jobs, adding endpoints                        |
+| [`docs/screenshots.md`](docs/screenshots.md)   | Adding a shot, and the waiting rules that keep captures stable                       |
 
 Repo-wide docs are in [`../../docs/`](../../docs/README.md) —
 [`../../docs/frontend.md`](../../docs/frontend.md) for the patterns to follow when adding code,

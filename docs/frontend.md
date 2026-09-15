@@ -193,15 +193,19 @@ server-side, so there is nothing for them to filter by owner.
 
 ## Auth
 
-`src/features/auth/AuthProvider.tsx` is the single source of truth for who is signed in. On
-mount it checks `GET /auth/setup`, and failing that calls the API client's `refreshSession()` to
-restore a remembered session before the app renders anything — `status` is `'loading' |
-'setup-required' | 'anonymous' | 'authenticated'`. Restoring a session deliberately lives in the
-client rather than here, so the bootstrap cannot race a request that 401s at the same moment for
-the one rotation the server allows. `useAuth()` exposes `user`, `isAdmin`, `hasPermission(permission)`,
-and the `login` / `completeSetup` / `logout` actions; `Permission` mirrors the backend's flat
-enum (`view_all_requests`, `tasks`, `indexers`, `logs`, `manage_users`) and an admin passes every
-check.
+Who is signed in lives in `src/features/auth/`: `AuthProvider.tsx` holds the state, `context.ts`
+the context and its `AuthContextValue`, `useAuth.ts` the hook. Those are separate files so the
+provider's module exports a component and nothing else — the only shape React Fast Refresh can
+hot-reload in place.
+
+`AuthProvider` checks `GET /auth/setup` on mount, and failing that calls the API client's
+`refreshSession()` to restore a remembered session before the app renders anything — `status` is
+`'loading' | 'setup-required' | 'anonymous' | 'authenticated'`. Restoring a session deliberately
+lives in the client rather than here, so the bootstrap cannot race a request that 401s at the
+same moment for the one rotation the server allows. `useAuth()` exposes `user`, `isAdmin`,
+`hasPermission(permission)`, and the `login` / `completeSetup` / `logout` actions.
+`permissions.ts` maps the `Permission` enum onto a `SessionUser`'s flags (`view_all_requests`,
+`tasks`, `indexers`, `logs`, `manage_users`), and an admin passes every check.
 
 `RequireAuth` (`features/auth/components/`) gates the whole shell — it sits *above* `AppLayout`
 in the route tree, not below, so a logged-out visitor never sees the nav flash before the
