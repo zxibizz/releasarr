@@ -79,6 +79,11 @@ const respondWith = ({
           per_page: Number(options?.query?.per_page ?? 25),
         };
       }
+      // The modal opens on its Events tab, so this answers while the test moves
+      // across to History rather than tripping the unexpected-request guard.
+      if (path === '/indexers/logs') {
+        return { logs: [], total: 0, page: 1, per_page: 25 };
+      }
       if (path === '/indexers/test' && options?.method === 'POST') {
         return { results: testAllResults ?? [] };
       }
@@ -93,8 +98,10 @@ const respondWith = ({
 const historyCalls = () =>
   vi.mocked(apiRequest).mock.calls.filter(([path]) => path === '/indexers/history');
 
+/** The modal opens on Events, so history tests have to move the tab across. */
 const openLogs = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(await screen.findByRole('button', { name: /^logs$/i }));
+  await user.click(await screen.findByRole('tab', { name: /^history$/i }));
 };
 
 describe('IndexersPage', () => {
@@ -210,7 +217,7 @@ describe('IndexersPage', () => {
   });
 });
 
-describe('IndexerHistoryModal', () => {
+describe('IndexerLogsModal (history tab)', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
   });
@@ -247,10 +254,14 @@ describe('IndexerHistoryModal', () => {
     renderWithProviders(<IndexersPage />);
     await openLogs(user);
 
-    expect(await screen.findByText('Severance S02')).toBeInTheDocument();
-    expect(screen.getByText('Search')).toBeInTheDocument();
-    expect(screen.getByText('Severance.S02E01.2160p')).toBeInTheDocument();
-    expect(screen.getByText('Grabbed')).toBeInTheDocument();
+    // Two things make a bare query ambiguous: the page's own indexer table is
+    // also a table, and the filter selects render option labels with the same
+    // words in them. Narrow to the modal's table, which is what this asserts.
+    const table = within(within(await screen.findByRole('dialog')).getByRole('table'));
+    expect(table.getByText('Severance S02')).toBeInTheDocument();
+    expect(table.getByText('Search')).toBeInTheDocument();
+    expect(table.getByText('Severance.S02E01.2160p')).toBeInTheDocument();
+    expect(table.getByText('Grabbed')).toBeInTheDocument();
   });
 
   it('keeps the noisier Prowlarr fields behind the row toggle', async () => {
@@ -261,13 +272,21 @@ describe('IndexerHistoryModal', () => {
     await openLogs(user);
 
     await screen.findByText('Severance S02');
-    expect(screen.queryByText(/queryResults=39/)).not.toBeInTheDocument();
+    // Collapse keeps its children mounted so it has something to animate, so what
+    // the toggle changes is visibility rather than presence.
+    const toggle = screen.getByRole('button', { name: /show event details/i });
+    expect(screen.getByText(/queryResults=39/)).not.toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: /show event details/i }));
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'true'));
 
-    expect(await screen.findByText(/queryResults=39/)).toBeInTheDocument();
-    expect(screen.getByText(/Asked by: Sonarr/)).toBeInTheDocument();
-    expect(screen.getByText(/Took: 412ms/)).toBeInTheDocument();
+    // The reveal is a Mantine transition, so the frame it needs can land after the
+    // default second when the whole suite is running in parallel.
+    await waitFor(() => expect(screen.getByText(/queryResults=39/)).toBeVisible(), {
+      timeout: 3000,
+    });
+    expect(screen.getByText(/Asked by: Sonarr/)).toBeVisible();
+    expect(screen.getByText(/Took: 412ms/)).toBeVisible();
   });
 
   it('narrows the history to one event type, from the first page', async () => {
@@ -281,7 +300,7 @@ describe('IndexerHistoryModal', () => {
     await user.click(screen.getByRole('button', { name: /next/i }));
     await waitFor(() => expect(screen.getByText(/Page 2 of 3/)).toBeInTheDocument());
 
-    await user.click(screen.getByRole('textbox', { name: /filter by event/i }));
+    await user.click(screen.getByRole('combobox', { name: /filter by event/i }));
     await user.click(await screen.findByRole('option', { name: 'Grabbed' }));
 
     await waitFor(() => {
@@ -305,7 +324,7 @@ describe('IndexerHistoryModal', () => {
     await openLogs(user);
 
     await screen.findByText('Severance S02');
-    await user.click(screen.getByRole('textbox', { name: /filter by indexer/i }));
+    await user.click(screen.getByRole('combobox', { name: /filter by indexer/i }));
     await user.click(await screen.findByRole('option', { name: 'Nyaa' }));
 
     await waitFor(() => {
@@ -342,7 +361,7 @@ describe('IndexerHistoryModal', () => {
       screen.getByText('Events appear here once something searches through Prowlarr.'),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('textbox', { name: /filter by indexer/i }));
+    await user.click(screen.getByRole('combobox', { name: /filter by indexer/i }));
     await user.click(await screen.findByRole('option', { name: 'Nyaa' }));
 
     expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument();

@@ -20,10 +20,10 @@ from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbService, Tmdb
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType
-from tests.fakes import UnusedRadarrLibraryCalls, UnusedTmdbSearch
+from tests.fakes import UnusedMediaRequestCalls, UnusedRadarrLibraryCalls, UnusedTmdbSearch
 
 
-class FakeMediaRequestRepository(MediaRequestRepository):
+class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository):
     def __init__(self, records: dict[str, MediaRequestRecord] | None = None) -> None:
         self.records = records or {}
         self.created: list[CreateMediaRequestData] = []

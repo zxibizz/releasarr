@@ -26,10 +26,10 @@ from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService, Tvd
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType
-from tests.fakes import UnusedSonarrLibraryCalls, UnusedTvdbSearch
+from tests.fakes import UnusedMediaRequestCalls, UnusedSonarrLibraryCalls, UnusedTvdbSearch
 
 
-class FakeMediaRequestRepository(MediaRequestRepository):
+class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository):
     def __init__(self, records: dict[str, MediaRequestRecord] | None = None) -> None:
         self.records = records or {}
         self.created: list[CreateMediaRequestData] = []

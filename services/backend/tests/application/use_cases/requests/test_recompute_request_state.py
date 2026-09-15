@@ -12,7 +12,7 @@ from src.application.use_cases.requests.recompute_state import RecomputeRequestS
 from src.application.use_cases.requests.state import ArrCompletion, RequestStateDeriver
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, ReleaseStatus
-from tests.fakes import FakeMediaRequestRepository, make_record
+from tests.fakes import FakeMediaRequestRepository, UnusedReleaseRepositoryCalls, make_record
 
 REQUEST_ID = "req-1"
 
@@ -52,7 +52,7 @@ def make_release(
     )
 
 
-class FakeReleaseRepository:
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
     """Serves whichever release set the test wants for `get_releases_for_requests`."""
 
     def __init__(self, releases: list[ReleaseRecord]) -> None:

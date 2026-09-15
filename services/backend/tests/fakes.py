@@ -38,13 +38,17 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.radarr import MovieDetails, MovieImportFile, MovieLookup
 from src.application.interfaces.releases import (
+    CreateReleaseData,
+    FileMappingUpdateData,
     QueuedDownload,
     ReleaseDownloadService,
     ReleaseLifecycleService,
+    ReleaseRecord,
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
     ReleaseSearchService,
 )
+from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sonarr import (
     ManualImportFile,
     MissingSeriesRecord,
@@ -53,10 +57,25 @@ from src.application.interfaces.sonarr import (
     SeriesSeasonDetails,
     SonarrEpisode,
 )
+from src.application.interfaces.sync_jobs import (
+    EnqueueSyncJobResult,
+    ScheduledTaskRecord,
+    SyncJobRecord,
+)
 from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbSearchResult
 from src.application.interfaces.tvdb import TvdbSearchResult, TvdbSeriesMetadata
 from src.application.utility.sentinels import UNSET
-from src.domain.enums import IndexerEventType, IndexerLogLevel, MediaRequestStatus, MediaType
+from src.domain.enums import (
+    IndexerEventType,
+    IndexerLogLevel,
+    MediaRequestStatus,
+    MediaType,
+    ReleaseStatus,
+    RequestWarningCode,
+    SyncJobKind,
+    SyncJobStatus,
+    SyncJobTrigger,
+)
 
 
 class UnusedSonarrLibraryCalls:
@@ -153,6 +172,230 @@ class UnusedTmdbSearch:
         limit: int = 20,
         languages: Sequence[str] | None = None,
     ) -> list[TmdbSearchResult]:
+        raise NotImplementedError
+
+
+class UnusedMediaRequestCalls:
+    """Every ``MediaRequestRepository`` call a test might not drive.
+
+    The two syncs read only their own half - Sonarr series or Radarr movies - so
+    each test's recording fake implements that half and inherits the other.
+    """
+
+    async def list_requests(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        status: MediaRequestStatus | None,
+        media_type: MediaType | None,
+        owner_user_id: str | None = None,
+        has_warnings: bool | None = None,
+    ) -> tuple[list[MediaRequestRecord], int]:
+        raise NotImplementedError
+
+    async def create_request(self, data: CreateMediaRequestData) -> MediaRequestRecord:
+        raise NotImplementedError
+
+    async def get_request(self, request_id: str) -> MediaRequestRecord | None:
+        raise NotImplementedError
+
+    async def update_request(
+        self,
+        request_id: str,
+        data: UpdateMediaRequestData,
+    ) -> MediaRequestRecord | None:
+        raise NotImplementedError
+
+    async def delete_request(self, request_id: str) -> bool:
+        raise NotImplementedError
+
+    async def find_by_sonarr(
+        self,
+        *,
+        sonarr_series_id: int,
+        season_number: int,
+    ) -> MediaRequestRecord | None:
+        raise NotImplementedError
+
+    async def list_sonarr_requests(self) -> list[MediaRequestRecord]:
+        raise NotImplementedError
+
+    async def find_by_radarr(self, *, radarr_movie_id: int) -> MediaRequestRecord | None:
+        raise NotImplementedError
+
+    async def list_radarr_requests(self) -> list[MediaRequestRecord]:
+        raise NotImplementedError
+
+
+class UnusedReleaseRepositoryCalls:
+    """Every ``ReleaseRepository`` call a test might not drive.
+
+    The protocol is as wide as the release flow is, and a given test needs one or
+    two of these, so it implements those and inherits the rest.
+    """
+
+    async def list_releases(
+        self,
+        *,
+        page: int,
+        per_page: int,
+        status: ReleaseStatus | None,
+        request_id: str | None,
+    ) -> tuple[list[ReleaseRecord], int]:
+        raise NotImplementedError
+
+    async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
+        raise NotImplementedError
+
+    async def get_release(self, release_id: str) -> ReleaseRecord | None:
+        raise NotImplementedError
+
+    async def delete_release(self, release_id: str) -> bool:
+        raise NotImplementedError
+
+    async def unlink_request(self, release_id: str, request_id: str) -> bool:
+        raise NotImplementedError
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        raise NotImplementedError
+
+    async def list_request_ids_with_releases(self) -> list[str]:
+        raise NotImplementedError
+
+    async def update_file_mappings(
+        self,
+        release_id: str,
+        updates: list[FileMappingUpdateData],
+    ) -> bool:
+        raise NotImplementedError
+
+    async def get_finished_not_exported(self) -> list[ReleaseRecord]:
+        raise NotImplementedError
+
+    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+        raise NotImplementedError
+
+    async def update_release(self, release_id: str, **kwargs: object) -> bool:
+        raise NotImplementedError
+
+    async def count_by_status(self) -> dict[ReleaseStatus, int]:
+        raise NotImplementedError
+
+
+class UnusedReleaseDownloadCalls:
+    """Every ``ReleaseDownloadService`` call a test might not drive."""
+
+    async def queue_download(
+        self,
+        request_id: str,
+        release_id: str,
+        magnet_link: str,
+        torrent_bytes: bytes | None = None,
+    ) -> QueuedDownload:
+        raise NotImplementedError
+
+    async def delete_download(self, release_id: str) -> None:
+        raise NotImplementedError
+
+    async def get_download_directory(self, info_hash: str) -> str | None:
+        raise NotImplementedError
+
+
+class UnusedRequestWarningCalls:
+    """Every ``RequestWarningRepository`` call a test might not drive."""
+
+    async def replace_for_requests(
+        self,
+        code: RequestWarningCode,
+        request_ids: Sequence[str],
+        warnings: Sequence[RequestWarningRecord],
+    ) -> None:
+        raise NotImplementedError
+
+    async def replace_for_releases(
+        self,
+        code: RequestWarningCode,
+        release_ids: Sequence[str],
+        warnings: Sequence[RequestWarningRecord],
+    ) -> None:
+        raise NotImplementedError
+
+    async def delete_for_release(self, release_id: str) -> None:
+        raise NotImplementedError
+
+    async def delete_for_request_release(self, request_id: str, release_id: str) -> None:
+        raise NotImplementedError
+
+    async def list_for_requests(
+        self, request_ids: Sequence[str]
+    ) -> dict[str, list[RequestWarningRecord]]:
+        raise NotImplementedError
+
+    async def list_for_releases(
+        self, release_ids: Sequence[str]
+    ) -> dict[str, list[RequestWarningRecord]]:
+        raise NotImplementedError
+
+
+class UnusedScheduledTaskCalls:
+    """Every ``ScheduledTaskRepository`` call a test might not drive."""
+
+    async def list_tasks(self) -> list[ScheduledTaskRecord]:
+        raise NotImplementedError
+
+    async def get(self, kind: SyncJobKind) -> ScheduledTaskRecord | None:
+        raise NotImplementedError
+
+    async def register(self, *, kind: SyncJobKind, interval_seconds: int) -> ScheduledTaskRecord:
+        raise NotImplementedError
+
+    async def record_run(
+        self,
+        kind: SyncJobKind,
+        *,
+        status: SyncJobStatus,
+        duration_ms: int,
+        error: str | None = None,
+        executed_at: datetime | None = None,
+    ) -> None:
+        raise NotImplementedError
+
+
+class UnusedSyncJobCalls:
+    """Every ``SyncJobRepository`` call a test might not drive."""
+
+    async def enqueue(self, *, kind: SyncJobKind, trigger: SyncJobTrigger) -> EnqueueSyncJobResult:
+        raise NotImplementedError
+
+    async def enqueue_sequence(
+        self, *, kinds: Sequence[SyncJobKind], trigger: SyncJobTrigger
+    ) -> list[EnqueueSyncJobResult]:
+        raise NotImplementedError
+
+    async def claim_next(self) -> SyncJobRecord | None:
+        raise NotImplementedError
+
+    async def finish(
+        self,
+        job_id: str,
+        *,
+        status: SyncJobStatus,
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> None:
+        raise NotImplementedError
+
+    async def get(self, job_id: str) -> SyncJobRecord | None:
+        raise NotImplementedError
+
+    async def list_recent(self, *, limit: int = 20) -> list[SyncJobRecord]:
+        raise NotImplementedError
+
+    async def fail_running(self, *, error: str) -> int:
+        raise NotImplementedError
+
+    async def prune(self, *, keep: int) -> int:
         raise NotImplementedError
 
 
@@ -733,8 +976,14 @@ __all__ = [
     "InMemoryReleaseLifecycleService",
     "InMemoryReleaseSearchService",
     "UnusedIndexerDirectoryCalls",
+    "UnusedMediaRequestCalls",
     "UnusedRadarrLibraryCalls",
+    "UnusedReleaseDownloadCalls",
+    "UnusedReleaseRepositoryCalls",
+    "UnusedRequestWarningCalls",
+    "UnusedScheduledTaskCalls",
     "UnusedSonarrLibraryCalls",
+    "UnusedSyncJobCalls",
     "UnusedTmdbSearch",
     "UnusedTvdbSearch",
     "make_movie_details",

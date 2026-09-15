@@ -8,9 +8,10 @@ from src.application.interfaces.sync_jobs import ScheduledTaskRecord
 from src.application.use_cases.tasks.definitions import DEFAULT_INTERVALS, TASK_ORDER
 from src.application.use_cases.tasks.get_sync_job import ListScheduledTasksUseCase
 from src.domain.enums import SyncJobKind, SyncJobStatus
+from tests.fakes import UnusedScheduledTaskCalls
 
 
-class FakeRepository:
+class FakeRepository(UnusedScheduledTaskCalls):
     def __init__(self, records: list[ScheduledTaskRecord]) -> None:
         self._records = records
 

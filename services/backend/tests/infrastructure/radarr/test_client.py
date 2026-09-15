@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 from unittest.mock import patch
 
@@ -21,7 +21,9 @@ IMPORT_FILE = MovieImportFile(
     folder_name="Arrival",
 )
 
-Handler = Callable[[httpx.Request], Awaitable[httpx.Response]]
+# httpx accepts either a sync handler or this exact coroutine shape, and every
+# handler here is async, so naming it precisely is what lets MockTransport take it.
+Handler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
 
 
 def build_client(handler: Handler) -> RadarrHttpClient:
