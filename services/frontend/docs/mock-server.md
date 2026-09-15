@@ -39,6 +39,9 @@ export class MockStore {
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
+  // Which requests the mock has already "re-grabbed" once, so a second press of
+  // the refresh button behaves like a check that found nothing to replace.
+  private regrabbedRequestIds = new Set<string>();
   private syncJobs: SyncJob[] = [];
   // Cloned because adding media mutates it, standing in for the *arr library.
   private discoverCatalogue: DiscoverCatalogueEntry[] = DISCOVER_CATALOGUE.map((entry) =>
@@ -118,6 +121,20 @@ res.status(202).location(body.location).json(body);
 `sync_all` queues all five task kinds; `sync_downloads` queues `release_sync` then `export`, the
 qBittorrent-hook sequence. The **last** job in a sequence is the one tracked, since its
 completion means the whole run is done.
+
+## The refresh button
+
+`POST /requests/{id}/releases/refresh` is synchronous and answers with the release list itself,
+so it has no operation envelope. Two things there are worth knowing when you touch it:
+
+- The request's activity log **grows while you watch**. `appendCheckLogs` pushes the line the
+  real per-release check would write (`Release is up to date on its indexer`, or `Re-grabbed
+updated release`) for every release linked to the request, stamped at that moment by
+  `stampLogEntry`. Without it the logs modal is a fixed fixture that never reacts to anything.
+- The re-grab is **simulated once per request** (`regrabbedRequestIds`): the first refresh hands
+  one completed release back to `downloading` at 0% and reports `regrabbed: 1`, after which
+  there is nothing finished left to replace. No indexer exists here to decide it, but the count
+  is what the toast and the release card follow, so leaving it at a permanent zero hides both.
 
 ## Auth
 

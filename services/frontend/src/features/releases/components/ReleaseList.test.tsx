@@ -92,7 +92,7 @@ describe('ReleaseList', () => {
     ).toHaveLength(1);
   });
 
-  it('pops and turns the success colour when the answer lands, without a toast', async () => {
+  it('pops and turns the success colour without a toast when nothing was re-grabbed', async () => {
     mockApi(41);
     renderList();
     await screen.findByText('41.0%');
@@ -121,8 +121,30 @@ describe('ReleaseList', () => {
     await waitFor(() => expect(observed.some((state) => state.pop && state.teal)).toBe(true));
     observer.disconnect();
 
-    // The list underneath is the confirmation, so nothing is announced over it.
+    // The list underneath is the confirmation, so nothing is announced over it
+    // when the check found nothing to replace.
     expect(notificationsMock.show).not.toHaveBeenCalled();
+  });
+
+  it('announces releases the indexer replaced', async () => {
+    mockApi(41);
+    renderList();
+    await screen.findByText('41.0%');
+
+    // A re-grabbed release starts again from 0%, so the card moving is not by
+    // itself an explanation of why.
+    mockApi(0, { releases: [release(0)], regrabbed: 1 });
+    await userEvent.click(screen.getByRole('button', { name: REFRESH_BUTTON }));
+
+    await waitFor(() =>
+      expect(notificationsMock.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Release re-grabbed',
+          message: '1 release was replaced on its indexer and is downloading again.',
+          color: 'teal',
+        }),
+      ),
+    );
   });
 
   it('reports a refresh the server refused', async () => {

@@ -151,6 +151,22 @@ Two things are tagged in addition to the step itself:
 The endpoint reads and parses whole log files per call, so prefer a task filter
 over paging through everything.
 
+### Lines a task writes about a request
+
+A task working on one request's row binds `request_id`, which is what puts its
+lines on that request's activity view and not only in the task's own log. The
+re-grab check is the pattern to copy: `ReleaseRegrapper` runs per release for
+both the hourly sweep and the on-demand refresh, and every way out of one check
+writes a record per request holding that release — nothing moved, the indexer no
+longer lists the release, no hash could be read, the torrent was replaced, the
+indexer would not answer. A check that found nothing to do is still the answer
+to "what happened to this request", and the hourly sweep is the only thing that
+ever looked, so it is logged rather than passed over.
+
+The sweep's own outcome is the exception. With no release in hand there is no
+`request_id` to attach, so `No releases to check for updates` is only reachable
+under `?task=regrab` or `?service=scheduler`.
+
 ### Which process logged a line
 
 The API and the scheduler are separate processes writing their own files, so

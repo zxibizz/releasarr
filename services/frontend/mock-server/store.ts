@@ -12,7 +12,7 @@ import {
 } from './mockDiscover';
 import { generateMockIndexerHistory } from './mockIndexerHistory';
 import { MOCK_FAILING_INDEXER_IDS, MOCK_INDEXERS } from './mockIndexers';
-import { generateMockRequestLogs, generateMockTaskLogs } from './mockLogs';
+import { generateMockRequestLogs, generateMockTaskLogs, stampLogEntry } from './mockLogs';
 import type {
   Indexer,
   IndexerEventType,
@@ -233,6 +233,9 @@ export class MockStore {
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
+  // Which requests the mock has already "re-grabbed" once, so a second press of
+  // the refresh button behaves like a check that found nothing to replace.
+  private regrabbedRequestIds = new Set<string>();
   private indexersCache: Indexer[] | null = null;
   private indexerHistoryCache: IndexerHistoryEntry[] | null = null;
   private syncJobs: SyncJob[] = [];
@@ -539,10 +542,14 @@ export class MockStore {
   }
 
   /**
-   * Stand-in for the on-demand refresh. Nothing here can reach an indexer or a
-   * download client, so a re-grab cannot be simulated and `regrabbed` is always
-   * zero; what the mock can do is move the releases that are still in flight, so
-   * pressing refresh visibly does something.
+   * Stand-in for the on-demand refresh. Nothing here can reach an indexer, so the
+   * re-grab is simulated once per request - the first refresh swaps a completed
+   * release for a fresh torrent, which is what makes the toast reachable without
+   * a backend. Every refresh appends the lines the real per-release check writes,
+   * so the request's activity view fills as the button is pressed.
+   *
+   * The releases still in flight are moved too, so the button visibly does
+   * something even on a request with nothing finished to replace.
    */
   async refreshRequestReleases(requestId: string): Promise<{
     releases: Release[];
@@ -570,14 +577,75 @@ export class MockStore {
       statusesUpdated += 1;
     }
 
+    const regrabbedRelease = this.regrabOne(requestId, linked);
+    await this.appendCheckLogs(requestId, linked, regrabbedRelease);
+
     const warningsByRelease = computeMappingOverlapWarnings(releases);
     return {
       releases: linked.map((release) =>
         clone({ ...release, warnings: mergeReleaseWarnings(release, warningsByRelease) }),
       ),
       statuses_updated: statusesUpdated,
-      regrabbed: 0,
+      regrabbed: regrabbedRelease ? 1 : 0,
     };
+  }
+
+  /**
+   * Hand one completed release a fresh torrent, at most once per request.
+   *
+   * The real check re-downloads only when the indexer reissued the torrent, which
+   * is a decision no mock can make; doing it once keeps the second press honest.
+   */
+  private regrabOne(requestId: string, linked: Release[]): Release | null {
+    if (this.regrabbedRequestIds.has(requestId)) {
+      return null;
+    }
+
+    const completed = linked.find((release) => release.status === 'completed');
+    if (!completed) {
+      return null;
+    }
+
+    this.regrabbedRequestIds.add(requestId);
+    completed.status = 'downloading';
+    completed.progress = 0;
+    completed.download_speed = 0;
+    completed.completed_date = null;
+    return completed;
+  }
+
+  /**
+   * The line `ReleaseRegrapper` writes per release it checked, one for each
+   * request holding the release - which here is the one being refreshed.
+   */
+  private async appendCheckLogs(
+    requestId: string,
+    linked: Release[],
+    regrabbedRelease: Release | null,
+  ): Promise<void> {
+    const logs = await this.ensureRequestLogs(requestId);
+
+    for (const release of linked) {
+      const regrabbed = release.id === regrabbedRelease?.id;
+      logs.push(
+        stampLogEntry({
+          id: `${requestId}-check-${release.id}-${Date.now()}`,
+          level: 'info',
+          message: regrabbed
+            ? 'Re-grabbed updated release'
+            : 'Release is up to date on its indexer',
+          source: 'src.application.use_cases.releases.regrab',
+          metadata: {
+            service: 'api',
+            request_id: requestId,
+            release_id: release.id,
+            release_name: release.name,
+            ...(release.torrent_source ? { indexer: release.torrent_source } : {}),
+            info_hash: release.hash,
+          },
+        }),
+      );
+    }
   }
 
   /**

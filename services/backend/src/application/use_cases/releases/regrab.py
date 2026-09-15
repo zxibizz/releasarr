@@ -1,8 +1,8 @@
 """Checking a release against its indexer, and re-downloading it when it moved.
 
 Shared by the scheduled re-grab sweep and the on-demand refresh on a request, so
-the two cannot drift on what counts as outdated or on the warnings they leave
-behind.
+the two cannot drift on what counts as outdated, on the warnings they leave
+behind, or on what they log against the request.
 """
 
 from __future__ import annotations
@@ -91,12 +91,33 @@ class ReleaseRegrapper:
             return {}
         return {indexer.name.lower(): indexer for indexer in indexers}
 
+    def _log_for_requests(
+        self,
+        log: Callable[..., None],
+        message: str,
+        release: ReleaseRecord,
+        **fields: object,
+    ) -> None:
+        """Record one line per request holding this release.
+
+        A request's activity view is built by filtering the log file on
+        `request_id`, so a line that names only the release is reachable from the
+        logs page but invisible on every request it belongs to. A release shared
+        by several requests is why this is a loop rather than one call.
+        """
+
+        for request_id in release.request_ids or ["unknown"]:
+            log(message, request_id=request_id, release_id=release.id, **fields)
+
     async def regrab(
         self, release: ReleaseRecord, indexers_by_name: dict[str, IndexerRecord]
     ) -> bool:
         """Check one release, re-downloading it when the indexer replaced it.
 
-        Returns whether a new download was queued.
+        Returns whether a new download was queued. Every way out of here logs
+        against the release's requests: a check that found nothing to do is still
+        the answer to "what happened to this request", and the sweep runs hourly
+        over releases nobody is watching.
         """
 
         # Search Prowlarr for the specific release, scoped to the indexer it
@@ -110,15 +131,14 @@ class ReleaseRegrapper:
         if unusable is not None:
             # Prowlarr will refuse the query either way, so spending the timeout
             # budget on it only delays the rest of the sweep.
-            for request_id in release.request_ids or ["unknown"]:
-                self._logger.warning(
-                    "Could not check for updates: indexer unusable",
-                    request_id=request_id,
-                    release_id=release.id,
-                    release_name=release.name,
-                    indexer=release.torrent_source,
-                    reason=unusable,
-                )
+            self._log_for_requests(
+                self._logger.warning,
+                "Could not check for updates: indexer unusable",
+                release,
+                release_name=release.name,
+                indexer=release.torrent_source,
+                reason=unusable,
+            )
             await self._write_regrab_warning(release, reason=unusable)
             return False
 
@@ -129,14 +149,13 @@ class ReleaseRegrapper:
             # An indexer that is banned or not responding is an expected, transient
             # condition rather than a bug, but the request it would have updated is
             # left stale, which is worth surfacing on that request's activity log.
-            for request_id in release.request_ids or ["unknown"]:
-                self._logger.warning(
-                    "Could not check for updates: indexer unavailable",
-                    request_id=request_id,
-                    release_id=release.id,
-                    release_name=release.name,
-                    error=str(exc),
-                )
+            self._log_for_requests(
+                self._logger.warning,
+                "Could not check for updates: indexer unavailable",
+                release,
+                release_name=release.name,
+                error=str(exc),
+            )
             await self._write_regrab_warning(release, reason=str(exc))
             return False
 
@@ -145,7 +164,15 @@ class ReleaseRegrapper:
         # Find the result that matches our current GUID (Release.id)
         match = next((r for r in results.results if r.release_id == release.id), None)
         if not match:
-            # Maybe removed from indexer or name changed significantly?
+            # The indexer dropped the release or reissued it under another id, so
+            # there is no torrent left to compare hashes against.
+            self._log_for_requests(
+                self._logger.info,
+                "Release is no longer listed by its indexer",
+                release,
+                release_name=release.name,
+                indexer=release.torrent_source,
+            )
             return False
 
         new_hash: str | None = None
@@ -161,14 +188,38 @@ class ReleaseRegrapper:
                 torrent = Torrent.from_string(torrent_bytes)
                 new_hash = torrent.info_hash
             except Exception as exc:
-                self._logger.warning("Failed to fetch/parse torrent file", error=str(exc))
+                self._log_for_requests(
+                    self._logger.warning,
+                    "Failed to fetch/parse torrent file",
+                    release,
+                    release_name=release.name,
+                    error=str(exc),
+                )
+                return False
 
         if not new_hash:
+            # Neither link the indexer reported yielded a hash, so there is nothing
+            # to compare against and the release cannot be called outdated.
+            self._log_for_requests(
+                self._logger.warning,
+                "Could not read the release's info hash",
+                release,
+                release_name=release.name,
+                indexer=release.torrent_source,
+            )
             return False
 
         # Compare hashes (case insensitive)
         current_hash = release.info_hash
         if new_hash.upper() == current_hash.upper():
+            self._log_for_requests(
+                self._logger.info,
+                "Release is up to date on its indexer",
+                release,
+                release_name=release.name,
+                indexer=release.torrent_source,
+                info_hash=current_hash,
+            )
             return False
 
         request_ids = release.request_ids or ["unknown"]
@@ -191,15 +242,15 @@ class ReleaseRegrapper:
             published_at=match.publish_date,
         )
 
-        for request_id in request_ids:
-            self._logger.info(
-                f"Re-grabbed updated release {match.release_name}",
-                request_id=request_id,
-                release_id=release.id,
-                release_name=match.release_name,
-                old_hash=current_hash,
-                new_hash=new_hash.upper(),
-            )
+        self._log_for_requests(
+            self._logger.info,
+            "Re-grabbed updated release",
+            release,
+            release_name=match.release_name,
+            indexer=release.torrent_source,
+            old_hash=current_hash,
+            new_hash=new_hash.upper(),
+        )
 
         try:
             # The new torrent is back in flight and `published_at` just
@@ -207,9 +258,10 @@ class ReleaseRegrapper:
             # rather than wait for the next release sync.
             await self._recompute_state.execute(request_ids)
         except Exception as exc:  # pragma: no cover - defensive
-            self._logger.warning(
+            self._log_for_requests(
+                self._logger.warning,
                 "Failed to settle requests after a re-grab",
-                release_id=release.id,
+                release,
                 error=str(exc),
             )
 
@@ -259,9 +311,10 @@ class ReleaseRegrapper:
                 RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE, [release.id], rows
             )
         except Exception as exc:  # pragma: no cover - defensive
-            self._logger.warning(
+            self._log_for_requests(
+                self._logger.warning,
                 "Failed to persist regrab indexer-unavailable warning",
-                release_id=release.id,
+                release,
                 error=str(exc),
             )
 
