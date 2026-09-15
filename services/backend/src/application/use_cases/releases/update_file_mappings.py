@@ -65,7 +65,7 @@ class UpdateReleaseFileMappingsUseCase:
             export_failures_count=0,
         )
 
-        self._log_mappings(command)
+        self._log_mappings(command, release)
         await self._queue_export(release)
         await self._sync_warnings(release)
 
@@ -113,21 +113,34 @@ class UpdateReleaseFileMappingsUseCase:
             )
 
     @staticmethod
-    def _log_mappings(command: UpdateFileMappingsCommand) -> None:
+    def _log_mappings(command: UpdateFileMappingsCommand, release: ReleaseRecord) -> None:
         """Record one activity entry per request touched by this mapping change.
 
         Entries are bound per request id because the /logs endpoint filters on it,
-        and a single release can map files to several requests at once.
+        and a single release can map files to several requests at once. A file
+        taken away is attributed to whoever held it before the change, which is
+        the request the removal is news for; ``release`` was read before the
+        update, so it still carries those owners.
         """
+        previous_owner = {
+            file.id: file.mapping.request_id
+            for file in release.files
+            if file.mapping and file.mapping.request_id
+        }
         mapped_per_request: dict[str, int] = {}
-        cleared = 0
+        cleared_per_request: dict[str, int] = {}
         for file_command in command.files:
-            if file_command.mapping_type is None or not file_command.request_id:
-                cleared += 1
-                continue
-            mapped_per_request[file_command.request_id] = (
-                mapped_per_request.get(file_command.request_id, 0) + 1
+            new_owner = (
+                file_command.request_id
+                if file_command.mapping_type is not None and file_command.request_id
+                else None
             )
+            if new_owner:
+                mapped_per_request[new_owner] = mapped_per_request.get(new_owner, 0) + 1
+
+            owner = previous_owner.get(file_command.file_id)
+            if owner and owner != new_owner:
+                cleared_per_request[owner] = cleared_per_request.get(owner, 0) + 1
 
         for request_id, count in mapped_per_request.items():
             logger.info(
@@ -137,11 +150,12 @@ class UpdateReleaseFileMappingsUseCase:
                 file_count=count,
             )
 
-        if cleared:
+        for request_id, count in cleared_per_request.items():
             logger.info(
-                f"Cleared mapping for {cleared} release file(s)",
+                f"Unmapped {count} release file(s) from this request",
+                request_id=request_id,
                 release_id=command.release_id,
-                file_count=cleared,
+                file_count=count,
             )
 
     def _build_mapping(self, command: FileMappingCommand) -> ReleaseFileMapping | None:

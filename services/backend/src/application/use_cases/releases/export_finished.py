@@ -78,12 +78,16 @@ class ExportFinishedReleasesUseCase:
                 await self._process_release(release)
                 result.succeeded += 1
             except Exception as exc:
-                self._logger.opt(exception=exc).error(
-                    "Failed to export release",
-                    release_id=release.id,
-                    release_name=release.name,
-                    error=str(exc),
-                )
+                # Bound per request id because the request's activity view is built
+                # from log records filtered on it.
+                for request_id in release.request_ids or ["unknown"]:
+                    self._logger.opt(exception=exc).error(
+                        f"Failed to export release: {exc}",
+                        request_id=request_id,
+                        release_id=release.id,
+                        release_name=release.name,
+                        error=str(exc),
+                    )
                 await self._repository.update_release(
                     release.id, export_failures_count=release.export_failures_count + 1
                 )
@@ -104,12 +108,14 @@ class ExportFinishedReleasesUseCase:
 
         download_dir = await self._download_service.get_download_directory(release.info_hash)
         if not download_dir:
-            self._logger.warning(
-                "Skipping export: download directory is unknown",
-                release_id=release.id,
-                release_name=release.name,
-                info_hash=release.info_hash,
-            )
+            for request_id in release.request_ids or ["unknown"]:
+                self._logger.warning(
+                    "Skipping export: download directory is unknown",
+                    request_id=request_id,
+                    release_id=release.id,
+                    release_name=release.name,
+                    info_hash=release.info_hash,
+                )
             return
 
         # 3. Hand each media type to the app that owns it
@@ -136,6 +142,22 @@ class ExportFinishedReleasesUseCase:
     ) -> bool:
         return any(self._linked_request(file, requests_map) is not None for file in release.files)
 
+    def _log_exported(self, release: ReleaseRecord, counts: dict[str, int], target: str) -> None:
+        """Record one activity entry per request the import actually carried files for.
+
+        Entries are bound per request id because the /logs endpoint filters on it,
+        and a single release commonly spans several requests.
+        """
+
+        for request_id, count in counts.items():
+            self._logger.info(
+                f"Exported {count} file(s) to {target}",
+                request_id=request_id,
+                release_id=release.id,
+                release_name=release.name,
+                file_count=count,
+            )
+
     def _linked_request(
         self,
         file: ReleaseFileRecord,
@@ -158,26 +180,27 @@ class ExportFinishedReleasesUseCase:
     ) -> set[tuple[int, int]]:
         """Import the release's episode files into Sonarr."""
 
-        files_by_series: dict[int, list[ReleaseFileRecord]] = {}
+        files_by_series: dict[int, list[tuple[ReleaseFileRecord, str]]] = {}
         for file in release.files:
             request = self._linked_request(file, requests_map)
             if request is None or request.sonarr_series_id is None:
                 continue
             if file.mapping and file.mapping.mapping_type is MediaType.MOVIE:
                 continue
-            files_by_series.setdefault(request.sonarr_series_id, []).append(file)
+            files_by_series.setdefault(request.sonarr_series_id, []).append((file, request.id))
 
         if not files_by_series:
             return set()
 
         import_files: list[ManualImportFile] = []
         imported_seasons: set[tuple[int, int]] = set()
+        exported_per_request: dict[str, int] = {}
 
         for series_id, files in files_by_series.items():
             episodes = await self._sonarr.get_episodes(series_id)
             episode_map = {(ep.season_number, ep.episode_number): ep.id for ep in episodes}
 
-            for file in files:
+            for file, request_id in files:
                 if not file.mapping or file.mapping.season is None or file.mapping.episode is None:
                     continue
 
@@ -185,6 +208,7 @@ class ExportFinishedReleasesUseCase:
                 if not episode_id:
                     self._logger.warning(
                         "Could not find Sonarr episode ID",
+                        request_id=request_id,
                         series_id=series_id,
                         season=file.mapping.season,
                         episode=file.mapping.episode,
@@ -201,6 +225,7 @@ class ExportFinishedReleasesUseCase:
                     )
                 )
                 imported_seasons.add((series_id, file.mapping.season))
+                exported_per_request[request_id] = exported_per_request.get(request_id, 0) + 1
 
         if not import_files:
             return set()
@@ -208,6 +233,7 @@ class ExportFinishedReleasesUseCase:
         if not await self._sonarr.manual_import(import_files):
             raise RuntimeError("Sonarr manual import command failed")
 
+        self._log_exported(release, exported_per_request, "Sonarr")
         return imported_seasons
 
     async def _export_movies(
@@ -227,6 +253,7 @@ class ExportFinishedReleasesUseCase:
 
         import_files: list[MovieImportFile] = []
         imported_movies: set[int] = set()
+        exported_per_request: dict[str, int] = {}
 
         for file in release.files:
             request = self._linked_request(file, requests_map)
@@ -243,6 +270,7 @@ class ExportFinishedReleasesUseCase:
                 )
             )
             imported_movies.add(request.radarr_movie_id)
+            exported_per_request[request.id] = exported_per_request.get(request.id, 0) + 1
 
         if not import_files:
             return set()
@@ -250,6 +278,7 @@ class ExportFinishedReleasesUseCase:
         if not await self._radarr.manual_import(import_files):
             raise RuntimeError("Radarr manual import command failed")
 
+        self._log_exported(release, exported_per_request, "Radarr")
         return imported_movies
 
     async def _record_exports(

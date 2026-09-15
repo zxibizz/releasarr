@@ -240,6 +240,44 @@ async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
     assert len(download_service.calls) == 1
 
 
+async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -> None:
+    release = make_release()  # torrent_source="prowlarr"
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    directory = FakeIndexerDirectory(
+        [
+            IndexerRecord(
+                indexer_id=7,
+                name="Prowlarr",
+                enabled=True,
+                supports_search=True,
+                disabled_till=datetime(2026, 1, 1, 1, tzinfo=UTC),
+            )
+        ]
+    )
+    warning_repository = FakeRequestWarningRepository()
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository,
+        search_service,
+        download_service,
+        directory=directory,
+        warning_repository=warning_repository,
+        clock=lambda: now,
+    )
+    await use_case.execute()
+
+    assert search_service.queries == []
+    assert download_service.calls == []
+    assert len(warning_repository.calls) == 1
+    code, release_ids, rows = warning_repository.calls[0]
+    assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
+    assert release_ids == [RELEASE_ID]
+    assert "blocked by Prowlarr" in rows[0].details["reason"]
+
+
 async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> None:
     release = make_release()  # torrent_source="prowlarr"
     match = make_match()
@@ -395,5 +433,3 @@ async def test_regrab_clears_the_warning_row_on_a_valid_search_response() -> Non
     assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
     assert release_ids == [RELEASE_ID]
     assert rows == []
-
-

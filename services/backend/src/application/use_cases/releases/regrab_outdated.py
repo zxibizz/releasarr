@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 
 from loguru._logger import Logger
 from torrentool.api import Torrent
 
-from src.application.interfaces.indexers import IndexerDirectory
+from src.application.interfaces.indexers import IndexerDirectory, IndexerRecord
 from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseRepository,
@@ -18,8 +20,9 @@ from src.application.interfaces.request_warnings import (
     RequestWarningRecord,
     RequestWarningRepository,
 )
+from src.application.use_cases.indexers.list_indexers import derive_health
 from src.core.logging import get_logger
-from src.domain.enums import RequestWarningCode
+from src.domain.enums import IndexerHealth, RequestWarningCode
 
 
 class RegrabOutdatedReleasesUseCase:
@@ -33,6 +36,7 @@ class RegrabOutdatedReleasesUseCase:
         directory: IndexerDirectory | None = None,
         warning_repository: RequestWarningRepository | None = None,
         logger: Logger | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._search_service = search_service
@@ -40,25 +44,31 @@ class RegrabOutdatedReleasesUseCase:
         self._directory = directory
         self._warning_repository = warning_repository
         self._logger = logger or get_logger(component="regrab_outdated_releases")
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def execute(self) -> None:
         """Process potential outdated releases."""
         releases = await self._repository.get_potential_outdated_releases()
-        indexer_ids_by_name = await self._indexer_ids_by_name()
+        indexers_by_name = await self._indexers_by_name()
 
         for release in releases:
             try:
-                await self._process_release(release, indexer_ids_by_name)
+                await self._process_release(release, indexers_by_name)
             except Exception as exc:
-                self._logger.opt(exception=exc).error(
-                    "Failed to check for updates",
-                    release_id=release.id,
-                    release_name=release.name,
-                    error=str(exc),
-                )
+                # Bound per request id so a failed re-grab is visible on the
+                # request left holding the stale release, not just in the
+                # scheduler's own log.
+                for request_id in release.request_ids or ["unknown"]:
+                    self._logger.opt(exception=exc).error(
+                        f"Failed to re-grab release: {exc}",
+                        request_id=request_id,
+                        release_id=release.id,
+                        release_name=release.name,
+                        error=str(exc),
+                    )
 
-    async def _indexer_ids_by_name(self) -> dict[str, int]:
-        """Map a release's stored indexer name back to Prowlarr's own id.
+    async def _indexers_by_name(self) -> dict[str, IndexerRecord]:
+        """Map a release's stored indexer name back to Prowlarr's own record.
 
         Best-effort: a release older than the indexer list, or Prowlarr being
         briefly unreachable, should not stop every regrab check from running -
@@ -72,17 +82,33 @@ class RegrabOutdatedReleasesUseCase:
         except Exception as exc:
             self._logger.warning("Failed to list indexers for regrab scoping", error=str(exc))
             return {}
-        return {indexer.name.lower(): indexer.indexer_id for indexer in indexers}
+        return {indexer.name.lower(): indexer for indexer in indexers}
 
-    async def _process_release(self, release, indexer_ids_by_name: dict[str, int]) -> None:
+    async def _process_release(self, release, indexers_by_name: dict[str, IndexerRecord]) -> None:
         # Search Prowlarr for the specific release, scoped to the indexer it
         # originally came from when that indexer is still known to Prowlarr.
         # We rely on the release name (torrent name) to find it again.
-        indexer_id = (
-            indexer_ids_by_name.get(release.torrent_source.lower())
-            if release.torrent_source
-            else None
+        indexer = (
+            indexers_by_name.get(release.torrent_source.lower()) if release.torrent_source else None
         )
+
+        if indexer is not None and derive_health(indexer, self._clock()) is IndexerHealth.BLOCKED:
+            # Prowlarr is already backing this indexer off: querying it anyway
+            # would just eat the timeout budget on a search it will refuse, the
+            # same reasoning the fan-out search applies before ever calling out.
+            reason = f"indexer {indexer.name} blocked by Prowlarr until {indexer.disabled_till}"
+            for request_id in release.request_ids or ["unknown"]:
+                self._logger.warning(
+                    "Could not check for updates: indexer blocked by Prowlarr",
+                    request_id=request_id,
+                    release_id=release.id,
+                    release_name=release.name,
+                    disabled_till=indexer.disabled_till,
+                )
+            await self._write_regrab_warning(release, reason=reason)
+            return
+
+        indexer_id = indexer.indexer_id if indexer is not None else None
         try:
             results = await self._search_service.search(release.name, indexer_id=indexer_id)
         except ReleaseSearchUnavailableError as exc:
@@ -129,18 +155,10 @@ class RegrabOutdatedReleasesUseCase:
         # Compare hashes (case insensitive)
         current_hash = release.info_hash
         if new_hash.upper() != current_hash.upper():
-            self._logger.info(
-                "Found updated release",
-                release_name=release.name,
-                old_hash=current_hash,
-                new_hash=new_hash,
-            )
-
-            # Re-download
-            request_id = release.request_ids[0] if release.request_ids else "unknown"
+            request_ids = release.request_ids or ["unknown"]
 
             await self._download_service.queue_download(
-                request_id=request_id,
+                request_id=request_ids[0],
                 release_id=release.id,
                 magnet_link=match.magnet_link or "",
                 torrent_bytes=torrent_bytes,
@@ -156,6 +174,16 @@ class RegrabOutdatedReleasesUseCase:
                 info_url=match.info_url,
                 published_at=match.publish_date,
             )
+
+            for request_id in request_ids:
+                self._logger.info(
+                    f"Re-grabbed updated release {match.release_name}",
+                    request_id=request_id,
+                    release_id=release.id,
+                    release_name=match.release_name,
+                    old_hash=current_hash,
+                    new_hash=new_hash.upper(),
+                )
 
     async def _write_regrab_warning(self, release, reason: str | None) -> None:
         """Record or clear `REGRAB_INDEXER_UNAVAILABLE` for this release alone.
