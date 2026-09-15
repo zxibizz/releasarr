@@ -83,6 +83,8 @@ def make_release_dto() -> ReleaseDTO:
         request_ids=["req-1"],
         torrent_source="indexer",
         quality="1080p",
+        info_url="https://tracker.example/details/1",
+        published_at=now,
     )
 
 
@@ -108,7 +110,10 @@ async def test_list_releases_returns_results(api_client: AsyncClient) -> None:
         response = await api_client.get("/releases", headers=API_KEY_HEADER)
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["releases"][0]["id"] == release.id
+    payload = response.json()["releases"][0]
+    assert payload["id"] == release.id
+    assert payload["info_url"] == release.info_url
+    assert payload["published_date"] is not None
 
 
 @pytest.mark.asyncio

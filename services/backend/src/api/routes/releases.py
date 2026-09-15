@@ -278,6 +278,8 @@ def _dto_to_release(dto: ReleaseDTO) -> Release:
         request_ids=list(dto.request_ids),
         torrent_source=dto.torrent_source,
         quality=dto.quality,
+        info_url=dto.info_url,
+        published_date=dto.published_at,
         warnings=[_dto_to_warning(warning_dto) for warning_dto in dto.warnings],
     )
 
