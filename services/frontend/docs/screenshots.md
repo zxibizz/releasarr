@@ -33,7 +33,8 @@ Only `shots.ts` should need editing to add an image.
 
 `name` is the output filename. The page is navigated and settled before `prepare` runs, and
 screenshotted after it returns. Add `viewport` where the default 1500×980 frames badly — the
-season picker is short enough that the full height would be mostly empty background.
+season picker and the two system pages are short enough that the full height would be mostly
+empty background.
 
 Each shot gets a **fresh browser context**, so viewport overrides and anything a `prepare`
 leaves behind cannot leak into the next image. It also means a shot may not depend on an
@@ -43,6 +44,17 @@ work on its own.
 
 Every shot the tool defines is a shot the README embeds. Capturing an image nothing links to
 just puts an unexplained binary in git.
+
+## Sessions
+
+Every page below `/` needs a session, so a fresh context is signed in before it opens one.
+`signIn()` posts the mock's `admin` account to `/api/auth/login`, which leaves the refresh cookie
+in that context's jar; the app keeps its access token in memory and bootstraps it from the cookie
+on load, so the cookie is the whole of what a returning browser has.
+
+The alternative — driving the login form per shot — would put a screen in front of every capture
+and leave the page it navigated away from behind. It would also eat the tasks shot's four-second
+window, since nothing between that click and the capture may block.
 
 ## Waiting
 

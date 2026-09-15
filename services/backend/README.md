@@ -39,8 +39,8 @@ token and sets an httpOnly refresh cookie; `POST /auth/refresh` rotates it. Ever
 depends on `require_user` / `require_admin` / `require_permission(...)`
 (`src/api/dependencies/auth.py`), which resolve either credential to a `Principal`. For
 script/bot access, there is a single service API key, generated automatically and always
-present (as in Sonarr): fetch its metadata or rotate it under `/service-key`, or from **System →
-Users** in the UI, and send it as `X-API-Key` instead of signing in — it always authenticates as
+present (as in Sonarr): fetch its metadata or rotate it under `/service-key`, or from **Users**
+in the UI, and send it as `X-API-Key` instead of signing in — it always authenticates as
 a full admin. See
 [`../../docs/architecture.md`](../../docs/architecture.md#authentication-and-authorization) and
 [`docs/backend.md`](../../docs/backend.md#auth-and-permissions) for the full picture.

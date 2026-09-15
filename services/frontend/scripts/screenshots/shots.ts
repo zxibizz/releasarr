@@ -91,6 +91,20 @@ export const shots: Shot[] = [
       await settle(page, { allowSpinners: true });
     },
   },
+  {
+    name: 'system-indexers',
+    description: 'Indexers page with each one’s health and the attention banner',
+    route: '/system/indexers',
+    // Both system pages are short, and the default viewport would be mostly
+    // empty background below them.
+    viewport: { width: 1500, height: 720 },
+  },
+  {
+    name: 'system-users',
+    description: 'Users page with the accounts and the service API key',
+    route: '/system/users',
+    viewport: { width: 1500, height: 640 },
+  },
 ];
 
 /** The search that has to happen before the season picker can be opened. */

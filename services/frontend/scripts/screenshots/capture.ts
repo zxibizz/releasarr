@@ -18,6 +18,7 @@ import {
   createContext,
   launchBrowser,
   settle,
+  signIn,
   startServers,
   type Servers,
 } from './harness';
@@ -94,6 +95,7 @@ async function capture(browser: Browser, baseUrl: string, outDir: string, shot: 
 
   try {
     const page = await context.newPage();
+    await signIn(context);
     await page.goto(baseUrl + shot.route, { waitUntil: 'networkidle' });
     await applyStillness(page);
     await settle(page);
