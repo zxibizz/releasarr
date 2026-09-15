@@ -25,7 +25,7 @@ from src.application.utility.magnet import parse_magnet
 from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository, Filter
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, ReleaseStatus
+from src.domain.enums import MediaRequestStatus, ReleaseStatus, RequestWarningCode
 
 
 @dataclass(slots=True)
@@ -290,6 +290,21 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             # cannot be matched against a fixed provider string. The release sync
             # already only leaves a request on `monitoring` once it holds a release
             # matching those conditions, so that status is the request-side filter.
+            #
+            # A release that already refused its replacement is left out entirely:
+            # the indexer's answer is not going to change between two hourly
+            # passes, and a check costs a search plus the torrent file it has to
+            # download before it can compare files. The on-demand refresh is what
+            # retries one, and a replacement that finally carries every stored file
+            # clears the row, which is what puts it back in here.
+            refused_replacement = (
+                select(models.RequestWarning.id)
+                .where(
+                    models.RequestWarning.release_id == models.Release.id,
+                    models.RequestWarning.code == RequestWarningCode.REGRAB_FILES_MISSING,
+                )
+                .exists()
+            )
             stmt = (
                 select(models.Release)
                 .join(models.Release.requests)
@@ -302,6 +317,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                     models.Release.torrent_source.is_not(None),
                     models.Release.torrent_source != MANUAL_SOURCE,
                     models.MediaRequest.status == MediaRequestStatus.MONITORING,
+                    ~refused_replacement,
                 )
                 .distinct()
             )

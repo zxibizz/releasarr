@@ -24,7 +24,7 @@ from src.application.interfaces.releases import (
 from src.db import Base
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus, RequestWarningCode
 from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
 
 
@@ -323,6 +323,66 @@ async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
     candidates = await repository.get_potential_outdated_releases()
 
     assert [record.id for record in candidates] == ["from-indexer"]
+
+
+@pytest.mark.asyncio
+async def test_regrab_candidates_skip_a_release_that_refused_its_replacement(
+    repository: SqlAlchemyReleaseRepository,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+    db_manager: DBManager,
+) -> None:
+    """Only that refusal is skipped: the other codes are what a check itself clears."""
+
+    await seed_requests(["req-1"])
+
+    async with db_manager.transaction() as session:
+        request = await session.get(models.MediaRequest, "req-1")
+        assert request is not None
+        request.status = MediaRequestStatus.MONITORING
+
+    async def _add(release_id: str, code: RequestWarningCode | None) -> None:
+        async with db_manager.transaction() as session:
+            release = models.Release(
+                id=release_id,
+                name=release_id,
+                info_hash=release_id.upper(),
+                size_bytes=100,
+                status=ReleaseStatus.COMPLETED,
+                progress=1.0,
+                download_speed=0.0,
+                upload_speed=0.0,
+                seeders=1,
+                leechers=0,
+                ratio=1.0,
+                torrent_source="RuTracker",
+            )
+            request = await session.get(models.MediaRequest, "req-1")
+            assert request is not None
+            release.requests = [request]
+            session.add(release)
+            if code is not None:
+                session.add(
+                    models.RequestWarning(
+                        id=f"warn-{release_id}",
+                        request_id="req-1",
+                        release_id=release_id,
+                        code=code,
+                        details={},
+                    )
+                )
+
+    await _add("refused", RequestWarningCode.REGRAB_FILES_MISSING)
+    await _add("indexer-down", RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE)
+    await _add("overlapping", RequestWarningCode.MAPPING_OVERLAP)
+    await _add("untouched", None)
+
+    candidates = await repository.get_potential_outdated_releases()
+
+    assert sorted(record.id for record in candidates) == [
+        "indexer-down",
+        "overlapping",
+        "untouched",
+    ]
 
 
 async def _seed_release_with_file(

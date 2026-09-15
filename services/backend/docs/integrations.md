@@ -216,7 +216,10 @@ used for the file check alone — the download still goes out as whatever the se
 [`file-mapping.md`](file-mapping.md#re-grabbing-a-release)). A replacement that does not carry
 every file the release already has is refused before anything is queued
 (`ReleaseRegrabRejectedError`) and flagged with `regrab_files_missing`; one whose file list cannot
-be read is downloaded without that reconciliation and leaves both file codes alone.
+be read is downloaded without that reconciliation and leaves both file codes alone. That refusal
+also removes the release from the sweep's candidates until the row clears — a release whose
+replacement the indexer keeps reissuing short a file is retried by the on-demand refresh, not
+hourly.
 
 `mapping_overlap` (see `application/use_cases/releases/warnings.py`) is the third code sharing
 this table, written by `RequestWarningSynchronizer` instead — that one clears per-request rather

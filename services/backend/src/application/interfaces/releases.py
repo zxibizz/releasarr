@@ -248,7 +248,14 @@ class ReleaseRepository(Protocol):
         """Fetch completed releases that haven't been exported to Sonarr."""
 
     async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
-        """Fetch completed releases that might have better versions available."""
+        """Fetch completed releases that might have better versions available.
+
+        A release that already refused its replacement is left out: re-checking it
+        on every pass cannot change the indexer's answer, and the file list the
+        check fetches is not free. The on-demand refresh on its request still
+        checks it, and a replacement that finally carries every stored file clears
+        the refusal and puts the release back in the sweep.
+        """
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
         """Update arbitrary fields of a release."""
