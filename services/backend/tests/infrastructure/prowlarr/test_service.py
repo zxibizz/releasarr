@@ -69,9 +69,12 @@ async def test_search_returns_mapped_results() -> None:
     assert first.source == "IndexerOne"
     assert first.request_id == "req-1"
     assert first.publish_date == datetime(2026, 3, 4, 12, 30, tzinfo=UTC)
+    # The query travels with the result so a grab can record what found it.
+    assert first.query == "Example"
 
     # Prowlarr omits publishDate for some indexers; the field stays optional.
     assert results.results[1].publish_date is None
+    assert results.results[1].query == "Example"
 
 
 @pytest.mark.asyncio

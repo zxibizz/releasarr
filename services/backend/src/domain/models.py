@@ -238,6 +238,10 @@ class Release(Base):
     # When the indexer says the release itself went up, distinct from `added_at`
     # (when releasarr grabbed it). Also not every indexer reports one.
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The query the indexer answered with this release, and what the regrab check
+    # searches with. `name` is the tracker's own title, which on some trackers
+    # does not match the release at all; a hand-supplied release has neither.
+    search_query: Mapped[str | None] = mapped_column(Text())
 
     requests: Mapped[list[MediaRequest]] = relationship(
         "MediaRequest",

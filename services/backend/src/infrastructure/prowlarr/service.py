@@ -136,6 +136,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
             source=safe_str(item.get("indexer")),
             request_id=request_id,
             publish_date=safe_datetime(item.get("publishDate")),
+            query=query,
         )
 
     def _format_size(self, size_bytes: int) -> str:

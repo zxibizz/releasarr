@@ -58,9 +58,13 @@ def is_regrabbable(release: ReleaseRecord) -> bool:
 class ReleaseRegrapper:
     """Looks releases up again on their own indexer and re-downloads replaced torrents.
 
-    The check is a search for the release's own name, scoped to the indexer it
-    came from, followed by a comparison of info hashes: an indexer that replaced
-    a torrent (a repack) serves the same release id under a new hash.
+    The check is a search for the release, scoped to the indexer it came from,
+    followed by a comparison of info hashes: an indexer that replaced a torrent
+    (a repack) serves the same release id under a new hash. What is searched for
+    is the query the release was grabbed with, replayed rather than rebuilt from
+    its name: the name is the tracker's own title, which on some trackers is not
+    something their search can match. A release grabbed before that query was
+    recorded - or entered by hand - has none, and falls back to its name.
 
     The replacement's file list is read before it is queued, because the release
     row it rewrites is the one holding the mappings the export imports by. Files
@@ -139,7 +143,9 @@ class ReleaseRegrapper:
 
         # Search Prowlarr for the specific release, scoped to the indexer it
         # originally came from when that indexer is still known to Prowlarr.
-        # We rely on the release name (torrent name) to find it again.
+        # The stored query is what the release was found with; a release with
+        # none predates that column and can only be looked up by its name.
+        query = release.search_query or release.name
         indexer = (
             indexers_by_name.get(release.torrent_source.lower()) if release.torrent_source else None
         )
@@ -161,7 +167,7 @@ class ReleaseRegrapper:
 
         indexer_id = indexer.indexer_id if indexer is not None else None
         try:
-            results = await self._search_service.search(release.name, indexer_id=indexer_id)
+            results = await self._search_service.search(query, indexer_id=indexer_id)
         except ReleaseSearchUnavailableError as exc:
             # An indexer that is banned or not responding is an expected, transient
             # condition rather than a bug, but the request it would have updated is
@@ -189,6 +195,8 @@ class ReleaseRegrapper:
                 release,
                 release_name=release.name,
                 indexer=release.torrent_source,
+                query=query,
+                results=len(results.results),
             )
             await self._write_not_listed_warning(release, indexer=release.torrent_source)
             return False

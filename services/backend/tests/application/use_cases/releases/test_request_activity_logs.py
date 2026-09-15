@@ -330,7 +330,7 @@ async def test_a_check_logs_once_per_request_holding_the_release(
 async def test_a_check_the_indexer_no_longer_answers_for_logs_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
-    release = make_checkable_release()
+    release = replace(make_checkable_release(), search_query="Show S01")
     regrapper = build_regrapper(CheckSearchService([]))
 
     assert await regrapper.regrab(release, {}) is False
@@ -338,6 +338,9 @@ async def test_a_check_the_indexer_no_longer_answers_for_logs_against_the_reques
     records = [record for record in captured_records if record.get("request_id") == "req-1"]
     assert records, "a release missing from its indexer's results logged nothing"
     assert records[0]["release_id"] == release.id
+    # What was searched is what makes a miss diagnosable.
+    assert records[0]["query"] == "Show S01"
+    assert records[0]["results"] == 0
 
 
 async def test_a_successful_regrab_logs_against_the_request(
