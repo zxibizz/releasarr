@@ -35,6 +35,7 @@ from tests.builders import (
     stub_recompute_state,
     stub_warning_repository,
 )
+from tests.fakes import UnusedReleaseDownloadCalls, UnusedReleaseRepositoryCalls
 
 REQUEST_ID = "req-1"
 MAGNET = "magnet:?xt=urn:btih:abc123def4567890abc123def4567890abc123de&dn=Show.S01.1080p"
@@ -66,7 +67,7 @@ def make_release_record(data: CreateReleaseData) -> ReleaseRecord:
     )
 
 
-class FakeReleaseRepository:
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
     def __init__(
         self,
         releases: dict[str, ReleaseRecord] | None = None,
@@ -114,7 +115,7 @@ class FakeReleaseRepository:
         return release_id in self.releases
 
 
-class FakeDownloadService:
+class FakeDownloadService(UnusedReleaseDownloadCalls):
     is_configured = True
 
     def __init__(self) -> None:

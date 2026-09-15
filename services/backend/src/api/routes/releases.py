@@ -220,9 +220,7 @@ QUEUE_DOWNLOAD_RESPONSES = error_responses(
             "Request already has an active download, or already has releases and "
             "existing_releases was not supplied."
         ),
-        status.HTTP_503_SERVICE_UNAVAILABLE: (
-            "Prowlarr or qBittorrent is not configured."
-        ),
+        status.HTTP_503_SERVICE_UNAVAILABLE: ("Prowlarr or qBittorrent is not configured."),
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )

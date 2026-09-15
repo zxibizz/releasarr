@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 
 import httpx
 
 from src.infrastructure.tmdb import TmdbHttpClient
 
-Handler = Callable[[httpx.Request], Awaitable[httpx.Response]]
+# httpx accepts either a sync handler or this exact coroutine shape, and every
+# handler here is async, so naming it precisely is what lets MockTransport take it.
+Handler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
 
 TRANSLATIONS = {
     "id": 329865,

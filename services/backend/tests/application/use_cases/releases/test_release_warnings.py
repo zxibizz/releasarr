@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from src.application.interfaces.releases import (
@@ -17,6 +18,7 @@ from src.application.use_cases.releases.warnings import (
     rows_to_release_warnings,
 )
 from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
+from tests.fakes import UnusedReleaseRepositoryCalls, UnusedRequestWarningCalls
 
 
 def make_file(
@@ -204,7 +206,7 @@ def test_unmapped_files_are_ignored() -> None:
     assert ReleaseWarningEvaluator().evaluate([release]) == {}
 
 
-class FakeReleaseRepositoryForWarnings:
+class FakeReleaseRepositoryForWarnings(UnusedReleaseRepositoryCalls):
     """Serves whichever release set the test wants for `get_releases_for_requests`."""
 
     def __init__(self, releases: list[ReleaseRecord]) -> None:
@@ -215,15 +217,15 @@ class FakeReleaseRepositoryForWarnings:
         return [release for release in self._releases if wanted & set(release.request_ids)]
 
 
-class FakeRequestWarningRepository:
+class FakeRequestWarningRepository(UnusedRequestWarningCalls):
     def __init__(self) -> None:
         self.calls: list[tuple[RequestWarningCode, list[str], list[RequestWarningRecord]]] = []
 
     async def replace_for_requests(
         self,
         code: RequestWarningCode,
-        request_ids: list[str],
-        warnings: list[RequestWarningRecord],
+        request_ids: Sequence[str],
+        warnings: Sequence[RequestWarningRecord],
     ) -> None:
         self.calls.append((code, list(request_ids), list(warnings)))
 
@@ -347,10 +349,9 @@ def test_rows_to_release_warnings_includes_a_regrab_row_alongside_an_overlap_row
     assert by_code[RequestWarningCode.MAPPING_OVERLAP].file_ids == ["f1"]
     assert by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].file_ids == []
     assert by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].related_release_ids == []
-    assert (
-        by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].details["reason"]
-        == "indexer RuTracker is disabled in Prowlarr"
-    )
+    unavailable = by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE]
+    assert unavailable.details is not None
+    assert unavailable.details["reason"] == "indexer RuTracker is disabled in Prowlarr"
 
 
 def test_rows_to_release_warnings_dedupes_the_same_code_across_requests() -> None:

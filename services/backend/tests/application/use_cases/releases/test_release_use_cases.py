@@ -72,7 +72,12 @@ from tests.builders import (
     stub_recompute_state,
     stub_warning_repository,
 )
-from tests.fakes import UnusedIndexerDirectoryCalls
+from tests.fakes import (
+    UnusedIndexerDirectoryCalls,
+    UnusedReleaseDownloadCalls,
+    UnusedReleaseRepositoryCalls,
+    UnusedSyncJobCalls,
+)
 
 
 def stub_parse_torrent(monkeypatch, info: TorrentInfo) -> None:
@@ -146,7 +151,7 @@ def make_movie_mapping_command(release_id: str = "rel-1") -> UpdateFileMappingsC
     )
 
 
-class FakeReleaseRepository:
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
     def __init__(
         self,
         releases: dict[str, ReleaseRecord] | None = None,
@@ -273,7 +278,7 @@ class FakeLifecycleService:
         return self.resume_result
 
 
-class FakeDownloadService:
+class FakeDownloadService(UnusedReleaseDownloadCalls):
     is_configured = True
 
     def __init__(self, queued: QueuedDownload | None = None) -> None:
@@ -354,7 +359,7 @@ class FakeSearchService:
         raise RuntimeError("torrent not available in fake search service")
 
 
-class FakeSyncJobRepository:
+class FakeSyncJobRepository(UnusedSyncJobCalls):
     """The queue the scheduler drains, of which only enqueueing is reached here."""
 
     def __init__(self, *, error: Exception | None = None) -> None:

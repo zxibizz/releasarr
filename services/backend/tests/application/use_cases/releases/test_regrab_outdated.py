@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,7 +17,12 @@ from src.application.interfaces.releases import (
 from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 from src.domain.enums import ReleaseStatus, RequestWarningCode
 from tests.builders import stub_recompute_state, stub_warning_repository
-from tests.fakes import UnusedIndexerDirectoryCalls
+from tests.fakes import (
+    UnusedIndexerDirectoryCalls,
+    UnusedReleaseDownloadCalls,
+    UnusedReleaseRepositoryCalls,
+    UnusedRequestWarningCalls,
+)
 
 RELEASE_ID = "https://tracker.example/details/1"
 
@@ -77,7 +83,7 @@ def make_match(
     )
 
 
-class FakeReleaseRepository:
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
     def __init__(self, release: ReleaseRecord) -> None:
         self.release = release
         self.updates: dict[str, object] = {}
@@ -124,7 +130,7 @@ class FakeSearchService:
         raise AssertionError("not used in this test")
 
 
-class FakeDownloadService:
+class FakeDownloadService(UnusedReleaseDownloadCalls):
     is_configured = True
 
     def __init__(self) -> None:
@@ -415,17 +421,17 @@ class _CollectingLogger:
         raise AssertionError("unexpected error-level log for an indexer-unavailable regrab")
 
 
-class FakeRequestWarningRepository:
+class FakeRequestWarningRepository(UnusedRequestWarningCalls):
     def __init__(self) -> None:
         self.calls: list[tuple[Any, list[str], list[Any]]] = []
 
     async def replace_for_releases(
-        self, code: Any, release_ids: list[str], warnings: list[Any]
+        self, code: Any, release_ids: Sequence[str], warnings: Sequence[Any]
     ) -> None:
         self.calls.append((code, list(release_ids), list(warnings)))
 
     async def replace_for_requests(
-        self, code: Any, request_ids: list[str], warnings: list[Any]
+        self, code: Any, request_ids: Sequence[str], warnings: Sequence[Any]
     ) -> None:
         raise AssertionError("not used in this test")
 
@@ -435,10 +441,10 @@ class FakeRequestWarningRepository:
     async def delete_for_request_release(self, request_id: str, release_id: str) -> None:
         raise AssertionError("not used in this test")
 
-    async def list_for_requests(self, request_ids: list[str]) -> dict[str, list[Any]]:
+    async def list_for_requests(self, request_ids: Sequence[str]) -> dict[str, list[Any]]:
         raise AssertionError("not used in this test")
 
-    async def list_for_releases(self, release_ids: list[str]) -> dict[str, list[Any]]:
+    async def list_for_releases(self, release_ids: Sequence[str]) -> dict[str, list[Any]]:
         raise AssertionError("not used in this test")
 
 

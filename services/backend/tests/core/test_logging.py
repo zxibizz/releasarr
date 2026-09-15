@@ -11,7 +11,7 @@ import json
 import logging
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import pytest
 from loguru import logger
@@ -63,7 +63,14 @@ def configure(tmp_path: Path, **overrides: Any) -> Path:
     return tmp_path / "backend.log"
 
 
-def log_files(tmp_path: Path) -> dict[str, str]:
+class LogFiles(TypedDict):
+    """The two sinks `configure` points at temporary files, named as fields are."""
+
+    log_file: str
+    scheduler_log_file: str
+
+
+def log_files(tmp_path: Path) -> LogFiles:
     return {
         "log_file": str(tmp_path / "backend.log"),
         "scheduler_log_file": str(tmp_path / "scheduler.log"),

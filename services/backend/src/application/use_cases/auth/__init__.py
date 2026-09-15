@@ -56,4 +56,3 @@ __all__ = [
     "allowed_root_folders",
     "has_permission",
 ]
-
