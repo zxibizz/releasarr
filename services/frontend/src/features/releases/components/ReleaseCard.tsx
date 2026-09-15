@@ -120,20 +120,36 @@ export function ReleaseCard({
             <Text fw={700} lineClamp={2} className="break-anywhere">
               {release.name}
             </Text>
-            {release.torrent_source && (
-              <Text size="sm" c="dimmed" className="break-anywhere">
-                {t('releaseCard.source')}: {release.torrent_source}
-              </Text>
-            )}
-            {release.published_date && (
-              <Text size="sm" c="dimmed" title={publishedAt ?? undefined}>
-                🕒 {ageLabel(releaseAge)}
-              </Text>
-            )}
-            {release.info_url && (
-              <Anchor href={release.info_url} target="_blank" rel="noopener noreferrer" size="sm">
-                {t('releaseCard.links.tracker')}
-              </Anchor>
+            {(release.published_date || release.torrent_source || release.info_url) && (
+              <Group gap={6} c="dimmed" wrap="wrap">
+                {release.published_date && (
+                  <Text size="sm" title={publishedAt ?? undefined}>
+                    🕒 {ageLabel(releaseAge)}
+                  </Text>
+                )}
+                {release.published_date && (release.torrent_source || release.info_url) && (
+                  <Text size="sm" aria-hidden>
+                    ·
+                  </Text>
+                )}
+                {release.info_url ? (
+                  <Anchor
+                    href={release.info_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="sm"
+                    className="break-anywhere"
+                  >
+                    {release.torrent_source ?? t('releaseCard.links.tracker')} ↗
+                  </Anchor>
+                ) : (
+                  release.torrent_source && (
+                    <Text size="sm" className="break-anywhere">
+                      {release.torrent_source}
+                    </Text>
+                  )
+                )}
+              </Group>
             )}
           </Stack>
 
