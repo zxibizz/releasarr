@@ -1,4 +1,4 @@
-import { Tooltip, createTheme } from '@mantine/core';
+import { Modal, Tooltip, createTheme } from '@mantine/core';
 
 const fontStack =
   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
@@ -30,6 +30,19 @@ export const theme = createTheme({
     Tooltip: Tooltip.extend({
       defaultProps: {
         events: { hover: true, focus: true, touch: true },
+      },
+    }),
+    /*
+     * A centred dialog floats 5dvh below the top of the viewport, which is
+     * inside a notched phone's status bar. Mantine writes the offset to
+     * `--modal-y-offset` as an inline style, so it cannot be corrected from
+     * `global.css` — `yOffset` is the only way in. Set here rather than per call
+     * site because every dialog needs it, including the confirm dialogs opened
+     * through `modals`.
+     */
+    Modal: Modal.extend({
+      defaultProps: {
+        yOffset: 'max(5dvh, env(safe-area-inset-top))',
       },
     }),
   },

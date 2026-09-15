@@ -300,9 +300,11 @@ regenerated — is in [`../services/frontend/docs/pwa.md`](../services/frontend/
 
 Prefer Mantine props for component styling. `src/styles/global.css` is for what props cannot
 reach: the page gradient, `font-size: 16px` on mobile inputs (prevents iOS zoom), touch-target
-minimums under `@media (pointer: coarse)`, `.safe-area-inline` / `.safe-area-bottom`,
-`.break-anywhere`, reduced-motion overrides, and desktop scrollbars. `src/theme.ts` sets the
-blue primary, `clamp()`-based responsive headings, and `respectReducedMotion: true`.
+minimums under `@media (pointer: coarse)`, the `safe-area-*` classes that keep fixed chrome out
+of a phone's notch and home indicator (detail in
+[`../services/frontend/docs/pwa.md`](../services/frontend/docs/pwa.md)), `.break-anywhere`,
+reduced-motion overrides, and desktop scrollbars. `src/theme.ts` sets the blue primary,
+`clamp()`-based responsive headings, and `respectReducedMotion: true`.
 
 ## The mock server
 
