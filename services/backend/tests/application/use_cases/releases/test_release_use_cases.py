@@ -22,6 +22,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResults,
     ReleaseSearchUnavailableError,
 )
+from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
@@ -59,6 +60,7 @@ from src.domain.enums import (
     ExistingReleasesAction,
     MediaType,
     ReleaseStatus,
+    RequestWarningCode,
     SyncJobKind,
     SyncJobStatus,
     SyncJobTrigger,
@@ -76,6 +78,7 @@ from tests.fakes import (
     UnusedIndexerDirectoryCalls,
     UnusedReleaseDownloadCalls,
     UnusedReleaseRepositoryCalls,
+    UnusedRequestWarningCalls,
     UnusedSyncJobCalls,
 )
 
@@ -435,9 +438,49 @@ def build_delete_release_use_case(repository, download_service, **overrides):
 
 
 def build_update_file_mappings_use_case(repository, **overrides):
+    overrides.setdefault("warning_repository", stub_warning_repository())
     overrides.setdefault("enqueue_sync", stub_enqueue_sync())
     overrides.setdefault("recompute_state", stub_recompute_state())
     return UpdateReleaseFileMappingsUseCase(repository, **overrides)
+
+
+class FakeWarningRepository(UnusedRequestWarningCalls):
+    """A warning store holding exactly the rows a test seeded."""
+
+    def __init__(self, rows: list[RequestWarningRecord] | None = None) -> None:
+        self.rows = list(rows or [])
+        self.replaced: list[tuple[RequestWarningCode, list[str], list[RequestWarningRecord]]] = []
+
+    async def list_for_releases(
+        self, release_ids: Sequence[str]
+    ) -> dict[str, list[RequestWarningRecord]]:
+        wanted = set(release_ids)
+        return {
+            release_id: [row for row in self.rows if row.release_id == release_id]
+            for release_id in wanted
+        }
+
+    async def replace_for_releases(
+        self,
+        code: RequestWarningCode,
+        release_ids: Sequence[str],
+        warnings: Sequence[RequestWarningRecord],
+    ) -> None:
+        self.replaced.append((code, list(release_ids), list(warnings)))
+        scope = set(release_ids)
+        self.rows = [
+            row for row in self.rows if row.release_id not in scope or row.code is not code
+        ]
+        self.rows.extend(warnings)
+
+
+def regrab_unmapped_row(release_id: str, file_ids: list[str]) -> RequestWarningRecord:
+    return RequestWarningRecord(
+        request_id="req-1",
+        release_id=release_id,
+        code=RequestWarningCode.REGRAB_FILES_UNMAPPED,
+        details={"file_ids": file_ids, "file_count": len(file_ids)},
+    )
 
 
 def build_queue_download_use_case(repository, download_service, search_service, **overrides):
@@ -696,6 +739,64 @@ async def test_update_file_mappings_leaves_a_downloading_release_to_its_own_expo
     await use_case.execute(make_movie_mapping_command())
 
     assert sync_jobs.sequences == []
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_clears_the_regrab_warning_once_every_file_is_placed() -> None:
+    """A re-grab is not the only thing that can place the files it could not map."""
+
+    release = make_release_record(
+        "rel-1",
+        files=[make_release_file("file-1"), make_release_file("file-2")],
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    warning_repository = FakeWarningRepository([regrab_unmapped_row("rel-1", ["file-1", "file-2"])])
+    use_case = build_update_file_mappings_use_case(
+        repository, warning_repository=warning_repository
+    )
+
+    await use_case.execute(
+        UpdateFileMappingsCommand(
+            release_id="rel-1",
+            files=[
+                FileMappingCommand(
+                    file_id="file-1",
+                    mapping_type=MediaType.MOVIE.value,
+                    request_id="req-1",
+                    request_title="Example Movie",
+                ),
+                FileMappingCommand(
+                    file_id="file-2",
+                    mapping_type=MediaType.MOVIE.value,
+                    request_id="req-1",
+                    request_title="Example Movie",
+                ),
+            ],
+        )
+    )
+
+    assert warning_repository.replaced == [
+        (RequestWarningCode.REGRAB_FILES_UNMAPPED, ["rel-1"], [])
+    ]
+    assert warning_repository.rows == []
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_keeps_the_regrab_warning_while_a_file_is_unplaced() -> None:
+    release = make_release_record(
+        "rel-1",
+        files=[make_release_file("file-1"), make_release_file("file-2")],
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    warning_repository = FakeWarningRepository([regrab_unmapped_row("rel-1", ["file-1", "file-2"])])
+    use_case = build_update_file_mappings_use_case(
+        repository, warning_repository=warning_repository
+    )
+
+    await use_case.execute(make_movie_mapping_command())
+
+    assert warning_repository.replaced == []
+    assert len(warning_repository.rows) == 1
 
 
 @pytest.mark.asyncio

@@ -34,7 +34,7 @@ from src.application.use_cases.releases.refresh_request_releases import (
 from src.application.use_cases.releases.regrab import ReleaseRegrapper
 from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
 from src.domain.enums import ReleaseStatus
-from tests.builders import stub_recompute_state, stub_warning_repository
+from tests.builders import stub_auto_mapper, stub_recompute_state, stub_warning_repository
 from tests.fakes import (
     UnusedIndexerDirectoryCalls,
     UnusedMediaRequestCalls,
@@ -261,6 +261,7 @@ def build_harness(
         repository=repository,
         search_service=search,
         download_service=download,
+        auto_mapper=stub_auto_mapper(),
         warning_repository=warnings,
         recompute_state=recompute,
         directory=FakeIndexerDirectory(),

@@ -100,8 +100,8 @@ with.
 | **Download management** | Add, pause, resume, and remove torrents in qBittorrent without leaving the request. |
 | **Explicit file mapping** | Say which file is which episode. Suggestions and bulk tools cover the easy cases; you stay in control of the rest. |
 | **Import back to the \*arrs** | Finished downloads are handed to Sonarr and Radarr's manual import with absolute paths, and requests close once those apps confirm they hold the media in full. |
-| **Repack detection** | Releases the indexer has since replaced are re-downloaded automatically — hourly in the background, or on demand from a release list's refresh button, which also pulls the latest download progress. |
-| **Request warnings** | A regrab whose indexer has since gone, a release its indexer no longer lists, or two files claiming the same episode, are surfaced on the request rather than left to be noticed later. |
+| **Repack detection** | Releases the indexer has since replaced are re-downloaded automatically — hourly in the background, or on demand from a release list's refresh button, which also pulls the latest download progress. The replacement's own file list is read back: files the release already had keep their mappings, new ones are mapped on their own, and a torrent that dropped a file is refused rather than grabbed. |
+| **Request warnings** | A regrab whose indexer has since gone, a release its indexer no longer lists, files a replacement added that could not be mapped, a replacement missing files the release already has, or two files claiming the same episode, are surfaced on the request rather than left to be noticed later. |
 | **Bilingual UI and metadata** | English and Russian, for both the interface and the media titles it searches by. |
 | **Operational visibility** | Structured logs, filterable by request or by task, readable from the UI. |
 | **Accounts and access** | One sign-in per person, with requests owned by whoever added them. Permissions and a root-folder allow-list decide what a user reaches; admins manage both accounts and the service API key. |

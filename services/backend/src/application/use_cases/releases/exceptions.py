@@ -61,6 +61,25 @@ class ReleaseDownloadFailedError(RuntimeError):
         self.reason = reason
 
 
+class ReleaseRegrabRejectedError(RuntimeError):
+    """Raised when a replacement torrent cannot be trusted with a release's files.
+
+    A re-grab rewrites the release row in place, so a replacement that does not
+    carry every file the release already has would leave it describing files that
+    are not there - and the export imports from exactly those paths. Nothing is
+    queued or written when this is raised.
+    """
+
+    def __init__(self, release_id: str, missing_files: list[str]):
+        message = (
+            f"Replacement torrent for release '{release_id}' is missing "
+            f"{len(missing_files)} file(s) the release already has"
+        )
+        super().__init__(message)
+        self.release_id = release_id
+        self.missing_files = missing_files
+
+
 class ExistingReleasesDecisionRequiredError(RuntimeError):
     """Raised when a request already has releases and the caller did not say
     whether to keep or replace them."""

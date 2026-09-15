@@ -12,7 +12,7 @@ import { LogsModal } from '@/features/logs/LogsModal';
 import { ReleaseFilesModal } from '@/features/releases/components/ReleaseFilesModal';
 import { ReleaseList } from '@/features/releases/components/ReleaseList';
 import { ReleaseSearch } from '@/features/releases/components/ReleaseSearch';
-import { releaseKeys } from '@/features/releases/queries';
+import { releaseKeys, useReleasesByRequest } from '@/features/releases/queries';
 import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
@@ -51,7 +51,7 @@ export function RequestDetailPage() {
   const { data: request, isLoading, error } = useRequest(id);
   const removeRequest = useRemoveRequest();
 
-  const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
+  const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
   const [hasReleases, setHasReleases] = useState(false);
   const [searchRequested, setSearchRequested] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
@@ -62,6 +62,12 @@ export function RequestDetailPage() {
   const [isRefreshing, setRefreshing] = useState(false);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
+
+  // The list the card was clicked in is the live copy of the release: a re-grab
+  // rewrites it and swaps its files underneath, so a modal holding its own
+  // snapshot would keep showing the torrent that is gone.
+  const { data: releases } = useReleasesByRequest(id);
+  const selectedRelease = releases?.find((release) => release.id === selectedReleaseId) ?? null;
 
   const metadataLanguage = useMetadataLanguage();
   const titleOptions = useRequestTitles(request);
@@ -112,7 +118,7 @@ export function RequestDetailPage() {
 
   const handleViewFiles = useCallback(
     (release: Release) => {
-      setSelectedRelease(release);
+      setSelectedReleaseId(release.id);
       filesModal.open();
     },
     [filesModal],
@@ -237,7 +243,6 @@ export function RequestDetailPage() {
         opened={filesOpened}
         onClose={filesModal.close}
       />
-
       <LogsModal
         requestId={localizedRequest.id}
         requestTitle={localizedRequest.title}

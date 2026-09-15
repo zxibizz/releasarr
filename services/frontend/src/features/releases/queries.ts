@@ -11,8 +11,9 @@ import { getErrorMessage } from '@/utils/errors';
 export const releaseKeys = {
   all: ['releases'] as const,
   byRequest: (requestId: string) => [...releaseKeys.all, 'by-request', requestId] as const,
+  mappingSuggestionsRoot: ['releases', 'mapping-suggestions'] as const,
   mappingSuggestions: (releaseId: string) =>
-    [...releaseKeys.all, 'mapping-suggestions', releaseId] as const,
+    [...releaseKeys.mappingSuggestionsRoot, releaseId] as const,
 };
 
 export const releasesByRequestQuery = (requestId: string) => ({
@@ -111,6 +112,10 @@ export function useRefreshRequestReleases(requestId: string | undefined) {
       // A re-grabbed card drops back to 0% with a new torrent behind it, so the
       // change on screen needs saying out loud.
       if (response.regrabbed > 0) {
+        // The files a suggestion was worked out against have just been replaced,
+        // so an open mapping tab has to ask again rather than keep proposing
+        // mappings for the torrent that is gone.
+        void queryClient.invalidateQueries({ queryKey: releaseKeys.mappingSuggestionsRoot });
         notifications.show({
           title: t('releasesList.refresh.regrabbedTitle'),
           message: t('releasesList.refresh.regrabbedDescription', { count: response.regrabbed }),

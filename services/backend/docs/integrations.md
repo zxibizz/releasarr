@@ -209,6 +209,15 @@ persists `release_not_listed` with `{indexer}` in `details`, scoped and cleared 
 except that only finding the release again clears it — an indexer answering without it is
 precisely the condition, so clearing on any valid response would make the row unreachable.
 
+The replacement itself is then read before it is queued: one extra `fetch_torrent` per *actual*
+re-grab, paid for only once the hash comparison has already decided the download happens. It is
+used for the file check alone — the download still goes out as whatever the search result carried
+— and it is what lets the release's stored files follow the new torrent (see
+[`file-mapping.md`](file-mapping.md#re-grabbing-a-release)). A replacement that does not carry
+every file the release already has is refused before anything is queued
+(`ReleaseRegrabRejectedError`) and flagged with `regrab_files_missing`; one whose file list cannot
+be read is downloaded without that reconciliation and leaves both file codes alone.
+
 `mapping_overlap` (see `application/use_cases/releases/warnings.py`) is the third code sharing
 this table, written by `RequestWarningSynchronizer` instead — that one clears per-request rather
 than per-release, since it is recomputed over a request's whole release set at once.

@@ -653,6 +653,7 @@ class ReleaseUseCases:
     def update_mappings(self) -> UpdateReleaseFileMappingsUseCase:
         return UpdateReleaseFileMappingsUseCase(
             repository=self._container.repositories.releases,
+            warning_repository=self._container.repositories.request_warnings,
             enqueue_sync=self._container.use_cases.tasks.enqueue_sync,
             recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
@@ -765,6 +766,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             search_service=self._container.services.release_search,
             download_service=self._container.services.release_download,
+            auto_mapper=self.auto_mapper,
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
             recompute_state=self._container.use_cases.media_requests.recompute_state,
@@ -780,6 +782,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             search_service=self._container.services.release_search,
             download_service=self._container.services.release_download,
+            auto_mapper=self.auto_mapper,
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
             recompute_state=self._container.use_cases.media_requests.recompute_state,

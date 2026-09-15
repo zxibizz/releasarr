@@ -98,6 +98,7 @@ async def test_saving_a_file_mapping_logs_against_the_request(
 ) -> None:
     use_case = UpdateReleaseFileMappingsUseCase(
         repository=StubReleaseRepository(make_release()),  # type: ignore[arg-type]
+        warning_repository=stub_warning_repository(),
         enqueue_sync=stub_enqueue_sync(),
         recompute_state=stub_recompute_state(),
     )
@@ -285,6 +286,7 @@ def build_regrapper(search_service: CheckSearchService) -> ReleaseRegrapper:
         repository=CheckRepository(),
         search_service=search_service,
         download_service=CheckDownloadService(),
+        auto_mapper=stub_auto_mapper(),
         warning_repository=stub_warning_repository(),
         recompute_state=stub_recompute_state(),
         directory=CheckIndexerDirectory(),

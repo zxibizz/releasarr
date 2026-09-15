@@ -17,11 +17,18 @@ const MESSAGE_KEYS: Record<RequestWarning['code'], string> = {
   mapping_overlap: 'requestPage.warnings.mappingOverlap',
   regrab_indexer_unavailable: 'requestPage.warnings.regrabIndexerUnavailable',
   release_not_listed: 'requestPage.warnings.releaseNotListed',
+  regrab_files_unmapped: 'requestPage.warnings.regrabFilesUnmapped',
+  regrab_files_missing: 'requestPage.warnings.regrabFilesMissing',
 };
 
 const detailString = (warning: RequestWarning, key: string): string | null => {
   const value = warning.details?.[key];
   return typeof value === 'string' ? value : null;
+};
+
+const detailCount = (warning: RequestWarning): number => {
+  const value = warning.details?.file_count;
+  return typeof value === 'number' ? value : 0;
 };
 
 export function RequestWarnings({ warnings }: RequestWarningsProps) {
@@ -44,9 +51,10 @@ export function RequestWarnings({ warnings }: RequestWarningsProps) {
           icon={<IconAlertTriangle size={16} />}
         >
           {t(MESSAGE_KEYS[warning.code], {
-            // Each message interpolates one of these; i18next ignores the other.
+            // Each message interpolates one of these; i18next ignores the rest.
             indexer: detailString(warning, 'indexer') ?? t('requestPage.warnings.unknownIndexer'),
             reason: detailString(warning, 'reason') ?? t('requestPage.warnings.unknownReason'),
+            count: detailCount(warning),
           })}
         </Alert>
       ))}

@@ -636,6 +636,17 @@ const mockReleases: Release[] = [
         related_release_ids: [],
         details: { indexer: 'GALAXY' },
       },
+      // A re-grab the backend refused because the replacement torrent was missing
+      // a file the release already has, seeded so that state can be seen here too.
+      {
+        code: 'regrab_files_missing',
+        file_ids: [],
+        related_release_ids: [],
+        details: {
+          missing_files: ['Dune.Part.Two.2024.1080p.WEB-DL-GALAXY.sample.mkv'],
+          file_count: 1,
+        },
+      },
     ],
   },
 ];

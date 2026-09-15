@@ -52,6 +52,17 @@ export class MockStore {
 Reads clone on the way out too, so a handler cannot hand the store's own objects to Express and
 have them mutated later. Keep that discipline when adding state.
 
+## The release refresh pretends to re-grab once
+
+`POST /requests/:requestId/releases/refresh` re-grabs one completed release per request, and only
+once (`regrabbedRequestIds`), so a second press of the button behaves like a check that found
+nothing to replace. It also appends the lines `ReleaseRegrapper` writes per release it checked.
+
+The replacement brings a file the release did not have, left unmapped, together with the
+`regrab_files_unmapped` warning that names it. That mirrors what the backend does with the file
+list it reads back from a replacement torrent, and it is what makes both the new file and the
+warning banner reachable from the UI without an indexer.
+
 ## Jobs advance on read, not on a timer
 
 There are no `setTimeout`s. Every job-touching method calls `advanceSyncJobs()` first, which

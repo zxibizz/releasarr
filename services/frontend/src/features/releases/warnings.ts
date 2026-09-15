@@ -1,4 +1,4 @@
-import type { Release } from '@/types';
+import type { Release, ReleaseWarning } from '@/types';
 
 /** Whether any file in this release is part of a mapping overlap. */
 export const hasMappingOverlap = (release: Release): boolean =>
@@ -39,3 +39,18 @@ export const notListedIndexer = (release: Release): string | null => {
   const indexer = warning?.details?.indexer;
   return typeof indexer === 'string' ? indexer : null;
 };
+
+/** The file count a re-grab warning carries, or null when the release has no such warning. */
+const regrabFileCount = (release: Release, code: ReleaseWarning['code']): number | null => {
+  const count = (release.warnings ?? []).find((warning) => warning.code === code)?.details
+    ?.file_count;
+  return typeof count === 'number' ? count : null;
+};
+
+/** How many files a replacement torrent added that automapping could not place. */
+export const unmappedRegrabFileCount = (release: Release): number | null =>
+  regrabFileCount(release, 'regrab_files_unmapped');
+
+/** How many files a refused replacement torrent was missing, if a re-grab was refused. */
+export const missingRegrabFileCount = (release: Release): number | null =>
+  regrabFileCount(release, 'regrab_files_missing');

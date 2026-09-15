@@ -114,6 +114,22 @@ class FileMappingUpdateData:
 
 
 @dataclass(slots=True)
+class FileReconciliation:
+    """How a release's stored files line up with a replacement torrent's files.
+
+    ``matched`` pairs the id of each surviving stored file with the incoming file
+    that takes its place, ``added`` holds the files the release did not have, and
+    ``missing`` the stored files the torrent no longer carries - which a caller
+    refuses over rather than deleting, since a replacement dropping a file is not
+    a shape a healthy repack has.
+    """
+
+    matched: list[tuple[str, ReleaseFileRecord]]
+    added: list[ReleaseFileRecord]
+    missing: list[ReleaseFileRecord]
+
+
+@dataclass(slots=True)
 class ReleaseSearchResultRecord:
     """Individual search result for a potential release source."""
 
@@ -216,6 +232,18 @@ class ReleaseRepository(Protocol):
     ) -> bool:
         """Apply file mapping updates. Returns True on success."""
 
+    async def sync_release_files(
+        self,
+        release_id: str,
+        reconciliation: FileReconciliation,
+    ) -> list[ReleaseFileRecord] | None:
+        """Bring a release's file rows in line with a replacement torrent.
+
+        Matched rows are repointed at the file that replaces them and keep every
+        mapping column; added files are inserted unmapped. Returns the release's
+        files as they now stand, or None when there is no such release.
+        """
+
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         """Fetch completed releases that haven't been exported to Sonarr."""
 
@@ -308,6 +336,7 @@ __all__ = [
     "MANUAL_SOURCE",
     "CreateReleaseData",
     "FileMappingUpdateData",
+    "FileReconciliation",
     "QueuedDownload",
     "ReleaseDownloadService",
     "ReleaseFileMapping",

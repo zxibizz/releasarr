@@ -70,6 +70,7 @@ def stub_auto_mapper() -> ReleaseAutoMapper:
 
     mapper = create_autospec(ReleaseAutoMapper, instance=True)
     mapper.apply.return_value = []
+    mapper.apply_to.return_value = 0
     mapper.candidate_requests.return_value = []
     mapper.suggest.return_value = ([], [])
     return mapper

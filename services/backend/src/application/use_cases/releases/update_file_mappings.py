@@ -10,6 +10,10 @@ from src.application.interfaces.releases import (
     ReleaseRecord,
     ReleaseRepository,
 )
+from src.application.interfaces.request_warnings import (
+    RequestWarningRecord,
+    RequestWarningRepository,
+)
 from src.application.use_cases.releases.commands import (
     FileMappingCommand,
     UpdateFileMappingsCommand,
@@ -20,7 +24,13 @@ from src.application.use_cases.releases.exceptions import (
 )
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
-from src.domain.enums import MediaType, ReleaseStatus, SyncJobKind, SyncJobTrigger
+from src.domain.enums import (
+    MediaType,
+    ReleaseStatus,
+    RequestWarningCode,
+    SyncJobKind,
+    SyncJobTrigger,
+)
 
 
 class UpdateReleaseFileMappingsUseCase:
@@ -29,10 +39,12 @@ class UpdateReleaseFileMappingsUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
+        warning_repository: RequestWarningRepository,
         enqueue_sync: EnqueueSyncJobUseCase,
         recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
+        self._warning_repository = warning_repository
         self._enqueue_sync = enqueue_sync
         self._recompute_state = recompute_state
 
@@ -66,10 +78,58 @@ class UpdateReleaseFileMappingsUseCase:
         )
 
         self._log_mappings(command, release)
+        await self._clear_regrab_warning(command.release_id)
         await self._queue_export(release)
         await self._settle_requests(release)
 
         return True
+
+    async def _clear_regrab_warning(self, release_id: str) -> None:
+        """Drop the re-grab "could not map these files" warning once they are placed.
+
+        The warning names the files the replacement torrent added, because only the
+        pass that read that torrent knows which files the release did not have
+        before; a re-grab is not the only thing that can place them though, so a
+        human doing it by hand has to be able to resolve the row too. A save that
+        still leaves one of them unmapped is the answer "not yet".
+        """
+
+        try:
+            rows = await self._warning_repository.list_for_releases([release_id])
+            warning = next(
+                (
+                    row
+                    for row in rows.get(release_id, [])
+                    if row.code is RequestWarningCode.REGRAB_FILES_UNMAPPED
+                ),
+                None,
+            )
+            if warning is None:
+                return
+
+            warned = _warned_file_ids(warning)
+            if not warned:
+                return
+
+            release = await self._repository.get_release(release_id)
+            if release is None:
+                return
+
+            mapped = {file.id for file in release.files if file.mapping is not None}
+            if warned - mapped:
+                return
+
+            await self._warning_repository.replace_for_releases(
+                RequestWarningCode.REGRAB_FILES_UNMAPPED, [release_id], []
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            # The mappings are stored either way; a warning outliving them is not
+            # worth failing a save over.
+            logger.opt(exception=exc).warning(
+                "Failed to clear the re-grab file warning after remapping",
+                release_id=release_id,
+                error=str(exc),
+            )
 
     async def _settle_requests(self, release: ReleaseRecord) -> None:
         try:
@@ -183,6 +243,15 @@ class UpdateReleaseFileMappingsUseCase:
             season=command.season,
             episode=command.episode,
         )
+
+
+def _warned_file_ids(warning: RequestWarningRecord) -> set[str]:
+    """The file ids a re-grab warning named, ignoring anything else in `details`."""
+
+    value = (warning.details or {}).get("file_ids")
+    if not isinstance(value, list):
+        return set()
+    return {item for item in value if isinstance(item, str)}
 
 
 __all__ = ["UpdateReleaseFileMappingsUseCase"]

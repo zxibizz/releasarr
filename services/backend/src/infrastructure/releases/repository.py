@@ -14,6 +14,7 @@ from src.application.interfaces.releases import (
     MANUAL_SOURCE,
     CreateReleaseData,
     FileMappingUpdateData,
+    FileReconciliation,
     ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
@@ -222,6 +223,47 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
 
             await session.flush()
             return True
+
+    async def sync_release_files(
+        self,
+        release_id: str,
+        reconciliation: FileReconciliation,
+    ) -> list[ReleaseFileRecord] | None:
+        async with self.db.transaction() as session:
+            release = await session.get(
+                models.Release,
+                release_id,
+                options=[selectinload(models.Release.files)],
+            )
+            if release is None:
+                return None
+
+            files_by_id = {file.id: file for file in release.files}
+
+            for existing_id, incoming in reconciliation.matched:
+                stored = files_by_id.get(existing_id)
+                if stored is None:
+                    continue
+                # Only what describes the file on disk is rewritten. Every mapping
+                # column belongs to whoever filled it in, and a replacement torrent
+                # is not a reason to review that.
+                stored.name = incoming.name
+                stored.size_bytes = incoming.size_bytes
+                stored.path = incoming.path
+
+            for record in reconciliation.added:
+                release.files.append(
+                    models.ReleaseFile(
+                        id=record.id,
+                        release_id=release_id,
+                        name=record.name,
+                        size_bytes=record.size_bytes,
+                        path=record.path,
+                    )
+                )
+
+            await session.flush()
+            return [self._to_file_record(file) for file in release.files]
 
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         async with self.db.session() as session:

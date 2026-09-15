@@ -6,7 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequestDetailPage } from '@/features/requests/pages/RequestDetailPage';
 import { ApiError, apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
-import type { MediaRequest, SeasonEpisode, SeasonOption, SeriesSeasonsResponse } from '@/types';
+import type {
+  MediaRequest,
+  Release,
+  SeasonEpisode,
+  SeasonOption,
+  SeriesSeasonsResponse,
+} from '@/types';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -82,10 +88,34 @@ interface RouteStubs {
   seasons?: SeasonOption[];
   /** Left empty by default, which keeps the episode table out of the way. */
   episodes?: SeasonEpisode[];
+  /** The releases the request holds, as the release list would read them. */
+  releases?: Release[];
   monitorNewSeasons?: boolean;
   seasonsError?: Error;
   episodesError?: Error;
 }
+
+/** A finished release whose files are the given names. */
+const releaseWith = (...files: string[]): Release => ({
+  id: 'rel-1',
+  name: 'Severance.S02.2160p.WEB-DL-FLUX',
+  hash: 'abc123',
+  size: 12_400_000_000,
+  files: files.map((name) => ({ id: name, name, size: 1024, path: name })),
+  status: 'completed',
+  progress: 100,
+  download_speed: 0,
+  upload_speed: 0,
+  seeders: 10,
+  leechers: 1,
+  ratio: 1.2,
+  added_date: '2026-09-01T00:00:00.000Z',
+  completed_date: '2026-09-01T01:00:00.000Z',
+  request_ids: ['req-2'],
+  torrent_source: 'Indexer A',
+  quality: '2160p',
+  warnings: [],
+});
 
 /** Answers each endpoint the page hits by path, as the real client does. */
 const stubRoutes = ({
@@ -95,6 +125,7 @@ const stubRoutes = ({
     { season_number: 2, monitored: true, requested: true },
   ),
   episodes: episodeList = [],
+  releases: releaseList = [],
   monitorNewSeasons = false,
   seasonsError,
   episodesError,
@@ -120,8 +151,15 @@ const stubRoutes = ({
       }
       return Promise.resolve({ season_number: 2, episodes: episodeList } as never);
     }
+    if (path.endsWith('/files/mapping/suggestions')) {
+      return Promise.resolve({ files: [] } as never);
+    }
     if (path.endsWith('/releases')) {
-      return Promise.resolve({ releases: [], total: 0 } as never);
+      return Promise.resolve({ releases: releaseList, total: releaseList.length } as never);
+    }
+    // The request list the mapping form offers as mapping targets.
+    if (path === '/requests') {
+      return Promise.resolve({ requests: [], total: 0 } as never);
     }
     if (options.method === 'DELETE') {
       return Promise.resolve(undefined as never);
@@ -232,6 +270,62 @@ describe('RequestDetailPage', () => {
       screen.getByText('Could not check for a fresher release: indexer offline'),
     ).toBeInTheDocument();
     expect(screen.getByText('No longer listed by its indexer: Indexer A')).toBeInTheDocument();
+  });
+
+  it('spells out how many files a re-grab could not place', async () => {
+    stubRoutes({
+      request: {
+        ...movie,
+        warnings: [
+          {
+            code: 'regrab_files_unmapped',
+            release_id: 'rel-4',
+            details: { file_ids: ['f1', 'f2'], file_count: 2 },
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            code: 'regrab_files_missing',
+            release_id: 'rel-5',
+            details: { missing_files: ['extra.mkv'], file_count: 1 },
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      },
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The replacement torrent added 2 files that could not be mapped automatically.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Re-grab refused: the replacement torrent is missing 1 file this release already has.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the open files modal showing the release as it now stands', async () => {
+    /*
+     * A re-grab rewrites the release and swaps its files underneath, so the panel
+     * has to read the release out of the list rather than out of the click that
+     * opened it - otherwise it keeps showing the torrent that is gone.
+     */
+    stubRoutes({ releases: [releaseWith('Show.S02E01.mkv')] });
+    const { queryClient } = renderWithProviders(<RequestDetailPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Files' }));
+    expect((await screen.findAllByText('Show.S02E01.mkv')).length).toBeGreaterThan(0);
+
+    stubRoutes({ releases: [releaseWith('Show.S02E01.mkv', 'Show.S02E02.mkv')] });
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['releases'] });
+    });
+
+    expect((await screen.findAllByText('Show.S02E02.mkv')).length).toBeGreaterThan(0);
   });
 
   it('keeps quiet when the episodes cannot be listed', async () => {

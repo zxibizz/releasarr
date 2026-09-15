@@ -29,12 +29,12 @@ class RequestWarningRecord:
 class RequestWarningRepository(Protocol):
     """Persistence for `request_warnings`.
 
-    Two write primitives because the two codes this ships with clear on
-    different scopes: mapping overlap is recomputed over a request's whole
-    release set, so a resolved overlap must be cleared request-wide; a regrab
-    failure is per-release, so clearing it must not touch a sibling release's
-    own fresh failure. See `RequestWarningSynchronizer` and
-    `RegrabOutdatedReleasesUseCase` for the callers of each.
+    Two write primitives because the codes this ships with clear on different
+    scopes: mapping overlap is recomputed over a request's whole release set, so
+    a resolved overlap must be cleared request-wide; a regrab failure is
+    per-release, so clearing it must not touch a sibling release's own fresh
+    failure. See `RequestWarningSynchronizer` and `ReleaseRegrapper` for the
+    callers of each.
     """
 
     async def replace_for_requests(

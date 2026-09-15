@@ -18,9 +18,13 @@ The editing UI is documented in [`../../frontend/docs/file-mapping.md`](../../fr
    (`update_file_mappings.py`).
 5. **Export** runs the matcher once more to fill any gaps, then imports
    (`export_finished.py`).
+6. **A re-grab** reads the replacement torrent's own file list and reconciles the stored rows with
+   it (`ReleaseRegrapper.regrab` — see [Re-grabbing a release](#re-grabbing-a-release)).
 
 The matcher runs three times over a release's life. It must therefore be idempotent and must
-never clobber a hand correction — see [What survives a re-run](#what-survives-a-re-run).
+never clobber a hand correction — see [What survives a re-run](#what-survives-a-re-run). The
+re-grab pass is the fourth, and it is deliberately narrow: it may only write the files that
+replacement added.
 
 ## Where files come from
 
@@ -45,13 +49,48 @@ def to_release_files(files: Sequence[TorrentFileInfo]) -> list[ReleaseFileRecord
 ```
 
 **A magnet-only grab produces no file rows at all.** `parse_magnet` can recover an info hash and
-a display name, but a magnet link carries no file list, and nothing later back-fills the rows
-from qBittorrent. Both `queue_release_download.py` and `queue_manual_release.py` pass
-`files=None` in that case, and the mapping UI stays empty. This is the single biggest gap in the
-feature: if you are wondering why a release cannot be mapped, check whether it was grabbed from
-a magnet.
+a display name, but a magnet link carries no file list, and nothing back-fills the rows from
+qBittorrent. Both `queue_release_download.py` and `queue_manual_release.py` pass `files=None` in
+that case, and the mapping UI stays empty: if you are wondering why a release cannot be mapped,
+check whether it was grabbed from a magnet. The one later source of a file list is a re-grab,
+which reads the replacement's own `.torrent` when the indexer serves one — see
+[Re-grabbing a release](#re-grabbing-a-release).
 
-Rows are only inserted at `create_release`, and only when the file list is non-empty.
+Rows are inserted at `create_release`, when the file list is non-empty, and by that re-grab — the
+only path that adds files to a release which already exists.
+
+## Re-grabbing a release
+
+A re-grab writes over the release row it replaces: same id, new info hash, and the
+`last_exported_info_hash=None` re-arm that puts the release back on the export queue. The stored
+files have to follow it, since the export imports by their paths.
+
+`reconcile_release_files` (`utility/torrent_files.py`) matches them against the replacement's own
+file list — exact relative path first, then the basename when both sides carry the same number of
+files under it, which is how a repack that renamed only the torrent's root keeps its mappings:
+
+| Case | What happens |
+| --- | --- |
+| A stored file the torrent still carries | The row is repointed at the new name, size and path, and keeps **every** mapping column |
+| A file only the torrent has | Inserted unmapped, then automapped on its own (`ReleaseAutoMapper.apply_to`) |
+| A stored file the torrent does not carry | The re-grab is refused outright — nothing queued, nothing written — with a `regrab_files_missing` warning |
+
+That last rule is why the file list is read before anything is queued: a replacement that dropped
+a file would leave the release describing something that was never downloaded, and the export
+would try to import a path that does not exist.
+
+Only the added files are automapped. Everything else was resolved once — by hand or by the grab —
+and re-deriving a mapping nobody asked to change is how a correction gets lost, which is why
+`apply_to` takes the file ids it may write for instead of running `apply` over the release.
+
+A replacement whose file list cannot be read — a magnet-only result, or a torrent file that would
+not fetch or parse — is downloaded anyway, with the stored rows left alone and a warning in the
+release's request log. No warning row is written in that case: an answer nobody got disproves
+nothing, the same rule `release_not_listed` follows.
+
+When the added files map to nothing at all, the release carries `regrab_files_unmapped` naming
+those files, so a human can be asked for them. Saving mappings that place every one of them
+clears the row (`UpdateReleaseFileMappingsUseCase`), and so does a later re-grab that places one.
 
 ## Parsing a name
 

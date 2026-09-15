@@ -29,9 +29,11 @@ import {
 import { groupFilesByType } from '@/utils/files';
 import {
   hasMappingOverlap,
+  missingRegrabFileCount,
   notListedIndexer,
   overlapRelatedReleaseCount,
   regrabUnavailableReason,
+  unmappedRegrabFileCount,
 } from '@/features/releases/warnings';
 
 interface ReleaseCardProps {
@@ -201,6 +203,38 @@ export function ReleaseCard({
                   leftSection={<IconAlertTriangle size={12} />}
                 >
                   {t('releaseCard.notListedWarning.badge')}
+                </Badge>
+              </Tooltip>
+            )}
+            {missingRegrabFileCount(release) !== null && (
+              <Tooltip
+                label={t('requestPage.warnings.regrabFilesMissing', {
+                  count: missingRegrabFileCount(release),
+                })}
+              >
+                <Badge
+                  variant="light"
+                  color="yellow"
+                  radius="sm"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  {t('releaseCard.fileWarnings.missingBadge')}
+                </Badge>
+              </Tooltip>
+            )}
+            {unmappedRegrabFileCount(release) !== null && (
+              <Tooltip
+                label={t('requestPage.warnings.regrabFilesUnmapped', {
+                  count: unmappedRegrabFileCount(release),
+                })}
+              >
+                <Badge
+                  variant="light"
+                  color="yellow"
+                  radius="sm"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  {t('releaseCard.fileWarnings.unmappedBadge')}
                 </Badge>
               </Tooltip>
             )}
