@@ -245,7 +245,9 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
         async with self.db.session() as session:
             # Anything but a hand-supplied torrent came from an indexer we can
             # search again; `torrent_source` holds that indexer's name, so it
-            # cannot be matched against a fixed provider string.
+            # cannot be matched against a fixed provider string. The release sync
+            # already only leaves a request on `monitoring` once it holds a release
+            # matching those conditions, so that status is the request-side filter.
             stmt = (
                 select(models.Release)
                 .join(models.Release.requests)
@@ -257,7 +259,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                     models.Release.status == ReleaseStatus.COMPLETED,
                     models.Release.torrent_source.is_not(None),
                     models.Release.torrent_source != MANUAL_SOURCE,
-                    models.MediaRequest.status == MediaRequestStatus.PENDING,
+                    models.MediaRequest.status == MediaRequestStatus.MONITORING,
                 )
                 .distinct()
             )

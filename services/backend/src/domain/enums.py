@@ -21,6 +21,7 @@ class MediaRequestStatus(StrEnum):
     PENDING = "pending"
     SEARCHING = "searching"
     DOWNLOADING = "downloading"
+    MONITORING = "monitoring"
     COMPLETED = "completed"
     FAILED = "failed"
 

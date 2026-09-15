@@ -1972,7 +1972,7 @@ components:
       enum: [movie, series]
     MediaRequestStatus:
       type: string
-      enum: [pending, searching, downloading, completed, failed]
+      enum: [pending, searching, downloading, monitoring, completed, failed]
     ReleaseStatus:
       type: string
       enum: [pending, downloading, seeding, completed, failed]
