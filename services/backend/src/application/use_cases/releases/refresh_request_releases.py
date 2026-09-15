@@ -78,13 +78,23 @@ class RefreshRequestReleasesUseCase:
         releases = await self._release_repository.get_releases_for_requests([command.request_id])
 
         regrabbed = await self._regrab_finished(command.request_id, releases)
+        if regrabbed:
+            # A re-grab rewrote those releases' hashes and put them back in flight,
+            # so the status pass has to read the rows as they are now: asking about
+            # the torrent they used to carry would answer for a download that no
+            # longer exists, and skip the one that replaced it.
+            releases = await self._release_repository.get_releases_for_requests(
+                [command.request_id]
+            )
+
         statuses_updated = await self._sync_statuses(command.request_id, releases)
 
         try:
             # Idempotent, and cheaper than reasoning about which pass already
-            # settled what: a re-grab recomputes through the regrapper, the
-            # status pass can move a release too, and either way the request
-            # should follow its releases now rather than at the next sync.
+            # settled what: a re-grab recomputes through the regrapper, the status
+            # pass can move a release too, and either way the request's status,
+            # freshness and overlap warnings should follow its releases now rather
+            # than at the next scheduled sync.
             await self._recompute_state.execute([command.request_id])
         except Exception as exc:  # pragma: no cover - defensive
             self._logger.warning(
@@ -138,15 +148,6 @@ class RefreshRequestReleasesUseCase:
                 continue
 
             regrabbed.append(release)
-            # The replacement starts from nothing, so a row left on `completed`
-            # would report a release as finished until the next scheduled sync
-            # reads the new torrent back.
-            await self._release_repository.update_release(
-                release.id,
-                status=ReleaseStatus.DOWNLOADING,
-                progress=0.0,
-                completed_at=None,
-            )
 
         return regrabbed
 

@@ -128,6 +128,13 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
         self.updates.append((release_id, kwargs))
+        # Applied, not just recorded: the use case reads the rows back between
+        # passes, so a fake that only remembers the call would hide exactly the
+        # staleness those reads exist to avoid.
+        for release in self.releases:
+            if release.id == release_id:
+                for name, value in kwargs.items():
+                    setattr(release, name, value)
         return True
 
 
@@ -173,8 +180,10 @@ class FakeDownloadService(UnusedReleaseDownloadCalls):
         self.states = states or {}
         self.is_configured = is_configured
         self.downloads: list[str] = []
+        self.looked_up: list[str] = []
 
     async def get_torrent_state(self, info_hash: str) -> ReleaseTorrentState | None:
+        self.looked_up.append(info_hash.upper())
         return self.states.get(info_hash.upper())
 
     async def queue_download(
@@ -362,17 +371,27 @@ async def test_a_finished_release_is_downloaded_again_when_its_hash_moved() -> N
                 "name": "New.Release.Name",
                 "info_url": "https://tracker.example/details/1",
                 "published_at": datetime(2026, 2, 1, tzinfo=UTC),
-            },
-        ),
-        (
-            RELEASE_ID,
-            {
                 "status": ReleaseStatus.DOWNLOADING,
                 "progress": 0.0,
                 "completed_at": None,
             },
-        ),
+        )
     ]
+
+
+async def test_a_re_grabbed_release_has_its_status_read_back_from_the_client() -> None:
+    release = make_release(status=ReleaseStatus.COMPLETED, info_hash="OLDHASH", progress=100.0)
+    replaced = state_for(release, progress=3.0, status=ReleaseStatus.DOWNLOADING)
+
+    harness = build_harness([release], match=make_match(), states={"NEWHASH": replaced})
+    dto = await harness.refresh()
+
+    # The row now carries the replacement's hash, so that is the torrent the
+    # status has to be reported for - not the one the refresh started with.
+    assert harness.download.looked_up == ["NEWHASH"]
+    assert harness.repository.updates[-1][1]["progress"] == 3.0
+    assert dto.regrabbed == 1
+    assert dto.statuses_updated == 1
 
 
 async def test_an_unchanged_hash_is_not_downloaded_again() -> None:

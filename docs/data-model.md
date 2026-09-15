@@ -128,7 +128,10 @@ Export bookkeeping: `last_exported_info_hash`, `export_failures_count`.
 release that is `completed`, has `export_failures_count < 5`, and whose `last_exported_info_hash`
 is either NULL or different from its current `info_hash` — so a repack that changes the hash
 becomes eligible for import again, and a release that has failed five times stops being retried
-forever.
+forever. A re-grab therefore also puts the release back to `downloading`, `progress` 0 and no
+completion time: the row cannot go on being eligible while the files the new torrent is
+downloading are still replacing the old ones. It becomes `completed` again when the replacement
+finishes and the next `release_sync` reads that back.
 
 A release reaches `completed` only when qBittorrent reports full progress **and** a completion
 timestamp. Its reported state is not usable for this, because a finished torrent keeps seeding.
