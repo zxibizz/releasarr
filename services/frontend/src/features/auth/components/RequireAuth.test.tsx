@@ -1,10 +1,10 @@
 import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Route, Routes } from 'react-router-dom';
 
 import { RequireAuth } from '@/features/auth/components/RequireAuth';
 import type { AuthContextValue } from '@/features/auth/context';
-import { renderWithProviders } from '@/test/utils';
+import { renderWithProviders, setOnlineStatus } from '@/test/utils';
 
 function renderGuarded(auth: Partial<AuthContextValue>) {
   return renderWithProviders(
@@ -20,6 +20,8 @@ function renderGuarded(auth: Partial<AuthContextValue>) {
 }
 
 describe('RequireAuth', () => {
+  afterEach(() => setOnlineStatus(true));
+
   it('shows a loader while the session is being resolved', () => {
     renderGuarded({ status: 'loading' });
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
@@ -33,6 +35,15 @@ describe('RequireAuth', () => {
   it('redirects to /login when there is no session', () => {
     renderGuarded({ status: 'anonymous' });
     expect(screen.getByText('Login page')).toBeInTheDocument();
+  });
+
+  it('reports the connection instead of offering a sign-in it cannot submit', () => {
+    setOnlineStatus(false);
+
+    renderGuarded({ status: 'anonymous' });
+
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
+    expect(screen.getByText('Cannot reach Releasarr')).toBeInTheDocument();
   });
 
   it('redirects to /setup when no admin exists yet', () => {

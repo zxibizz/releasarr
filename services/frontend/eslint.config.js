@@ -5,9 +5,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'src/lib/api/generated'] },
+  { ignores: ['dist', 'dev-dist', 'coverage', 'src/lib/api/generated'] },
   {
-    files: ['src/**/*.{ts,tsx}', 'mock-server/**/*.ts', 'scripts/**/*.ts', 'vite.config.ts'],
+    files: [
+      'src/**/*.{ts,tsx}',
+      'mock-server/**/*.ts',
+      'scripts/**/*.ts',
+      'vite.config.ts',
+      'pwa-assets.config.ts',
+    ],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

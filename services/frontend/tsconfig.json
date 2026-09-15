@@ -21,7 +21,7 @@
     "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "vitest/globals"]
+    "types": ["vite/client", "vitest/globals", "vite-plugin-pwa/react"]
   },
-  "include": ["src", "mock-server", "scripts", "vite.config.ts"]
+  "include": ["src", "mock-server", "scripts", "vite.config.ts", "pwa-assets.config.ts"]
 }

@@ -3,10 +3,21 @@ import { useTranslation } from 'react-i18next';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
+import { OfflineState } from '@/components/OfflineState';
+import { isNetworkError } from '@/lib/api/client';
 
 export function RouteErrorBoundary() {
   const error = useRouteError();
   const { t } = useTranslation();
+
+  /*
+   * A route loader that cannot reach the server throws instead of resolving, so
+   * an offline cold navigation lands here. Reporting it as an unexpected error
+   * would send the visitor hunting for a bug that is not there.
+   */
+  if (isNetworkError(error)) {
+    return <OfflineState />;
+  }
 
   let title = t('errorBoundary.title', { defaultValue: 'Something went wrong' });
   let description = t('errorBoundary.description', {

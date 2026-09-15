@@ -36,6 +36,13 @@ logger, and both uvicorn and Loguru write to stderr. nginx is pointed at `/dev/s
 `/dev/stderr` for the same reason, which also stops it filling `/var/log/nginx` inside the
 container, where nothing rotates it.
 
+nginx also sets the cache headers the built frontend depends on. `/sw.js`, `/index.html` and the
+manifest are always revalidated — a cached service worker would pin a browser to a build the
+server no longer has, with no later deploy able to reach it — while `/assets/` is immutable,
+which is safe because Vite hashes those names. That same location answers a missing asset with a
+404 instead of the SPA fallback, so a stale `index.html` cannot hand the browser HTML where it
+expects JavaScript. See [`../services/frontend/docs/pwa.md`](../services/frontend/docs/pwa.md).
+
 Two details of that arrangement look like faults and are not. s6 warns at boot that
 `/etc/s6-overlay/s6-rc.d` is empty, because the services use the older `services.d` layout — four
 shell scripts rather than the sixteen files the `s6-rc` format needs for the same three daemons

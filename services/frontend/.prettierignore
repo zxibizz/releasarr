@@ -1,5 +1,6 @@
 # Build output and dependencies.
 dist
+dev-dist
 node_modules
 coverage
 
