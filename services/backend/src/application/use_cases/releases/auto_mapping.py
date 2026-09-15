@@ -46,13 +46,33 @@ class ReleaseAutoMapper:
         updates, candidates = await self.suggest(release)
         if updates:
             await self._repository.update_file_mappings(release.id, updates)
+            self._log_auto_mapped(release, updates)
+        return candidates
+
+    def _log_auto_mapped(
+        self, release: ReleaseRecord, updates: list[FileMappingUpdateData]
+    ) -> None:
+        """Record one activity entry per request the mapping pass resolved files for.
+
+        Entries are bound per request id because the /logs endpoint filters on it,
+        and a pack routinely resolves onto several requests in one pass.
+        """
+
+        mapped_per_request: dict[str, int] = {}
+        for update in updates:
+            request_id = update.mapping.request_id if update.mapping else None
+            if not request_id:
+                continue
+            mapped_per_request[request_id] = mapped_per_request.get(request_id, 0) + 1
+
+        for request_id, count in mapped_per_request.items():
             self._logger.info(
-                "Auto-mapped release files",
+                f"Auto-mapped {count} release file(s) to this request",
+                request_id=request_id,
                 release_id=release.id,
                 release_name=release.name,
-                mapped_files=len(updates),
+                file_count=count,
             )
-        return candidates
 
     async def suggest(
         self,
