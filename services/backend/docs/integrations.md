@@ -173,6 +173,12 @@ Prowlarr would refuse it anyway, so attempting it would only spend the timeout b
 When Prowlarr is not configured (`indexer_directory` is `None`), the use case falls back to a
 single call to the search service directly, matching the pre-fan-out behaviour.
 
+`RegrabOutdatedReleasesUseCase` scopes the same way: it maps a release's stored
+`torrent_source` (the indexer name Prowlarr reported at grab time) back to an indexer id via
+`list_indexers()`, and searches only that indexer instead of sweeping all of them. An unknown
+name or an unreachable directory falls back to an unscoped search rather than skipping the
+release.
+
 ### Indexer health
 
 `ProwlarrIndexerDirectory` implements `IndexerDirectory`, backing the indexers page. Same base
