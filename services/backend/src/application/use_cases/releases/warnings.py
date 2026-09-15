@@ -152,17 +152,17 @@ class RequestWarningSynchronizer:
 def rows_to_release_warnings(rows: Sequence[RequestWarningRecord]) -> list[ReleaseWarning]:
     """Reconstruct a release's own warning view from persisted rows.
 
-    Only `MAPPING_OVERLAP` carries the file-level detail a release's own view
-    needs; other codes (e.g. a regrab failure) are request-level concerns and
-    stay off this list. One row exists per request sharing the release, all
-    carrying identical detail for the same code, so the first one seen is
-    enough.
+    Both codes land here: `MAPPING_OVERLAP` carries file-level detail,
+    `REGRAB_INDEXER_UNAVAILABLE` carries only a reason string in `details` and
+    an empty file list, since it flags the release itself rather than any file
+    on it. One row exists per request sharing the release, all carrying
+    identical detail for the same code, so the first one seen is enough.
     """
 
     seen: set[RequestWarningCode] = set()
     warnings: list[ReleaseWarning] = []
     for row in rows:
-        if row.code is not RequestWarningCode.MAPPING_OVERLAP or row.code in seen:
+        if row.code in seen:
             continue
         seen.add(row.code)
         details = row.details or {}

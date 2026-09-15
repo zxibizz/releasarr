@@ -14,6 +14,7 @@ from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.use_cases.releases.warnings import (
     ReleaseWarningEvaluator,
     RequestWarningSynchronizer,
+    rows_to_release_warnings,
 )
 from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
 
@@ -311,3 +312,59 @@ async def test_synchronizer_ignores_requests_outside_its_scope() -> None:
     assert request_ids == ["req-a"]
     assert all(row.request_id == "req-a" for row in rows)
 
+
+def test_rows_to_release_warnings_includes_a_regrab_row_alongside_an_overlap_row() -> None:
+    """A release card needs both codes, not just the file-mapping one."""
+
+    rows = [
+        RequestWarningRecord(
+            request_id="req-1",
+            release_id="rel-1",
+            code=RequestWarningCode.MAPPING_OVERLAP,
+            details={"file_ids": ["f1"], "related_release_ids": ["rel-2"]},
+        ),
+        RequestWarningRecord(
+            request_id="req-1",
+            release_id="rel-1",
+            code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+            details={"reason": "indexer RuTracker is disabled in Prowlarr"},
+        ),
+    ]
+
+    warnings = rows_to_release_warnings(rows)
+
+    by_code = {warning.code: warning for warning in warnings}
+    assert set(by_code) == {
+        RequestWarningCode.MAPPING_OVERLAP,
+        RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+    }
+    assert by_code[RequestWarningCode.MAPPING_OVERLAP].file_ids == ["f1"]
+    assert by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].file_ids == []
+    assert by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].related_release_ids == []
+    assert (
+        by_code[RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE].details["reason"]
+        == "indexer RuTracker is disabled in Prowlarr"
+    )
+
+
+def test_rows_to_release_warnings_dedupes_the_same_code_across_requests() -> None:
+    """Two rows for the same release/code (one per sharing request) collapse to one."""
+
+    rows = [
+        RequestWarningRecord(
+            request_id="req-1",
+            release_id="rel-1",
+            code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+            details={"reason": "indexer banned"},
+        ),
+        RequestWarningRecord(
+            request_id="req-2",
+            release_id="rel-1",
+            code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+            details={"reason": "indexer banned"},
+        ),
+    ]
+
+    warnings = rows_to_release_warnings(rows)
+
+    assert len(warnings) == 1

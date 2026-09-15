@@ -21,3 +21,12 @@ export const overlapRelatedReleaseCount = (release: Release): number => {
   });
   return ids.size;
 };
+
+/** Why the last regrab check couldn't reach this release's indexer, if it failed. */
+export const regrabUnavailableReason = (release: Release): string | null => {
+  const warning = (release.warnings ?? []).find(
+    (candidate) => candidate.code === 'regrab_indexer_unavailable',
+  );
+  const reason = warning?.details?.reason;
+  return typeof reason === 'string' ? reason : null;
+};

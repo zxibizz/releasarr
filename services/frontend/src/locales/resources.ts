@@ -467,6 +467,9 @@ export const resources = {
           withOtherReleases_other:
             'Overlaps with {{count}} other releases also mapped to the same episode or movie.',
         },
+        regrabWarning: {
+          badge: 'Indexer unavailable',
+        },
       },
       existingReleases: {
         title: 'This request already has releases',
@@ -1335,6 +1338,9 @@ export const resources = {
             'Пересекается с {{count}} другими релизами, сопоставленными с тем же эпизодом или фильмом.',
           withOtherReleases_other:
             'Пересекается с {{count}} другими релизами, сопоставленными с тем же эпизодом или фильмом.',
+        },
+        regrabWarning: {
+          badge: 'Индексер недоступен',
         },
       },
       existingReleases: {
