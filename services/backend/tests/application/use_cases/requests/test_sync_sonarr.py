@@ -369,3 +369,105 @@ async def test_sync_sonarr_preserves_in_flight_status() -> None:
     # The rest of the metadata is still refreshed.
     assert season_one.title == "Example Show - Season 1"
     assert season_one.total_episodes == 10
+
+
+def make_airing_details() -> SeriesDetails:
+    """A ten-episode season Sonarr has aired and filed four of."""
+
+    return SeriesDetails(
+        id=10,
+        title="Example Show",
+        year=2020,
+        overview=None,
+        poster_url=None,
+        imdb_id=None,
+        tvdb_id=555,
+        genres=[],
+        seasons={
+            1: SeriesSeasonDetails(
+                season_number=1,
+                episode_count=4,
+                total_episode_count=10,
+                episode_file_count=4,
+            )
+        },
+    )
+
+
+def make_airing_records(status: MediaRequestStatus) -> dict[str, MediaRequestRecord]:
+    now = datetime.now(UTC)
+    return {
+        "req-1": MediaRequestRecord(
+            id="req-1",
+            media_type=MediaType.SERIES,
+            status=status,
+            title="Example Show - Season 1",
+            year=2020,
+            overview=None,
+            poster_url=None,
+            genres=[],
+            runtime_minutes=None,
+            imdb_id=None,
+            season_number=1,
+            total_episodes=10,
+            aired_episodes=4,
+            downloaded_episodes=4,
+            series_title="Example Show",
+            series_year=2020,
+            sonarr_series_id=10,
+            created_at=now,
+            updated_at=now,
+            localizations={},
+        )
+    }
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
+    """Sonarr wanting nothing is not the same as the season being over.
+
+    A season leaves the missing list once its aired episodes have files and comes
+    back when the next one is wanted, so closing the request there only produces
+    one that flips back and forth. A release grabbed by hand is the case that
+    cannot absorb that: nothing will re-grab it for the episodes that follow.
+    """
+
+    repository = FakeMediaRequestRepository(
+        records=make_airing_records(MediaRequestStatus.COMPLETED)
+    )
+    sonarr = FakeSonarrService(missing=[], catalogue={10: make_airing_details()})
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=None,
+    )
+    result = await use_case.execute()
+
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.status == MediaRequestStatus.PENDING
+    # Reopening is not a completion, and the summary counts completions.
+    assert result.completed == 0
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
+    """An in-flight status belongs to the release sync, episodes to come or not."""
+
+    repository = FakeMediaRequestRepository(
+        records=make_airing_records(MediaRequestStatus.DOWNLOADING)
+    )
+    sonarr = FakeSonarrService(missing=[], catalogue={10: make_airing_details()})
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=None,
+    )
+    await use_case.execute()
+
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.status == MediaRequestStatus.DOWNLOADING
+    assert repository.updated == []

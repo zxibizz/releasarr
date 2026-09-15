@@ -56,12 +56,14 @@ class SyncSonarrMediaRequestsUseCase:
         self._metadata_languages = self._localization.languages
         self._logger = logger or get_logger(component="sync_sonarr_requests")
         self._metadata_cache: dict[int, TvdbSeriesMetadata | None] = {}
+        self._series_cache: dict[int, SeriesDetails] = {}
 
     async def execute(self) -> SyncSonarrResult:
         """Populate media requests for missing Sonarr seasons."""
 
         result = SyncSonarrResult()
         self._metadata_cache.clear()
+        self._series_cache.clear()
         missing_series = await self._sonarr.get_missing_series()
         missing_keys = {
             (item.series_id, season_number)
@@ -85,7 +87,7 @@ class SyncSonarrMediaRequestsUseCase:
                 series_owners[record.sonarr_series_id] = record.owner_user_id
 
         for series in missing_series:
-            details = await self._sonarr.get_series(series.series_id)
+            details = await self._series(series.series_id)
             owner_user_id = series_owners.get(series.series_id)
             for season_number in series.season_numbers:
                 updated = await self._sync_season(
@@ -120,7 +122,8 @@ class SyncSonarrMediaRequestsUseCase:
         """
 
         self._metadata_cache.clear()
-        details = await self._sonarr.get_series(series_id)
+        self._series_cache.clear()
+        details = await self._series(series_id)
 
         request_ids: list[str] = []
         for season_number in sorted(set(season_numbers)):
@@ -229,7 +232,16 @@ class SyncSonarrMediaRequestsUseCase:
         existing: list[MediaRequestRecord],
         missing_keys: set[tuple[int, int]],
     ) -> int:
-        """Mark Sonarr-linked requests as completed when no longer missing."""
+        """Settle the Sonarr-linked requests Sonarr no longer reports as missing.
+
+        Leaving the missing list is not the same as being finished. Sonarr drops a
+        season from it as soon as every episode that has aired holds a file, so a
+        season that is still airing leaves it weekly and returns the moment the
+        next episode is wanted. Completing the request there would only have the
+        next sync reopen it, so a season with episodes still to air is left on
+        pending. That is also what keeps a release grabbed by hand actionable --
+        nothing can re-grab it for the episodes that follow.
+        """
 
         transitioned = 0
         for record in existing:
@@ -237,6 +249,9 @@ class SyncSonarrMediaRequestsUseCase:
                 continue
             key = (record.sonarr_series_id, record.season_number)
             if key in missing_keys:
+                continue
+            if await self._has_episodes_left_to_air(record):
+                await self._reopen(record)
                 continue
             if record.status == MediaRequestStatus.COMPLETED:
                 continue
@@ -255,6 +270,60 @@ class SyncSonarrMediaRequestsUseCase:
                 season_number=record.season_number,
             )
         return transitioned
+
+    async def _series(self, series_id: int) -> SeriesDetails:
+        """Return a series' details, asking Sonarr once per run.
+
+        Both the completion sweep and the missing-season refresh want the same
+        series, and a series is reported by several seasons.
+        """
+
+        details = self._series_cache.get(series_id)
+        if details is None:
+            details = await self._sonarr.get_series(series_id)
+            self._series_cache[series_id] = details
+        return details
+
+    async def _has_episodes_left_to_air(self, record: MediaRequestRecord) -> bool:
+        """Whether Sonarr knows of episodes for this season that have yet to air.
+
+        The counts stored on the request date from the last time the season was
+        reported missing, so a season that settled on its own since then still
+        looks unfinished. Those are the only seasons worth a round trip: one whose
+        stored counts show nothing left to air is settled either way.
+        """
+
+        series_id = record.sonarr_series_id
+        season_number = record.season_number
+        if series_id is None or season_number is None:
+            return False
+        total_episodes = record.total_episodes
+        aired_episodes = record.aired_episodes
+        if total_episodes is None or aired_episodes is None:
+            return False
+        if aired_episodes >= total_episodes:
+            return False
+
+        season = (await self._series(series_id)).seasons.get(season_number)
+        if season is None:
+            return False
+        return season.episode_count < season.total_episode_count
+
+    async def _reopen(self, record: MediaRequestRecord) -> None:
+        """Put a completed season back on pending while episodes are still to come."""
+
+        if record.status != MediaRequestStatus.COMPLETED:
+            return
+        await self._repository.update_request(
+            record.id,
+            UpdateMediaRequestData(status=MediaRequestStatus.PENDING),
+        )
+        self._logger.info(
+            "Reopened Sonarr season with episodes still to air",
+            request_id=record.id,
+            sonarr_series_id=record.sonarr_series_id,
+            season_number=record.season_number,
+        )
 
     def _build_request_title(self, series_title: str, season_number: int) -> str:
         if season_number <= 0:

@@ -58,6 +58,7 @@ async def seed(
     request_status: MediaRequestStatus,
     release_status: ReleaseStatus = ReleaseStatus.PENDING,
     with_release: bool = True,
+    exported: bool = False,
 ) -> None:
     async with db.transaction() as session:
         request = models.MediaRequest(
@@ -80,6 +81,7 @@ async def seed(
                 info_hash=INFO_HASH,
                 size_bytes=0,
                 status=release_status,
+                last_exported_info_hash=INFO_HASH if exported else None,
             )
             release.requests.append(request)
             session.add(release)
@@ -125,6 +127,22 @@ async def test_completed_request_is_not_downgraded(db_manager: DBManager) -> Non
 
     assert result.requests_updated == 0
     assert await request_status(db_manager) == MediaRequestStatus.COMPLETED
+
+
+async def test_imported_release_does_not_pin_the_request(db_manager: DBManager) -> None:
+    """A release the export has taken is not in flight, however long it seeds.
+
+    Counting it would hold the request on ``downloading`` for as long as
+    qBittorrent keeps the torrent, and a request held there is never searched
+    again: the release itself cannot be re-grabbed for the episodes that follow.
+    """
+
+    await seed(db_manager, request_status=MediaRequestStatus.PENDING, exported=True)
+
+    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert result.requests_updated == 0
+    assert await request_status(db_manager) == MediaRequestStatus.PENDING
 
 
 async def test_paused_torrent_does_not_downgrade_request(db_manager: DBManager) -> None:

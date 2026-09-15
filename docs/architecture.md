@@ -172,7 +172,9 @@ import shows up in the UI without every page polling.
 
 1. **`sonarr_sync` / `radarr_sync`** read missing seasons and movies from the *arrs, enrich them
    with TVDB/TMDB metadata, and upsert `media_requests` rows. Uniqueness is
-   `(sonarr_series_id, season_number)` for series and `radarr_movie_id` for movies.
+   `(sonarr_series_id, season_number)` for series and `radarr_movie_id` for movies. For series
+   they also own completion: a season Sonarr no longer reports missing is closed only once
+   nothing is left to air, and one that is still airing is put back on `pending` instead.
 2. **A human picks a release.** `GET /releases/search` proxies Prowlarr;
    `POST /requests/{id}/releases/download` hands the magnet or `.torrent` to qBittorrent and
    writes a `releases` row plus a `release_request_links` row. `ReleaseGrabFinalizer` marks the
@@ -180,7 +182,8 @@ import shows up in the UI without every page polling.
 3. **`release_sync`** refreshes progress, speeds, seeders, and status from qBittorrent every 30
    seconds. A release becomes `completed` when qBittorrent reports full progress *and* a
    completion timestamp — a finished torrent keeps seeding, so its reported state alone cannot
-   be used.
+   be used. One the export has already imported no longer counts as in flight, so a torrent
+   that is only still there to seed cannot hold its request on `downloading`.
 4. **Files get mapped.** `PUT /releases/{id}/files/mapping` stores, per file, a request plus
    (for series) a season and episode. `GET …/mapping/suggestions` offers the auto-mapper's
    guesses; the human confirms or overrides. Saving mappings for an already-finished release
