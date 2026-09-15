@@ -8,6 +8,10 @@ from typing import Protocol
 
 from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
 
+# A release's source is the indexer Prowlarr attributed it to, except for
+# hand-supplied torrents, which have no indexer to go back to.
+MANUAL_SOURCE = "manual"
+
 
 @dataclass(slots=True)
 class ReleaseFileMapping:
@@ -269,6 +273,7 @@ class ReleaseDownloadService(Protocol):
 
 
 __all__ = [
+    "MANUAL_SOURCE",
     "CreateReleaseData",
     "FileMappingUpdateData",
     "QueuedDownload",

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.application.interfaces.releases import (
+    MANUAL_SOURCE,
     CreateReleaseData,
     FileMappingUpdateData,
     ReleaseFileMapping,
@@ -242,6 +243,9 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
 
     async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
         async with self.db.session() as session:
+            # Anything but a hand-supplied torrent came from an indexer we can
+            # search again; `torrent_source` holds that indexer's name, so it
+            # cannot be matched against a fixed provider string.
             stmt = (
                 select(models.Release)
                 .join(models.Release.requests)
@@ -251,7 +255,8 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 )
                 .where(
                     models.Release.status == ReleaseStatus.COMPLETED,
-                    models.Release.torrent_source == "prowlarr",
+                    models.Release.torrent_source.is_not(None),
+                    models.Release.torrent_source != MANUAL_SOURCE,
                     models.MediaRequest.status == MediaRequestStatus.PENDING,
                 )
                 .distinct()
