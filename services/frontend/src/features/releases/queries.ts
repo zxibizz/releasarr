@@ -92,8 +92,9 @@ export function useReleaseActions(requestId: string | undefined) {
  * the rest back from the download client - and returns the list as it now
  * stands, so the cards update without a second round trip.
  *
- * A success is deliberately silent: the list underneath is the confirmation, and
- * a toast would sit on top of it.
+ * A plain success is deliberately silent: the list underneath is the
+ * confirmation, and a toast would sit on top of it. A re-grab is the exception,
+ * because it resets what the list was showing rather than updating it.
  */
 export function useRefreshRequestReleases(requestId: string | undefined) {
   const queryClient = useQueryClient();
@@ -106,6 +107,16 @@ export function useRefreshRequestReleases(requestId: string | undefined) {
       // A re-grab puts a torrent back in flight, which moves the request's own
       // status and the release age it reports.
       void queryClient.invalidateQueries({ queryKey: requestKeys.detail(requestId ?? '') });
+
+      // A re-grabbed card drops back to 0% with a new torrent behind it, so the
+      // change on screen needs saying out loud.
+      if (response.regrabbed > 0) {
+        notifications.show({
+          title: t('releasesList.refresh.regrabbedTitle'),
+          message: t('releasesList.refresh.regrabbedDescription', { count: response.regrabbed }),
+          color: 'teal',
+        });
+      }
     },
     onError: (error: unknown) => {
       notifications.show({

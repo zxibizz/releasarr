@@ -65,6 +65,12 @@ class RegrabOutdatedReleasesUseCase:
         releases = await self._repository.get_potential_outdated_releases()
         indexers_by_name = await self._regrapper.indexers_by_name()
 
+        if not releases:
+            # No release to attribute this to, so no `request_id`: the line is the
+            # sweep's own outcome, findable on the logs page under the task filter.
+            self._logger.info("No releases to check for updates")
+            return
+
         for release in releases:
             try:
                 await self._regrapper.regrab(release, indexers_by_name)

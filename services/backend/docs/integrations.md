@@ -206,6 +206,13 @@ it is not tied to the release actually changing. `mapping_overlap` (see
 `RequestWarningSynchronizer` instead — that one clears per-request rather than per-release,
 since it is recomputed over a request's whole release set at once.
 
+Every outcome of that check is logged against each request holding the release, not just the
+two failures: `ReleaseRegrapper._log_for_requests` emits the record per `request_id`, so a sweep
+nobody watched still leaves `Release is up to date on its indexer` (or `Release is no longer
+listed by its indexer`, or the re-grab itself) on the request's activity view. The check writes
+no summary line — the per-release record is the summary — and `SyncSteps.regrab` only reports
+itself when there was no candidate release to check at all.
+
 ### Indexer health
 
 `ProwlarrIndexerDirectory` implements `IndexerDirectory`, backing the indexers page. Same base

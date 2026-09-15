@@ -26,6 +26,14 @@ const buildLog = (
   };
 };
 
+/**
+ * A line the mock "writes" while serving a request, stamped at the moment it
+ * happened the way the backend's log file would.
+ */
+export const stampLogEntry = (
+  entry: Omit<RequestLogEntry, 'occurredAt' | 'timestamp'>,
+): RequestLogEntry => buildLog(new Date(), 0, entry);
+
 export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[] => {
   const now = new Date();
 
@@ -159,6 +167,21 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
       source: 'Job Runner',
       metadata: {
         pendingActions: 2,
+      },
+    }),
+    // The hourly re-grab check has its own line per release it looked at, so the
+    // fixture carries one rather than leaving the shape to the live appends.
+    buildLog(now, 33, {
+      id: `${request.id}-log-13`,
+      level: 'info',
+      message: 'Release is up to date on its indexer',
+      source: 'src.application.use_cases.releases.regrab',
+      metadata: {
+        component: 'regrab_releases',
+        release_id: 'rls-15873',
+        release_name: 'Some.Show.S02E04.1080p.WEB-DL',
+        indexer: 'Indexer A',
+        info_hash: 'a1b2c3d4',
       },
     }),
   ];

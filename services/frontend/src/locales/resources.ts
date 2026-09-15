@@ -332,6 +332,11 @@ export const resources = {
         },
         refresh: {
           failed: 'Unable to refresh releases',
+          regrabbedTitle: 'Release re-grabbed',
+          regrabbedDescription_one:
+            '{{count}} release was replaced on its indexer and is downloading again.',
+          regrabbedDescription_other:
+            '{{count}} releases were replaced on their indexer and are downloading again.',
         },
       },
       releaseSearch: {
@@ -1214,6 +1219,15 @@ export const resources = {
         },
         refresh: {
           failed: 'Не удалось обновить релизы',
+          regrabbedTitle: 'Релиз перекачан',
+          regrabbedDescription_one:
+            '{{count}} релиз был заменён на индексаторе и скачивается заново.',
+          regrabbedDescription_few:
+            '{{count}} релиза были заменены на индексаторе и скачиваются заново.',
+          regrabbedDescription_many:
+            '{{count}} релизов были заменены на индексаторе и скачиваются заново.',
+          regrabbedDescription_other:
+            '{{count}} релиза были заменены на индексаторе и скачиваются заново.',
         },
       },
       releaseSearch: {
