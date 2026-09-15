@@ -77,6 +77,8 @@ from src.application.use_cases.requests.delete_request import DeleteMediaRequest
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
 from src.application.use_cases.requests.list_episodes import ListRequestEpisodesUseCase
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.use_cases.requests.state import RequestStateDeriver
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
@@ -550,6 +552,19 @@ class MediaRequestUseCases:
             metadata_languages=self._container.settings.metadata_languages,
         )
 
+    @cached_property
+    def request_state_deriver(self) -> RequestStateDeriver:
+        return RequestStateDeriver()
+
+    @cached_property
+    def recompute_state(self) -> RecomputeRequestStateUseCase:
+        return RecomputeRequestStateUseCase(
+            repository=self._container.repositories.media_requests,
+            release_repository=self._container.repositories.releases,
+            warning_synchronizer=self._container.use_cases.releases.warning_synchronizer,
+            deriver=self.request_state_deriver,
+        )
+
 
 @dataclass
 class DiscoverUseCases:
@@ -626,7 +641,10 @@ class ReleaseUseCases:
 
     @cached_property
     def create(self) -> CreateReleaseUseCase:
-        return CreateReleaseUseCase(repository=self._container.repositories.releases)
+        return CreateReleaseUseCase(
+            repository=self._container.repositories.releases,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
+        )
 
     @cached_property
     def get(self) -> GetReleaseUseCase:
@@ -641,7 +659,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             warning_repository=self._container.repositories.request_warnings,
-            warning_synchronizer=self.warning_synchronizer,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -649,7 +667,7 @@ class ReleaseUseCases:
         return UpdateReleaseFileMappingsUseCase(
             repository=self._container.repositories.releases,
             enqueue_sync=self._container.use_cases.tasks.enqueue_sync,
-            warning_synchronizer=self.warning_synchronizer,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -712,7 +730,7 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             warning_repository=self._container.repositories.request_warnings,
-            warning_synchronizer=self.warning_synchronizer,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -721,10 +739,9 @@ class ReleaseUseCases:
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
             search_service=self._container.services.release_search,
-            request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
             existing_release_replacer=self.existing_release_replacer,
-            warning_synchronizer=self.warning_synchronizer,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -732,10 +749,9 @@ class ReleaseUseCases:
         return QueueManualReleaseUseCase(
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
-            request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
             existing_release_replacer=self.existing_release_replacer,
-            warning_synchronizer=self.warning_synchronizer,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -751,6 +767,7 @@ class ReleaseUseCases:
             auto_mapper=self.auto_mapper,
             download_service=self._container.services.release_download,
             request_repository=self._container.repositories.media_requests,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
     @cached_property
@@ -763,6 +780,7 @@ class ReleaseUseCases:
             download_service=self._container.services.release_download,
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 
 

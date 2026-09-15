@@ -22,8 +22,8 @@ from src.application.interfaces.sonarr import (
 )
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
+from src.application.use_cases.requests.state import ArrCompletion
 from src.application.utility.file_matcher import ReleaseFileMatcher
-from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 
 SERIES_ID = 42
@@ -204,23 +204,41 @@ class FakeSonarrService:
         return True
 
 
+class FakeRecomputeState:
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[str], dict[str, ArrCompletion]]] = []
+
+    async def execute(
+        self,
+        request_ids: list[str],
+        *,
+        arr_completion: dict[str, ArrCompletion] | None = None,
+    ) -> None:
+        self.calls.append((list(request_ids), dict(arr_completion or {})))
+
+
 def build_use_case(
     release: ReleaseRecord,
     requests: list[MediaRequestRecord],
     request_repository: FakeMediaRequestRepository | None = None,
     sonarr: FakeSonarrService | None = None,
-) -> tuple[ExportFinishedReleasesUseCase, FakeReleaseRepository, FakeSonarrService]:
+    recompute_state: FakeRecomputeState | None = None,
+) -> tuple[
+    ExportFinishedReleasesUseCase, FakeReleaseRepository, FakeSonarrService, FakeRecomputeState
+]:
     repository = FakeReleaseRepository(release)
     sonarr = sonarr or FakeSonarrService()
     request_repository = request_repository or FakeMediaRequestRepository(requests)
+    recompute_state = recompute_state or FakeRecomputeState()
     use_case = ExportFinishedReleasesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=sonarr,  # type: ignore[arg-type]
         auto_mapper=build_auto_mapper(repository, request_repository),
         download_service=FakeDownloadService(),  # type: ignore[arg-type]
         request_repository=request_repository,  # type: ignore[arg-type]
+        recompute_state=recompute_state,  # type: ignore[arg-type]
     )
-    return use_case, repository, sonarr
+    return use_case, repository, sonarr, recompute_state
 
 
 def build_auto_mapper(
@@ -245,7 +263,7 @@ async def test_multi_season_pack_maps_each_season_to_its_own_request() -> None:
     release = make_release(files, season=1)
     requests = [make_request_record("req-2", 2), make_request_record("req-3", 3)]
 
-    use_case, repository, sonarr = build_use_case(release, requests)
+    use_case, repository, sonarr, _ = build_use_case(release, requests)
     result = await use_case.execute()
 
     assert result.succeeded == 1
@@ -275,13 +293,18 @@ async def test_exported_seasons_are_marked_completed() -> None:
     ]
     request_repository = FakeMediaRequestRepository([make_request_record("req-2", 2)])
 
-    use_case, _, _ = build_use_case(make_release(files, season=1), [], request_repository)
+    use_case, _, _, recompute_state = build_use_case(
+        make_release(files, season=1), [], request_repository
+    )
     await use_case.execute()
 
-    assert [(request_id, data.status) for request_id, data in request_repository.updates] == [
-        ("req-1", MediaRequestStatus.COMPLETED),
-        ("req-2", MediaRequestStatus.COMPLETED),
-    ]
+    assert len(recompute_state.calls) == 1
+    request_ids, arr_completion = recompute_state.calls[0]
+    assert sorted(request_ids) == ["req-1", "req-2"]
+    assert arr_completion["req-1"] == ArrCompletion(is_complete=True, has_unaired=False)
+    assert arr_completion["req-2"] == ArrCompletion(is_complete=True, has_unaired=False)
+    assert [request_id for request_id, _ in request_repository.updates] == ["req-1", "req-2"]
+    assert all(data.exported_at is not None for _, data in request_repository.updates)
 
 
 async def test_a_season_sonarr_still_wants_more_of_stays_in_flight() -> None:
@@ -295,7 +318,7 @@ async def test_a_season_sonarr_still_wants_more_of_stays_in_flight() -> None:
     request_repository = FakeMediaRequestRepository([])
     sonarr = FakeSonarrService(files_per_season={1: EPISODES_PER_SEASON - 5})
 
-    use_case, repository, _ = build_use_case(
+    use_case, repository, _, recompute_state = build_use_case(
         make_release(files, season=1),
         [],
         request_repository,
@@ -304,17 +327,18 @@ async def test_a_season_sonarr_still_wants_more_of_stays_in_flight() -> None:
     await use_case.execute()
 
     assert repository.release_updates["last_exported_info_hash"] == "hash-1"
-    assert [(request_id, data.status) for request_id, data in request_repository.updates] == [
-        ("req-1", UNSET),
-    ]
+    assert [request_id for request_id, _ in request_repository.updates] == ["req-1"]
     assert request_repository.updates[0][1].exported_at is not None
+    assert recompute_state.calls == [
+        (["req-1"], {"req-1": ArrCompletion(is_complete=False, has_unaired=False)})
+    ]
 
 
 async def test_only_seasons_present_in_the_release_are_looked_up() -> None:
     files = [make_file("f1", "Avatar/Avatar.S03E05.mkv")]
     request_repository = FakeMediaRequestRepository([make_request_record("req-3", 3)])
 
-    use_case, _, _ = build_use_case(make_release(files, season=1), [], request_repository)
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], request_repository)
     await use_case.execute()
 
     assert request_repository.lookups == [(SERIES_ID, 3)]
@@ -324,7 +348,7 @@ async def test_release_stays_unexported_when_nothing_could_be_mapped() -> None:
     files = [make_file("f1", "Avatar/Avatar.S04E01.mkv")]
     release = make_release(files, season=1)
 
-    use_case, repository, sonarr = build_use_case(release, [])
+    use_case, repository, sonarr, _ = build_use_case(release, [])
     result = await use_case.execute()
 
     assert result.succeeded == 1

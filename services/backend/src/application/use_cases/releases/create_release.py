@@ -4,19 +4,27 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
+from loguru import logger
+
 from src.application.interfaces.releases import CreateReleaseData, ReleaseRepository
 from src.application.use_cases.releases.commands import CreateReleaseCommand
 from src.application.use_cases.releases.dto import ReleaseDTO
 from src.application.use_cases.releases.exceptions import ReleaseConflictError
 from src.application.use_cases.releases.mappers import record_to_dto
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.magnet import parse_magnet
 
 
 class CreateReleaseUseCase:
     """Use case responsible for creating release records."""
 
-    def __init__(self, repository: ReleaseRepository) -> None:
+    def __init__(
+        self,
+        repository: ReleaseRepository,
+        recompute_state: RecomputeRequestStateUseCase | None = None,
+    ) -> None:
         self._repository = repository
+        self._recompute_state = recompute_state
 
     async def execute(self, command: CreateReleaseCommand) -> ReleaseDTO:
         request_ids = self._normalise_request_ids(command.request_ids)
@@ -38,6 +46,17 @@ class CreateReleaseUseCase:
             quality=command.quality or "",
         )
         record = await self._repository.create_release(data)
+
+        if self._recompute_state is not None:
+            try:
+                await self._recompute_state.execute(request_ids)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "Failed to settle requests for a created release",
+                    release_id=record.id,
+                    error=str(exc),
+                )
+
         return record_to_dto(record)
 
     def _normalise_request_ids(self, request_ids: list[str]) -> list[str]:

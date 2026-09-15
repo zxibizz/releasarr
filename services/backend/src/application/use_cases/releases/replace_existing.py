@@ -10,7 +10,7 @@ from src.application.interfaces.releases import (
     ReleaseRepository,
 )
 from src.application.interfaces.request_warnings import RequestWarningRepository
-from src.application.use_cases.releases.warnings import RequestWarningSynchronizer
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 
 
 class ExistingReleaseReplacer:
@@ -26,12 +26,12 @@ class ExistingReleaseReplacer:
         repository: ReleaseRepository,
         download_service: ReleaseDownloadService,
         warning_repository: RequestWarningRepository | None = None,
-        warning_synchronizer: RequestWarningSynchronizer | None = None,
+        recompute_state: RecomputeRequestStateUseCase | None = None,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
         self._warning_repository = warning_repository
-        self._warning_synchronizer = warning_synchronizer
+        self._recompute_state = recompute_state
 
     async def existing_for(self, request_id: str) -> list[ReleaseRecord]:
         """Releases already linked to this request, before a new grab is added."""
@@ -63,13 +63,13 @@ class ExistingReleaseReplacer:
         try:
             if self._warning_repository is not None:
                 await self._warning_repository.delete_for_request_release(request_id, release_id)
-            if self._warning_synchronizer is not None:
+            if self._recompute_state is not None:
                 # Only this request's release set changed; the release's other
                 # requests are unaffected by losing this one link.
-                await self._warning_synchronizer.sync_for_requests([request_id])
+                await self._recompute_state.execute([request_id])
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
-                "Failed to clear warnings for an unlinked release",
+                "Failed to settle request for an unlinked release",
                 release_id=release_id,
                 request_id=request_id,
                 error=str(exc),
@@ -79,11 +79,11 @@ class ExistingReleaseReplacer:
         try:
             if self._warning_repository is not None:
                 await self._warning_repository.delete_for_release(release.id)
-            if self._warning_synchronizer is not None:
-                await self._warning_synchronizer.sync_for_requests(release.request_ids)
+            if self._recompute_state is not None:
+                await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
-                "Failed to clear warnings for a replaced release",
+                "Failed to settle requests for a replaced release",
                 release_id=release.id,
                 error=str(exc),
             )

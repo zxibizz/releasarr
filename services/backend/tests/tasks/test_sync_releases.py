@@ -1,4 +1,10 @@
-"""Tests for the qBittorrent -> database release sync task."""
+"""Tests for the qBittorrent -> database release sync task.
+
+Request-status propagation moved out of this task into
+`RequestStateDeriver`/`RecomputeRequestStateUseCase` - see
+tests/application/use_cases/requests/test_recompute_request_state.py for that
+coverage. This task now only owns the release rows themselves.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +12,12 @@ from typing import Any, cast
 
 import pytest
 
-from src.application.interfaces.releases import MANUAL_SOURCE
 from src.db.session import DBManager
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
 from src.tasks.sync_releases import SyncReleasesTask
+
 INFO_HASH = "ABC123"
 
 
@@ -55,17 +61,13 @@ def make_task(db: DBManager, torrents: list[dict[str, Any]]) -> SyncReleasesTask
 async def seed(
     db: DBManager,
     *,
-    request_status: MediaRequestStatus,
     release_status: ReleaseStatus = ReleaseStatus.PENDING,
-    with_release: bool = True,
-    exported: bool = False,
-    torrent_source: str | None = None,
 ) -> None:
     async with db.transaction() as session:
         request = models.MediaRequest(
             id="req-1",
             media_type=MediaType.SERIES,
-            status=request_status,
+            status=MediaRequestStatus.DOWNLOADING,
             title="Example - Season 1",
             year=2024,
             genres=[],
@@ -75,130 +77,15 @@ async def seed(
             sonarr_series_id=10,
         )
         session.add(request)
-        if with_release:
-            release = models.Release(
-                id="rel-1",
-                name="Example.S01.1080p",
-                info_hash=INFO_HASH,
-                size_bytes=0,
-                status=release_status,
-                last_exported_info_hash=INFO_HASH if exported else None,
-                torrent_source=torrent_source,
-            )
-            release.requests.append(request)
-            session.add(release)
-
-
-async def request_status(db: DBManager) -> MediaRequestStatus:
-    async with db.session() as session:
-        request = await session.get(models.MediaRequest, "req-1")
-        assert request is not None
-        return request.status
-
-
-@pytest.mark.parametrize(
-    ("qbt_state", "expected"),
-    [
-        ("downloading", MediaRequestStatus.DOWNLOADING),
-        ("metadl", MediaRequestStatus.DOWNLOADING),
-        # A finished torrent keeps seeding while Sonarr has yet to import it, so the
-        # request is still in flight rather than done.
-        ("uploading", MediaRequestStatus.DOWNLOADING),
-        ("error", MediaRequestStatus.FAILED),
-    ],
-)
-async def test_release_state_drives_request_status(
-    db_manager: DBManager,
-    qbt_state: str,
-    expected: MediaRequestStatus,
-) -> None:
-    await seed(db_manager, request_status=MediaRequestStatus.PENDING)
-
-    result = await make_task(db_manager, [torrent(qbt_state)]).execute()
-
-    assert result.requests_updated == 1
-    assert await request_status(db_manager) == expected
-
-
-async def test_completed_request_is_not_downgraded(db_manager: DBManager) -> None:
-    """Sonarr owns completion; a still-seeding torrent must not undo it."""
-
-    await seed(db_manager, request_status=MediaRequestStatus.COMPLETED)
-
-    result = await make_task(db_manager, [torrent("uploading")]).execute()
-
-    assert result.requests_updated == 0
-    assert await request_status(db_manager) == MediaRequestStatus.COMPLETED
-
-
-async def test_imported_release_does_not_pin_the_request(db_manager: DBManager) -> None:
-    """A release the export has taken is not in flight, however long it seeds.
-
-    Counting it would hold the request on ``downloading`` for as long as
-    qBittorrent keeps the torrent, and a request held there is never searched
-    again: the release itself cannot be re-grabbed for the episodes that follow.
-    """
-
-    await seed(db_manager, request_status=MediaRequestStatus.PENDING, exported=True)
-
-    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
-
-    assert result.requests_updated == 0
-    assert await request_status(db_manager) == MediaRequestStatus.PENDING
-
-
-async def test_exported_release_with_indexer_source_becomes_monitoring(
-    db_manager: DBManager,
-) -> None:
-    """An imported release from an indexer can still be re-grabbed for a better copy."""
-
-    await seed(
-        db_manager,
-        request_status=MediaRequestStatus.PENDING,
-        exported=True,
-        torrent_source="SomeIndexer",
-    )
-
-    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
-
-    assert result.requests_updated == 1
-    assert await request_status(db_manager) == MediaRequestStatus.MONITORING
-
-
-async def test_exported_release_grabbed_by_hand_does_not_become_monitoring(
-    db_manager: DBManager,
-) -> None:
-    """A hand-supplied torrent has no indexer to go back to."""
-
-    await seed(
-        db_manager,
-        request_status=MediaRequestStatus.PENDING,
-        exported=True,
-        torrent_source=MANUAL_SOURCE,
-    )
-
-    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
-
-    assert result.requests_updated == 0
-    assert await request_status(db_manager) == MediaRequestStatus.PENDING
-
-
-async def test_paused_torrent_does_not_downgrade_request(db_manager: DBManager) -> None:
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
-
-    result = await make_task(db_manager, [torrent("pauseddl")]).execute()
-
-    assert result.requests_updated == 0
-    assert await request_status(db_manager) == MediaRequestStatus.DOWNLOADING
-
-
-async def test_request_without_releases_is_untouched(db_manager: DBManager) -> None:
-    await seed(db_manager, request_status=MediaRequestStatus.PENDING, with_release=False)
-
-    result = await make_task(db_manager, []).execute()
-
-    assert result.requests_updated == 0
-    assert await request_status(db_manager) == MediaRequestStatus.PENDING
+        release = models.Release(
+            id="rel-1",
+            name="Example.S01.1080p",
+            info_hash=INFO_HASH,
+            size_bytes=0,
+            status=release_status,
+        )
+        release.requests.append(request)
+        session.add(release)
 
 
 async def release_record(db: DBManager) -> models.Release:
@@ -215,7 +102,7 @@ async def test_fully_downloaded_torrent_is_completed(
 ) -> None:
     """Export depends on this: a seeding state must not mask completion."""
 
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
 
     await make_task(db_manager, [finished_torrent(qbt_state)]).execute()
 
@@ -229,7 +116,7 @@ async def test_full_progress_without_completion_time_is_not_completed(
 ) -> None:
     """qBittorrent reports progress 1.0 while still checking a resumed torrent."""
 
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
     torrent_data = torrent("checkingup") | {"progress": 1.0, "completion_on": 0}
 
     await make_task(db_manager, [torrent_data]).execute()
@@ -240,7 +127,7 @@ async def test_full_progress_without_completion_time_is_not_completed(
 
 
 async def test_missing_files_outranks_completion(db_manager: DBManager) -> None:
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
 
     await make_task(db_manager, [finished_torrent("missingfiles")]).execute()
 
@@ -251,7 +138,7 @@ async def test_missing_files_outranks_completion(db_manager: DBManager) -> None:
 async def test_standing_still_is_not_counted_as_synced(db_manager: DBManager) -> None:
     """A seeding torrent reports the same numbers for days; don't rewrite the row."""
 
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
     task = make_task(db_manager, [finished_torrent("uploading")])
 
     first = await task.execute()
@@ -262,7 +149,7 @@ async def test_standing_still_is_not_counted_as_synced(db_manager: DBManager) ->
 
 
 async def test_moving_torrent_is_written_again(db_manager: DBManager) -> None:
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
     await make_task(db_manager, [torrent("downloading")]).execute()
 
     advanced = torrent("downloading") | {"progress": 0.75}
@@ -275,7 +162,7 @@ async def test_moving_torrent_is_written_again(db_manager: DBManager) -> None:
 async def test_completion_time_survives_later_cycles(db_manager: DBManager) -> None:
     """The stamp records when the download finished, not when we last looked."""
 
-    await seed(db_manager, request_status=MediaRequestStatus.DOWNLOADING)
+    await seed(db_manager)
     task = make_task(db_manager, [finished_torrent("uploading")])
     await task.execute()
     stamped = (await release_record(db_manager)).completed_at

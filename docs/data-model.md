@@ -33,7 +33,7 @@ sequence).
 
 Shared: `media_type`, `status`, `title`, `year`, `overview`, `poster_url`, `genres` (JSON list),
 `localizations` (JSON dict), `runtime_minutes`, `imdb_id`, `created_at`, `updated_at`,
-`exported_at`.
+`exported_at`, `newest_release_published_at`.
 
 Series-only: `season_number`, `total_episodes`, `aired_episodes`, `downloaded_episodes`,
 `series_title`, `series_year`, `sonarr_series_id`. Movie-only: `radarr_movie_id`.
@@ -54,15 +54,34 @@ completed once there are neither pending nor unaired episodes left, and one with
 to air goes back to `pending` rather than closing — which is also what keeps it actionable for a
 release grabbed by hand, since `regrab` has no indexer result to refresh it from.
 
+`status` has exactly one place that decides what a request's releases and its arr imply:
+`RequestStateDeriver` (`application/use_cases/requests/state.py`), invoked through
+`RecomputeRequestStateUseCase` (`application/use_cases/requests/recompute_state.py`). Sonarr and
+Radarr are the only authority on `completed` — the sync use cases pass their verdict in as an
+`ArrCompletion`, and no other code path is allowed to set or clear that status. Everything else
+the release set implies — `downloading`, `failed`, `monitoring`, and falling back to `pending`
+once nothing is left in flight or worth regrabbing — is derived from the linked releases alone.
+The recompute also settles `MAPPING_OVERLAP` warnings and `newest_release_published_at` in the
+same pass, since all three depend on the same release set. It runs synchronously from every
+release-lifecycle use case (grab, delete, remap, replace, regrab, export) and from the
+`release_sync` task, so a request's card does not wait for the next scheduled sync to catch up —
+including when a request's last release is deleted, which used to leave it stuck on its last
+status forever.
+
 Once a request has nothing in flight but still holds a release sourced from an indexer, the
-release sync moves it to `monitoring` rather than leaving it `pending`: that release is what
+recompute moves it to `monitoring` rather than leaving it `pending`: that release is what
 `regrab` looks for candidates against, and a hand-grabbed release never qualifies.
+
+`newest_release_published_at` is the latest `releases.published_at` linked to the request, kept
+in sync by the same recompute rather than computed at read time — storing it lets a future filter
+or sort use it in SQL without joining every request's releases.
 
 `exported_at` is stamped by the `export` task at the moment Sonarr or Radarr accept a release's
 files for that request, and is what the request card shows on its left. It is deliberately set
 for partly-filled seasons too — the question it answers is "when did this last reach the arr",
 not "when did it finish" — and stays NULL when the arr filled the request by itself, which is
 not an export by releasarr.
+
 
 Constraints, and what they mean:
 
@@ -249,6 +268,7 @@ one is a four-place change plus a migration.
 | `d3e9a17c5b42` | Repair the `sync_job_kind` enum |
 | `1c2d3e4f5a6b` | Create `users`, `refresh_tokens`, `service_api_keys` |
 | `2d3e4f5a6b7c` | Add `media_requests.owner_user_id` |
+| `dfed8040c181` | Add `media_requests.newest_release_published_at`, backfilled from releases |
 
 ## The enum migration trap
 

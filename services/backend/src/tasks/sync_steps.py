@@ -76,47 +76,48 @@ class SyncSteps:
     async def release_sync(self) -> StepSummary:
         """Refresh download state for every tracked release from qBittorrent."""
 
-        # Piggybacks on this task's cadence rather than its own `SyncJobKind`,
-        # since a reconcile pass has no independent meaning of its own to a
-        # user - it only exists to catch overlap drift the write-through
-        # call sites missed. Runs regardless of qBittorrent configuration,
-        # since it has nothing to do with download state.
-        reconciled = await self._reconcile_mapping_overlap_warnings()
-
         client = self.container.services.qbittorrent_client
-        if client is None:
-            return {"skipped": True, "reason": "qbittorrent_not_configured"}
+        result = None
+        if client is not None:
+            task = SyncReleasesTask(
+                db=self.container.db_manager,
+                client=client,
+                category=self.container.settings.qbittorrent_category,
+            )
+            result = await task.execute()
 
-        task = SyncReleasesTask(
-            db=self.container.db_manager,
-            client=client,
-            category=self.container.settings.qbittorrent_category,
-        )
-        result = await task.execute()
+        # Runs regardless of qBittorrent configuration: a request's status and
+        # warnings can drift from a release created, mapped or deleted through
+        # the API even when nothing was ever downloaded through releasarr.
+        requests_updated = await self._recompute_request_states()
+
+        if result is None:
+            return {
+                "skipped": True,
+                "reason": "qbittorrent_not_configured",
+                "requests_updated": requests_updated,
+            }
         return {
             "synced": result.synced,
             "unchanged": result.unchanged,
             "failed": result.failed,
             "not_found": result.not_found,
-            "requests_updated": result.requests_updated,
-            "warnings_reconciled": reconciled,
+            "requests_updated": requests_updated,
         }
 
-    async def _reconcile_mapping_overlap_warnings(self) -> int:
-        """Recompute mapping-overlap warnings for every request that has releases.
+    async def _recompute_request_states(self) -> int:
+        """Settle status, warnings and freshness for every request with releases.
 
-        Best-effort: a stale warning is worth catching, but not worth failing
+        Best-effort: a stale request is worth catching, but not worth failing
         the whole sync step over.
         """
 
         try:
             releases_repo = self.container.repositories.releases
             request_ids = await releases_repo.list_request_ids_with_releases()
-            await self.container.use_cases.releases.warning_synchronizer.sync_for_requests(
-                request_ids
-            )
+            await self.container.use_cases.media_requests.recompute_state.execute(request_ids)
         except Exception as exc:
-            logger.warning("Failed to reconcile mapping overlap warnings", error=str(exc))
+            logger.warning("Failed to recompute request state", error=str(exc))
             return 0
         return len(request_ids)
 

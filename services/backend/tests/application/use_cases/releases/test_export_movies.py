@@ -18,6 +18,7 @@ from src.application.interfaces.releases import (
 from src.application.interfaces.sonarr import ManualImportFile, SeriesDetails, SonarrEpisode
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
+from src.application.use_cases.requests.state import ArrCompletion
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 
@@ -190,14 +191,31 @@ class FakeSonarrService:
         raise AssertionError("a movie release must not import into Sonarr")
 
 
+class FakeRecomputeState:
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[str], dict[str, ArrCompletion]]] = []
+
+    async def execute(
+        self,
+        request_ids: list[str],
+        *,
+        arr_completion: dict[str, ArrCompletion] | None = None,
+    ) -> None:
+        self.calls.append((list(request_ids), dict(arr_completion or {})))
+
+
 def build_use_case(
     release: ReleaseRecord,
     request_repository: FakeMediaRequestRepository,
     radarr: FakeRadarrService | None = None,
     download_service: FakeDownloadService | None = None,
-) -> tuple[ExportFinishedReleasesUseCase, FakeReleaseRepository, FakeRadarrService]:
+    recompute_state: FakeRecomputeState | None = None,
+) -> tuple[
+    ExportFinishedReleasesUseCase, FakeReleaseRepository, FakeRadarrService, FakeRecomputeState
+]:
     repository = FakeReleaseRepository(release)
     radarr = radarr or FakeRadarrService()
+    recompute_state = recompute_state or FakeRecomputeState()
     use_case = ExportFinishedReleasesUseCase(
         repository=repository,  # type: ignore[arg-type]
         sonarr=FakeSonarrService(),  # type: ignore[arg-type]
@@ -209,8 +227,9 @@ def build_use_case(
         ),
         download_service=download_service or FakeDownloadService(),  # type: ignore[arg-type]
         request_repository=request_repository,  # type: ignore[arg-type]
+        recompute_state=recompute_state,  # type: ignore[arg-type]
     )
-    return use_case, repository, radarr
+    return use_case, repository, radarr, recompute_state
 
 
 async def test_a_movie_release_is_imported_into_radarr_and_closed() -> None:
@@ -218,7 +237,7 @@ async def test_a_movie_release_is_imported_into_radarr_and_closed() -> None:
     release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
     request_repository = FakeMediaRequestRepository()
 
-    use_case, repository, radarr = build_use_case(release, request_repository)
+    use_case, repository, radarr, recompute_state = build_use_case(release, request_repository)
     result = await use_case.execute()
 
     assert result.succeeded == 1
@@ -230,10 +249,9 @@ async def test_a_movie_release_is_imported_into_radarr_and_closed() -> None:
         )
     ]
     assert repository.release_updates["last_exported_info_hash"] == "hash-1"
-    assert [(request_id, data.status) for request_id, data in request_repository.updates] == [
-        ("req-1", MediaRequestStatus.COMPLETED)
-    ]
+    assert [request_id for request_id, _ in request_repository.updates] == ["req-1"]
     assert request_repository.updates[0][1].exported_at is not None
+    assert recompute_state.calls == [(["req-1"], {"req-1": ArrCompletion(is_complete=True)})]
 
 
 async def test_only_the_feature_is_imported_not_the_extras() -> None:
@@ -243,7 +261,7 @@ async def test_only_the_feature_is_imported_not_the_extras() -> None:
     ]
     release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
 
-    use_case, _, radarr = build_use_case(release, FakeMediaRequestRepository())
+    use_case, _, radarr, _ = build_use_case(release, FakeMediaRequestRepository())
     await use_case.execute()
 
     assert [item.path for item in radarr.imported] == [
@@ -258,7 +276,7 @@ async def test_a_movie_radarr_has_not_taken_yet_stays_in_flight() -> None:
     release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
     request_repository = FakeMediaRequestRepository()
 
-    use_case, repository, _ = build_use_case(
+    use_case, repository, _, recompute_state = build_use_case(
         release,
         request_repository,
         FakeRadarrService(has_file=False),
@@ -267,13 +285,14 @@ async def test_a_movie_radarr_has_not_taken_yet_stays_in_flight() -> None:
 
     assert repository.release_updates["last_exported_info_hash"] == "hash-1"
     assert request_repository.updates == []
+    assert recompute_state.calls == []
 
 
 async def test_a_failed_radarr_import_leaves_the_release_unexported() -> None:
     files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
     release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
 
-    use_case, repository, _ = build_use_case(
+    use_case, repository, _, _ = build_use_case(
         release,
         FakeMediaRequestRepository(),
         FakeRadarrService(succeeds=False),
@@ -299,7 +318,7 @@ async def test_a_collection_pack_is_split_across_the_movies_it_covers() -> None:
     )
     request_repository = FakeMediaRequestRepository([make_record("req-2", 2, "Tenet")])
 
-    use_case, _, radarr = build_use_case(release, request_repository)
+    use_case, _, radarr, _ = build_use_case(release, request_repository)
     await use_case.execute()
 
     assert [(item.path, item.movie_id) for item in radarr.imported] == [
@@ -313,7 +332,7 @@ async def test_a_movie_release_stays_unexported_without_a_download_directory() -
     files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
     release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
 
-    use_case, repository, radarr = build_use_case(
+    use_case, repository, radarr, _ = build_use_case(
         release,
         FakeMediaRequestRepository(),
         download_service=FakeDownloadService(None),

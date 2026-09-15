@@ -133,6 +133,8 @@ class MediaRequest(Base):
     # Set when a release's files are accepted by Sonarr or Radarr. Left null when
     # the arr filled the request by itself, which is not an export by releasarr.
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Max `published_at` across linked releases; kept in sync by the state recompute.
+    newest_release_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Null means the *arr sync created it with nobody behind it, not "deleted user".
     owner_user_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
