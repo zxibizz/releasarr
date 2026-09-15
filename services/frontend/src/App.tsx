@@ -180,6 +180,10 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
     navigate('/login', { replace: true });
   };
 
+  /*
+   * The panel is full height, so its title would otherwise start under the iOS
+   * status bar, and the header's own inset cannot reach a portal.
+   */
   return (
     <Drawer
       opened={opened}
@@ -187,6 +191,7 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
       position="right"
       size="80%"
       title={<Logo />}
+      classNames={{ content: 'safe-area-top' }}
       hiddenFrom="sm"
       zIndex={300}
     >
@@ -262,8 +267,23 @@ export function AppLayout() {
    * and the container drops its own inline padding instead.
    */
   return (
-    <AppShell header={{ height: { base: 56, sm: 64 } }} padding={{ base: 'xs', sm: 'md' }}>
+    /*
+     * The header grows by the top inset rather than being pushed down by it:
+     * the shell derives the main area's offset from this height, so both have to
+     * come from one value. Mantine passes a `calc()` string through untouched,
+     * and the inset is 0 wherever the viewport does not reach under a notch.
+     */
+    <AppShell
+      header={{
+        height: {
+          base: 'calc(3.5rem + env(safe-area-inset-top))',
+          sm: 'calc(4rem + env(safe-area-inset-top))',
+        },
+      }}
+      padding={{ base: 'xs', sm: 'md' }}
+    >
       <AppShell.Header
+        className="safe-area-top"
         style={{
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           backdropFilter: 'blur(12px)',

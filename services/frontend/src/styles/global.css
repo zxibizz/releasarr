@@ -88,6 +88,26 @@ body::before {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/*
+ * Unlike the other three edges the top one cannot simply shift its content: the
+ * shell header has to grow by the inset as well, or the main area would start
+ * inside it. That height is a Mantine prop (see `AppLayout`), so this class
+ * only moves the bar's contents down — which, on a header whose inner children
+ * are `h="100%"`, means they stay in the band below the notch.
+ */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/*
+ * The toast strip is pinned with `top: var(--mantine-spacing-md)`. `max()` keeps
+ * that gap where there is no notch, and the guard keeps a bottom-anchored stack
+ * out of a rule that would stretch it.
+ */
+.safe-area-top-fixed:where([data-position^='top']) {
+  top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

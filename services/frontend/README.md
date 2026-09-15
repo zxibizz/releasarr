@@ -164,6 +164,13 @@ same `47.99em` so both branches switch together — change one and you must chan
 `ResponsiveModal` already handles the modal-to-full-screen switch; prefer it over a bare
 Mantine `Modal`.
 
+Fixed chrome also has to clear the phone's own furniture. `styles/global.css` holds one
+`safe-area-*` class per edge, and it is where the insets are read — apart from a centred dialog,
+which takes the top inset as its float through `yOffset` in `theme.ts`, because Mantine writes
+that offset as an inline variable no stylesheet can reach. The shell header is the other
+exception: the top inset goes into `AppShell`'s `header.height`, because Mantine derives the main
+area's offset from that same value. See `docs/pwa.md`.
+
 ## Testing
 
 Vitest with Testing Library and a jsdom environment. `src/test/utils.tsx` renders
