@@ -981,6 +981,11 @@ export interface components {
              * @description When a release for this request was last accepted by Sonarr or Radarr.
              */
             exported_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Publication date of the most recently published release linked to this request, i.e. the lowest release age. Null when no linked release reports one.
+             */
+            newest_release_published_at?: string | null;
             /** @description Identifier of the user this request belongs to. Null when unowned (e.g. auto-synced). */
             owner_user_id?: string | null;
             /** @description Localized titles and overviews keyed by 3-letter language codes. */

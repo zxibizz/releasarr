@@ -6,7 +6,6 @@ import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { apiRequest } from '@/lib/api/client';
 import { DESKTOP_WIDTH, MOBILE_WIDTH, renderWithProviders, setViewportWidth } from '@/test/utils';
 import type { MediaRequest } from '@/types';
-import { formatDate } from '@/utils/formatters';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -46,7 +45,8 @@ const series: MediaRequest = {
   status: 'downloading',
   created_at: '2026-02-01T00:00:00.000Z',
   updated_at: '2026-02-02T00:00:00.000Z',
-  exported_at: '2026-03-04T12:00:00.000Z',
+  // Ages are counted from now, so the fixture has to be relative to it too.
+  newest_release_published_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
 };
 
 describe('RequestsPage on a phone', () => {
@@ -160,20 +160,20 @@ describe('RequestsPage on a phone', () => {
     expect(screen.queryByLabelText(/^(Downloaded|Pending|Unaired) \d+/)).not.toBeInTheDocument();
   });
 
-  it('keeps the export date and the counts on one line', async () => {
+  it('keeps the release age and the counts on one line', async () => {
     vi.mocked(apiRequest).mockResolvedValue({ requests: [series], total: 1 });
 
     renderWithProviders(<RequestsPage />);
 
     await screen.findByText('Severance');
 
-    const date = screen.getByLabelText(`Last exported at ${formatDate(series.exported_at!)}`);
+    const age = screen.getByLabelText('Newest release: 3 days');
     const summary = screen.getByLabelText('Downloaded 7, Pending 2, Unaired 1');
 
-    // Both sit in the same footer row, date first, so the card gains no height
+    // Both sit in the same footer row, age first, so the card gains no height
     // from either fact.
-    const footer = date.parentElement;
+    const footer = age.parentElement;
     expect(footer).toBe(summary.parentElement);
-    expect(date.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(age.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

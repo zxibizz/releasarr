@@ -184,7 +184,8 @@ class FakeMediaRequestRepository(MediaRequestRepository):
             **{
                 field.name: getattr(data, field.name)
                 for field in fields(MediaRequestRecord)
-                if field.name not in {"created_at", "updated_at"}
+                # Derived on read, so the create payload carries no value for them.
+                if field.name not in {"created_at", "updated_at", "newest_release_published_at"}
             },
             created_at=now,
             updated_at=now,
