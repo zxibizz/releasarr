@@ -20,6 +20,7 @@ from src.application.use_cases.releases.suggest_file_mappings import (
 )
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaType, ReleaseStatus
+from tests.builders import stub_media_request_repository
 
 
 def make_file(file_id: str, path: str) -> ReleaseFileRecord:
@@ -95,6 +96,7 @@ def build_use_case(
     auto_mapper = ReleaseAutoMapper(
         repository=repository,  # type: ignore[arg-type]
         file_matcher=ReleaseFileMatcher(),
+        request_repository=stub_media_request_repository(),
     )
     return SuggestReleaseFileMappingsUseCase(
         repository=repository,  # type: ignore[arg-type]

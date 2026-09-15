@@ -15,6 +15,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 from src.domain.enums import ReleaseStatus, RequestWarningCode
+from tests.builders import stub_recompute_state, stub_warning_repository
 
 RELEASE_ID = "https://tracker.example/details/1"
 
@@ -149,6 +150,17 @@ class FakeDownloadService:
         )
 
 
+def build_use_case(
+    repository: FakeReleaseRepository,
+    search_service: FakeSearchService,
+    download_service: FakeDownloadService,
+    **overrides: Any,
+) -> RegrabOutdatedReleasesUseCase:
+    overrides.setdefault("warning_repository", stub_warning_repository())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return RegrabOutdatedReleasesUseCase(repository, search_service, download_service, **overrides)
+
+
 async def test_regrab_updates_name_and_info_url_when_hash_changed() -> None:
     release = make_release()
     match = make_match()
@@ -156,7 +168,7 @@ async def test_regrab_updates_name_and_info_url_when_hash_changed() -> None:
     search_service = FakeSearchService(match)
     download_service = FakeDownloadService()
 
-    use_case = RegrabOutdatedReleasesUseCase(repository, search_service, download_service)
+    use_case = build_use_case(repository, search_service, download_service)
     await use_case.execute()
 
     assert repository.updates["name"] == match.release_name
@@ -173,7 +185,7 @@ async def test_regrab_does_not_redownload_when_hash_unchanged() -> None:
     search_service = FakeSearchService(match)
     download_service = FakeDownloadService()
 
-    use_case = RegrabOutdatedReleasesUseCase(repository, search_service, download_service)
+    use_case = build_use_case(repository, search_service, download_service)
     await use_case.execute()
 
     assert repository.updates == {}
@@ -186,7 +198,7 @@ async def test_regrab_skips_releases_with_no_matching_indexer_result() -> None:
     search_service = FakeSearchService(None)
     download_service = FakeDownloadService()
 
-    use_case = RegrabOutdatedReleasesUseCase(repository, search_service, download_service)
+    use_case = build_use_case(repository, search_service, download_service)
     await use_case.execute()
 
     assert repository.updates == {}
@@ -231,9 +243,7 @@ async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
         [IndexerRecord(indexer_id=7, name="RuTracker", enabled=True, supports_search=True)]
     )
 
-    use_case = RegrabOutdatedReleasesUseCase(
-        repository, search_service, download_service, directory=directory
-    )
+    use_case = build_use_case(repository, search_service, download_service, directory=directory)
     await use_case.execute()
 
     assert search_service.indexer_ids == [7]
@@ -259,7 +269,7 @@ async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -
     )
     warning_repository = FakeRequestWarningRepository()
 
-    use_case = RegrabOutdatedReleasesUseCase(
+    use_case = build_use_case(
         repository,
         search_service,
         download_service,
@@ -290,7 +300,7 @@ async def test_regrab_warns_when_the_indexer_is_disabled_in_prowlarr() -> None:
     )
     warning_repository = FakeRequestWarningRepository()
 
-    use_case = RegrabOutdatedReleasesUseCase(
+    use_case = build_use_case(
         repository,
         search_service,
         download_service,
@@ -318,9 +328,7 @@ async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> No
         [IndexerRecord(indexer_id=9, name="SomeOtherIndexer", enabled=True, supports_search=True)]
     )
 
-    use_case = RegrabOutdatedReleasesUseCase(
-        repository, search_service, download_service, directory=directory
-    )
+    use_case = build_use_case(repository, search_service, download_service, directory=directory)
     await use_case.execute()
 
     assert search_service.indexer_ids == [None]
@@ -334,9 +342,7 @@ async def test_regrab_falls_back_to_unscoped_search_when_directory_fails() -> No
     download_service = FakeDownloadService()
     directory = FakeIndexerDirectory([], error=RuntimeError("prowlarr unreachable"))
 
-    use_case = RegrabOutdatedReleasesUseCase(
-        repository, search_service, download_service, directory=directory
-    )
+    use_case = build_use_case(repository, search_service, download_service, directory=directory)
     await use_case.execute()
 
     assert search_service.indexer_ids == [None]
@@ -351,7 +357,7 @@ async def test_regrab_warns_the_request_when_the_indexer_is_unavailable(
     search_service = FakeSearchService(None, error=ReleaseSearchUnavailableError("indexer banned"))
     download_service = FakeDownloadService()
 
-    use_case = RegrabOutdatedReleasesUseCase(repository, search_service, download_service)
+    use_case = build_use_case(repository, search_service, download_service)
     await use_case.execute()
 
     warnings = [record for record in captured_records if record.get("request_id") == "req-1"]
@@ -369,11 +375,11 @@ async def test_regrab_warns_every_request_sharing_the_release() -> None:
     download_service = FakeDownloadService()
 
     logged_request_ids: list[str] = []
-    use_case = RegrabOutdatedReleasesUseCase(
+    use_case = build_use_case(
         repository,
         search_service,
         download_service,
-        logger=_CollectingLogger(logged_request_ids),  # type: ignore[arg-type]
+        logger=_CollectingLogger(logged_request_ids),
     )
     await use_case.execute()
 
@@ -430,7 +436,7 @@ async def test_regrab_persists_a_warning_row_when_the_indexer_is_unavailable() -
     download_service = FakeDownloadService()
     warning_repository = FakeRequestWarningRepository()
 
-    use_case = RegrabOutdatedReleasesUseCase(
+    use_case = build_use_case(
         repository, search_service, download_service, warning_repository=warning_repository
     )
     await use_case.execute()
@@ -453,7 +459,7 @@ async def test_regrab_clears_the_warning_row_on_a_valid_search_response() -> Non
     download_service = FakeDownloadService()
     warning_repository = FakeRequestWarningRepository()
 
-    use_case = RegrabOutdatedReleasesUseCase(
+    use_case = build_use_case(
         repository, search_service, download_service, warning_repository=warning_repository
     )
     await use_case.execute()

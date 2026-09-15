@@ -37,8 +37,8 @@ class ReleaseGrabFinalizer:
 
     def __init__(
         self,
-        auto_mapper: ReleaseAutoMapper | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        auto_mapper: ReleaseAutoMapper,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._auto_mapper = auto_mapper
         self._recompute_state = recompute_state
@@ -49,7 +49,7 @@ class ReleaseGrabFinalizer:
         Runs after every grab, magnet-only or not: a release with no file list
         still has to pull its request out of ``pending``.
         """
-        if self._auto_mapper is not None and release.files:
+        if release.files:
             try:
                 await self._auto_mapper.apply(release)
             except Exception as exc:  # pragma: no cover - defensive
@@ -59,8 +59,6 @@ class ReleaseGrabFinalizer:
                     error=str(exc),
                 )
 
-        if self._recompute_state is None:
-            return
         try:
             await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive

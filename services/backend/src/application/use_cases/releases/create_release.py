@@ -21,7 +21,7 @@ class CreateReleaseUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
         self._recompute_state = recompute_state
@@ -47,15 +47,14 @@ class CreateReleaseUseCase:
         )
         record = await self._repository.create_release(data)
 
-        if self._recompute_state is not None:
-            try:
-                await self._recompute_state.execute(request_ids)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning(
-                    "Failed to settle requests for a created release",
-                    release_id=record.id,
-                    error=str(exc),
-                )
+        try:
+            await self._recompute_state.execute(request_ids)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to settle requests for a created release",
+                release_id=record.id,
+                error=str(exc),
+            )
 
         return record_to_dto(record)
 

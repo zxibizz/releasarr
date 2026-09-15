@@ -28,7 +28,7 @@ class ReleaseAutoMapper:
         self,
         repository: ReleaseRepository,
         file_matcher: ReleaseFileMatcher,
-        request_repository: MediaRequestRepository | None = None,
+        request_repository: MediaRequestRepository,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
@@ -98,9 +98,6 @@ class ReleaseAutoMapper:
         """
 
         candidates = {request.id: request for request in release.requests}
-        if self._request_repository is None:
-            return list(candidates.values())
-
         await self._add_sibling_seasons(release, candidates)
         await self._add_sibling_movies(release, candidates)
         return list(candidates.values())
@@ -110,8 +107,6 @@ class ReleaseAutoMapper:
         release: ReleaseRecord,
         candidates: dict[str, ReleaseRequestSnapshot],
     ) -> None:
-        assert self._request_repository is not None
-
         series_ids = {
             request.sonarr_series_id
             for request in release.requests
@@ -149,8 +144,6 @@ class ReleaseAutoMapper:
         collection link to follow, so every movie Radarr still wants is offered
         and the matcher decides on the file names.
         """
-
-        assert self._request_repository is not None
 
         if not any(request.media_type is MediaType.MOVIE for request in release.requests):
             return

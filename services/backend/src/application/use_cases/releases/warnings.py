@@ -103,11 +103,11 @@ class RequestWarningSynchronizer:
         self,
         repository: ReleaseRepository,
         warning_repository: RequestWarningRepository,
-        evaluator: ReleaseWarningEvaluator | None = None,
+        evaluator: ReleaseWarningEvaluator,
     ) -> None:
         self._repository = repository
         self._warning_repository = warning_repository
-        self._evaluator = evaluator or ReleaseWarningEvaluator()
+        self._evaluator = evaluator
 
     async def sync_for_requests(self, request_ids: Sequence[str]) -> None:
         """Recompute `MAPPING_OVERLAP` for every one of `request_ids`.

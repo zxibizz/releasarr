@@ -41,13 +41,13 @@ class RecomputeRequestStateUseCase:
         repository: MediaRequestRepository,
         release_repository: ReleaseRepository,
         warning_synchronizer: RequestWarningSynchronizer,
-        deriver: RequestStateDeriver | None = None,
+        deriver: RequestStateDeriver,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._release_repository = release_repository
         self._warning_synchronizer = warning_synchronizer
-        self._deriver = deriver or RequestStateDeriver()
+        self._deriver = deriver
         self._logger = logger or get_logger(component="recompute_request_state")
 
     async def execute(

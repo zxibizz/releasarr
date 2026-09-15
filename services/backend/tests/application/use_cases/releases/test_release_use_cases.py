@@ -63,6 +63,14 @@ from src.domain.enums import (
     SyncJobTrigger,
 )
 from src.settings.config import AppSettings
+from tests.builders import (
+    stub_auto_mapper,
+    stub_enqueue_sync,
+    stub_existing_release_replacer,
+    stub_media_request_repository,
+    stub_recompute_state,
+    stub_warning_repository,
+)
 
 
 def stub_parse_torrent(monkeypatch, info: TorrentInfo) -> None:
@@ -208,9 +216,7 @@ class FakeReleaseRepository:
 
     async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
         wanted = set(request_ids)
-        return [
-            record for record in self.releases.values() if wanted & set(record.request_ids)
-        ]
+        return [record for record in self.releases.values() if wanted & set(record.request_ids)]
 
     async def update_file_mappings(
         self,
@@ -394,6 +400,46 @@ class FailingDownloadService(FakeDownloadService):
         raise RuntimeError("client offline")
 
 
+def build_get_release_use_case(repository, **overrides):
+    overrides.setdefault("warning_repository", stub_warning_repository())
+    return GetReleaseUseCase(repository, **overrides)
+
+
+def build_list_releases_use_case(repository, **overrides):
+    overrides.setdefault("warning_repository", stub_warning_repository())
+    return ListReleasesUseCase(repository, **overrides)
+
+
+def build_create_release_use_case(repository, **overrides):
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return CreateReleaseUseCase(repository, **overrides)
+
+
+def build_delete_release_use_case(repository, download_service, **overrides):
+    overrides.setdefault("warning_repository", stub_warning_repository())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return DeleteReleaseUseCase(repository, download_service, **overrides)
+
+
+def build_update_file_mappings_use_case(repository, **overrides):
+    overrides.setdefault("enqueue_sync", stub_enqueue_sync())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return UpdateReleaseFileMappingsUseCase(repository, **overrides)
+
+
+def build_queue_download_use_case(repository, download_service, search_service, **overrides):
+    overrides.setdefault("auto_mapper", stub_auto_mapper())
+    overrides.setdefault("existing_release_replacer", stub_existing_release_replacer())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return QueueReleaseDownloadUseCase(repository, download_service, search_service, **overrides)
+
+
+def build_existing_release_replacer(repository, download_service, **overrides):
+    overrides.setdefault("warning_repository", stub_warning_repository())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return ExistingReleaseReplacer(repository, download_service, **overrides)
+
+
 @pytest.mark.asyncio
 async def test_list_releases_uses_settings_defaults() -> None:
     releases = {
@@ -409,7 +455,7 @@ async def test_list_releases_uses_settings_defaults() -> None:
     }
     repository = FakeReleaseRepository(releases)
     settings = AppSettings(default_page=2, default_page_size=5, max_page_size=50)
-    use_case = ListReleasesUseCase(repository, settings=settings)
+    use_case = build_list_releases_use_case(repository, settings=settings)
 
     result = await use_case.execute()
 
@@ -433,7 +479,7 @@ async def test_list_releases_applies_filters() -> None:
     )
     release_b = make_release_record("rel-2", status=ReleaseStatus.COMPLETED, request_ids=["req-2"])
     repository = FakeReleaseRepository({release_a.id: release_a, release_b.id: release_b})
-    use_case = ListReleasesUseCase(repository, settings=AppSettings())
+    use_case = build_list_releases_use_case(repository, settings=AppSettings())
 
     options = ListReleasesOptions(status=ReleaseStatus.COMPLETED, request_id="req-2")
     result = await use_case.execute(options)
@@ -450,7 +496,7 @@ async def test_list_releases_applies_filters() -> None:
 
 @pytest.mark.asyncio
 async def test_get_release_not_found_raises() -> None:
-    use_case = GetReleaseUseCase(FakeReleaseRepository())
+    use_case = build_get_release_use_case(FakeReleaseRepository())
 
     with pytest.raises(ReleaseNotFoundError):
         await use_case.execute("missing")
@@ -459,7 +505,7 @@ async def test_get_release_not_found_raises() -> None:
 @pytest.mark.asyncio
 async def test_create_release_deduplicates_request_ids() -> None:
     repository = FakeReleaseRepository()
-    use_case = CreateReleaseUseCase(repository)
+    use_case = build_create_release_use_case(repository)
     command = CreateReleaseCommand(
         magnet_link="magnet:?xt=urn:btih:test",
         request_ids=["req-1", "req-1", "req-2", ""],
@@ -480,7 +526,7 @@ async def test_create_release_deduplicates_request_ids() -> None:
 async def test_create_release_conflict_when_release_exists() -> None:
     existing = make_release_record("ABC123")
     repository = FakeReleaseRepository({existing.id: existing})
-    use_case = CreateReleaseUseCase(repository)
+    use_case = build_create_release_use_case(repository)
     command = CreateReleaseCommand(
         magnet_link="magnet:?xt=urn:btih:abc123",
         request_ids=["req-1"],
@@ -493,7 +539,7 @@ async def test_create_release_conflict_when_release_exists() -> None:
 @pytest.mark.asyncio
 async def test_create_release_derives_id_and_name_from_magnet() -> None:
     repository = FakeReleaseRepository()
-    use_case = CreateReleaseUseCase(repository)
+    use_case = build_create_release_use_case(repository)
     command = CreateReleaseCommand(
         magnet_link="magnet:?xt=urn:btih:deadbeef&dn=Cool+Release",
         request_ids=["req-1"],
@@ -505,7 +551,7 @@ async def test_create_release_derives_id_and_name_from_magnet() -> None:
     assert repository.last_created.id == "DEADBEEF"
     assert repository.last_created.name == "Cool Release"
     repository = FakeReleaseRepository()
-    use_case = CreateReleaseUseCase(repository)
+    use_case = build_create_release_use_case(repository)
 
     command = CreateReleaseCommand(
         magnet_link="magnet:?xt=urn:btih:test",
@@ -522,7 +568,7 @@ async def test_create_release_derives_id_and_name_from_magnet() -> None:
 async def test_delete_release_not_found_raises() -> None:
     repository = FakeReleaseRepository()
     download_service = FakeDownloadService()
-    use_case = DeleteReleaseUseCase(repository, download_service)
+    use_case = build_delete_release_use_case(repository, download_service)
 
     with pytest.raises(ReleaseNotFoundError):
         await use_case.execute("rel-unknown")
@@ -532,7 +578,7 @@ async def test_delete_release_not_found_raises() -> None:
 async def test_update_file_mappings_validates_file_presence() -> None:
     release = make_release_record("rel-1", files=[make_release_file("file-1")])
     repository = FakeReleaseRepository({release.id: release})
-    use_case = UpdateReleaseFileMappingsUseCase(repository)
+    use_case = build_update_file_mappings_use_case(repository)
     command = UpdateFileMappingsCommand(
         release_id="rel-1",
         files=[
@@ -553,7 +599,7 @@ async def test_update_file_mappings_updates_movie_mapping() -> None:
     file_record = make_release_file("file-1")
     release = make_release_record("rel-1", files=[file_record])
     repository = FakeReleaseRepository({release.id: release})
-    use_case = UpdateReleaseFileMappingsUseCase(repository)
+    use_case = build_update_file_mappings_use_case(repository)
     command = UpdateFileMappingsCommand(
         release_id="rel-1",
         files=[
@@ -582,7 +628,7 @@ async def test_update_file_mappings_queues_the_release_for_export_again() -> Non
     release.last_exported_info_hash = release.info_hash
     release.export_failures_count = 5
     repository = FakeReleaseRepository({release.id: release})
-    use_case = UpdateReleaseFileMappingsUseCase(repository)
+    use_case = build_update_file_mappings_use_case(repository)
     command = UpdateFileMappingsCommand(
         release_id="rel-1",
         files=[
@@ -614,7 +660,7 @@ async def test_update_file_mappings_exports_a_finished_release_right_away() -> N
     )
     repository = FakeReleaseRepository({release.id: release})
     export_queue, sync_jobs = make_export_queue()
-    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+    use_case = build_update_file_mappings_use_case(repository, enqueue_sync=export_queue)
 
     await use_case.execute(make_movie_mapping_command())
 
@@ -632,7 +678,7 @@ async def test_update_file_mappings_leaves_a_downloading_release_to_its_own_expo
     )
     repository = FakeReleaseRepository({release.id: release})
     export_queue, sync_jobs = make_export_queue()
-    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+    use_case = build_update_file_mappings_use_case(repository, enqueue_sync=export_queue)
 
     await use_case.execute(make_movie_mapping_command())
 
@@ -651,7 +697,7 @@ async def test_update_file_mappings_saves_even_when_the_export_cannot_be_queued(
     )
     repository = FakeReleaseRepository({release.id: release})
     export_queue, _ = make_export_queue(error=RuntimeError("database is gone"))
-    use_case = UpdateReleaseFileMappingsUseCase(repository, enqueue_sync=export_queue)
+    use_case = build_update_file_mappings_use_case(repository, enqueue_sync=export_queue)
 
     result = await use_case.execute(make_movie_mapping_command())
 
@@ -664,7 +710,7 @@ async def test_update_file_mappings_requires_series_metadata() -> None:
     file_record = make_release_file("file-1")
     release = make_release_record("rel-1", files=[file_record])
     repository = FakeReleaseRepository({release.id: release})
-    use_case = UpdateReleaseFileMappingsUseCase(repository)
+    use_case = build_update_file_mappings_use_case(repository)
     command = UpdateFileMappingsCommand(
         release_id="rel-1",
         files=[
@@ -735,7 +781,7 @@ async def test_queue_release_download_conflict() -> None:
     repository = FakeReleaseRepository({release.id: release})
     download_service = FakeDownloadService()
     search_service = FakeSearchService(ReleaseSearchResults(results=[], query="", total_results=0))
-    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-2", release_id="rel-1")
     with pytest.raises(ReleaseDownloadConflictError):
@@ -762,7 +808,7 @@ async def test_queue_release_download_returns_operation() -> None:
     search_service = FakeSearchService(
         ReleaseSearchResults(results=[candidate], query="", total_results=1)
     )
-    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-1", release_id="rel-1")
     result = await use_case.execute(command)
@@ -791,7 +837,7 @@ async def test_queue_release_download_reports_failure() -> None:
     search_service = FakeSearchService(
         ReleaseSearchResults(results=[candidate], query="", total_results=1)
     )
-    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-1", release_id="rel-1")
     with pytest.raises(ReleaseDownloadFailedError):
@@ -819,7 +865,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
     search_service = FakeSearchService(
         ReleaseSearchResults(results=[candidate], query="query", total_results=1)
     )
-    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
 
     command = QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-1")
     result = await use_case.execute(command)
@@ -860,7 +906,7 @@ async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
         TorrentInfo(magnet_link="magnet:?xt=urn:btih:DUMMYHASH", name="Dummy", files=[]),
     )
 
-    use_case = QueueReleaseDownloadUseCase(repository, download_service, search_service)
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
     command = QueueReleaseDownloadCommand(request_id="req-2", release_id="candidate-2")
 
     result = await use_case.execute(command)
@@ -917,7 +963,11 @@ async def test_queue_release_download_maps_files_on_grab(monkeypatch) -> None:
         repository,
         download_service,
         search_service,
-        auto_mapper=ReleaseAutoMapper(repository, ReleaseFileMatcher()),
+        auto_mapper=ReleaseAutoMapper(
+            repository, ReleaseFileMatcher(), stub_media_request_repository()
+        ),
+        existing_release_replacer=stub_existing_release_replacer(),
+        recompute_state=stub_recompute_state(),
     )
     command = QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-3")
 
@@ -957,8 +1007,8 @@ async def test_queue_release_download_requires_decision_when_request_has_release
     repository = FakeReleaseRepository({existing.id: existing})
     download_service = FakeDownloadService()
     search_service = _search_service_for(_candidate("candidate-1", "req-1"))
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueReleaseDownloadUseCase(
+    replacer = build_existing_release_replacer(repository, download_service)
+    use_case = build_queue_download_use_case(
         repository, download_service, search_service, existing_release_replacer=replacer
     )
 
@@ -978,8 +1028,8 @@ async def test_queue_release_download_keep_leaves_existing_releases_alone() -> N
     repository = FakeReleaseRepository({existing.id: existing})
     download_service = FakeDownloadService()
     search_service = _search_service_for(_candidate("candidate-1", "req-1"))
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueReleaseDownloadUseCase(
+    replacer = build_existing_release_replacer(repository, download_service)
+    use_case = build_queue_download_use_case(
         repository, download_service, search_service, existing_release_replacer=replacer
     )
 
@@ -998,8 +1048,8 @@ async def test_queue_release_download_replace_deletes_exclusive_release() -> Non
     repository = FakeReleaseRepository({existing.id: existing})
     download_service = FakeDownloadService()
     search_service = _search_service_for(_candidate("candidate-1", "req-1"))
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueReleaseDownloadUseCase(
+    replacer = build_existing_release_replacer(repository, download_service)
+    use_case = build_queue_download_use_case(
         repository, download_service, search_service, existing_release_replacer=replacer
     )
 
@@ -1023,8 +1073,8 @@ async def test_queue_release_download_replace_unlinks_shared_release() -> None:
     repository = FakeReleaseRepository({shared.id: shared})
     download_service = FakeDownloadService()
     search_service = _search_service_for(_candidate("candidate-1", "req-1"))
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueReleaseDownloadUseCase(
+    replacer = build_existing_release_replacer(repository, download_service)
+    use_case = build_queue_download_use_case(
         repository, download_service, search_service, existing_release_replacer=replacer
     )
 
@@ -1220,9 +1270,7 @@ async def test_search_release_sources_skips_indexers_blocked_by_prowlarr() -> No
             _indexer(2, "Banned", disabled_till=datetime(2026, 1, 1, 1, tzinfo=UTC)),
         ]
     )
-    search_service = FakePerIndexerSearchService(
-        results_by_indexer={1: [_result("ok", seeders=1)]}
-    )
+    search_service = FakePerIndexerSearchService(results_by_indexer={1: [_result("ok", seeders=1)]})
     use_case = SearchReleaseSourcesUseCase(search_service, directory=directory, clock=lambda: now)
 
     response = await use_case.execute(SearchReleaseSourcesCommand(query="test"))
@@ -1296,7 +1344,7 @@ async def test_delete_release_removes_record() -> None:
     release = make_release_record("rel-1")
     repository = FakeReleaseRepository({release.id: release})
     download_service = FakeDownloadService()
-    use_case = DeleteReleaseUseCase(repository, download_service)
+    use_case = build_delete_release_use_case(repository, download_service)
 
     await use_case.execute("rel-1")
 

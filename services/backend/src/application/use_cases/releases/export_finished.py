@@ -56,9 +56,9 @@ class ExportFinishedReleasesUseCase:
         sonarr: SonarrService,
         auto_mapper: ReleaseAutoMapper,
         download_service: ReleaseDownloadService,
-        radarr: RadarrService | None = None,
-        request_repository: MediaRequestRepository | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        radarr: RadarrService,
+        request_repository: MediaRequestRepository,
+        recompute_state: RecomputeRequestStateUseCase,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
@@ -251,9 +251,6 @@ class ExportFinishedReleasesUseCase:
         path there is no per-episode lookup to do first.
         """
 
-        if self._radarr is None:
-            return set()
-
         import_files: list[MovieImportFile] = []
         imported_movies: set[int] = set()
         exported_per_request: dict[str, int] = {}
@@ -301,9 +298,6 @@ class ExportFinishedReleasesUseCase:
         there Radarr's confirmation answers both questions at once.
         """
 
-        if self._request_repository is None:
-            return
-
         details_by_series: dict[int, SeriesDetails] = {}
         exported_at = datetime.now(UTC)
         arr_completion: dict[str, ArrCompletion] = {}
@@ -331,7 +325,7 @@ class ExportFinishedReleasesUseCase:
                     season_number=request.season_number,
                 )
 
-        if arr_completion and self._recompute_state is not None:
+        if arr_completion:
             await self._recompute_state.execute(
                 list(arr_completion.keys()), arr_completion=arr_completion
             )
@@ -380,7 +374,7 @@ class ExportFinishedReleasesUseCase:
         """
 
         movie_id = request.radarr_movie_id
-        if self._radarr is None or movie_id is None or movie_id not in imported.movies:
+        if movie_id is None or movie_id not in imported.movies:
             return None
         if not (await self._radarr.get_movie(movie_id)).has_file:
             return None

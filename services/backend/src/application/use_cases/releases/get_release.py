@@ -16,7 +16,7 @@ class GetReleaseUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
-        warning_repository: RequestWarningRepository | None = None,
+        warning_repository: RequestWarningRepository,
     ) -> None:
         self._repository = repository
         self._warning_repository = warning_repository
@@ -26,10 +26,8 @@ class GetReleaseUseCase:
         if record is None:
             raise ReleaseNotFoundError(release_id)
 
-        warnings = []
-        if self._warning_repository is not None:
-            by_release = await self._warning_repository.list_for_releases([release_id])
-            warnings = rows_to_release_warnings(by_release.get(release_id, []))
+        by_release = await self._warning_repository.list_for_releases([release_id])
+        warnings = rows_to_release_warnings(by_release.get(release_id, []))
 
         return record_to_dto(record, warnings)
 

@@ -29,8 +29,8 @@ class UpdateReleaseFileMappingsUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
-        enqueue_sync: EnqueueSyncJobUseCase | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        enqueue_sync: EnqueueSyncJobUseCase,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
         self._enqueue_sync = enqueue_sync
@@ -72,8 +72,6 @@ class UpdateReleaseFileMappingsUseCase:
         return True
 
     async def _settle_requests(self, release: ReleaseRecord) -> None:
-        if self._recompute_state is None:
-            return
         try:
             await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive
@@ -95,7 +93,7 @@ class UpdateReleaseFileMappingsUseCase:
         the run that follows its completion picks the new mapping up.
         """
 
-        if self._enqueue_sync is None or release.status is not ReleaseStatus.COMPLETED:
+        if release.status is not ReleaseStatus.COMPLETED:
             return
 
         try:
