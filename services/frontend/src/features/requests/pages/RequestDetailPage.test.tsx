@@ -212,6 +212,12 @@ describe('RequestDetailPage', () => {
             details: { reason: 'indexer offline' },
             created_at: '2026-01-01T00:00:00Z',
           },
+          {
+            code: 'release_not_listed',
+            release_id: 'rel-3',
+            details: { indexer: 'Indexer A' },
+            created_at: '2026-01-01T00:00:00Z',
+          },
         ],
       },
     });
@@ -225,6 +231,7 @@ describe('RequestDetailPage', () => {
     expect(
       screen.getByText('Could not check for a fresher release: indexer offline'),
     ).toBeInTheDocument();
+    expect(screen.getByText('No longer listed by its indexer: Indexer A')).toBeInTheDocument();
   });
 
   it('keeps quiet when the episodes cannot be listed', async () => {

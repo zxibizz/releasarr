@@ -162,18 +162,20 @@ release can serve several requests — a complete-series pack, or a movie collec
 
 One row per (request, release, code) — a condition worth surfacing on a request but not worth
 blocking on. `release_id` is nullable, for a future request-only code that names no release.
-`code` is `mapping_overlap` or `regrab_indexer_unavailable`; `details` is a JSON blob whose shape
-is code-specific (`{file_ids, related_release_ids}` for an overlap, `{reason}` for a regrab
-failure).
+`code` is `mapping_overlap`, `regrab_indexer_unavailable`, or `release_not_listed`; `details` is a
+JSON blob whose shape is code-specific (`{file_ids, related_release_ids}` for an overlap,
+`{reason}` for an indexer that could not be asked, `{indexer}` for one that dropped the release).
 
 | Code | Written by | Cleared by |
 | --- | --- | --- |
 | `mapping_overlap` | `RequestWarningSynchronizer`, called from every mapping-changing use case (`UpdateReleaseFileMappingsUseCase`, `ReleaseGrabFinalizer.auto_map_files`, `DeleteReleaseUseCase`, `ExistingReleaseReplacer`) and a reconcile pass folded into `release_sync` | A recompute over the request's whole release set that no longer finds the release in an overlapping bucket — see `RequestWarningSynchronizer.sync_for_requests` |
 | `regrab_indexer_unavailable` | `ReleaseRegrapper` — driven by the scheduled `regrab` sweep and by `RefreshRequestReleasesUseCase` — on `ReleaseSearchUnavailableError` | The same check, the next time that release's own search returns a valid response, whether or not anything changed |
+| `release_not_listed` | `ReleaseRegrapper`, same two callers, when the indexer answers but no result carries the release's own id | The same check, once a result matches that id again. An indexer that could not be asked leaves the row alone: an answer nobody got disproves nothing |
 
-The two codes are scoped to write and clear at different granularities on purpose — see
+The three codes are deliberately not scoped the same way — see
 [`services/backend/docs/integrations.md`](../services/backend/docs/integrations.md#searching-indexers-one-at-a-time)
-for why one clears per-request and the other per-release.
+for why `mapping_overlap` clears per-request while the two codes written by the re-grab check
+clear per-release.
 
 **Removal is explicit, not left to the FK cascade.** `ondelete="CASCADE"` is set on both FKs for
 Postgres correctness, but nothing relies on it: SQLite does not enforce foreign keys (there is no
@@ -282,6 +284,7 @@ one is a four-place change plus a migration.
 | `1c2d3e4f5a6b` | Create `users`, `refresh_tokens`, `service_api_keys` |
 | `2d3e4f5a6b7c` | Add `media_requests.owner_user_id` |
 | `dfed8040c181` | Add `media_requests.newest_release_published_at`, backfilled from releases |
+| `e5b3c7d9a1f2` | Add the `release_not_listed` label to the `request_warning_code` enum |
 
 ## The enum migration trap
 

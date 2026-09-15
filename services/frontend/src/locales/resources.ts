@@ -491,6 +491,10 @@ export const resources = {
         regrabWarning: {
           badge: 'Indexer unavailable',
         },
+        notListedWarning: {
+          badge: 'Not listed',
+          tooltip: 'No longer listed by its indexer: {{indexer}}',
+        },
       },
       existingReleases: {
         title: 'This request already has releases',
@@ -597,7 +601,9 @@ export const resources = {
           title: 'Warnings',
           mappingOverlap: 'Shares files with another release linked to this request.',
           regrabIndexerUnavailable: 'Could not check for a fresher release: {{reason}}',
+          releaseNotListed: 'No longer listed by its indexer: {{indexer}}',
           unknownReason: 'unknown reason',
+          unknownIndexer: 'unknown indexer',
         },
       },
       requestLogsModal: {
@@ -1395,6 +1401,10 @@ export const resources = {
         regrabWarning: {
           badge: 'Индексер недоступен',
         },
+        notListedWarning: {
+          badge: 'Нет в индексере',
+          tooltip: 'Больше не числится в индексере: {{indexer}}',
+        },
       },
       existingReleases: {
         title: 'У этого запроса уже есть релизы',
@@ -1503,7 +1513,9 @@ export const resources = {
           title: 'Предупреждения',
           mappingOverlap: 'Пересекается по файлам с другим релизом этого запроса.',
           regrabIndexerUnavailable: 'Не удалось проверить наличие более свежего релиза: {{reason}}',
+          releaseNotListed: 'Больше не числится в индексере: {{indexer}}',
           unknownReason: 'причина неизвестна',
+          unknownIndexer: 'индексер неизвестен',
         },
       },
       requestLogsModal: {

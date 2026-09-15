@@ -45,6 +45,7 @@ class RequestWarningCode(StrEnum):
 
     MAPPING_OVERLAP = "mapping_overlap"
     REGRAB_INDEXER_UNAVAILABLE = "regrab_indexer_unavailable"
+    RELEASE_NOT_LISTED = "release_not_listed"
 
 
 class ExistingReleasesAction(StrEnum):

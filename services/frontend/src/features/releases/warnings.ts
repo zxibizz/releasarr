@@ -30,3 +30,12 @@ export const regrabUnavailableReason = (release: Release): string | null => {
   const reason = warning?.details?.reason;
   return typeof reason === 'string' ? reason : null;
 };
+
+/** The indexer that no longer lists this release, if a check found it missing there. */
+export const notListedIndexer = (release: Release): string | null => {
+  const warning = (release.warnings ?? []).find(
+    (candidate) => candidate.code === 'release_not_listed',
+  );
+  const indexer = warning?.details?.indexer;
+  return typeof indexer === 'string' ? indexer : null;
+};

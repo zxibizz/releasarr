@@ -354,6 +354,27 @@ def test_rows_to_release_warnings_includes_a_regrab_row_alongside_an_overlap_row
     assert unavailable.details["reason"] == "indexer RuTracker is disabled in Prowlarr"
 
 
+def test_rows_to_release_warnings_carries_a_not_listed_row_with_its_indexer() -> None:
+    """The release card names the indexer, so the row's detail has to survive."""
+
+    rows = [
+        RequestWarningRecord(
+            request_id="req-1",
+            release_id="rel-1",
+            code=RequestWarningCode.RELEASE_NOT_LISTED,
+            details={"indexer": "RuTracker"},
+        ),
+    ]
+
+    warnings = rows_to_release_warnings(rows)
+
+    assert len(warnings) == 1
+    assert warnings[0].code is RequestWarningCode.RELEASE_NOT_LISTED
+    assert warnings[0].file_ids == []
+    assert warnings[0].related_release_ids == []
+    assert warnings[0].details == {"indexer": "RuTracker"}
+
+
 def test_rows_to_release_warnings_dedupes_the_same_code_across_requests() -> None:
     """Two rows for the same release/code (one per sharing request) collapse to one."""
 

@@ -209,17 +209,24 @@ async def test_regrab_does_not_redownload_when_hash_unchanged() -> None:
     assert download_service.calls == []
 
 
-async def test_regrab_skips_releases_with_no_matching_indexer_result() -> None:
+async def test_regrab_warns_when_the_release_is_no_longer_listed() -> None:
     release = make_release()
     repository = FakeReleaseRepository(release)
     search_service = FakeSearchService(None)
     download_service = FakeDownloadService()
+    warning_repository = FakeRequestWarningRepository()
 
-    use_case = build_use_case(repository, search_service, download_service)
+    use_case = build_use_case(
+        repository, search_service, download_service, warning_repository=warning_repository
+    )
     await use_case.execute()
 
     assert repository.updates == {}
     assert download_service.calls == []
+    release_ids, rows = calls_by_code(warning_repository)[RequestWarningCode.RELEASE_NOT_LISTED]
+    assert release_ids == [RELEASE_ID]
+    assert [row.request_id for row in rows] == ["req-1"]
+    assert rows[0].details == {"indexer": "RuTracker"}
 
 
 class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
@@ -453,6 +460,19 @@ class FakeRequestWarningRepository(UnusedRequestWarningCalls):
         raise AssertionError("not used in this test")
 
 
+def calls_by_code(
+    repository: FakeRequestWarningRepository,
+) -> dict[RequestWarningCode, tuple[list[str], list[Any]]]:
+    """The release ids and rows each code's last replace left behind, keyed by code.
+
+    One outcome can touch two codes - the indexer-unavailable clear and the
+    not-listed write are separate calls, since `replace_for_releases` is
+    single-code - so tests index by code rather than by position.
+    """
+
+    return {code: (release_ids, rows) for code, release_ids, rows in repository.calls}
+
+
 async def test_regrab_persists_a_warning_row_when_the_indexer_is_unavailable() -> None:
     release = make_release()
     repository = FakeReleaseRepository(release)
@@ -473,7 +493,7 @@ async def test_regrab_persists_a_warning_row_when_the_indexer_is_unavailable() -
     assert rows[0].details == {"reason": "indexer banned"}
 
 
-async def test_regrab_clears_the_warning_row_on_a_valid_search_response() -> None:
+async def test_regrab_clears_the_warning_rows_on_a_valid_search_response() -> None:
     """A release that regains a response is cleared, even if nothing else changed."""
 
     release = make_release(info_hash="SAMEHASH")
@@ -488,8 +508,32 @@ async def test_regrab_clears_the_warning_row_on_a_valid_search_response() -> Non
     )
     await use_case.execute()
 
-    assert len(warning_repository.calls) == 1
-    code, release_ids, rows = warning_repository.calls[0]
-    assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
-    assert release_ids == [RELEASE_ID]
-    assert rows == []
+    # The search answered and named this release, which settles both codes.
+    assert len(warning_repository.calls) == 2
+    by_code = calls_by_code(warning_repository)
+    for code in (
+        RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+        RequestWarningCode.RELEASE_NOT_LISTED,
+    ):
+        release_ids, rows = by_code[code]
+        assert release_ids == [RELEASE_ID]
+        assert rows == []
+
+
+async def test_regrab_leaves_the_not_listed_warning_alone_when_the_indexer_cannot_answer() -> None:
+    """An indexer that never answered says nothing about whether it still lists the release."""
+
+    release = make_release()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(None, error=ReleaseSearchUnavailableError("indexer banned"))
+    download_service = FakeDownloadService()
+    warning_repository = FakeRequestWarningRepository()
+
+    use_case = build_use_case(
+        repository, search_service, download_service, warning_repository=warning_repository
+    )
+    await use_case.execute()
+
+    assert [code for code, _, _ in warning_repository.calls] == [
+        RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
+    ]

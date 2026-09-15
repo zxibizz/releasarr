@@ -1172,7 +1172,7 @@ export interface components {
          * @description A condition worth surfacing but not worth blocking on. Shared between release-scoped and request-scoped warnings, since both are stored as the same (request, release, code) row.
          * @enum {string}
          */
-        RequestWarningCode: "mapping_overlap" | "regrab_indexer_unavailable";
+        RequestWarningCode: "mapping_overlap" | "regrab_indexer_unavailable" | "release_not_listed";
         /** @description A warning as it appears on a request. `release_id` is the release the warning is about, when the code names one. */
         RequestWarning: {
             code: components["schemas"]["RequestWarningCode"];
@@ -1183,7 +1183,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @description A warning as it appears on a release. `mapping_overlap` populates `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` leaves both empty and puts its reason in `details` instead. */
+        /** @description A warning as it appears on a release. `mapping_overlap` populates `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` and `release_not_listed` leave both empty and put their own detail in `details` instead - a reason string for the first, the indexer that dropped the release for the second. */
         ReleaseWarning: {
             code: components["schemas"]["RequestWarningCode"];
             /** @description Files on this release involved in the warning. */

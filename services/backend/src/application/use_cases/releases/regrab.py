@@ -173,7 +173,13 @@ class ReleaseRegrapper:
                 release_name=release.name,
                 indexer=release.torrent_source,
             )
+            await self._write_not_listed_warning(release, indexer=release.torrent_source)
             return False
+
+        # The release is still listed, so a row an earlier check left behind is
+        # cleared here rather than on any valid response: an indexer that
+        # answered without knowing this release is exactly what set it.
+        await self._write_not_listed_warning(release, indexer=None)
 
         new_hash: str | None = None
         torrent_bytes: bytes | None = None
@@ -322,6 +328,45 @@ class ReleaseRegrapper:
             self._log_for_requests(
                 self._logger.warning,
                 "Failed to persist regrab indexer-unavailable warning",
+                release,
+                error=str(exc),
+            )
+
+    async def _write_not_listed_warning(self, release: ReleaseRecord, indexer: str | None) -> None:
+        """Record or clear `RELEASE_NOT_LISTED` for this release alone.
+
+        Overloading `indexer` with None to mean "clear" mirrors
+        `_write_regrab_warning`, and is only safe because the two callers sit on
+        either side of the match test: the release is guaranteed to carry a
+        `torrent_source`, since releases without one are never checked.
+
+        The code is deliberately not cleared on every valid search response the
+        way `REGRAB_INDEXER_UNAVAILABLE` is: an indexer answering without this
+        release is precisely the condition, so only finding it again resolves
+        it.
+        """
+
+        rows = (
+            []
+            if indexer is None
+            else [
+                RequestWarningRecord(
+                    request_id=request_id,
+                    release_id=release.id,
+                    code=RequestWarningCode.RELEASE_NOT_LISTED,
+                    details={"indexer": indexer},
+                )
+                for request_id in release.request_ids
+            ]
+        )
+        try:
+            await self._warning_repository.replace_for_releases(
+                RequestWarningCode.RELEASE_NOT_LISTED, [release.id], rows
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._log_for_requests(
+                self._logger.warning,
+                "Failed to persist release-not-listed warning",
                 release,
                 error=str(exc),
             )

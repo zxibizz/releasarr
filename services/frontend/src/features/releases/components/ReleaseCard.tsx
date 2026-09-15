@@ -29,6 +29,7 @@ import {
 import { groupFilesByType } from '@/utils/files';
 import {
   hasMappingOverlap,
+  notListedIndexer,
   overlapRelatedReleaseCount,
   regrabUnavailableReason,
 } from '@/features/releases/warnings';
@@ -184,6 +185,22 @@ export function ReleaseCard({
                   leftSection={<IconAlertTriangle size={12} />}
                 >
                   {t('releaseCard.regrabWarning.badge')}
+                </Badge>
+              </Tooltip>
+            )}
+            {notListedIndexer(release) && (
+              <Tooltip
+                label={t('releaseCard.notListedWarning.tooltip', {
+                  indexer: notListedIndexer(release),
+                })}
+              >
+                <Badge
+                  variant="light"
+                  color="yellow"
+                  radius="sm"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  {t('releaseCard.notListedWarning.badge')}
                 </Badge>
               </Tooltip>
             )}
