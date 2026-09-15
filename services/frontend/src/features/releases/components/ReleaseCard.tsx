@@ -213,22 +213,24 @@ export function ReleaseCard({
         )}
 
         {!isComplete && (
-          <Group gap="xs">
-            <Badge variant="light" color="blue" radius="sm">
-              {formatFileSize(downloadedBytes)} / {formatFileSize(release.size)}
-            </Badge>
-            {release.download_speed > 0 && (
-              <Badge variant="light" color="blue" radius="sm">
-                ↓ {formatSpeed(release.download_speed)}
+          <Group gap={6} wrap="wrap">
+            <Group gap={6} wrap="nowrap">
+              <Badge variant="light" color="blue" radius="sm" size="sm">
+                {formatFileSize(downloadedBytes)} / {formatFileSize(release.size)}
               </Badge>
-            )}
-            {eta && (
-              <Badge variant="light" color="blue" radius="sm">
-                ETA {eta}
-              </Badge>
-            )}
+              {release.download_speed > 0 && (
+                <Badge variant="light" color="blue" radius="sm" size="sm">
+                  ↓ {formatSpeed(release.download_speed)}
+                </Badge>
+              )}
+              {eta && (
+                <Badge variant="light" color="blue" radius="sm" size="sm">
+                  ETA {eta}
+                </Badge>
+              )}
+            </Group>
             {release.upload_speed > 0 && (
-              <Badge variant="light" color="cyan" radius="sm">
+              <Badge variant="light" color="cyan" radius="sm" size="sm">
                 ↑ {formatSpeed(release.upload_speed)}
               </Badge>
             )}

@@ -108,6 +108,41 @@ body::before {
   top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
 }
 
+/*
+ * The release list's refresh reports back on the button itself rather than in a
+ * toast, which would cover the list it just updated: it spins while the server
+ * checks, then pops and turns the success colour. Reduced motion flattens the
+ * pop like any other animation.
+ */
+@keyframes refresh-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.22);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.refresh-pop {
+  animation: refresh-pop 380ms ease-out;
+}
+
+/*
+ * The transition sits on the button permanently: one that arrived with the flash
+ * would leave with it, and the colour would snap back to the theme instead of
+ * fading.
+ */
+.refresh-action {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

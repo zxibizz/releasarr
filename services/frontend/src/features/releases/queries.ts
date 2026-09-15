@@ -91,6 +91,9 @@ export function useReleaseActions(requestId: string | undefined) {
  * - re-grabbing the finished ones whose indexer replaced the torrent, reading
  * the rest back from the download client - and returns the list as it now
  * stands, so the cards update without a second round trip.
+ *
+ * A success is deliberately silent: the list underneath is the confirmation, and
+ * a toast would sit on top of it.
  */
 export function useRefreshRequestReleases(requestId: string | undefined) {
   const queryClient = useQueryClient();
@@ -103,14 +106,6 @@ export function useRefreshRequestReleases(requestId: string | undefined) {
       // A re-grab puts a torrent back in flight, which moves the request's own
       // status and the release age it reports.
       void queryClient.invalidateQueries({ queryKey: requestKeys.detail(requestId ?? '') });
-
-      notifications.show({
-        title: t('releasesList.refresh.done'),
-        message: response.regrabbed
-          ? t('releasesList.refresh.regrabbed', { count: response.regrabbed })
-          : undefined,
-        color: 'teal',
-      });
     },
     onError: (error: unknown) => {
       notifications.show({

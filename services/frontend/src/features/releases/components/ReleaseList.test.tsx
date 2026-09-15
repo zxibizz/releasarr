@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,7 +56,7 @@ function mockApi(progress: number, refresh?: Partial<ReleaseRefreshResponse>) {
   });
 }
 
-const REFRESH_BUTTON = /Check download progress/;
+const REFRESH_BUTTON = 'Refresh';
 
 function renderList() {
   return renderWithProviders(
@@ -92,20 +92,37 @@ describe('ReleaseList', () => {
     ).toHaveLength(1);
   });
 
-  it('says how many releases were re-grabbed', async () => {
+  it('pops and turns the success colour when the answer lands, without a toast', async () => {
     mockApi(41);
     renderList();
     await screen.findByText('41.0%');
 
-    mockApi(41, { regrabbed: 2 });
-    await userEvent.click(screen.getByRole('button', { name: REFRESH_BUTTON }));
+    const button = screen.getByRole('button', { name: REFRESH_BUTTON });
+    expect(button).not.toHaveClass('refresh-pop');
+    expect(button.getAttribute('style')).not.toContain('teal');
 
-    expect(notificationsMock.show).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Releases refreshed',
-        message: '2 releases were re-grabbed',
-      }),
-    );
+    // The confirmation is transient by design, so it is watched for rather than
+    // looked at: a busy test worker can sit past the whole flash before a poll
+    // gets a chance to run.
+    const observed: { pop: boolean; teal: boolean }[] = [];
+    const observer = new MutationObserver(() => {
+      observed.push({
+        pop: button.classList.contains('refresh-pop'),
+        teal: (button.getAttribute('style') ?? '').includes('teal'),
+      });
+    });
+    observer.observe(button, { attributes: true, childList: true });
+
+    mockApi(41, { statuses_updated: 1 });
+    await userEvent.click(button);
+
+    // Mantine applies `color` as inline CSS variables, which is what the success
+    // colour looks like from here.
+    await waitFor(() => expect(observed.some((state) => state.pop && state.teal)).toBe(true));
+    observer.disconnect();
+
+    // The list underneath is the confirmation, so nothing is announced over it.
+    expect(notificationsMock.show).not.toHaveBeenCalled();
   });
 
   it('reports a refresh the server refused', async () => {
@@ -129,6 +146,21 @@ describe('ReleaseList', () => {
     );
     // A refresh that could not run leaves the list that was already loaded.
     expect(screen.getByText('41.0%')).toBeInTheDocument();
+  });
+
+  it('keeps the size, speed and ETA badges in one row that does not split them', async () => {
+    mockApi(41);
+    renderList();
+
+    // A badge renders as root > label, so the row holding it is two levels up.
+    const sizeLabel = await screen.findByText(/\d+ GB \/ \d+/);
+    const row = sizeLabel.parentElement?.parentElement;
+
+    // The three are read together, so their group refuses to wrap; anything
+    // that will not fit is pushed out of it as a whole instead.
+    expect(row).toHaveStyle({ '--group-wrap': 'nowrap' });
+    expect(row).toContainElement(screen.getByText(/^↓ /));
+    expect(row).toContainElement(screen.getByText(/^ETA /));
   });
 
   it('shows a warning banner when a release has a mapping overlap', async () => {

@@ -8,10 +8,9 @@ import {
   Stack,
   Text,
   Title,
-  Tooltip,
 } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ReleaseCard } from '@/features/releases/components/ReleaseCard';
@@ -26,6 +25,9 @@ import type { Release } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
 const STATUS_ORDER = ['downloading', 'pending', 'seeding', 'completed', 'failed'];
+
+/** How long the button stays on the success colour; the pop is shorter. */
+const SUCCESS_FLASH_MS = 1000;
 
 const sortReleases = (releases: Release[]): Release[] =>
   [...releases].sort((a, b) => {
@@ -47,6 +49,19 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
   const { data, isLoading, isFetching, error, refetch } = useReleasesByRequest(requestId);
   const { pause, resume, remove } = useReleaseActions(requestId);
   const refresh = useRefreshRequestReleases(requestId);
+
+  // The refresh does real work on the server and its answer is the list itself,
+  // so the button carries the confirmation rather than a toast over the list it
+  // just changed: it spins while the check runs, then pops and flashes the
+  // success colour. Both come off afterwards, so a later refresh repeats them
+  // instead of silently keeping an animation that already ran.
+  const [succeeded, setSucceeded] = useState(false);
+  const popTimer = useRef<number | undefined>(undefined);
+  const flashSuccess = () => {
+    window.clearTimeout(popTimer.current);
+    setSucceeded(true);
+    popTimer.current = window.setTimeout(() => setSucceeded(false), SUCCESS_FLASH_MS);
+  };
 
   // The requests list is already cached by the home route loader, so related
   // request titles come for free instead of a per-release lookup.
@@ -74,17 +89,17 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
         {/* Refetching alone would only re-read what the server already knows:
             progress comes from the download client and a replaced release only
             surfaces when its indexer is checked, so this asks for both. */}
-        <Tooltip label={t('releasesList.refresh.tooltip')}>
-          <ActionIcon
-            variant="light"
-            size="lg"
-            aria-label={t('releasesList.refresh.tooltip')}
-            loading={refresh.isPending || isFetching}
-            onClick={() => refresh.mutate()}
-          >
-            <IconRefresh size={18} />
-          </ActionIcon>
-        </Tooltip>
+        <ActionIcon
+          variant="light"
+          color={succeeded ? 'teal' : undefined}
+          size="lg"
+          aria-label={t('common.refresh')}
+          className={`refresh-action${succeeded ? ' refresh-pop' : ''}`}
+          loading={refresh.isPending || isFetching}
+          onClick={() => refresh.mutate(undefined, { onSuccess: flashSuccess })}
+        >
+          <IconRefresh size={18} />
+        </ActionIcon>
       </Group>
       {children}
     </Stack>

@@ -549,6 +549,10 @@ export class MockStore {
     statuses_updated: number;
     regrabbed: number;
   }> {
+    // Slow enough that the button's spinner is visible, the way the real one is
+    // while it searches an indexer.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
     const releases = await this.ensureReleases();
     const linked = releases.filter((release) => release.request_ids.includes(requestId));
 
