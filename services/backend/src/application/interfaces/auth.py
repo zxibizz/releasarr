@@ -46,6 +46,14 @@ class RefreshTokenRepository(Protocol):
     async def revoke_family(self, family_id: str) -> None:
         """Revoke every token in a rotation family (used on reuse or logout)."""
 
+    async def has_live_token(self, family_id: str, *, now: datetime) -> bool:
+        """Whether any token in the family is still unrevoked and unexpired.
+
+        A family with nothing live has been deliberately killed (logout, or
+        reuse detection itself), which is the signal that a token turning up
+        again must not be forgiven.
+        """
+
     async def purge_expired(self, *, now: datetime) -> int:
         """Delete tokens past their expiry. Returns the number removed."""
 

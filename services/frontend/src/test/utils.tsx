@@ -61,7 +61,7 @@ const createTestQueryClient = () =>
  * auth don't have to think about it. Pass `auth` to `renderWithProviders` to
  * exercise a restricted user or a specific permission set instead.
  */
-const TEST_ADMIN_USER: SessionUser = {
+export const TEST_ADMIN_USER: SessionUser = {
   id: 'test-admin',
   username: 'admin',
   display_name: 'Test Admin',

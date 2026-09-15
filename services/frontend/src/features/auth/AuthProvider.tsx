@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { authApi } from '@/features/auth/api';
-import { onAuthExpired, setAccessToken } from '@/lib/api/client';
+import { onAuthExpired, refreshSession, setAccessToken } from '@/lib/api/client';
 import { queryClient } from '@/lib/queryClient';
 import type { SessionUser } from '@/types';
 
@@ -67,17 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // A failed setup-status check should not itself block trying a session.
       }
 
-      try {
-        const session = await authApi.refresh();
-        setAccessToken(session.access_token);
-        if (!cancelled) {
-          setUser(session.user);
-          setStatus('authenticated');
-        }
-      } catch {
-        if (!cancelled) {
-          setStatus('anonymous');
-        }
+      // Restoring the session is the API client's job, not this component's:
+      // the bootstrap and any request that 401s share one in-flight refresh,
+      // so the second pass React StrictMode makes here joins the first rather
+      // than asking the server to rotate the same cookie twice.
+      const session = await refreshSession();
+      if (cancelled) {
+        return;
+      }
+      if (session) {
+        setUser(session.user);
+        setStatus('authenticated');
+      } else {
+        setStatus('anonymous');
       }
     })();
 

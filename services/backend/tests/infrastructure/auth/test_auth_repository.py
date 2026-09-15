@@ -93,3 +93,35 @@ async def test_service_key_created_at_comes_back_timezone_aware(
 
     assert record is not None
     assert record.created_at <= datetime.now(UTC)
+
+
+async def test_a_family_has_a_live_token_until_every_row_is_dead(
+    repository: SqlAlchemyRefreshTokenRepository, user_id: str
+) -> None:
+    now = datetime.now(UTC)
+    await repository.store(
+        id="token-1",
+        user_id=user_id,
+        family_id="family-1",
+        token_hash="hash-1",
+        remember=False,
+        issued_at=now,
+        expires_at=now + timedelta(days=1),
+    )
+    await repository.store(
+        id="token-2",
+        user_id=user_id,
+        family_id="family-1",
+        token_hash="hash-2",
+        remember=False,
+        issued_at=now,
+        expires_at=now - timedelta(seconds=1),
+    )
+
+    assert await repository.has_live_token("family-1", now=now) is True
+    assert await repository.has_live_token("family-2", now=now) is False
+
+    await repository.revoke("token-1")
+
+    # The expired sibling does not keep the family alive.
+    assert await repository.has_live_token("family-1", now=now) is False

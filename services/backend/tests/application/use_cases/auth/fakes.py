@@ -111,6 +111,12 @@ class InMemoryRefreshTokenRepository:
             if record.family_id == family_id and record.revoked_at is None:
                 record.revoked_at = now
 
+    async def has_live_token(self, family_id: str, *, now) -> bool:
+        return any(
+            record.family_id == family_id and record.revoked_at is None and record.expires_at > now
+            for record in self.tokens.values()
+        )
+
     async def purge_expired(self, *, now) -> int:
         expired = [key for key, record in self.tokens.items() if record.expires_at < now]
         for key in expired:
