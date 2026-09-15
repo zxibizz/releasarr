@@ -7,6 +7,7 @@ import type {
   ReleaseFileMappingInput,
   ReleaseFileMappingSuggestion,
   ReleaseFileMappingSuggestions,
+  ReleaseRefreshResponse,
   ReleaseSearchResponse,
   ReleasesResponse,
   SuccessResponse,
@@ -21,6 +22,12 @@ export const releasesApi = {
     });
     return response.releases;
   },
+
+  /** Ask the server to re-check this request's releases and return them as they now stand. */
+  refreshRequest: (requestId: string) =>
+    apiRequest<ReleaseRefreshResponse>(`/requests/${encode(requestId)}/releases/refresh`, {
+      method: 'POST',
+    }),
 
   search: (query: string, requestId?: string, signal?: AbortSignal) =>
     apiRequest<ReleaseSearchResponse>('/releases/search', {

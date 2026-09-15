@@ -47,6 +47,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
     ReleaseSearchService,
+    ReleaseTorrentState,
 )
 from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sonarr import (
@@ -296,6 +297,9 @@ class UnusedReleaseDownloadCalls:
         raise NotImplementedError
 
     async def delete_download(self, release_id: str) -> None:
+        raise NotImplementedError
+
+    async def get_torrent_state(self, info_hash: str) -> ReleaseTorrentState | None:
         raise NotImplementedError
 
     async def get_download_directory(self, info_hash: str) -> str | None:
@@ -923,6 +927,9 @@ class InMemoryReleaseDownloadService(ReleaseDownloadService):
         default_factory=lambda: Path(tempfile.gettempdir()) / "releasarr-downloads"
     )
     downloads: list[tuple[str, str, Path]] = field(default_factory=list)
+    # Torrents the stand-in client knows about, keyed by upper-cased info hash.
+    # A hash missing from here is one the client has never seen.
+    torrents: dict[str, ReleaseTorrentState] = field(default_factory=dict)
 
     async def queue_download(
         self,
@@ -961,6 +968,9 @@ class InMemoryReleaseDownloadService(ReleaseDownloadService):
 
     async def delete_download(self, release_id: str) -> None:
         self.downloads = [entry for entry in self.downloads if entry[1] != release_id]
+
+    async def get_torrent_state(self, info_hash: str) -> ReleaseTorrentState | None:
+        return self.torrents.get(info_hash.upper())
 
     async def get_download_directory(self, info_hash: str) -> str | None:
         return str(self.download_dir)

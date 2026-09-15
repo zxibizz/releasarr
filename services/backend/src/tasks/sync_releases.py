@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any
 
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from src.application.utility.torrent_state import project_torrent_state
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
 
 
@@ -132,68 +132,7 @@ class SyncReleasesTask:
         completed_at: datetime | None,
     ) -> dict[str, Any]:
         """The Release column values a torrent's current state implies."""
-        qbt_state = str(torrent.get("state", "")).lower()
-        status = self._map_status(qbt_state, finished=self._is_finished(torrent))
-
-        return {
-            "progress": float(torrent.get("progress", 0)) * 100,
-            "download_speed": float(torrent.get("dlspeed", 0)),
-            "upload_speed": float(torrent.get("upspeed", 0)),
-            "seeders": int(torrent.get("num_seeds", 0)),
-            "leechers": int(torrent.get("num_leechs", 0)),
-            "ratio": float(torrent.get("ratio", 0)),
-            "size_bytes": int(torrent.get("total_size", 0)),
-            "status": status,
-            "completed_at": self._completion_time(torrent, status, completed_at),
-        }
-
-    @staticmethod
-    def _completion_time(
-        torrent: dict[str, Any],
-        status: ReleaseStatus,
-        current: datetime | None,
-    ) -> datetime | None:
-        """When the download finished, stamped once and never revised afterwards."""
-        if current is not None or status is not ReleaseStatus.COMPLETED:
-            return current
-
-        completion_on = int(torrent.get("completion_on", 0) or 0)
-        if completion_on <= 0:
-            return None
-
-        return datetime.fromtimestamp(completion_on, tz=UTC)
-
-    @staticmethod
-    def _is_finished(torrent: dict[str, Any]) -> bool:
-        """Whether qBittorrent has the complete payload on disk.
-
-        Derived from progress and completion time rather than the reported state,
-        because a finished torrent keeps seeding and therefore reports an upload
-        state indistinguishable from one that never finished downloading.
-        """
-        progress = float(torrent.get("progress", 0) or 0)
-        completion_on = int(torrent.get("completion_on", 0) or 0)
-        return progress >= 1.0 and completion_on > 0
-
-    @staticmethod
-    def _map_status(qbt_state: str, *, finished: bool = False) -> ReleaseStatus:
-        """Map qBittorrent state to ReleaseStatus enum."""
-        # qBittorrent reports lowercased states here; keep comparisons lowercase.
-        # Errors outrank completion: a torrent whose files vanished after finishing
-        # has nothing left to import.
-        if qbt_state in ("error", "missingfiles"):
-            return ReleaseStatus.FAILED
-        if finished:
-            return ReleaseStatus.COMPLETED
-        if qbt_state in ("downloading", "stalleddl", "queueddl", "forceddl", "metadl"):
-            return ReleaseStatus.DOWNLOADING
-        if qbt_state in ("uploading", "stalledup", "queuedup", "forcedup"):
-            return ReleaseStatus.SEEDING
-        if qbt_state in ("pauseddl", "pausedup"):
-            return ReleaseStatus.PENDING
-        if qbt_state in ("checkingdl", "checkingup", "checkingresumedata"):
-            return ReleaseStatus.DOWNLOADING
-        return ReleaseStatus.PENDING
+        return asdict(project_torrent_state(torrent, completed_at=completed_at))
 
 
 __all__ = ["SyncReleasesTask", "SyncResult"]

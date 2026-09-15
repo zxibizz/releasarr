@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.application.use_cases.auth.permissions import RequestScope
 from src.domain.enums import ExistingReleasesAction, ReleaseStatus
 
 
@@ -69,12 +70,24 @@ class QueueManualReleaseCommand:
     existing_releases: ExistingReleasesAction | None = None
 
 
+@dataclass(slots=True)
+class RefreshRequestReleasesCommand:
+    """Check one request's releases on demand."""
+
+    request_id: str
+    # Checked inside the use case rather than by the route, because a refresh
+    # downloads: an out-of-scope request has to be refused before that happens,
+    # and the route has no way to know the owner without reading the row first.
+    scope: RequestScope
+
+
 __all__ = [
     "CreateReleaseCommand",
     "FileMappingCommand",
     "ListReleasesOptions",
     "QueueManualReleaseCommand",
     "QueueReleaseDownloadCommand",
+    "RefreshRequestReleasesCommand",
     "ReleaseIdCommand",
     "SearchReleaseSourcesCommand",
     "UpdateFileMappingsCommand",

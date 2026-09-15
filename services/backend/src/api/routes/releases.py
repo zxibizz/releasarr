@@ -12,12 +12,14 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from src.api.dependencies import require_user
 from src.api.errors import api_error
 from src.api.responses import error_responses
+from src.application.use_cases.auth import Principal
 from src.application.use_cases.releases.commands import (
     CreateReleaseCommand,
     FileMappingCommand,
     ListReleasesOptions,
     QueueManualReleaseCommand,
     QueueReleaseDownloadCommand,
+    RefreshRequestReleasesCommand,
     SearchReleaseSourcesCommand,
     UpdateFileMappingsCommand,
 )
@@ -37,6 +39,9 @@ from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_manual_release import QueueManualReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
+from src.application.use_cases.releases.refresh_request_releases import (
+    RefreshRequestReleasesUseCase,
+)
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.suggest_file_mappings import (
@@ -58,6 +63,7 @@ from src.schemas.releases import (
     ReleaseFileMappingSuggestion,
     ReleaseFileMappingSuggestions,
     ReleaseFileMappingsUpdate,
+    ReleaseRefreshResponse,
     ReleaseSearchResponse,
     ReleasesResponse,
     ReleaseWarning,
@@ -125,6 +131,12 @@ def _queue_manual_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> QueueManualReleaseUseCase:
     return container.use_cases.releases.queue_manual
+
+
+def _refresh_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> RefreshRequestReleasesUseCase:
+    return container.use_cases.releases.refresh_request
 
 
 _SERVER_ERROR = "Unexpected server error."
@@ -233,6 +245,14 @@ MANUAL_RELEASE_RESPONSES = error_responses(
             "and existing_releases was not supplied."
         ),
         status.HTTP_503_SERVICE_UNAVAILABLE: _QBITTORRENT_NOT_CONFIGURED,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+REFRESH_RELEASES_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: ("Prowlarr or qBittorrent is not configured."),
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -608,6 +628,25 @@ async def queue_manual_release(
     if dto.location:
         response.headers["Location"] = dto.location
     return _async_to_response(dto)
+
+
+@request_releases_router.post(
+    "/{requestId}/releases/refresh",
+    response_model=ReleaseRefreshResponse,
+    responses=REFRESH_RELEASES_RESPONSES,
+)
+async def refresh_request_releases(
+    request_id: RequestIdParam,
+    principal: Principal = Depends(require_user),
+    refresh_use_case: RefreshRequestReleasesUseCase = Depends(_refresh_use_case),
+) -> ReleaseRefreshResponse:
+    command = RefreshRequestReleasesCommand(request_id=request_id, scope=principal.scope)
+    dto = await refresh_use_case.execute(command)
+    return ReleaseRefreshResponse(
+        releases=[_dto_to_release(release) for release in dto.releases],
+        statuses_updated=dto.statuses_updated,
+        regrabbed=dto.regrabbed,
+    )
 
 
 __all__ = ["request_releases_router", "router"]

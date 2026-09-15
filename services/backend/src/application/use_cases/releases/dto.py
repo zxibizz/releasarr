@@ -75,6 +75,15 @@ class ReleasesPageDTO:
 
 
 @dataclass(slots=True)
+class ReleaseRefreshDTO:
+    """What one on-demand check of a request's releases did."""
+
+    releases: list[ReleaseDTO]
+    statuses_updated: int
+    regrabbed: int
+
+
+@dataclass(slots=True)
 class ReleaseSearchResultDTO:
     release_id: str
     release_name: str

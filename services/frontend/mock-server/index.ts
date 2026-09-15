@@ -753,6 +753,22 @@ api.post('/requests/:requestId/releases/manual', async (req, res) => {
   }
 });
 
+api.post('/requests/:requestId/releases/refresh', async (req, res) => {
+  const requestId = req.params.requestId?.trim();
+
+  if (!requestId) {
+    return res.status(400).json({ message: 'requestId path param is required' });
+  }
+
+  try {
+    const refreshed = await mockStore.refreshRequestReleases(requestId);
+    return res.status(200).json(refreshed);
+  } catch (error) {
+    console.error('Failed to refresh releases', error);
+    return res.status(500).json({ message: 'Failed to refresh releases' });
+  }
+});
+
 const SYNC_ALL_SEQUENCE: TaskKind[] = [...TASK_KINDS];
 const SYNC_DOWNLOADS_SEQUENCE: TaskKind[] = ['release_sync', 'export'];
 

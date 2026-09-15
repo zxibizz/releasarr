@@ -21,10 +21,12 @@ from src.api.routes.releases import (
     _pause_use_case,
     _queue_download_use_case,
     _queue_manual_use_case,
+    _refresh_use_case,
     _search_use_case,
     _suggest_mappings_use_case,
     _update_mappings_use_case,
 )
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
     IndexerSearchFailureDTO,
@@ -32,6 +34,7 @@ from src.application.use_cases.releases.dto import (
     ReleaseFileDTO,
     ReleaseFileMappingDTO,
     ReleaseFileMappingSuggestionDTO,
+    ReleaseRefreshDTO,
     ReleaseSearchResponseDTO,
     ReleaseSearchResultDTO,
     ReleasesPageDTO,
@@ -39,11 +42,13 @@ from src.application.use_cases.releases.dto import (
 )
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
+    QbittorrentNotConfiguredError,
     ReleaseDownloadConflictError,
     ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
+from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
 from src.domain.enums import ReleaseStatus, RequestWarningCode
 
 API_KEY_HEADER: dict[str, str] = {}
@@ -611,3 +616,109 @@ async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
         "message": "Authentication required",
         "details": None,
     }
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_releases_returns_the_refreshed_list(
+    api_client: AsyncClient,
+) -> None:
+    dto = ReleaseRefreshDTO(releases=[make_release_dto()], statuses_updated=1, regrabbed=2)
+
+    class FakeRefresh:
+        def __init__(self) -> None:
+            self.commands: list[Any] = []
+
+        async def execute(self, command):
+            self.commands.append(command)
+            return dto
+
+    fake_refresh = FakeRefresh()
+
+    with override_dependency(_refresh_use_case, fake_refresh):
+        response = await api_client.post(
+            "/requests/req-1/releases/refresh",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["statuses_updated"] == 1
+    assert body["regrabbed"] == 2
+    assert [release["id"] for release in body["releases"]] == ["rel-1"]
+    assert fake_refresh.commands[0].request_id == "req-1"
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_releases_passes_the_callers_scope(
+    api_client: AsyncClient,
+) -> None:
+    class FakeRefresh:
+        def __init__(self) -> None:
+            self.commands: list[Any] = []
+
+        async def execute(self, command):
+            self.commands.append(command)
+            return ReleaseRefreshDTO(releases=[], statuses_updated=0, regrabbed=0)
+
+    fake_refresh = FakeRefresh()
+
+    with override_dependency(_refresh_use_case, fake_refresh):
+        await api_client.post("/requests/req-1/releases/refresh", headers=API_KEY_HEADER)
+
+    # The route cannot check ownership itself without reading the row, so the
+    # use case has to be handed the scope the caller is held to.
+    assert fake_refresh.commands[0].scope.permits("any-owner") is True
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_releases_out_of_scope_returns_404(
+    api_client: AsyncClient,
+) -> None:
+    class FakeRefresh:
+        async def execute(self, command):
+            raise MediaRequestNotFoundError(command.request_id)
+
+    with override_dependency(_refresh_use_case, FakeRefresh()):
+        response = await api_client.post(
+            "/requests/req-1/releases/refresh",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["code"] == "request_not_found"
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_releases_without_qbittorrent_returns_503(
+    api_client: AsyncClient,
+) -> None:
+    class FakeRefresh:
+        async def execute(self, command):
+            raise QbittorrentNotConfiguredError()
+
+    with override_dependency(_refresh_use_case, FakeRefresh()):
+        response = await api_client.post(
+            "/requests/req-1/releases/refresh",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert response.json()["code"] == "qbittorrent_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_refresh_request_releases_without_prowlarr_returns_503(
+    api_client: AsyncClient,
+) -> None:
+    class FakeRefresh:
+        async def execute(self, command):
+            raise ProwlarrNotConfiguredError()
+
+    with override_dependency(_refresh_use_case, FakeRefresh()):
+        response = await api_client.post(
+            "/requests/req-1/releases/refresh",
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert response.json()["code"] == "prowlarr_not_configured"
