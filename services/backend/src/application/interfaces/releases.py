@@ -153,6 +153,23 @@ class QueuedDownload:
     details: dict[str, object] | None
 
 
+@dataclass(slots=True)
+class ReleaseTorrentState:
+    """Live state of one release's torrent as the download client reports it."""
+
+    progress: float
+    download_speed: float
+    upload_speed: float
+    seeders: int
+    leechers: int
+    ratio: float
+    size_bytes: int
+    status: ReleaseStatus
+    # The client's own completion time, which a caller only adopts when the
+    # release has none stamped yet.
+    completed_at: datetime | None
+
+
 class ReleaseRepository(Protocol):
     """Persistence operations for releases."""
 
@@ -283,6 +300,9 @@ class ReleaseDownloadService(Protocol):
         when the client doesn't know the torrent.
         """
 
+    async def get_torrent_state(self, info_hash: str) -> ReleaseTorrentState | None:
+        """Read one torrent's current state, or None when the client has no such torrent."""
+
 
 __all__ = [
     "MANUAL_SOURCE",
@@ -300,4 +320,5 @@ __all__ = [
     "ReleaseSearchResults",
     "ReleaseSearchService",
     "ReleaseSearchUnavailableError",
+    "ReleaseTorrentState",
 ]

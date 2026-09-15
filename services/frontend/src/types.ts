@@ -17,6 +17,7 @@ export type SeasonEpisodesResponse = Schemas['SeasonEpisodesResponse'];
 export type ReleaseStatus = Schemas['ReleaseStatus'];
 export type Release = Schemas['Release'];
 export type ReleasesResponse = Schemas['ReleasesResponse'];
+export type ReleaseRefreshResponse = Schemas['ReleaseRefreshResponse'];
 export type ReleaseFile = Schemas['ReleaseFile'];
 export type ReleaseWarning = Schemas['ReleaseWarning'];
 export type ReleaseSearchResult = Schemas['ReleaseSearchResult'];

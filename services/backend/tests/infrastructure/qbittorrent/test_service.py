@@ -7,10 +7,13 @@ from typing import Any
 
 import pytest
 
+from src.domain.enums import ReleaseStatus
 from src.infrastructure.qbittorrent.service import QbittorrentReleaseDownloadService
 
 
 class FakeQbittorrentClient:
+    is_configured = True
+
     def __init__(self, torrent: dict[str, Any] | None = None) -> None:
         self.calls: list[tuple[object, ...]] = []
         self.deleted: list[str] = []
@@ -132,3 +135,37 @@ async def test_download_directory_falls_back_to_the_configured_path() -> None:
     service = QbittorrentReleaseDownloadService(client=client, save_path="/downloads")
 
     assert await service.get_download_directory("ABC") == "/downloads"
+
+
+@pytest.mark.asyncio
+async def test_torrent_state_is_projected_onto_the_release() -> None:
+    client = FakeQbittorrentClient(
+        torrent={
+            "state": "downloading",
+            "progress": 0.42,
+            "dlspeed": 2048,
+            "upspeed": 0,
+            "num_seeds": 3,
+            "num_leechs": 1,
+            "ratio": 0.1,
+            "total_size": 4096,
+        }
+    )
+    service = QbittorrentReleaseDownloadService(client=client)
+
+    state = await service.get_torrent_state("abc123")
+
+    assert state is not None
+    assert state.progress == 42.0
+    assert state.download_speed == 2048
+    assert state.seeders == 3
+    assert state.size_bytes == 4096
+    assert state.status is ReleaseStatus.DOWNLOADING
+    assert state.completed_at is None
+
+
+@pytest.mark.asyncio
+async def test_torrent_state_is_none_for_a_torrent_the_client_lacks() -> None:
+    service = QbittorrentReleaseDownloadService(client=FakeQbittorrentClient(torrent=None))
+
+    assert await service.get_torrent_state("abc123") is None

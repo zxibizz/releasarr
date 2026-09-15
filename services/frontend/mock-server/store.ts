@@ -59,6 +59,9 @@ type EnqueueSyncJobPayload = {
 const MOCK_JOB_QUEUED_MS = 1_500;
 const MOCK_JOB_RUNNING_MS = 4_000;
 
+/** How far a release in flight moves each time someone asks for a refresh. */
+const MOCK_REFRESH_PROGRESS_STEP = 17;
+
 const MOCK_TASK_INTERVALS: Record<SyncJobKind, number> = {
   sonarr_sync: 3_600,
   radarr_sync: 3_600,
@@ -533,6 +536,44 @@ export class MockStore {
     return releases
       .filter((release) => release.request_ids.includes(requestId))
       .map((release) => clone(release));
+  }
+
+  /**
+   * Stand-in for the on-demand refresh. Nothing here can reach an indexer or a
+   * download client, so a re-grab cannot be simulated and `regrabbed` is always
+   * zero; what the mock can do is move the releases that are still in flight, so
+   * pressing refresh visibly does something.
+   */
+  async refreshRequestReleases(requestId: string): Promise<{
+    releases: Release[];
+    statuses_updated: number;
+    regrabbed: number;
+  }> {
+    const releases = await this.ensureReleases();
+    const linked = releases.filter((release) => release.request_ids.includes(requestId));
+
+    let statusesUpdated = 0;
+    for (const release of linked) {
+      if (release.status !== 'downloading' && release.status !== 'pending') {
+        continue;
+      }
+      release.progress = Math.min(100, release.progress + MOCK_REFRESH_PROGRESS_STEP);
+      if (release.progress >= 100) {
+        release.status = 'completed';
+        release.download_speed = 0;
+        release.completed_date = new Date().toISOString();
+      }
+      statusesUpdated += 1;
+    }
+
+    const warningsByRelease = computeMappingOverlapWarnings(releases);
+    return {
+      releases: linked.map((release) =>
+        clone({ ...release, warnings: mergeReleaseWarnings(release, warningsByRelease) }),
+      ),
+      statuses_updated: statusesUpdated,
+      regrabbed: 0,
+    };
   }
 
   /**

@@ -330,6 +330,13 @@ export const resources = {
           description:
             'Two or more releases here map files to the same episode or movie. Only one will end up imported; the rest are wasted seeding.',
         },
+        refresh: {
+          tooltip: 'Check download progress and re-grab replaced releases',
+          done: 'Releases refreshed',
+          regrabbed_one: '{{count}} release was re-grabbed',
+          regrabbed_other: '{{count}} releases were re-grabbed',
+          failed: 'Unable to refresh releases',
+        },
       },
       releaseSearch: {
         placeholder: 'Search release sources for "{{title}}"…',
@@ -1208,6 +1215,15 @@ export const resources = {
           title: 'Пересекающиеся релизы',
           description:
             'Два или более релиза сопоставлены с одним и тем же эпизодом или фильмом. Импортирован будет только один, остальные впустую раздаются.',
+        },
+        refresh: {
+          tooltip: 'Проверить прогресс загрузки и перезалить заменённые релизы',
+          done: 'Релизы обновлены',
+          regrabbed_one: 'Перезалит {{count}} релиз',
+          regrabbed_few: 'Перезалито {{count}} релиза',
+          regrabbed_many: 'Перезалито {{count}} релизов',
+          regrabbed_other: 'Перезалито {{count}} релиза',
+          failed: 'Не удалось обновить релизы',
         },
       },
       releaseSearch: {

@@ -6,7 +6,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from src.application.interfaces.releases import QueuedDownload, ReleaseDownloadService
+from src.application.interfaces.releases import (
+    QueuedDownload,
+    ReleaseDownloadService,
+    ReleaseTorrentState,
+)
+from src.application.utility.torrent_state import project_torrent_state
 
 
 class QbittorrentClientPort(Protocol):
@@ -131,6 +136,12 @@ class QbittorrentReleaseDownloadService(ReleaseDownloadService):
         if isinstance(save_path, str) and save_path:
             return save_path
         return self.save_path
+
+    async def get_torrent_state(self, info_hash: str) -> ReleaseTorrentState | None:
+        torrent = await self.client.get_torrent(info_hash)
+        if torrent is None:
+            return None
+        return project_torrent_state(torrent)
 
 
 __all__ = ["QbittorrentReleaseDownloadService"]

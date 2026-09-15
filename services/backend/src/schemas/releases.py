@@ -74,6 +74,14 @@ class ReleasesResponse(PaginatedResponse):
     releases: list[Release]
 
 
+class ReleaseRefreshResponse(APIModel):
+    """The outcome of checking a request's releases on demand."""
+
+    releases: list[Release]
+    statuses_updated: int
+    regrabbed: int
+
+
 class ReleaseFileMappingInput(APIModel):
     file_id: str
     request_mapping: FileRequestMapping | None = None
@@ -155,6 +163,7 @@ __all__ = [
     "ReleaseFileMappingSuggestion",
     "ReleaseFileMappingSuggestions",
     "ReleaseFileMappingsUpdate",
+    "ReleaseRefreshResponse",
     "ReleaseSearchResponse",
     "ReleaseSearchResult",
     "ReleaseWarning",

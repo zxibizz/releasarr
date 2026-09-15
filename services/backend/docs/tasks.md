@@ -65,9 +65,9 @@ The order above is significant: `export` can only import releases that
 `release_sync` also recomputes derived request state — `status`, `mapping_overlap` warnings, and
 `newest_release_published_at` — for every request that has releases, via
 `RecomputeRequestStateUseCase`. This is the same recompute every release-lifecycle use case
-(grab, delete, remap, replace, regrab, export) calls directly, so `release_sync` exists here as a
-periodic sweep that catches drift those write-through call sites missed, not as the primary way a
-request's state stays current.
+(grab, delete, remap, replace, regrab, export, and the on-demand refresh) calls directly, so
+`release_sync` exists here as a periodic sweep that catches drift those write-through call sites
+missed, not as the primary way a request's state stays current.
 
 ## Background Scheduler (separate worker)
 

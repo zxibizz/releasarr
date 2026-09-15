@@ -306,6 +306,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requests/{requestId}/releases/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a request's releases against the indexers and the download client
+         * @description The on-demand counterpart of the scheduled `regrab` and `release_sync`
+         *     tasks, scoped to one request. Every finished release that came from a
+         *     real indexer is looked up again in Prowlarr and re-grabbed when the
+         *     replacement has a different info hash; every release still in flight
+         *     has its progress read back from qBittorrent. Hand-supplied releases are
+         *     left alone. Both integrations are required, so an unconfigured Prowlarr
+         *     or qBittorrent is reported rather than partly applied.
+         */
+        post: operations["refreshRequestReleases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/discover/search": {
         parameters: {
             query?: never;
@@ -1135,6 +1161,12 @@ export interface components {
             size: number;
             path: string;
             request_mapping?: components["schemas"]["FileRequestMapping"];
+        };
+        /** @description What one on-demand check of a request's releases did. `statuses_updated` counts the releases whose live stats moved, `regrabbed` the ones the indexer had replaced and which were therefore downloaded again. */
+        ReleaseRefreshResponse: {
+            releases: components["schemas"]["Release"][];
+            statuses_updated: number;
+            regrabbed: number;
         };
         /**
          * @description A condition worth surfacing but not worth blocking on. Shared between release-scoped and request-scoped warnings, since both are stored as the same (request, release, code) row.
@@ -2799,6 +2831,56 @@ export interface operations {
                 };
             };
             /** @description qBittorrent is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refreshRequestReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request's releases as they stand once both passes have run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseRefreshResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr or qBittorrent is not configured. */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -128,6 +128,10 @@ from src.settings.config import AppSettings, get_settings
 
 if TYPE_CHECKING:
     from src.application.use_cases.releases.export_finished import ExportFinishedReleasesUseCase
+    from src.application.use_cases.releases.refresh_request_releases import (
+        RefreshRequestReleasesUseCase,
+    )
+    from src.application.use_cases.releases.regrab import ReleaseRegrapper
     from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 
 
@@ -763,6 +767,37 @@ class ReleaseUseCases:
             download_service=self._container.services.release_download,
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
+        )
+
+    @cached_property
+    def regrapper(self) -> ReleaseRegrapper:
+        """The per-release re-grab check, on its own so a request can drive it."""
+
+        from src.application.use_cases.releases.regrab import ReleaseRegrapper
+
+        return ReleaseRegrapper(
+            repository=self._container.repositories.releases,
+            search_service=self._container.services.release_search,
+            download_service=self._container.services.release_download,
+            directory=self._container.services.indexer_directory,
+            warning_repository=self._container.repositories.request_warnings,
+            recompute_state=self._container.use_cases.media_requests.recompute_state,
+        )
+
+    @cached_property
+    def refresh_request(self) -> RefreshRequestReleasesUseCase:
+        from src.application.use_cases.releases.refresh_request_releases import (
+            RefreshRequestReleasesUseCase,
+        )
+
+        return RefreshRequestReleasesUseCase(
+            request_repository=self._container.repositories.media_requests,
+            release_repository=self._container.repositories.releases,
+            warning_repository=self._container.repositories.request_warnings,
+            download_service=self._container.services.release_download,
+            search_service=self._container.services.release_search,
+            regrapper=self.regrapper,
             recompute_state=self._container.use_cases.media_requests.recompute_state,
         )
 

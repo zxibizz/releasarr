@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { releasesApi } from '@/features/releases/api';
+import { requestKeys } from '@/features/requests/queries';
 import { taskKeys } from '@/features/tasks/queries';
 import type { ReleaseFileMappingInput } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
@@ -83,6 +84,42 @@ export function useReleaseActions(requestId: string | undefined) {
   );
 
   return { pause, resume, remove };
+}
+
+/**
+ * The release list's refresh: the server re-checks every release on the request
+ * - re-grabbing the finished ones whose indexer replaced the torrent, reading
+ * the rest back from the download client - and returns the list as it now
+ * stands, so the cards update without a second round trip.
+ */
+export function useRefreshRequestReleases(requestId: string | undefined) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: () => releasesApi.refreshRequest(requestId ?? ''),
+    onSuccess: (response) => {
+      queryClient.setQueryData(releaseKeys.byRequest(requestId ?? ''), response.releases);
+      // A re-grab puts a torrent back in flight, which moves the request's own
+      // status and the release age it reports.
+      void queryClient.invalidateQueries({ queryKey: requestKeys.detail(requestId ?? '') });
+
+      notifications.show({
+        title: t('releasesList.refresh.done'),
+        message: response.regrabbed
+          ? t('releasesList.refresh.regrabbed', { count: response.regrabbed })
+          : undefined,
+        color: 'teal',
+      });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('releasesList.refresh.failed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
 }
 
 export function useUpdateFileMappings(releaseId: string, requestId: string | undefined) {

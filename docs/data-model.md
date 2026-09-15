@@ -166,7 +166,7 @@ failure).
 | Code | Written by | Cleared by |
 | --- | --- | --- |
 | `mapping_overlap` | `RequestWarningSynchronizer`, called from every mapping-changing use case (`UpdateReleaseFileMappingsUseCase`, `ReleaseGrabFinalizer.auto_map_files`, `DeleteReleaseUseCase`, `ExistingReleaseReplacer`) and a reconcile pass folded into `release_sync` | A recompute over the request's whole release set that no longer finds the release in an overlapping bucket — see `RequestWarningSynchronizer.sync_for_requests` |
-| `regrab_indexer_unavailable` | `RegrabOutdatedReleasesUseCase`, on `ReleaseSearchUnavailableError` | The same use case, the next time that release's own search returns a valid response, whether or not anything changed |
+| `regrab_indexer_unavailable` | `ReleaseRegrapper` — driven by the scheduled `regrab` sweep and by `RefreshRequestReleasesUseCase` — on `ReleaseSearchUnavailableError` | The same check, the next time that release's own search returns a valid response, whether or not anything changed |
 
 The two codes are scoped to write and clear at different granularities on purpose — see
 [`services/backend/docs/integrations.md`](../services/backend/docs/integrations.md#searching-indexers-one-at-a-time)

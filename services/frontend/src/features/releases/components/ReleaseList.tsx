@@ -15,7 +15,11 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ReleaseCard } from '@/features/releases/components/ReleaseCard';
-import { useReleaseActions, useReleasesByRequest } from '@/features/releases/queries';
+import {
+  useRefreshRequestReleases,
+  useReleaseActions,
+  useReleasesByRequest,
+} from '@/features/releases/queries';
 import { hasMappingOverlap } from '@/features/releases/warnings';
 import { useRequestsList } from '@/features/requests/queries';
 import type { Release } from '@/types';
@@ -42,6 +46,7 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
   const { t } = useTranslation();
   const { data, isLoading, isFetching, error, refetch } = useReleasesByRequest(requestId);
   const { pause, resume, remove } = useReleaseActions(requestId);
+  const refresh = useRefreshRequestReleases(requestId);
 
   // The requests list is already cached by the home route loader, so related
   // request titles come for free instead of a per-release lookup.
@@ -66,15 +71,16 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
       <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
         <Title order={3}>{t('releasesList.title')}</Title>
 
-        {/* Download progress only moves when the list is refetched, and there
-            is no pull-to-refresh here to do it. */}
-        <Tooltip label={t('common.refresh')}>
+        {/* Refetching alone would only re-read what the server already knows:
+            progress comes from the download client and a replaced release only
+            surfaces when its indexer is checked, so this asks for both. */}
+        <Tooltip label={t('releasesList.refresh.tooltip')}>
           <ActionIcon
             variant="light"
             size="lg"
-            aria-label={t('common.refresh')}
-            loading={isFetching}
-            onClick={() => void refetch()}
+            aria-label={t('releasesList.refresh.tooltip')}
+            loading={refresh.isPending || isFetching}
+            onClick={() => refresh.mutate()}
           >
             <IconRefresh size={18} />
           </ActionIcon>

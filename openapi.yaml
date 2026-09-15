@@ -839,6 +839,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/releases/refresh:
+    post:
+      tags: [Releases]
+      summary: Check a request's releases against the indexers and the download client
+      description: |
+        The on-demand counterpart of the scheduled `regrab` and `release_sync`
+        tasks, scoped to one request. Every finished release that came from a
+        real indexer is looked up again in Prowlarr and re-grabbed when the
+        replacement has a different info hash; every release still in flight
+        has its progress read back from qBittorrent. Hand-supplied releases are
+        left alone. Both integrations are required, so an unconfigured Prowlarr
+        or qBittorrent is reported rather than partly applied.
+      operationId: refreshRequestReleases
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The request's releases as they stand once both passes have run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseRefreshResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr or qBittorrent is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /discover/search:
     get:
       tags: [Discover]
@@ -2560,6 +2600,22 @@ components:
           type: string
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
+    ReleaseRefreshResponse:
+      type: object
+      required: [releases, statuses_updated, regrabbed]
+      description: >-
+        What one on-demand check of a request's releases did. `statuses_updated`
+        counts the releases whose live stats moved, `regrabbed` the ones the
+        indexer had replaced and which were therefore downloaded again.
+      properties:
+        releases:
+          type: array
+          items:
+            $ref: '#/components/schemas/Release'
+        statuses_updated:
+          type: integer
+        regrabbed:
+          type: integer
     RequestWarningCode:
       type: string
       description: >-

@@ -186,14 +186,15 @@ When Prowlarr is not configured, the use case raises `ProwlarrNotConfiguredError
 no stand-in search service to answer instead, and an empty result set would read as "no results"
 rather than "no Prowlarr".
 
-`RegrabOutdatedReleasesUseCase` scopes the same way: it maps a release's stored
-`torrent_source` (the indexer name Prowlarr reported at grab time) back to an indexer id via
-`list_indexers()`, and searches only that indexer instead of sweeping all of them. An unknown
-name or an unreachable directory falls back to an unscoped search rather than skipping the
-release. If that search raises `ReleaseSearchUnavailableError` (the indexer is banned or not
-responding), the use case does not treat it as a bug: it logs a warning against every request
-the release belongs to (`request_id=`, picked up by that request's `/logs` activity view), and
-persists a `regrab_indexer_unavailable` row per request in `request_warnings` (see
+`ReleaseRegrapper` (`application/use_cases/releases/regrab.py`, driven by both
+`RegrabOutdatedReleasesUseCase` and the on-demand refresh) scopes the same way: it maps a
+release's stored `torrent_source` (the indexer name Prowlarr reported at grab time) back to an
+indexer id via `list_indexers()`, and searches only that indexer instead of sweeping all of
+them. An unknown name or an unreachable directory falls back to an unscoped search rather than
+skipping the release. If that search raises `ReleaseSearchUnavailableError` (the indexer is
+banned or not responding), it does not treat it as a bug: it logs a warning against every
+request the release belongs to (`request_id=`, picked up by that request's `/logs` activity
+view), and persists a `regrab_indexer_unavailable` row per request in `request_warnings` (see
 [`docs/data-model.md`](../../../docs/data-model.md#request_warnings)) scoped to that one release
 via `RequestWarningRepository.replace_for_releases`. The next release the loop checks is
 unaffected either way — a request with several releases must not have one release's fresh
