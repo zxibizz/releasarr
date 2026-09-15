@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from datetime import datetime
 
 from sqlalchemy import Select, exists, select
 
@@ -14,6 +15,7 @@ from src.application.interfaces.media_requests import (
     UpdateMediaRequestData,
 )
 from src.application.utility.sentinels import UNSET
+from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository, Filter
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, MediaType
@@ -200,7 +202,19 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             owner_user_id=request.owner_user_id,
             created_at=request.created_at,
             updated_at=request.updated_at,
+            newest_release_published_at=self._newest_release_published_at(request),
         )
+
+    def _newest_release_published_at(self, request: models.MediaRequest) -> datetime | None:
+        # `releases` is selectin-loaded, so this costs no extra query. Indexers do
+        # not all report a publication date, so releases without one are skipped
+        # rather than treated as infinitely old.
+        published = [
+            as_utc(release.published_at)
+            for release in request.releases
+            if release.published_at is not None
+        ]
+        return max(published, default=None)
 
     def _serialize_localizations(
         self,

@@ -6,7 +6,6 @@ import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { apiRequest } from '@/lib/api/client';
 import { renderWithProviders } from '@/test/utils';
 import type { MediaRequest } from '@/types';
-import { formatDate } from '@/utils/formatters';
 
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client');
@@ -28,6 +27,9 @@ const movie: MediaRequest = {
   updated_at: '2026-01-02T00:00:00.000Z',
 };
 
+/** Ages are counted from now, so the fixtures have to be relative to it too. */
+const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
 const series: MediaRequest = {
   id: '2',
   type: 'series',
@@ -45,14 +47,10 @@ const series: MediaRequest = {
   status: 'downloading',
   created_at: '2026-02-01T00:00:00.000Z',
   updated_at: '2026-02-02T00:00:00.000Z',
-  exported_at: '2026-03-04T12:00:00.000Z',
+  newest_release_published_at: daysAgo(3),
 };
 
-/**
- * Built with the same formatter the card uses: the output follows the machine's
- * locale and timezone, so a hardcoded date would only pass in one of them.
- */
-const exportedLabel = (value: string) => `Last exported at ${formatDate(value)}`;
+const ageLabel = (age: string) => `Newest release: ${age}`;
 
 /** The localized names behind the count badges, which the emoji cannot convey. */
 const countLabels = (card: HTMLElement): string[] =>
@@ -199,41 +197,38 @@ describe('RequestsPage', () => {
     expect(screen.getByLabelText('Unaired 1')).toBeInTheDocument();
   });
 
-  it('dates a request with the last time it reached an arr', async () => {
+  it('ages a request by the newest release attached to it', async () => {
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
     await screen.findByText('Severance');
-    expect(screen.getByLabelText(exportedLabel(series.exported_at!))).toBeInTheDocument();
+    expect(screen.getByLabelText(ageLabel('3 days'))).toBeInTheDocument();
 
-    // Movies carry one too: the label names no app, since each media type only
-    // ever reaches the one that owns it.
+    // Anything younger than a day reads as "Today" rather than "0 days".
     vi.mocked(apiRequest).mockResolvedValue({
-      requests: [{ ...movie, exported_at: '2026-03-05T12:00:00.000Z' }],
+      requests: [{ ...movie, newest_release_published_at: daysAgo(0) }],
       total: 1,
     });
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
-    expect(
-      await screen.findByLabelText(exportedLabel('2026-03-05T12:00:00.000Z')),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText(ageLabel('Today'))).toBeInTheDocument();
   });
 
-  it('leaves the date line off a request that was never exported', async () => {
+  it('leaves the age line off a request with no dated release', async () => {
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
     const movieCard = (await screen.findByText('The Dark Knight')).closest('a');
     expect(movieCard).not.toBeNull();
-    expect(within(movieCard!).queryByText(/^Last exported at /)).not.toBeInTheDocument();
+    expect(within(movieCard!).queryByLabelText(/^Newest release: /)).not.toBeInTheDocument();
   });
 
-  it('puts the export date on the left and the counts on the right', async () => {
+  it('puts the release age on the left and the counts on the right', async () => {
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
-    const date = await screen.findByLabelText(exportedLabel(series.exported_at!));
+    const age = await screen.findByLabelText(ageLabel('3 days'));
     const counts = screen.getByLabelText('Downloaded 7');
 
-    // `space-between` orders them, so document order has to be date-then-counts.
-    expect(date.compareDocumentPosition(counts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // `space-between` orders them, so document order has to be age-then-counts.
+    expect(age.compareDocumentPosition(counts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows a warning badge only on a request that has one', async () => {

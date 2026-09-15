@@ -342,6 +342,23 @@ async def test_list_requests_reports_a_never_exported_request_as_null(
 
 
 @pytest.mark.asyncio
+async def test_list_requests_serialises_the_newest_release_date_as_utc(
+    api_client: AsyncClient,
+) -> None:
+    """The card derives the request's release age from this, so it has to arrive
+    in the same ISO-UTC shape the release endpoints use."""
+
+    dto = make_series_dto()
+    dto.newest_release_published_at = datetime(2026, 3, 4, 5, 6, 7, tzinfo=UTC)
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["requests"][0]["newest_release_published_at"] == "2026-03-04T05:06:07Z"
+
+
+@pytest.mark.asyncio
 async def test_create_request_returns_created(api_client: AsyncClient) -> None:
     dto = make_movie_dto()
     with override_dependency(_get_create_use_case, FakeCreateUseCase(dto)):

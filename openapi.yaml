@@ -2221,6 +2221,13 @@ components:
           format: date-time
           nullable: true
           description: When a release for this request was last accepted by Sonarr or Radarr.
+        newest_release_published_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Publication date of the most recently published release linked to this request,
+            i.e. the lowest release age. Null when no linked release reports one.
         owner_user_id:
           type: string
           nullable: true

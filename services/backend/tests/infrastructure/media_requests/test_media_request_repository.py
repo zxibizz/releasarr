@@ -167,6 +167,47 @@ async def test_get_request_returns_none_when_missing(
 
 
 @pytest.mark.asyncio
+async def test_record_reports_newest_release_publication_date(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+    seed_request: Callable[[str, MediaRequestStatus, MediaType], Awaitable[None]],
+) -> None:
+    await seed_request("req-1", MediaRequestStatus.PENDING, MediaType.MOVIE)
+
+    async with db_manager.transaction() as session:
+        request = await session.get(models.MediaRequest, "req-1")
+        assert request is not None
+        for index, published_at in enumerate(
+            [datetime(2026, 1, 1, tzinfo=UTC), datetime(2026, 3, 1, tzinfo=UTC), None]
+        ):
+            release = models.Release(
+                id=f"rel-{index}",
+                name=f"Release {index}",
+                info_hash=f"hash-{index}",
+                size_bytes=1,
+                published_at=published_at,
+            )
+            release.requests = [request]
+            session.add(release)
+
+    record = await repository.get_request("req-1")
+    assert record is not None
+    assert record.newest_release_published_at == datetime(2026, 3, 1, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_record_has_no_release_publication_date_without_releases(
+    repository: SqlAlchemyMediaRequestRepository,
+    seed_request: Callable[[str, MediaRequestStatus, MediaType], Awaitable[None]],
+) -> None:
+    await seed_request("req-1", MediaRequestStatus.PENDING, MediaType.MOVIE)
+
+    record = await repository.get_request("req-1")
+    assert record is not None
+    assert record.newest_release_published_at is None
+
+
+@pytest.mark.asyncio
 async def test_update_request_modifies_fields(
     repository: SqlAlchemyMediaRequestRepository,
     seed_request: Callable[[str, MediaRequestStatus, MediaType], Awaitable[None]],

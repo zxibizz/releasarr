@@ -30,6 +30,7 @@ class BaseMediaRequestDTO:
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
     exported_at: datetime | None = None
+    newest_release_published_at: datetime | None = None
     owner_user_id: str | None = None
     warnings: list[RequestWarningDTO] = field(default_factory=list)
 

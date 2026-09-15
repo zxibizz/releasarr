@@ -291,13 +291,29 @@ export class MockStore {
       result = result.filter((request) => ((request.warnings?.length ?? 0) > 0) === hasWarnings);
     }
 
-    return result.map((request) => clone(request));
+    return Promise.all(result.map((request) => this.cloneWithReleaseAge(request)));
   }
 
   async getRequest(id: string): Promise<MediaRequest | null> {
     const requests = await this.ensureRequests();
     const request = requests.find((item) => item.id === id);
-    return request ? clone(request) : null;
+    return request ? this.cloneWithReleaseAge(request) : null;
+  }
+
+  // The backend derives this from the linked releases instead of storing it on
+  // the request, so the mock has to derive it too or the age never moves.
+  private async cloneWithReleaseAge(request: MediaRequest): Promise<MediaRequest> {
+    const releases = await this.ensureReleases();
+    const published = releases
+      .filter((release) => release.request_ids.includes(request.id))
+      .map((release) => release.published_date)
+      .filter((value): value is string => Boolean(value));
+    const newest = published.reduce<string | null>(
+      (latest, value) =>
+        latest === null || new Date(value).getTime() > new Date(latest).getTime() ? value : latest,
+      null,
+    );
+    return { ...clone(request), newest_release_published_at: newest };
   }
 
   async createRequest(payload: NewMediaRequestPayload): Promise<MediaRequest> {

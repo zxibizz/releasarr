@@ -36,10 +36,11 @@ class BaseMediaRequest(APIModel):
     updated_at: datetime
     localizations: dict[str, MediaLocalization] = Field(default_factory=dict)
     exported_at: datetime | None = None
+    newest_release_published_at: datetime | None = None
     owner_user_id: str | None = None
     warnings: list[RequestWarning] = Field(default_factory=list)
 
-    @field_serializer("created_at", "updated_at", "exported_at")
+    @field_serializer("created_at", "updated_at", "exported_at", "newest_release_published_at")
     def _serialize_datetime(self, value: datetime | None) -> str | None:
         if value is None:
             return None

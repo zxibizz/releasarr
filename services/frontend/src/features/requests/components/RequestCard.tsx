@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
-import { formatDate, formatRuntime } from '@/utils/formatters';
+import { daysSince, formatDateTime, formatRuntime } from '@/utils/formatters';
 import { EPISODE_STATUS_COLOR, WARNING_COLOR } from '@/utils/status';
 
 interface RequestCardProps {
@@ -50,12 +50,18 @@ export function RequestCard({ request }: RequestCardProps) {
   const episodeSummary = episodeItems.map((item) => item.label).join(', ');
 
   /*
-    Null until something is exported, which is also when the line goes away.
+    The age of the freshest release attached to the request, phrased exactly as
+    the release cards phrase it. Null until something has been grabbed, which is
+    also when the line goes away.
   */
-  const exportedLabel = request.exported_at
-    ? t('requestCard.exported', { date: formatDate(request.exported_at) })
-    : null;
-
+  const publishedAt = request.newest_release_published_at ?? null;
+  const releaseAge = daysSince(publishedAt);
+  const ageLabel =
+    releaseAge === null
+      ? null
+      : releaseAge < 1
+        ? t('releaseSearch.age.today')
+        : t('releaseSearch.age.days', { count: Math.floor(releaseAge) });
   return (
     <Card
       withBorder
@@ -135,29 +141,29 @@ export function RequestCard({ request }: RequestCardProps) {
 
           {/*
             The footer pairs the two facts that answer "where is this up to":
-            when it last reached the arr, and how much of the season came with
-            it. `mt="auto"` keeps it on the baseline so a row of cards lines up
-            whether or not either fact exists yet.
+            how old the newest release on it is, and how much of the season came
+            with it. `mt="auto"` keeps it on the baseline so a row of cards lines
+            up whether or not either fact exists yet.
           */}
-          {exportedLabel !== null || episodeItems.length > 0 ? (
+          {ageLabel !== null || episodeItems.length > 0 ? (
             <Group
-              justify={exportedLabel ? 'space-between' : 'flex-end'}
+              justify={ageLabel ? 'space-between' : 'flex-end'}
               align="center"
               gap="sm"
               wrap="nowrap"
               mt="auto"
             >
-              {exportedLabel && (
+              {ageLabel && (
                 // Yields space before the counts do, since the counts are the
                 // part that cannot be guessed from the rest of the card.
                 <Text
                   size="xs"
                   c="dimmed"
-                  aria-label={exportedLabel}
-                  title={exportedLabel}
+                  aria-label={t('requestCard.releaseAge', { age: ageLabel })}
+                  title={publishedAt ? formatDateTime(publishedAt) : undefined}
                   style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >
-                  {exportedLabel}
+                  🕒 {ageLabel}
                 </Text>
               )}
               {episodeItems.length > 0 &&

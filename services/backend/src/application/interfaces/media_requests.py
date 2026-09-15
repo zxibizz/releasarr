@@ -45,6 +45,8 @@ class MediaRequestRecord:
     downloaded_episodes: int | None = None
     exported_at: datetime | None = None
     owner_user_id: str | None = None
+    # Derived from the linked releases, not stored on the request itself.
+    newest_release_published_at: datetime | None = None
 
 
 @dataclass(slots=True)
