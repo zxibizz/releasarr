@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -11,41 +10,10 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.application.interfaces.releases import MANUAL_SOURCE
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, ReleaseStatus
+from src.domain.enums import ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
-
-# Release states that mean a grab is in flight for the owning request. Seeding and
-# completed torrents count: the bytes are on disk but Sonarr has not imported them
-# yet, so the request is still being worked on.
-ACTIVE_RELEASE_STATUSES = frozenset(
-    {ReleaseStatus.DOWNLOADING, ReleaseStatus.SEEDING, ReleaseStatus.COMPLETED}
-)
-
-
-def _is_in_flight(release: models.Release) -> bool:
-    """Whether the release still has anything to do for its requests.
-
-    A release the export has already imported is done with: the torrent is only
-    still around because it seeds. Counting it as in flight would hold the request
-    on ``downloading`` for as long as qBittorrent keeps the torrent, and a request
-    held there is never searched again.
-    """
-
-    return release.last_exported_info_hash != release.info_hash
-
-
-def _is_regrabbable(release: models.Release) -> bool:
-    """Whether the re-grab pass could still find a better copy of this release.
-
-    ``torrent_source`` names the indexer Prowlarr attributed the release to, so a
-    release carrying one can be searched for again. A hand-supplied torrent has no
-    indexer to go back to and nothing will ever replace it.
-    """
-
-    return release.torrent_source is not None and release.torrent_source != MANUAL_SOURCE
 
 
 @dataclass(slots=True)
@@ -76,8 +44,9 @@ class SyncReleasesTask:
     counts the releases that actually moved rather than the ones that were looked
     at; ``unchanged`` carries the rest.
 
-    It then propagates the refreshed release statuses onto the media requests those
-    releases belong to, so a request reflects that a download is under way.
+    Propagating the refreshed release state onto media requests is
+    `SyncSteps.release_sync`'s job, via `RecomputeRequestStateUseCase` - this task
+    only owns the release rows themselves.
     """
 
     db: DBManager
@@ -124,14 +93,11 @@ class SyncReleasesTask:
                     error=str(exc),
                 )
 
-        requests_updated = await self._sync_request_statuses()
-
         return SyncResult(
             synced=synced,
             failed=failed,
             not_found=not_found,
             unchanged=unchanged,
-            requests_updated=requests_updated,
         )
 
     async def _update_release(self, release: models.Release, torrent: dict[str, Any]) -> bool:
@@ -196,66 +162,6 @@ class SyncReleasesTask:
             return None
 
         return datetime.fromtimestamp(completion_on, tz=UTC)
-
-    async def _sync_request_statuses(self) -> int:
-        """Reflect the state of each request's releases on the request itself.
-
-        Completed requests are skipped: Sonarr owns that transition (a season is only
-        done once it stops being reported missing), and a finished torrent usually
-        keeps seeding long after the import, which would otherwise flip the request
-        back and forth on every cycle.
-        """
-        updated = 0
-        async with self.db.transaction() as session:
-            stmt = (
-                select(models.MediaRequest)
-                .where(models.MediaRequest.status != MediaRequestStatus.COMPLETED)
-                .where(models.MediaRequest.releases.any())
-                .options(selectinload(models.MediaRequest.releases))
-            )
-            result = await session.execute(stmt)
-
-            for request in result.scalars():
-                derived = self._derive_request_status(request.releases)
-                if derived is None or derived == request.status:
-                    continue
-                previous = request.status
-                request.status = derived
-                updated += 1
-                logger.info(
-                    f"Request status changed from {previous.value} to {derived.value}",
-                    request_id=request.id,
-                    previous_status=previous.value,
-                    status=derived.value,
-                )
-
-            await session.flush()
-
-        return updated
-
-    @staticmethod
-    def _derive_request_status(
-        releases: Sequence[models.Release],
-    ) -> MediaRequestStatus | None:
-        """Status implied by a request's releases, or None to leave it untouched.
-
-        With nothing in flight the request's grabs have all been imported. That is
-        not necessarily the end of it: an indexer-sourced release can be searched
-        for again, so the request is monitoring rather than waiting on anything.
-        Releases that came in by hand leave the status as the request sync set it,
-        because nothing will ever re-grab them.
-        """
-
-        in_flight = [release for release in releases if _is_in_flight(release)]
-        if in_flight:
-            if any(release.status in ACTIVE_RELEASE_STATUSES for release in in_flight):
-                return MediaRequestStatus.DOWNLOADING
-            if all(release.status == ReleaseStatus.FAILED for release in in_flight):
-                return MediaRequestStatus.FAILED
-            return None
-        if any(_is_regrabbable(release) for release in releases):
-            return MediaRequestStatus.MONITORING
-        return None
 
     @staticmethod
     def _is_finished(torrent: dict[str, Any]) -> bool:

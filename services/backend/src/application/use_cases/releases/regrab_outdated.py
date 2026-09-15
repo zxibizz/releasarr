@@ -21,6 +21,7 @@ from src.application.interfaces.request_warnings import (
     RequestWarningRepository,
 )
 from src.application.use_cases.indexers.list_indexers import derive_health
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
 from src.domain.enums import IndexerHealth, RequestWarningCode
 
@@ -35,6 +36,7 @@ class RegrabOutdatedReleasesUseCase:
         download_service: ReleaseDownloadService,
         directory: IndexerDirectory | None = None,
         warning_repository: RequestWarningRepository | None = None,
+        recompute_state: RecomputeRequestStateUseCase | None = None,
         logger: Logger | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -43,6 +45,7 @@ class RegrabOutdatedReleasesUseCase:
         self._download_service = download_service
         self._directory = directory
         self._warning_repository = warning_repository
+        self._recompute_state = recompute_state
         self._logger = logger or get_logger(component="regrab_outdated_releases")
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -202,6 +205,19 @@ class RegrabOutdatedReleasesUseCase:
                     old_hash=current_hash,
                     new_hash=new_hash.upper(),
                 )
+
+            if self._recompute_state is not None:
+                try:
+                    # The new torrent is back in flight and `published_at` just
+                    # moved, so the request must leave `monitoring` immediately
+                    # rather than wait for the next release sync.
+                    await self._recompute_state.execute(request_ids)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self._logger.warning(
+                        "Failed to settle requests after a re-grab",
+                        release_id=release.id,
+                        error=str(exc),
+                    )
 
     async def _write_regrab_warning(self, release, reason: str | None) -> None:
         """Record or clear `REGRAB_INDEXER_UNAVAILABLE` for this release alone.

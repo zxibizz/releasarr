@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from loguru import logger
 
-from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
@@ -24,7 +23,7 @@ from src.application.use_cases.releases.exceptions import (
 from src.application.use_cases.releases.grab import ReleaseGrabFinalizer, to_release_files
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
-from src.application.use_cases.releases.warnings import RequestWarningSynchronizer
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.torrent import TorrentInfo, parse_torrent
 from src.domain.enums import ExistingReleasesAction
 
@@ -37,17 +36,14 @@ class QueueReleaseDownloadUseCase:
         repository: ReleaseRepository,
         download_service: ReleaseDownloadService,
         search_service: ReleaseSearchService,
-        request_repository: MediaRequestRepository | None = None,
         auto_mapper: ReleaseAutoMapper | None = None,
         existing_release_replacer: ExistingReleaseReplacer | None = None,
-        warning_synchronizer: RequestWarningSynchronizer | None = None,
+        recompute_state: RecomputeRequestStateUseCase | None = None,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
         self._search_service = search_service
-        self._finalizer = ReleaseGrabFinalizer(
-            request_repository, auto_mapper, warning_synchronizer
-        )
+        self._finalizer = ReleaseGrabFinalizer(auto_mapper, recompute_state)
         self._existing_release_replacer = existing_release_replacer
 
     async def _existing_releases(self, request_id: str) -> list[ReleaseRecord]:
@@ -149,8 +145,7 @@ class QueueReleaseDownloadUseCase:
             source=candidate.source,
             quality=candidate.quality,
         )
-        await self._finalizer.mark_request_downloading(effective_request_id)
-        await self._finalizer.auto_map_files(release)
+        await self._finalizer.finalize(release)
 
         if (
             command.existing_releases is ExistingReleasesAction.REPLACE

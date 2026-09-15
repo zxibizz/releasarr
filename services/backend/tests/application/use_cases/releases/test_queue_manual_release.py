@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 import pytest
 from torrentool.api import Torrent
 
-from src.application.interfaces.media_requests import UpdateMediaRequestData
 from src.application.interfaces.releases import (
     CreateReleaseData,
     FileMappingUpdateData,
@@ -27,7 +26,7 @@ from src.application.use_cases.releases.exceptions import (
 from src.application.use_cases.releases.queue_manual_release import QueueManualReleaseUseCase
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.utility.file_matcher import ReleaseFileMatcher
-from src.domain.enums import ExistingReleasesAction, MediaRequestStatus, MediaType, ReleaseStatus
+from src.domain.enums import ExistingReleasesAction, MediaType, ReleaseStatus
 
 REQUEST_ID = "req-1"
 MAGNET = "magnet:?xt=urn:btih:abc123def4567890abc123def4567890abc123de&dn=Show.S01.1080p"
@@ -85,9 +84,7 @@ class FakeReleaseRepository:
 
     async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
         wanted = set(request_ids)
-        return [
-            record for record in self.releases.values() if wanted & set(record.request_ids)
-        ]
+        return [record for record in self.releases.values() if wanted & set(record.request_ids)]
 
     async def create_release(self, data: CreateReleaseData) -> ReleaseRecord:
         self.last_created = data
@@ -147,12 +144,12 @@ class FailingDownloadService(FakeDownloadService):
         raise RuntimeError("client offline")
 
 
-class FakeRequestRepository:
+class FakeRecomputeState:
     def __init__(self) -> None:
-        self.updates: list[tuple[str, UpdateMediaRequestData]] = []
+        self.calls: list[list[str]] = []
 
-    async def update_request(self, request_id: str, data: UpdateMediaRequestData) -> None:
-        self.updates.append((request_id, data))
+    async def execute(self, request_ids: list[str]) -> None:
+        self.calls.append(list(request_ids))
 
 
 @pytest.fixture
@@ -249,19 +246,17 @@ async def test_uploaded_torrent_files_are_mapped_on_arrival(season_pack: bytes) 
 
 
 @pytest.mark.asyncio
-async def test_grab_moves_the_request_to_downloading() -> None:
-    request_repository = FakeRequestRepository()
+async def test_grab_settles_request_state() -> None:
+    recompute_state = FakeRecomputeState()
     use_case = QueueManualReleaseUseCase(
         FakeReleaseRepository(),
         FakeDownloadService(),
-        request_repository=request_repository,
+        recompute_state=recompute_state,
     )
 
     await use_case.execute(QueueManualReleaseCommand(request_id=REQUEST_ID, magnet_link=MAGNET))
 
-    assert request_repository.updates == [
-        (REQUEST_ID, UpdateMediaRequestData(status=MediaRequestStatus.DOWNLOADING))
-    ]
+    assert recompute_state.calls == [[REQUEST_ID]]
 
 
 @pytest.mark.asyncio

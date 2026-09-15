@@ -45,7 +45,6 @@ class MediaRequestRecord:
     downloaded_episodes: int | None = None
     exported_at: datetime | None = None
     owner_user_id: str | None = None
-    # Derived from the linked releases, not stored on the request itself.
     newest_release_published_at: datetime | None = None
 
 
@@ -74,6 +73,7 @@ class CreateMediaRequestData:
     downloaded_episodes: int | None = None
     exported_at: datetime | None = None
     owner_user_id: str | None = None
+    newest_release_published_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -103,6 +103,7 @@ class UpdateMediaRequestData:
     localizations: dict[str, MediaLocalization] | _Unset = UNSET
     exported_at: datetime | None | _Unset = UNSET
     owner_user_id: str | None | _Unset = UNSET
+    newest_release_published_at: datetime | None | _Unset = UNSET
 
 
 class MediaRequestRepository(Protocol):
