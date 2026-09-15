@@ -848,7 +848,7 @@ export interface components {
         /** @enum {string} */
         MediaType: "movie" | "series";
         /** @enum {string} */
-        MediaRequestStatus: "pending" | "searching" | "downloading" | "completed" | "failed";
+        MediaRequestStatus: "pending" | "searching" | "downloading" | "monitoring" | "completed" | "failed";
         /** @enum {string} */
         ReleaseStatus: "pending" | "downloading" | "seeding" | "completed" | "failed";
         /** @enum {string} */
@@ -1146,7 +1146,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @description A warning as it appears on a release. Only `mapping_overlap` shows up here - other codes are request-level concerns without a file list to report. */
+        /** @description A warning as it appears on a release. `mapping_overlap` populates `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` leaves both empty and puts its reason in `details` instead. */
         ReleaseWarning: {
             code: components["schemas"]["RequestWarningCode"];
             /** @description Files on this release involved in the warning. */

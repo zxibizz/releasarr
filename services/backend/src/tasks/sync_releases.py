@@ -11,6 +11,7 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from src.application.interfaces.releases import MANUAL_SOURCE
 from src.db.session import DBManager
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, ReleaseStatus
@@ -34,6 +35,17 @@ def _is_in_flight(release: models.Release) -> bool:
     """
 
     return release.last_exported_info_hash != release.info_hash
+
+
+def _is_regrabbable(release: models.Release) -> bool:
+    """Whether the re-grab pass could still find a better copy of this release.
+
+    ``torrent_source`` names the indexer Prowlarr attributed the release to, so a
+    release carrying one can be searched for again. A hand-supplied torrent has no
+    indexer to go back to and nothing will ever replace it.
+    """
+
+    return release.torrent_source is not None and release.torrent_source != MANUAL_SOURCE
 
 
 @dataclass(slots=True)
@@ -204,9 +216,7 @@ class SyncReleasesTask:
             result = await session.execute(stmt)
 
             for request in result.scalars():
-                derived = self._derive_request_status(
-                    [release.status for release in request.releases if _is_in_flight(release)]
-                )
+                derived = self._derive_request_status(request.releases)
                 if derived is None or derived == request.status:
                     continue
                 previous = request.status
@@ -225,21 +235,26 @@ class SyncReleasesTask:
 
     @staticmethod
     def _derive_request_status(
-        release_statuses: Sequence[ReleaseStatus],
+        releases: Sequence[models.Release],
     ) -> MediaRequestStatus | None:
         """Status implied by a request's releases, or None to leave it untouched.
 
-        Only releases still in flight are passed in, so an empty sequence is a
-        request whose grabs have all been imported: there is nothing running to
-        derive from and the status is left as the request sync set it.
+        With nothing in flight the request's grabs have all been imported. That is
+        not necessarily the end of it: an indexer-sourced release can be searched
+        for again, so the request is monitoring rather than waiting on anything.
+        Releases that came in by hand leave the status as the request sync set it,
+        because nothing will ever re-grab them.
         """
 
-        if not release_statuses:
+        in_flight = [release for release in releases if _is_in_flight(release)]
+        if in_flight:
+            if any(release.status in ACTIVE_RELEASE_STATUSES for release in in_flight):
+                return MediaRequestStatus.DOWNLOADING
+            if all(release.status == ReleaseStatus.FAILED for release in in_flight):
+                return MediaRequestStatus.FAILED
             return None
-        if any(status in ACTIVE_RELEASE_STATUSES for status in release_statuses):
-            return MediaRequestStatus.DOWNLOADING
-        if all(status == ReleaseStatus.FAILED for status in release_statuses):
-            return MediaRequestStatus.FAILED
+        if any(_is_regrabbable(release) for release in releases):
+            return MediaRequestStatus.MONITORING
         return None
 
     @staticmethod

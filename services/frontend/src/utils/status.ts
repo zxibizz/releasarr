@@ -17,6 +17,7 @@ const STATUS_PRESENTATION = {
   pending: { color: 'yellow', icon: '⏳' },
   searching: { color: 'grape', icon: '🔍' },
   downloading: { color: 'blue', icon: '⬇️' },
+  monitoring: { color: 'indigo', icon: '📡' },
   seeding: { color: 'cyan', icon: '🌱' },
   completed: { color: 'teal', icon: '✅' },
   failed: { color: 'red', icon: '❌' },

@@ -13,6 +13,7 @@ export const STATUS_KEYS = [
   'pending',
   'searching',
   'downloading',
+  'monitoring',
   'completed',
   'failed',
 ] as const;

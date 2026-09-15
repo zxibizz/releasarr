@@ -273,9 +273,23 @@ async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
 ) -> None:
     """`torrent_source` holds an indexer name, so only manual uploads are excluded."""
 
-    await seed_requests(["req-1"])
+    await seed_requests(["req-1", "req-2"])
 
-    async def _add(release_id: str, source: str | None, status: ReleaseStatus) -> None:
+    async def _set_status(request_id: str, status: MediaRequestStatus) -> None:
+        async with db_manager.transaction() as session:
+            request = await session.get(models.MediaRequest, request_id)
+            assert request is not None
+            request.status = status
+
+    await _set_status("req-1", MediaRequestStatus.MONITORING)
+
+    async def _add(
+        release_id: str,
+        source: str | None,
+        status: ReleaseStatus,
+        *,
+        request_id: str = "req-1",
+    ) -> None:
         async with db_manager.transaction() as session:
             release = models.Release(
                 id=release_id,
@@ -291,7 +305,7 @@ async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
                 ratio=1.0,
                 torrent_source=source,
             )
-            request = await session.get(models.MediaRequest, "req-1")
+            request = await session.get(models.MediaRequest, request_id)
             assert request is not None
             release.requests = [request]
             session.add(release)
@@ -300,6 +314,9 @@ async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
     await _add("from-manual", MANUAL_SOURCE, ReleaseStatus.COMPLETED)
     await _add("no-source", None, ReleaseStatus.COMPLETED)
     await _add("still-downloading", "RuTracker", ReleaseStatus.DOWNLOADING)
+    # req-2 stays PENDING: a request only reaches monitoring once the release sync
+    # confirms nothing is in flight, so a pending request is not a candidate either.
+    await _add("pending-request", "RuTracker", ReleaseStatus.COMPLETED, request_id="req-2")
 
     candidates = await repository.get_potential_outdated_releases()
 

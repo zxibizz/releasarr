@@ -54,6 +54,10 @@ completed once there are neither pending nor unaired episodes left, and one with
 to air goes back to `pending` rather than closing — which is also what keeps it actionable for a
 release grabbed by hand, since `regrab` has no indexer result to refresh it from.
 
+Once a request has nothing in flight but still holds a release sourced from an indexer, the
+release sync moves it to `monitoring` rather than leaving it `pending`: that release is what
+`regrab` looks for candidates against, and a hand-grabbed release never qualifies.
+
 `exported_at` is stamped by the `export` task at the moment Sonarr or Radarr accept a release's
 files for that request, and is what the request card shows on its left. It is deliberately set
 for partly-filled seasons too — the question it answers is "when did this last reach the arr",
@@ -215,7 +219,7 @@ Stored as their string values, not member names, via `build_enum()` in `models.p
 | Enum | Values |
 | --- | --- |
 | `MediaType` | `movie`, `series` |
-| `MediaRequestStatus` | `pending`, `searching`, `downloading`, `completed`, `failed` |
+| `MediaRequestStatus` | `pending`, `searching`, `downloading`, `monitoring`, `completed`, `failed` |
 | `ReleaseStatus` | `pending`, `downloading`, `seeding`, `completed`, `failed` |
 | `EpisodeStatus` | `downloaded`, `missing`, `unaired` |
 | `SyncJobKind` | `sonarr_sync`, `radarr_sync`, `release_sync`, `export`, `regrab` |

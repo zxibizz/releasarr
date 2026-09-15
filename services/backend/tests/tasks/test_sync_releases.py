@@ -6,12 +6,12 @@ from typing import Any, cast
 
 import pytest
 
+from src.application.interfaces.releases import MANUAL_SOURCE
 from src.db.session import DBManager
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
 from src.tasks.sync_releases import SyncReleasesTask
-
 INFO_HASH = "ABC123"
 
 
@@ -59,6 +59,7 @@ async def seed(
     release_status: ReleaseStatus = ReleaseStatus.PENDING,
     with_release: bool = True,
     exported: bool = False,
+    torrent_source: str | None = None,
 ) -> None:
     async with db.transaction() as session:
         request = models.MediaRequest(
@@ -82,6 +83,7 @@ async def seed(
                 size_bytes=0,
                 status=release_status,
                 last_exported_info_hash=INFO_HASH if exported else None,
+                torrent_source=torrent_source,
             )
             release.requests.append(request)
             session.add(release)
@@ -138,6 +140,42 @@ async def test_imported_release_does_not_pin_the_request(db_manager: DBManager) 
     """
 
     await seed(db_manager, request_status=MediaRequestStatus.PENDING, exported=True)
+
+    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert result.requests_updated == 0
+    assert await request_status(db_manager) == MediaRequestStatus.PENDING
+
+
+async def test_exported_release_with_indexer_source_becomes_monitoring(
+    db_manager: DBManager,
+) -> None:
+    """An imported release from an indexer can still be re-grabbed for a better copy."""
+
+    await seed(
+        db_manager,
+        request_status=MediaRequestStatus.PENDING,
+        exported=True,
+        torrent_source="SomeIndexer",
+    )
+
+    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert result.requests_updated == 1
+    assert await request_status(db_manager) == MediaRequestStatus.MONITORING
+
+
+async def test_exported_release_grabbed_by_hand_does_not_become_monitoring(
+    db_manager: DBManager,
+) -> None:
+    """A hand-supplied torrent has no indexer to go back to."""
+
+    await seed(
+        db_manager,
+        request_status=MediaRequestStatus.PENDING,
+        exported=True,
+        torrent_source=MANUAL_SOURCE,
+    )
 
     result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
 

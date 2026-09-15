@@ -24,6 +24,7 @@ const parseRequestStatus = (
     'pending',
     'searching',
     'downloading',
+    'monitoring',
     'completed',
     'failed',
   ];
