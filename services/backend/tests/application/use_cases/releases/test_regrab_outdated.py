@@ -85,7 +85,12 @@ class FakeSearchService:
         self._match = match
         self.queries: list[str] = []
 
-    async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
         self.queries.append(query)
         results = [self._match] if self._match else []
         return ReleaseSearchResults(results=results, query=query, total_results=len(results))

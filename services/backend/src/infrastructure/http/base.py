@@ -69,21 +69,34 @@ class BaseHttpClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        """Perform a request, retrying transient failures with backoff."""
+    async def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        retries: int | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Perform a request, retrying transient failures with backoff.
 
+        ``retries`` overrides the client's own budget for this call, for
+        callers (like a per-indexer search fan-out) that own their own retry
+        policy and would otherwise have it multiplied by the client's.
+        """
+
+        max_retries = self._retries if retries is None else retries
         attempt = 0
         while True:
             try:
                 response = await self._client.request(method, url, **kwargs)
             except httpx.TransportError as exc:
-                if attempt >= self._retries:
+                if attempt >= max_retries:
                     raise HttpClientError(f"request to {url!r} failed: {exc}") from exc
                 await self._backoff(attempt)
                 attempt += 1
                 continue
 
-            if response.status_code in RETRY_STATUS_CODES and attempt < self._retries:
+            if response.status_code in RETRY_STATUS_CODES and attempt < max_retries:
                 await self._backoff(attempt)
                 attempt += 1
                 continue

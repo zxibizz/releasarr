@@ -444,10 +444,17 @@ api.get('/releases/search', async (req, res) => {
   const query = (req.query.q as string | undefined) ?? '';
   const requestId = (req.query.request_id as string | undefined) ?? undefined;
   const results = await mockStore.searchReleaseCandidates(query, requestId);
+  // "flaky" is a UI-development sentinel: it lets the failed-indexers alert be
+  // exercised without a real Prowlarr instance with a broken indexer.
+  const failedIndexers = query.toLowerCase().includes('flaky')
+    ? [{ indexer_id: 99, name: 'Flaky Indexer', reason: 'timed out after 10.0s' }]
+    : [];
   res.json({
     results,
     query,
     total_results: results.length,
+    failed_indexers: failedIndexers,
+    searched_indexers: 8,
   });
 });
 

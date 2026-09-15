@@ -2987,9 +2987,19 @@ components:
           format: date-time
           description: When the indexer published the release. Used to derive release age.
           nullable: true
+    IndexerSearchFailure:
+      type: object
+      required: [indexer_id, name, reason]
+      properties:
+        indexer_id:
+          type: integer
+        name:
+          type: string
+        reason:
+          type: string
     ReleaseSearchResponse:
       type: object
-      required: [results, query, total_results]
+      required: [results, query, total_results, failed_indexers, searched_indexers]
       properties:
         results:
           type: array
@@ -2999,6 +3009,14 @@ components:
           type: string
         total_results:
           type: integer
+        failed_indexers:
+          type: array
+          description: Indexers that could not be searched, so results may be incomplete.
+          items:
+            $ref: '#/components/schemas/IndexerSearchFailure'
+        searched_indexers:
+          type: integer
+          description: Number of indexers the search attempted, whether or not they answered.
     ExistingReleasesAction:
       type: string
       enum: [keep, replace]

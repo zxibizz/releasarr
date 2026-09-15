@@ -115,10 +115,18 @@ class ReleaseSearchResult(APIModel):
     publish_date: datetime | None = None
 
 
+class IndexerSearchFailure(APIModel):
+    indexer_id: int
+    name: str
+    reason: str
+
+
 class ReleaseSearchResponse(APIModel):
     results: list[ReleaseSearchResult]
     query: str
     total_results: int
+    failed_indexers: list[IndexerSearchFailure] = Field(default_factory=list)
+    searched_indexers: int = 0
 
 
 class ReleaseDownloadRequest(APIModel):
@@ -137,6 +145,7 @@ class ManualReleaseRequest(APIModel):
 __all__ = [
     "AddReleaseRequest",
     "FileRequestMapping",
+    "IndexerSearchFailure",
     "ManualReleaseRequest",
     "MovieFileRequestMapping",
     "Release",

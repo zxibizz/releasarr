@@ -10,7 +10,12 @@ import {
   isExistingReleasesDecisionRequired,
 } from '@/features/releases/existingReleases';
 import { useReleasesByRequest } from '@/features/releases/queries';
-import type { AsyncOperationResponse, ExistingReleasesAction, ReleaseSearchResult } from '@/types';
+import type {
+  AsyncOperationResponse,
+  ExistingReleasesAction,
+  IndexerSearchFailure,
+  ReleaseSearchResult,
+} from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 import { daysSince } from '@/utils/formatters';
 
@@ -77,6 +82,7 @@ export function useReleaseSearch({
   const [activeTab, setActiveTab] = useState<string>(SEARCH_TAB);
   const [query, setQuery] = useState(prefillQuery ?? '');
   const [results, setResults] = useState<ReleaseSearchResult[]>([]);
+  const [failedIndexers, setFailedIndexers] = useState<IndexerSearchFailure[]>([]);
   const [searchedQuery, setSearchedQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>(DEFAULT_SORT_FIELD);
   const [sortOrder, setSortOrder] = useState<SortOrder>(NATURAL_SORT_ORDER[DEFAULT_SORT_FIELD]);
@@ -96,6 +102,7 @@ export function useReleaseSearch({
     mutationFn: (value: string) => releasesApi.search(value, requestId),
     onSuccess: (response, value) => {
       setResults(response.results ?? []);
+      setFailedIndexers(response.failed_indexers ?? []);
       setSearchedQuery(value);
     },
     onError: (error) => {
@@ -218,6 +225,7 @@ export function useReleaseSearch({
   const handleClear = () => {
     setQuery('');
     setResults([]);
+    setFailedIndexers([]);
     setSearchedQuery('');
     setSourceFilter(DEFAULT_SOURCE_FILTER);
   };
@@ -228,6 +236,7 @@ export function useReleaseSearch({
     query,
     setQuery,
     results,
+    failedIndexers,
     searchedQuery,
     sortField,
     setSortField,

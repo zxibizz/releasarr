@@ -660,7 +660,14 @@ class ReleaseUseCases:
 
     @cached_property
     def search_sources(self) -> SearchReleaseSourcesUseCase:
-        return SearchReleaseSourcesUseCase(search_service=self._container.services.release_search)
+        settings = self._container.settings
+        return SearchReleaseSourcesUseCase(
+            search_service=self._container.services.release_search,
+            directory=self._container.services.indexer_directory,
+            timeout_seconds=settings.prowlarr_search_timeout,
+            retries=settings.prowlarr_search_retries,
+            concurrency=settings.prowlarr_search_concurrency,
+        )
 
     @cached_property
     def auto_mapper(self) -> ReleaseAutoMapper:

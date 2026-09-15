@@ -382,6 +382,11 @@ export const resources = {
           days_one: '{{count}} day',
           days_other: '{{count}} days',
         },
+        indexerFailures: {
+          title: 'Some indexers did not respond',
+          description_one: '{{names}} did not respond, so results may be incomplete.',
+          description_other: '{{names}} did not respond, so results may be incomplete.',
+        },
         empty: {
           title: 'No release sources found',
           description: 'Try adjusting your search terms or check back later.',
@@ -1229,6 +1234,13 @@ export const resources = {
           days_few: '{{count}} дня',
           days_many: '{{count}} дней',
           days_other: '{{count}} дней',
+        },
+        indexerFailures: {
+          title: 'Некоторые индексеры не ответили',
+          description_one: '{{names}} не ответил, поэтому результаты могут быть неполными.',
+          description_few: '{{names}} не ответили, поэтому результаты могут быть неполными.',
+          description_many: '{{names}} не ответили, поэтому результаты могут быть неполными.',
+          description_other: '{{names}} не ответили, поэтому результаты могут быть неполными.',
         },
         empty: {
           title: 'Ничего не найдено',

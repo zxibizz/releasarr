@@ -67,6 +67,7 @@ export function ReleaseSearch({
     query,
     setQuery,
     results,
+    failedIndexers,
     searchedQuery,
     sortField,
     setSortField,
@@ -246,6 +247,15 @@ export function ReleaseSearch({
             {search.isError && (
               <Alert color="red" radius="md">
                 {getErrorMessage(search.error, t('releaseSearch.toasts.searchFailedFallback'))}
+              </Alert>
+            )}
+
+            {failedIndexers.length > 0 && (
+              <Alert color="yellow" radius="md" title={t('releaseSearch.indexerFailures.title')}>
+                {t('releaseSearch.indexerFailures.description', {
+                  count: failedIndexers.length,
+                  names: failedIndexers.map((indexer) => indexer.name).join(', '),
+                })}
               </Alert>
             )}
 

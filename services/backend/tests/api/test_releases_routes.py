@@ -27,6 +27,7 @@ from src.api.routes.releases import (
 )
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
+    IndexerSearchFailureDTO,
     ReleaseDTO,
     ReleaseFileDTO,
     ReleaseFileMappingDTO,
@@ -371,7 +372,14 @@ async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
         source="indexer",
         request_id="req-1",
     )
-    response_dto = ReleaseSearchResponseDTO(results=[result], query="query", total_results=1)
+    failure = IndexerSearchFailureDTO(indexer_id=2, name="Broken", reason="timed out")
+    response_dto = ReleaseSearchResponseDTO(
+        results=[result],
+        query="query",
+        total_results=1,
+        failed_indexers=[failure],
+        searched_indexers=2,
+    )
 
     class FakeSearch:
         async def execute(self, command):
@@ -383,7 +391,10 @@ async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
         )
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["results"][0]["release_id"] == result.release_id
+    body = response.json()
+    assert body["results"][0]["release_id"] == result.release_id
+    assert body["searched_indexers"] == 2
+    assert body["failed_indexers"] == [{"indexer_id": 2, "name": "Broken", "reason": "timed out"}]
 
 
 @pytest.mark.asyncio

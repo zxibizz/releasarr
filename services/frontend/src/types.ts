@@ -19,6 +19,7 @@ export type ReleaseFile = Schemas['ReleaseFile'];
 export type ReleaseWarning = Schemas['ReleaseWarning'];
 export type ReleaseSearchResult = Schemas['ReleaseSearchResult'];
 export type ReleaseSearchResponse = Schemas['ReleaseSearchResponse'];
+export type IndexerSearchFailure = Schemas['IndexerSearchFailure'];
 export type ReleaseDownloadRequest = Schemas['ReleaseDownloadRequest'];
 export type ManualReleaseRequest = Schemas['ManualReleaseRequest'];
 export type ExistingReleasesAction = Schemas['ExistingReleasesAction'];

@@ -74,6 +74,13 @@ class AppSettings(BaseSettings):
     prowlarr_categories: tuple[int, ...] = Field(default=())
     prowlarr_timeout: float = Field(default=20.0)
 
+    # A search fans out to one request per indexer, so its own timeout is much
+    # tighter than prowlarr_timeout: a hung indexer shouldn't cost more than
+    # this budget while the rest still answer.
+    prowlarr_search_timeout: float = Field(default=10.0)
+    prowlarr_search_retries: int = Field(default=1)
+    prowlarr_search_concurrency: int = Field(default=5)
+
     qbittorrent_url: str = Field(default="")
     qbittorrent_username: str = Field(default="")
     qbittorrent_password: SecretStr = Field(default=SecretStr(""))

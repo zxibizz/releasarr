@@ -1394,10 +1394,19 @@ export interface components {
              */
             publish_date?: string | null;
         };
+        IndexerSearchFailure: {
+            indexer_id: number;
+            name: string;
+            reason: string;
+        };
         ReleaseSearchResponse: {
             results: components["schemas"]["ReleaseSearchResult"][];
             query: string;
             total_results: number;
+            /** @description Indexers that could not be searched, so results may be incomplete. */
+            failed_indexers: components["schemas"]["IndexerSearchFailure"][];
+            /** @description Number of indexers the search attempted, whether or not they answered. */
+            searched_indexers: number;
         };
         /**
          * @description Required once a request already has releases. `keep` leaves them running alongside the new grab; `replace` deletes the ones grabbed only for this request and unlinks the ones shared with other requests.

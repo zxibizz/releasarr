@@ -58,3 +58,23 @@ async def test_transport_error_is_wrapped() -> None:
             await client.request("GET", "https://example.test/x")
     finally:
         await client.aclose()
+
+
+async def test_per_call_retries_overrides_client_default() -> None:
+    """A caller with its own retry policy (e.g. a per-indexer search) can opt out."""
+
+    calls = {"n": 0}
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(503)
+
+    client = BaseHttpClient(transport=httpx.MockTransport(handler), retries=2, backoff_base=0.0)
+    try:
+        response = await client.request("GET", "https://example.test/x", retries=0)
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 503
+    assert calls["n"] == 1
+

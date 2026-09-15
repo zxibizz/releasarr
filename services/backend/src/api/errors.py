@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src.application.interfaces.indexers import IndexerNotFoundError
+from src.application.interfaces.releases import ReleaseSearchUnavailableError
 from src.application.use_cases.auth.exceptions import (
     AccountLockedError,
     InactiveUserError,
@@ -69,6 +70,7 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     ReleaseConflictError: (status.HTTP_409_CONFLICT, "release_conflict"),
     ReleaseDownloadConflictError: (status.HTTP_409_CONFLICT, "release_download_conflict"),
     ReleaseDownloadFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed"),
+    ReleaseSearchUnavailableError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),
     ExistingReleasesDecisionRequiredError: (
         status.HTTP_409_CONFLICT,
         "existing_releases_decision_required",
