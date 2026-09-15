@@ -495,6 +495,10 @@ export const resources = {
           badge: 'Not listed',
           tooltip: 'No longer listed by its indexer: {{indexer}}',
         },
+        fileWarnings: {
+          unmappedBadge: 'New files unmapped',
+          missingBadge: 'Replacement incomplete',
+        },
       },
       existingReleases: {
         title: 'This request already has releases',
@@ -602,6 +606,14 @@ export const resources = {
           mappingOverlap: 'Shares files with another release linked to this request.',
           regrabIndexerUnavailable: 'Could not check for a fresher release: {{reason}}',
           releaseNotListed: 'No longer listed by its indexer: {{indexer}}',
+          regrabFilesUnmapped_one:
+            'The replacement torrent added {{count}} file that could not be mapped automatically.',
+          regrabFilesUnmapped_other:
+            'The replacement torrent added {{count}} files that could not be mapped automatically.',
+          regrabFilesMissing_one:
+            'Re-grab refused: the replacement torrent is missing {{count}} file this release already has.',
+          regrabFilesMissing_other:
+            'Re-grab refused: the replacement torrent is missing {{count}} files this release already has.',
           unknownReason: 'unknown reason',
           unknownIndexer: 'unknown indexer',
         },
@@ -1405,6 +1417,10 @@ export const resources = {
           badge: 'Нет в индексере',
           tooltip: 'Больше не числится в индексере: {{indexer}}',
         },
+        fileWarnings: {
+          unmappedBadge: 'Новые файлы не сопоставлены',
+          missingBadge: 'Замена неполная',
+        },
       },
       existingReleases: {
         title: 'У этого запроса уже есть релизы',
@@ -1514,6 +1530,22 @@ export const resources = {
           mappingOverlap: 'Пересекается по файлам с другим релизом этого запроса.',
           regrabIndexerUnavailable: 'Не удалось проверить наличие более свежего релиза: {{reason}}',
           releaseNotListed: 'Больше не числится в индексере: {{indexer}}',
+          regrabFilesUnmapped_one:
+            'Замещающий торрент добавил {{count}} файл, который не удалось сопоставить автоматически.',
+          regrabFilesUnmapped_few:
+            'Замещающий торрент добавил {{count}} файла, которые не удалось сопоставить автоматически.',
+          regrabFilesUnmapped_many:
+            'Замещающий торрент добавил {{count}} файлов, которые не удалось сопоставить автоматически.',
+          regrabFilesUnmapped_other:
+            'Замещающий торрент добавил {{count}} файла, которые не удалось сопоставить автоматически.',
+          regrabFilesMissing_one:
+            'Перекачка отменена: в замещающем торренте нет {{count}} файла, который уже есть у релиза.',
+          regrabFilesMissing_few:
+            'Перекачка отменена: в замещающем торренте нет {{count}} файлов, которые уже есть у релиза.',
+          regrabFilesMissing_many:
+            'Перекачка отменена: в замещающем торренте нет {{count}} файлов, которые уже есть у релиза.',
+          regrabFilesMissing_other:
+            'Перекачка отменена: в замещающем торренте нет {{count}} файлов, которые уже есть у релиза.',
           unknownReason: 'причина неизвестна',
           unknownIndexer: 'индексер неизвестен',
         },

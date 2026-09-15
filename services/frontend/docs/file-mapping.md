@@ -20,6 +20,12 @@ Video files are listed first and non-video files are collapsed, via `splitVideoF
 `utils/files.ts`. Both buckets sort with `compareByFileName`, a `localeCompare` with
 `numeric: true`, so `E9` precedes `E10`.
 
+The modal does not hold the release it was opened from: `RequestDetailPage` keeps the clicked
+release's id and reads the release out of the releases query, so a re-grab that rewrites it — and
+swaps its whole file list with the replacement torrent's — shows up in a panel that is already
+open. A refresh that re-grabbed anything also invalidates the suggestions query
+(`useRefreshRequestReleases`), because the files a proposal was worked out against are gone.
+
 ## The draft model
 
 The API models a mapping as a discriminated union on `mapping_type`. That is awkward to edit —

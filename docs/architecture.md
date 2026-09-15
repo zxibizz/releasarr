@@ -215,6 +215,12 @@ import shows up in the UI without every page polling.
    without waiting out the task intervals; it needs both integrations, so it answers 503 rather
    than doing half the job.
 
+   A re-grab also reads the replacement torrent's file list, because the release it rewrites is
+   the row the export imports by: files the release already had keep their mappings, files the
+   replacement adds are automapped on their own, and a replacement that does not carry a stored
+   file is refused before anything is queued. See
+   [`services/backend/docs/file-mapping.md`](../services/backend/docs/file-mapping.md#re-grabbing-a-release).
+
 Ordering matters: `export` can only import what `release_sync` has already marked completed,
 which is why `sync_downloads` queues the two together and in that order.
 

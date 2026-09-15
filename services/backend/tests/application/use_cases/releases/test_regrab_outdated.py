@@ -16,7 +16,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
 from src.domain.enums import ReleaseStatus, RequestWarningCode
-from tests.builders import stub_recompute_state, stub_warning_repository
+from tests.builders import stub_auto_mapper, stub_recompute_state, stub_warning_repository
 from tests.fakes import (
     UnusedIndexerDirectoryCalls,
     UnusedReleaseDownloadCalls,
@@ -167,6 +167,7 @@ def build_use_case(
     download_service: FakeDownloadService,
     **overrides: Any,
 ) -> RegrabOutdatedReleasesUseCase:
+    overrides.setdefault("auto_mapper", stub_auto_mapper())
     overrides.setdefault("warning_repository", stub_warning_repository())
     overrides.setdefault("recompute_state", stub_recompute_state())
     overrides.setdefault("directory", FakeIndexerDirectory([]))

@@ -595,6 +595,9 @@ export class MockStore {
    *
    * The real check re-downloads only when the indexer reissued the torrent, which
    * is a decision no mock can make; doing it once keeps the second press honest.
+   * The replacement also brings a file the release did not have, which is what the
+   * real one reads out of the newer torrent; the one added here is deliberately
+   * left unmapped so the warning that asks for a human is reachable too.
    */
   private regrabOne(requestId: string, linked: Release[]): Release | null {
     if (this.regrabbedRequestIds.has(requestId)) {
@@ -611,6 +614,23 @@ export class MockStore {
     completed.progress = 0;
     completed.download_speed = 0;
     completed.completed_date = null;
+
+    const added: ReleaseFile = {
+      id: `${completed.id}-regrab-${completed.files.length + 1}`,
+      name: `${completed.name}.REPACK.extra.mkv`,
+      size: 512 * 1024 * 1024,
+      path: `${completed.name}.REPACK.extra.mkv`,
+    };
+    completed.files = [...completed.files, added];
+    completed.warnings = [
+      ...(completed.warnings ?? []).filter((warning) => warning.code !== 'regrab_files_unmapped'),
+      {
+        code: 'regrab_files_unmapped',
+        file_ids: [added.id],
+        related_release_ids: [],
+        details: { file_ids: [added.id], file_count: 1 },
+      },
+    ];
     return completed;
   }
 
@@ -645,6 +665,25 @@ export class MockStore {
           },
         }),
       );
+
+      if (regrabbed) {
+        logs.push(
+          stampLogEntry({
+            id: `${requestId}-files-${release.id}-${Date.now()}`,
+            level: 'info',
+            message: "Recorded the replacement torrent's files",
+            source: 'src.application.use_cases.releases.regrab',
+            metadata: {
+              service: 'api',
+              request_id: requestId,
+              release_id: release.id,
+              file_count: release.files.length,
+              added_file_count: 1,
+              mapped_file_count: 0,
+            },
+          }),
+        );
+      }
     }
   }
 

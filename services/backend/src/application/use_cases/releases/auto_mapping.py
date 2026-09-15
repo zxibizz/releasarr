@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import MediaRequestRecord, MediaRequestRepository
@@ -48,6 +50,29 @@ class ReleaseAutoMapper:
             await self._repository.update_file_mappings(release.id, updates)
             self._log_auto_mapped(release, updates)
         return candidates
+
+    async def apply_to(self, release: ReleaseRecord, file_ids: Collection[str]) -> int:
+        """Map only the given files, returning how many mappings were written.
+
+        Used after a re-grab, where the files the replacement torrent added are
+        the only ones automapping may speak for: everything else was already
+        resolved, by hand or by an earlier pass, and a replacement torrent is not
+        a reason to revisit it. The matcher still sees the whole file list, since
+        its numbering and its movie pass both read it.
+        """
+
+        scoped = set(file_ids)
+        if not scoped:
+            return 0
+
+        updates, _ = await self.suggest(release)
+        updates = [update for update in updates if update.file_id in scoped]
+        if not updates:
+            return 0
+
+        await self._repository.update_file_mappings(release.id, updates)
+        self._log_auto_mapped(release, updates)
+        return len(updates)
 
     def _log_auto_mapped(
         self, release: ReleaseRecord, updates: list[FileMappingUpdateData]

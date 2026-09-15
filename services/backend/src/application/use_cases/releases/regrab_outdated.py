@@ -13,6 +13,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchService,
 )
 from src.application.interfaces.request_warnings import RequestWarningRepository
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.regrab import ReleaseRegrapper
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
@@ -33,6 +34,7 @@ class RegrabOutdatedReleasesUseCase:
         repository: ReleaseRepository,
         search_service: ReleaseSearchService,
         download_service: ReleaseDownloadService,
+        auto_mapper: ReleaseAutoMapper,
         warning_repository: RequestWarningRepository,
         recompute_state: RecomputeRequestStateUseCase,
         directory: IndexerDirectory,
@@ -47,6 +49,7 @@ class RegrabOutdatedReleasesUseCase:
             repository=repository,
             search_service=search_service,
             download_service=download_service,
+            auto_mapper=auto_mapper,
             warning_repository=warning_repository,
             recompute_state=recompute_state,
             directory=directory,

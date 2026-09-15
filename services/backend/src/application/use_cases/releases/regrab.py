@@ -7,7 +7,8 @@ behind, or on what they log against the request.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
@@ -17,9 +18,12 @@ from torrentool.api import Torrent
 from src.application.interfaces.indexers import IndexerDirectory, IndexerRecord
 from src.application.interfaces.releases import (
     MANUAL_SOURCE,
+    FileReconciliation,
     ReleaseDownloadService,
+    ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRepository,
+    ReleaseSearchResultRecord,
     ReleaseSearchService,
     ReleaseSearchUnavailableError,
 )
@@ -28,7 +32,12 @@ from src.application.interfaces.request_warnings import (
     RequestWarningRepository,
 )
 from src.application.use_cases.indexers.list_indexers import derive_health
+from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
+from src.application.use_cases.releases.exceptions import ReleaseRegrabRejectedError
+from src.application.use_cases.releases.grab import to_release_files
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.utility.torrent import parse_torrent
+from src.application.utility.torrent_files import reconcile_release_files
 from src.core.logging import get_logger
 from src.domain.enums import IndexerHealth, ReleaseStatus, RequestWarningCode
 
@@ -52,6 +61,12 @@ class ReleaseRegrapper:
     The check is a search for the release's own name, scoped to the indexer it
     came from, followed by a comparison of info hashes: an indexer that replaced
     a torrent (a repack) serves the same release id under a new hash.
+
+    The replacement's file list is read before it is queued, because the release
+    row it rewrites is the one holding the mappings the export imports by. Files
+    the release already had keep their mappings, files the replacement adds are
+    automapped on their own, and a replacement that dropped one of them is
+    refused rather than left describing a file that is no longer there.
     """
 
     def __init__(
@@ -59,6 +74,7 @@ class ReleaseRegrapper:
         repository: ReleaseRepository,
         search_service: ReleaseSearchService,
         download_service: ReleaseDownloadService,
+        auto_mapper: ReleaseAutoMapper,
         warning_repository: RequestWarningRepository,
         recompute_state: RecomputeRequestStateUseCase,
         directory: IndexerDirectory,
@@ -68,6 +84,7 @@ class ReleaseRegrapper:
         self._repository = repository
         self._search_service = search_service
         self._download_service = download_service
+        self._auto_mapper = auto_mapper
         self._directory = directory
         self._warning_repository = warning_repository
         self._recompute_state = recompute_state
@@ -230,6 +247,19 @@ class ReleaseRegrapper:
 
         request_ids = release.request_ids or ["unknown"]
 
+        # The replacement is about to be written over a row whose files describe
+        # the torrent it is replacing, so its own file list is read first - and a
+        # torrent that dropped a file the release already has is refused before
+        # anything is queued. A list that cannot be read is not refused: a magnet
+        # only result is a normal indexer answer, it just cannot be reconciled.
+        replacement_files = await self._read_replacement_files(release, match, torrent_bytes)
+        reconciliation: FileReconciliation | None = None
+        if replacement_files is not None:
+            reconciliation = reconcile_release_files(release.files, replacement_files)
+            if reconciliation.missing:
+                await self._refuse_missing_files(release, reconciliation.missing)
+            await self._write_files_missing_warning(release, missing_files=None)
+
         await self._download_service.queue_download(
             request_id=request_ids[0],
             release_id=release.id,
@@ -256,6 +286,9 @@ class ReleaseRegrapper:
             completed_at=None,
         )
 
+        if reconciliation is not None:
+            await self._settle_files(release, reconciliation)
+
         self._log_for_requests(
             self._logger.info,
             "Re-grabbed updated release",
@@ -280,6 +313,137 @@ class ReleaseRegrapper:
             )
 
         return True
+
+    async def _read_replacement_files(
+        self,
+        release: ReleaseRecord,
+        match: ReleaseSearchResultRecord,
+        torrent_bytes: bytes | None,
+    ) -> list[ReleaseFileRecord] | None:
+        """Read the replacement torrent's file list, or None when there is none.
+
+        Only a ``.torrent`` carries a file list, and the hash comparison has
+        already been made out of whatever the indexer offered, so this is the one
+        place that fetches it. What it returns is for the file check alone: the
+        download still goes out as whatever the search result carried, so the
+        client receives the same torrent the recorded hash names.
+
+        Failing is not an error the re-grab should die on - an unusable torrent
+        file still leaves a magnet to download, and the log line is what tells
+        "nothing to compare" apart from "compared, all clear".
+        """
+
+        if torrent_bytes is None and match.torrent_file_url:
+            try:
+                torrent_bytes = await self._search_service.fetch_torrent(match.torrent_file_url)
+            except Exception as exc:
+                self._log_for_requests(
+                    self._logger.warning,
+                    "Could not read the replacement torrent's file list",
+                    release,
+                    release_name=release.name,
+                    error=str(exc),
+                )
+                return None
+
+        if not torrent_bytes:
+            return None
+
+        try:
+            torrent = parse_torrent(torrent_bytes)
+        except ValueError as exc:
+            self._log_for_requests(
+                self._logger.warning,
+                "Could not read the replacement torrent's file list",
+                release,
+                release_name=release.name,
+                error=str(exc),
+            )
+            return None
+
+        return to_release_files(torrent.files) or None
+
+    async def _refuse_missing_files(
+        self,
+        release: ReleaseRecord,
+        missing: Sequence[ReleaseFileRecord],
+    ) -> None:
+        """Abandon the re-grab over files the replacement torrent does not carry.
+
+        A release keeps one row per torrent, and an export imports by the paths on
+        it, so a replacement that drops a file would leave that row pointing at
+        something that was never downloaded. Nothing has been queued or written at
+        this point, which is what makes refusing cheap.
+        """
+
+        names = [record.name for record in missing]
+        self._log_for_requests(
+            self._logger.error,
+            "Replacement torrent is missing files the release already has",
+            release,
+            release_name=release.name,
+            missing_file_count=len(names),
+            missing_files=names,
+        )
+        await self._write_files_missing_warning(release, missing_files=names)
+        raise ReleaseRegrabRejectedError(release.id, names)
+
+    async def _settle_files(
+        self,
+        release: ReleaseRecord,
+        reconciliation: FileReconciliation,
+    ) -> None:
+        """Record the replacement's files and automap only the ones it added.
+
+        Everything the release already carried was resolved once - by hand or by
+        the grab - and re-deriving those mappings is how a correction gets lost,
+        so the matcher is only allowed to speak for the files that are new here.
+        """
+
+        try:
+            merged = await self._repository.sync_release_files(release.id, reconciliation)
+        except Exception as exc:  # pragma: no cover - defensive
+            self._log_for_requests(
+                self._logger.warning,
+                "Failed to record the replacement torrent's files",
+                release,
+                error=str(exc),
+            )
+            return
+
+        if merged is None:
+            return
+
+        added_ids = [record.id for record in reconciliation.added]
+        mapped = 0
+        if added_ids:
+            try:
+                mapped = await self._auto_mapper.apply_to(replace(release, files=merged), added_ids)
+            except Exception as exc:  # pragma: no cover - defensive
+                self._log_for_requests(
+                    self._logger.warning,
+                    "Failed to automap the replacement torrent's new files",
+                    release,
+                    error=str(exc),
+                )
+                return
+
+        self._log_for_requests(
+            self._logger.info,
+            "Recorded the replacement torrent's files",
+            release,
+            file_count=len(merged),
+            added_file_count=len(added_ids),
+            mapped_file_count=mapped,
+        )
+
+        # Only a release that gained files nobody could place needs a human; one
+        # whose new files mapped, or which gained none, is exactly what a re-grab
+        # is supposed to look like.
+        await self._write_files_unmapped_warning(
+            release,
+            file_ids=added_ids if added_ids and not mapped else None,
+        )
 
     def _unusable_reason(self, indexer: IndexerRecord | None) -> str | None:
         """Why this indexer cannot answer a search right now, or None if it can.
@@ -367,6 +531,84 @@ class ReleaseRegrapper:
             self._log_for_requests(
                 self._logger.warning,
                 "Failed to persist release-not-listed warning",
+                release,
+                error=str(exc),
+            )
+
+    async def _write_files_missing_warning(
+        self, release: ReleaseRecord, missing_files: list[str] | None
+    ) -> None:
+        """Record or clear `REGRAB_FILES_MISSING` for this release alone.
+
+        Set by the refusal that stops a replacement from being grabbed and cleared
+        by a later check whose replacement does carry every stored file. Only a
+        readable file list can tell it is resolved, so a check that could not read
+        one leaves the row exactly where it was.
+        """
+
+        details = (
+            {"missing_files": missing_files, "file_count": len(missing_files)}
+            if missing_files
+            else None
+        )
+        rows = (
+            [
+                RequestWarningRecord(
+                    request_id=request_id,
+                    release_id=release.id,
+                    code=RequestWarningCode.REGRAB_FILES_MISSING,
+                    details=details,
+                )
+                for request_id in release.request_ids
+            ]
+            if details is not None
+            else []
+        )
+        try:
+            await self._warning_repository.replace_for_releases(
+                RequestWarningCode.REGRAB_FILES_MISSING, [release.id], rows
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._log_for_requests(
+                self._logger.warning,
+                "Failed to persist regrab missing-files warning",
+                release,
+                error=str(exc),
+            )
+
+    async def _write_files_unmapped_warning(
+        self, release: ReleaseRecord, file_ids: list[str] | None
+    ) -> None:
+        """Record or clear `REGRAB_FILES_UNMAPPED` for this release alone.
+
+        The ids are kept in `details` rather than left implied: they are what
+        tells a later save of the mappings whether the files this warning named
+        have since been placed, which is how it stops asking for a human nobody
+        still needs.
+        """
+
+        details = {"file_ids": file_ids, "file_count": len(file_ids)} if file_ids else None
+        rows = (
+            [
+                RequestWarningRecord(
+                    request_id=request_id,
+                    release_id=release.id,
+                    code=RequestWarningCode.REGRAB_FILES_UNMAPPED,
+                    details=details,
+                )
+                for request_id in release.request_ids
+            ]
+            if details is not None
+            else []
+        )
+        try:
+            await self._warning_repository.replace_for_releases(
+                RequestWarningCode.REGRAB_FILES_UNMAPPED, [release.id], rows
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._log_for_requests(
+                self._logger.warning,
+                "Failed to persist regrab unmapped-files warning",
                 release,
                 error=str(exc),
             )

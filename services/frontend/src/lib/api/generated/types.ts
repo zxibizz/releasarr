@@ -324,6 +324,14 @@ export interface paths {
          *     has its progress read back from qBittorrent. Hand-supplied releases are
          *     left alone. Both integrations are required, so an unconfigured Prowlarr
          *     or qBittorrent is reported rather than partly applied.
+         *
+         *     A re-grab reads the replacement torrent's file list and reconciles the
+         *     release's stored files with it: files the release already had keep their
+         *     mappings, files new to the replacement are added unmapped and then
+         *     automapped on their own. A replacement that does not carry a file the
+         *     release already has is refused - nothing is queued or rewritten - and
+         *     the release is flagged instead. A replacement whose file list cannot be
+         *     read (a magnet-only result) is downloaded without that reconciliation.
          */
         post: operations["refreshRequestReleases"];
         delete?: never;
@@ -1172,7 +1180,7 @@ export interface components {
          * @description A condition worth surfacing but not worth blocking on. Shared between release-scoped and request-scoped warnings, since both are stored as the same (request, release, code) row.
          * @enum {string}
          */
-        RequestWarningCode: "mapping_overlap" | "regrab_indexer_unavailable" | "release_not_listed";
+        RequestWarningCode: "mapping_overlap" | "regrab_indexer_unavailable" | "release_not_listed" | "regrab_files_unmapped" | "regrab_files_missing";
         /** @description A warning as it appears on a request. `release_id` is the release the warning is about, when the code names one. */
         RequestWarning: {
             code: components["schemas"]["RequestWarningCode"];
@@ -1183,7 +1191,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @description A warning as it appears on a release. `mapping_overlap` populates `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` and `release_not_listed` leave both empty and put their own detail in `details` instead - a reason string for the first, the indexer that dropped the release for the second. */
+        /** @description A warning as it appears on a release. `mapping_overlap` populates `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` and `release_not_listed` leave both empty and put their own detail in `details` instead - a reason string for the first, the indexer that dropped the release for the second. `regrab_files_unmapped` and `regrab_files_missing` leave both empty too and carry a file count, the first naming the files automapping could not resolve and the second the files the replacement torrent does not contain. */
         ReleaseWarning: {
             code: components["schemas"]["RequestWarningCode"];
             /** @description Files on this release involved in the warning. */

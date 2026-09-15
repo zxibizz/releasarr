@@ -17,7 +17,9 @@ from src.application.interfaces.releases import (
     MANUAL_SOURCE,
     CreateReleaseData,
     FileMappingUpdateData,
+    FileReconciliation,
     ReleaseFileMapping,
+    ReleaseFileRecord,
 )
 from src.db import Base
 from src.db.session import DBManager
@@ -321,3 +323,115 @@ async def test_regrab_candidates_match_any_indexer_but_not_manual_uploads(
     candidates = await repository.get_potential_outdated_releases()
 
     assert [record.id for record in candidates] == ["from-indexer"]
+
+
+async def _seed_release_with_file(
+    db_manager: DBManager,
+    file_id: str,
+    path: str,
+    size_bytes: int,
+) -> None:
+    async with db_manager.transaction() as session:
+        release = models.Release(
+            id="rel-1",
+            name="Release 1",
+            info_hash="HASH1",
+            size_bytes=100,
+            status=ReleaseStatus.COMPLETED,
+            progress=1.0,
+            download_speed=0.0,
+            upload_speed=0.0,
+            seeders=1,
+            leechers=0,
+            ratio=1.0,
+        )
+        release.files.append(
+            models.ReleaseFile(
+                id=file_id,
+                name=path,
+                size_bytes=size_bytes,
+                path=path,
+            )
+        )
+        session.add(release)
+
+
+@pytest.mark.asyncio
+async def test_sync_release_files_repoints_a_matched_row_and_keeps_its_mapping(
+    repository: SqlAlchemyReleaseRepository,
+    db_manager: DBManager,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+) -> None:
+    """The replacement torrent's own name and size win; the mapping is not its business."""
+
+    await seed_requests(["req-1"])
+    await _seed_release_with_file(db_manager, "file-1", "Old/Show.S01E01.mkv", 100)
+    await repository.update_file_mappings(
+        "rel-1",
+        [
+            FileMappingUpdateData(
+                file_id="file-1",
+                mapping=ReleaseFileMapping(
+                    mapping_type=MediaType.SERIES,
+                    request_id="req-1",
+                    request_title="Show - Season 1",
+                    season=1,
+                    episode=1,
+                ),
+            )
+        ],
+    )
+
+    merged = await repository.sync_release_files(
+        "rel-1",
+        FileReconciliation(
+            matched=[
+                (
+                    "file-1",
+                    ReleaseFileRecord(
+                        id="incoming-1",
+                        name="Repack/Show.S01E01.mkv",
+                        size_bytes=4096,
+                        path="Repack/Show.S01E01.mkv",
+                        mapping=None,
+                    ),
+                )
+            ],
+            added=[
+                ReleaseFileRecord(
+                    id="file-2",
+                    name="Repack/Show.S01E02.mkv",
+                    size_bytes=2048,
+                    path="Repack/Show.S01E02.mkv",
+                    mapping=None,
+                )
+            ],
+            missing=[],
+        ),
+    )
+
+    assert merged is not None
+    by_id = {file.id: file for file in merged}
+    kept = by_id["file-1"]
+    assert kept.path == "Repack/Show.S01E01.mkv"
+    assert kept.name == "Repack/Show.S01E01.mkv"
+    assert kept.size_bytes == 4096
+    assert kept.mapping is not None
+    assert (kept.mapping.season, kept.mapping.episode) == (1, 1)
+    assert kept.mapping.request_id == "req-1"
+    assert by_id["file-2"].mapping is None
+
+    refreshed = await repository.get_release("rel-1")
+    assert refreshed is not None
+    assert sorted(file.id for file in refreshed.files) == ["file-1", "file-2"]
+
+
+@pytest.mark.asyncio
+async def test_sync_release_files_returns_none_for_a_missing_release(
+    repository: SqlAlchemyReleaseRepository,
+) -> None:
+    result = await repository.sync_release_files(
+        "missing", FileReconciliation(matched=[], added=[], missing=[])
+    )
+
+    assert result is None

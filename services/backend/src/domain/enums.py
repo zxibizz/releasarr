@@ -46,6 +46,12 @@ class RequestWarningCode(StrEnum):
     MAPPING_OVERLAP = "mapping_overlap"
     REGRAB_INDEXER_UNAVAILABLE = "regrab_indexer_unavailable"
     RELEASE_NOT_LISTED = "release_not_listed"
+    # A re-grab downloaded a replacement whose new files automapping could not
+    # resolve, so the release needs a human before it can be imported.
+    REGRAB_FILES_UNMAPPED = "regrab_files_unmapped"
+    # A re-grab was abandoned: the replacement torrent does not contain every
+    # file the release already has, which a healthy repack does.
+    REGRAB_FILES_MISSING = "regrab_files_missing"
 
 
 class ExistingReleasesAction(StrEnum):
