@@ -30,6 +30,7 @@ RELEASE_ID = "https://tracker.example/details/1"
 def make_release(
     *,
     name: str = "Old.Release.Name",
+    search_query: str | None = None,
     info_hash: str = "OLDHASH",
     request_ids: list[str] | None = None,
 ) -> ReleaseRecord:
@@ -57,6 +58,7 @@ def make_release(
         export_failures_count=0,
         info_url="https://tracker.example/details/1",
         published_at=datetime(2026, 1, 1, tzinfo=UTC),
+        search_query=search_query,
     )
 
 
@@ -263,6 +265,34 @@ async def test_regrab_scopes_search_to_the_releases_own_indexer() -> None:
 
     assert search_service.indexer_ids == [7]
     assert len(download_service.calls) == 1
+
+
+async def test_regrab_searches_with_the_query_the_release_was_grabbed_with() -> None:
+    """The stored query is replayed; the tracker's title is not what found it."""
+
+    release = make_release(name="Long.Tracker.Title.S01E01.1080p.Rus", search_query="Show S01")
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(repository, search_service, download_service)
+    await use_case.execute()
+
+    assert search_service.queries == ["Show S01"]
+
+
+async def test_regrab_falls_back_to_the_release_name_without_a_stored_query() -> None:
+    """A release grabbed before the query was recorded is still checked."""
+
+    release = make_release(name="Old.Release.Name")
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(repository, search_service, download_service)
+    await use_case.execute()
+
+    assert search_service.queries == ["Old.Release.Name"]
 
 
 async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -> None:

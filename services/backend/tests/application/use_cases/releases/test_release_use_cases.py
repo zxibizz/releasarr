@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import OrderedDict
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -975,6 +976,7 @@ async def test_queue_release_download_creates_release_from_search() -> None:
         source="indexer",
         request_id="req-1",
         publish_date=datetime(2026, 1, 5, tzinfo=UTC),
+        query="Example Query",
     )
     search_service = FakeSearchService(
         ReleaseSearchResults(results=[candidate], query="query", total_results=1)
@@ -989,10 +991,28 @@ async def test_queue_release_download_creates_release_from_search() -> None:
     assert repository.last_created is not None
     assert repository.last_created.info_url == "https://tracker.example/candidate-1"
     assert repository.last_created.published_at == datetime(2026, 1, 5, tzinfo=UTC)
+    assert repository.last_created.search_query == "Example Query"
     created_release_id = download_service.calls[0][1]
     assert created_release_id in repository.releases
     assert download_service.calls[0][2] == "magnet:?xt=urn:btih:ABC123"
     assert download_service.calls[0][3] is None
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_stores_no_query_for_a_blank_search() -> None:
+    """A blank query is stored as NULL, so the check falls back to the name."""
+
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    search_service = _search_service_for(replace(_candidate("candidate-9", "req-1"), query="   "))
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
+
+    await use_case.execute(
+        QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-9")
+    )
+
+    assert repository.last_created is not None
+    assert repository.last_created.search_query is None
 
 
 @pytest.mark.asyncio

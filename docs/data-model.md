@@ -120,6 +120,13 @@ the originals overflowed.
 
 Identity: `info_hash`, `size_bytes`, `torrent_source`, `quality`, `info_url` (the tracker's own
 page for the release, when the indexer reported one; `regrab` refreshes it alongside `name`).
+
+`search_query` is what the indexer was searched with when this release was grabbed, and what
+`regrab` searches with again. `name` is the tracker's own title, which some trackers' search
+cannot match, so a check that searched it reported a listed release as `release_not_listed`. The
+column is NULL for releases grabbed before it existed and for hand-supplied ones — neither has a
+query to replay — and the check falls back to `name` for those.
+
 Live stats, refreshed by `release_sync`: `status`, `progress`, `download_speed`, `upload_speed`,
 `seeders`, `leechers`, `ratio`, `added_at`, `completed_at`.
 Export bookkeeping: `last_exported_info_hash`, `export_failures_count`.
@@ -291,6 +298,7 @@ one is a four-place change plus a migration.
 | `dfed8040c181` | Add `media_requests.newest_release_published_at`, backfilled from releases |
 | `e5b3c7d9a1f2` | Add the `release_not_listed` label to the `request_warning_code` enum |
 | `d4b8c1f60a72` | Add the `regrab_files_unmapped` and `regrab_files_missing` labels to the `request_warning_code` enum |
+| `7a1f5c2e9d43` | Add `releases.search_query` |
 
 ## The enum migration trap
 

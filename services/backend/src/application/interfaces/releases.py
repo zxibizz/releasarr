@@ -88,6 +88,10 @@ class ReleaseRecord:
     export_failures_count: int
     info_url: str | None = None
     published_at: datetime | None = None
+    # The query that surfaced this release, replayed by the regrab check: the
+    # tracker's own title is not what its search engine was asked for, and on
+    # some trackers is not what it can match at all.
+    search_query: str | None = None
 
 
 @dataclass(slots=True)
@@ -103,6 +107,7 @@ class CreateReleaseData:
     files: list[ReleaseFileRecord] | None = None
     info_url: str | None = None
     published_at: datetime | None = None
+    search_query: str | None = None
 
 
 @dataclass(slots=True)
@@ -145,6 +150,9 @@ class ReleaseSearchResultRecord:
     source: str | None
     request_id: str | None
     publish_date: datetime | None = None
+    # Carried so a caller grabbing this result can record what found it, rather
+    # than reconstructing a query from the tracker's own title later.
+    query: str | None = None
 
 
 @dataclass(slots=True)

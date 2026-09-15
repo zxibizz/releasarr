@@ -132,6 +132,10 @@ class QueueReleaseDownloadUseCase:
                         files=to_release_files(torrent.files) if torrent else None,
                         info_url=candidate.info_url,
                         published_at=candidate.publish_date,
+                        # Kept because the regrab check has to search this release
+                        # again, and its own name is the tracker's title - not
+                        # what the tracker's search was asked for.
+                        search_query=(candidate.query or "").strip() or None,
                     )
                 )
             except ValueError as exc:

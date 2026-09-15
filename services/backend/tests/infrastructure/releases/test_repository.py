@@ -95,6 +95,7 @@ async def test_create_release_persists_record(
         quality="1080p",
         info_url="https://tracker.example/release-test-1",
         published_at=datetime(2026, 1, 1, tzinfo=UTC),
+        search_query="Test Release 1080p",
     )
 
     record = await repository.create_release(command)
@@ -105,6 +106,7 @@ async def test_create_release_persists_record(
     assert record.status is ReleaseStatus.PENDING
     assert record.info_url == "https://tracker.example/release-test-1"
     assert record.published_at == datetime(2026, 1, 1, tzinfo=UTC)
+    assert record.search_query == "Test Release 1080p"
 
 
 @pytest.mark.asyncio

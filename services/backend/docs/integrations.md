@@ -138,6 +138,9 @@ A result is **dropped** if it has no `title` or `guid`, or if it has neither a m
 download URL — there would be nothing to grab. Results are sorted by seeders descending, then
 name.
 
+`ReleaseSearchResultRecord.query` is the one field that is not Prowlarr's: it is the query the
+search was made with, carried on every result so a grab can record what found the release.
+
 Three behaviours worth knowing:
 
 - **Results are cached in memory** by `release_id` on every successful search, and

@@ -89,6 +89,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 quality=quality,
                 info_url=data.info_url,
                 published_at=data.published_at,
+                search_query=data.search_query,
             )
             release_model.requests = []
             session.add(release_model)
@@ -410,6 +411,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             export_failures_count=release.export_failures_count,
             info_url=release.info_url or None,
             published_at=as_utc(release.published_at),
+            search_query=release.search_query or None,
         )
 
     def _to_file_record(self, file: models.ReleaseFile) -> ReleaseFileRecord:
