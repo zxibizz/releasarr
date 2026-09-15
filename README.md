@@ -35,7 +35,7 @@ Your library managers stay the source of truth; Releasarr just handles the awkwa
 ## Screenshots
 
 The screenshots below come from the frontend's mock API, so the data is fictional but every
-screen is the real UI.
+screen is the real UI. `npm run screenshots` in `services/frontend/` retakes them.
 
 ### Following a download
 
@@ -73,18 +73,38 @@ download-client-triggered runs land in a queue you can expand for per-job output
 
 ![The system tasks page, listing five scheduled tasks and a queue of running jobs](docs/screenshots/tasks.png)
 
+### Indexer health
+
+Prowlarr's indexers are listed with their health, protocol, and when each one last failed, and
+can be tested from the UI. A search fans out one request per indexer, so one that is down costs
+you its results rather than the whole search — and says so.
+
+![The indexers page, listing four indexers with healthy, blocked, degraded, and disabled health badges](docs/screenshots/system-indexers.png)
+
+### Accounts and access
+
+A sign-in per person. Every request belongs to whoever added it, or to nobody when a sync
+created it, and a user reaches only what their permissions and root-folder allow-list cover.
+Admins manage the accounts here, next to the service API key that integrations authenticate
+with.
+
+![The users page, listing an admin and a restricted account above the service API key](docs/screenshots/system-users.png)
+
 ## What it does
 
 | Feature | What it means |
 | --- | --- |
 | **Requests from your library** | Sonarr's missing seasons and Radarr's missing movies are pulled in automatically as requests, enriched with TVDB and TMDB metadata. |
 | **Indexer search on demand** | Search Prowlarr per request, or paste a magnet link or upload a `.torrent` yourself. |
+| **Indexer health** | Each indexer's health, protocol, priority, and last failure, testable from the UI. A search fans out per indexer, so one that is down costs you its results, not the search. |
 | **Download management** | Add, pause, resume, and remove torrents in qBittorrent without leaving the request. |
 | **Explicit file mapping** | Say which file is which episode. Suggestions and bulk tools cover the easy cases; you stay in control of the rest. |
 | **Import back to the \*arrs** | Finished downloads are handed to Sonarr and Radarr's manual import with absolute paths, and requests close once those apps confirm they hold the media in full. |
 | **Repack detection** | Releases the indexer has since replaced are re-downloaded automatically. |
+| **Request warnings** | A regrab whose indexer has since gone, or two files claiming the same episode, are surfaced on the request rather than left to be noticed later. |
 | **Bilingual UI and metadata** | English and Russian, for both the interface and the media titles it searches by. |
 | **Operational visibility** | Structured logs, filterable by request or by task, readable from the UI. |
+| **Accounts and access** | One sign-in per person, with requests owned by whoever added them. Permissions and a root-folder allow-list decide what a user reaches; admins manage both accounts and the service API key. |
 
 ## How a request flows through the system
 
@@ -132,7 +152,7 @@ git clone https://github.com/zxibizz/releasarr.git
 cd releasarr
 ```
 
-Copy [`.env.example`](.env.example) to `.env` next to `docker-compose.yaml` and fill it in:
+Copy [`.env.example`](.env.example) to `.env` in the repository root and fill it in:
 
 ```bash
 cp .env.example .env
@@ -157,17 +177,29 @@ RELEASARR_TVDB_API_KEY=...
 RELEASARR_TMDB_API_KEY=...
 ```
 
-Then bring it up:
+Then build and run it:
 
 ```bash
-docker compose up -d --build
+# The mount below needs the file to exist first, or Docker creates a directory
+# in its place and SQLite cannot open it.
+touch services/backend/releasarr.db
+
+docker build -f Dockerfile.all-in-one -t releasarr .
+docker run -d --name releasarr --restart always -p 8050:80 \
+  --env-file .env \
+  -v "$PWD/services/backend/releasarr.db:/app/releasarr.db" \
+  -v "$PWD/services/backend/.logs:/app/.logs" \
+  releasarr
 ```
+
+Add a `-v` line for every download and media directory Releasarr has to see, at the same
+absolute path Sonarr and Radarr use — the first note below is why.
 
 Releasarr is on **http://localhost:8050**. One container runs the whole thing: nginx serves the
 frontend and proxies the API under `/api/`, Alembic migrates on boot, and the scheduler worker
 runs alongside uvicorn. All three are supervised by s6-overlay, so a process that dies is
 restarted on its own, and a failed migration stops the container instead of leaving it half up.
-Every line in `docker compose logs` is tagged with the service that wrote it — `[api]`,
+Every line in `docker logs releasarr` is tagged with the service that wrote it — `[api]`,
 `[scheduler]`, or `[nginx]`.
 
 A few things worth knowing before you point it at real data:
@@ -272,7 +304,7 @@ one, so the first profile they report is used unless you pick one.
 
 By default a finished torrent waits up to five minutes for the next export run. Point
 qBittorrent at Releasarr instead and it gets imported immediately. Grab the service API key
-first (an admin, from **System → Users** — it always exists, generated automatically), then in
+first (an admin, from **Users** — it always exists, generated automatically), then in
 **Options → Downloads → Run external program on torrent finished**:
 
 ```bash
@@ -285,8 +317,7 @@ curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr/api/tasks/sy
 
 `sync_downloads` queues only `release_sync` and `export` — a full sync on every torrent would
 hammer Sonarr, Radarr, the metadata providers, and your indexers for no reason. Runs arriving
-this way show up in the queue on **System → Tasks**, tagged with the download client as their
-trigger.
+this way show up in the queue on **Tasks**, tagged with the download client as their trigger.
 
 ## Development
 
@@ -303,7 +334,7 @@ npm run dev:mock
 
 That starts an Express mock of the OpenAPI contract on port 8001 and the Vite dev server on
 port 3000. Open http://localhost:3000. All the screenshots in this README were taken against
-it.
+it, and the mock's seeded accounts are `admin`/`admin` and `user`/`user`.
 
 | Script | Purpose |
 | --- | --- |
@@ -312,6 +343,7 @@ it.
 | `npm test` | Vitest suite |
 | `npm run lint` | ESLint |
 | `npm run codegen` | Regenerate API types from `openapi.yaml` |
+| `npm run screenshots` | Recapture the images above — see `services/frontend/docs/screenshots.md` |
 
 ### Backend
 
@@ -390,9 +422,10 @@ Prowlarr or qBittorrent degrades to an in-memory stub rather than a crash. And t
 lives outside the ASGI app entirely: the API only ever writes rows to `sync_jobs`, and the
 worker claims them within a few seconds.
 
-The frontend is feature-sliced — `requests`, `releases`, `discover`, `tasks`, `logs` — with each
-feature owning its API calls and its React Query keys, and a single `apiRequest` wrapper as the
-only place HTTP happens. Route loaders warm the query cache so pages have data on first paint.
+The frontend is feature-sliced — `auth`, `requests`, `releases`, `discover`, `tasks`,
+`indexers`, `logs`, `users` — with each feature owning its API calls and its React Query keys,
+and a single `apiRequest` wrapper as the only place HTTP happens. Route loaders warm the query
+cache so pages have data on first paint.
 
 ### Stack
 

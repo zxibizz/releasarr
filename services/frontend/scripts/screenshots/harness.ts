@@ -11,6 +11,7 @@ import {
 
 const APP_URL = 'http://localhost:3000';
 const MOCK_HEALTH_URL = 'http://localhost:8001/__health';
+const MOCK_API_URL = 'http://localhost:8001/api';
 const SERVER_START_TIMEOUT_MS = 90_000;
 
 /**
@@ -176,6 +177,26 @@ export async function createContext(
  */
 export async function applyStillness(page: Page): Promise<void> {
   await page.addStyleTag({ content: STILLNESS_CSS });
+}
+
+/**
+ * Signs the context in against the mock API before it opens a page.
+ *
+ * The app keeps its access token in memory, so a brand-new context has no
+ * session until it bootstraps one off the refresh cookie. Logging in through
+ * the API puts that cookie in the context's jar, exactly as a returning
+ * browser has it; driving the login form instead would make every shot start
+ * with a login, and leave the page the form navigated away from behind.
+ */
+export async function signIn(context: BrowserContext): Promise<void> {
+  const url = `${MOCK_API_URL}/auth/login`;
+  const response = await context.request.post(url, {
+    data: { username: 'admin', password: 'admin', remember_me: false },
+  });
+
+  if (!response.ok()) {
+    throw new Error(`Mock sign-in failed at ${url}: ${response.status()} ${await response.text()}`);
+  }
 }
 
 export interface SettleOptions {
