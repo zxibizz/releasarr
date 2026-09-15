@@ -215,9 +215,9 @@ const computeMappingOverlapWarnings = (releases: Release[]): Map<string, Release
 
 /**
  * Combines the freshly computed `mapping_overlap` warning with any other code
- * already seeded on the release (e.g. `regrab_indexer_unavailable`), the same
- * way the backend's `rows_to_release_warnings` merges both codes from the
- * `request_warnings` table.
+ * already seeded on the release (`regrab_indexer_unavailable`,
+ * `release_not_listed`), the same way the backend's `rows_to_release_warnings`
+ * merges every code from the `request_warnings` table.
  */
 const mergeReleaseWarnings = (
   release: Release,

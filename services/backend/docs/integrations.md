@@ -201,10 +201,17 @@ unaffected either way — a request with several releases must not have one rele
 failure wiped out just because a sibling release answered.
 
 The row clears the moment that same release gets a valid search response again, match or not;
-it is not tied to the release actually changing. `mapping_overlap` (see
-`application/use_cases/releases/warnings.py`) is the other code sharing this table, written by
-`RequestWarningSynchronizer` instead — that one clears per-request rather than per-release,
-since it is recomputed over a request's whole release set at once.
+it is not tied to the release actually changing.
+
+A search that *does* answer, but returns no result carrying the release's own id, is the other
+way this check fails: the indexer dropped the release or reissued it under a new one. That
+persists `release_not_listed` with `{indexer}` in `details`, scoped and cleared the same way,
+except that only finding the release again clears it — an indexer answering without it is
+precisely the condition, so clearing on any valid response would make the row unreachable.
+
+`mapping_overlap` (see `application/use_cases/releases/warnings.py`) is the third code sharing
+this table, written by `RequestWarningSynchronizer` instead — that one clears per-request rather
+than per-release, since it is recomputed over a request's whole release set at once.
 
 Every outcome of that check is logged against each request holding the release, not just the
 two failures: `ReleaseRegrapper._log_for_requests` emits the record per `request_id`, so a sweep

@@ -74,7 +74,14 @@ const mockMovieRequests: MovieRequest[] = [
     updated_at: '2024-01-18T08:45:00Z',
     exported_at: '2024-01-20T21:05:00Z',
     imdb_id: 'tt15239678',
-    warnings: [],
+    warnings: [
+      {
+        code: 'release_not_listed',
+        release_id: 'r8',
+        details: { indexer: 'GALAXY' },
+        created_at: '2024-01-21T09:00:00Z',
+      },
+    ],
   },
 ];
 
@@ -620,7 +627,16 @@ const mockReleases: Release[] = [
     quality: '1080p',
     info_url: 'https://example.com/releases/dune-part-two-1080p',
     published_date: daysAgo(45),
-    warnings: [],
+    // Same not-listed condition as the request-level warning above -
+    // release-scoped so the release card can show it without a real regrab run.
+    warnings: [
+      {
+        code: 'release_not_listed',
+        file_ids: [],
+        related_release_ids: [],
+        details: { indexer: 'GALAXY' },
+      },
+    ],
   },
 ];
 

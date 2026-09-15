@@ -2622,7 +2622,7 @@ components:
         A condition worth surfacing but not worth blocking on. Shared between
         release-scoped and request-scoped warnings, since both are stored as
         the same (request, release, code) row.
-      enum: [mapping_overlap, regrab_indexer_unavailable]
+      enum: [mapping_overlap, regrab_indexer_unavailable, release_not_listed]
     RequestWarning:
       type: object
       required: [code, release_id, created_at]
@@ -2647,8 +2647,10 @@ components:
       required: [code, file_ids, related_release_ids]
       description: >-
         A warning as it appears on a release. `mapping_overlap` populates
-        `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` leaves
-        both empty and puts its reason in `details` instead.
+        `file_ids`/`related_release_ids`; `regrab_indexer_unavailable` and
+        `release_not_listed` leave both empty and put their own detail in
+        `details` instead - a reason string for the first, the indexer that
+        dropped the release for the second.
       properties:
         code:
           $ref: '#/components/schemas/RequestWarningCode'

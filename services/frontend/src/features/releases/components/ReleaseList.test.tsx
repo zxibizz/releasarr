@@ -251,4 +251,33 @@ describe('ReleaseList', () => {
 
     expect(await screen.findByText('Indexer unavailable')).toBeInTheDocument();
   });
+
+  it('shows a not-listed badge on the release card once its indexer dropped it', async () => {
+    vi.mocked(apiRequest).mockImplementation(
+      (path: string) =>
+        Promise.resolve(
+          path.endsWith('/releases')
+            ? {
+                releases: [
+                  {
+                    ...release(41),
+                    warnings: [
+                      {
+                        code: 'release_not_listed',
+                        file_ids: [],
+                        related_release_ids: [],
+                        details: { indexer: 'Indexer A' },
+                      },
+                    ],
+                  },
+                ],
+              }
+            : { requests: [], total: 0 },
+        ) as never,
+    );
+
+    renderList();
+
+    expect(await screen.findByText('Not listed')).toBeInTheDocument();
+  });
 });
