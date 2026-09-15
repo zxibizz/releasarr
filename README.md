@@ -217,6 +217,7 @@ file. The defaults below are what you get if you set nothing.
 | `RELEASARR_AUTH_COOKIE_SAMESITE` | `lax` | Refresh cookie `SameSite` attribute |
 | `RELEASARR_AUTH_MAX_FAILED_LOGINS` | `10` | Failed attempts before an account is locked |
 | `RELEASARR_AUTH_LOCKOUT_SECONDS` | `900` | Lockout duration once the limit above is hit |
+| `RELEASARR_AUTH_REFRESH_REUSE_GRACE_SECONDS` | `15` | How long a just-rotated refresh token is forgiven as a client racing itself |
 
 ### Sonarr and Radarr
 

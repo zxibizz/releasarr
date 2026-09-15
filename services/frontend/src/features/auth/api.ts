@@ -17,8 +17,8 @@ export const authApi = {
   login: (payload: LoginPayload) =>
     apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: payload }),
 
-  refresh: () => apiRequest<LoginResponse>('/auth/refresh', { method: 'POST' }),
-
+  // No `refresh` here: restoring a session belongs to the API client, which
+  // shares one in-flight rotation between the bootstrap and every 401 retry.
   logout: () => apiRequest<void>('/auth/logout', { method: 'POST' }),
 
   me: (signal?: AbortSignal) => apiRequest<SessionUser>('/auth/me', { signal }),

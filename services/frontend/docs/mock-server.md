@@ -134,7 +134,10 @@ refresh|logout`: it resolves the `Authorization: Bearer` token (or `X-API-Key`) 
 is valid. `GET /requests` and `GET /discover/root-folders` read `res.locals.user` to apply the
 same ownership/allow-list scoping the real backend does. The refresh token travels as an
 httpOnly cookie (`releasarr_refresh`, path `/api/auth`) set via a small hand-rolled cookie parser
-— there was no reason to add the `cookie-parser` dependency for one header.
+— there was no reason to add the `cookie-parser` dependency for one header. Rotated tokens are
+stamped rather than deleted, so a replay inside the backend's reuse grace window (15s) is
+forgiven as two tabs racing the same cookie; `logout` deletes the record, which drops that
+forgiveness with it, exactly as the real family no longer having a live token does.
 
 ## Adding an endpoint
 

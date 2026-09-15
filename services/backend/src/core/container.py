@@ -371,10 +371,12 @@ class AuthUseCases:
 
     @cached_property
     def refresh(self) -> RefreshSessionUseCase:
+        settings = self._container.settings
         return RefreshSessionUseCase(
             users=self._container.repositories.users,
             refresh_tokens=self._container.repositories.refresh_tokens,
             session_issuer=self._session_issuer,
+            reuse_grace_seconds=settings.auth_refresh_reuse_grace_seconds,
         )
 
     @cached_property

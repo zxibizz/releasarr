@@ -1,3 +1,5 @@
+import type { LoginResponse } from '@/types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
 
 const STATUS_MESSAGES: Record<number, string> = {
@@ -91,11 +93,22 @@ const NEVER_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/setup', '/au
 const isAuthPath = (path: string): boolean =>
   NEVER_REFRESH_PATHS.some((prefix) => path.startsWith(prefix));
 
-// Several requests can 401 at once when a token expires; this ensures they
-// share one refresh call instead of each racing the server with their own.
-let refreshInFlight: Promise<boolean> | null = null;
+/**
+ * Shown when a request 401s and the session behind it cannot be restored. The
+ * backend's own message names the access token, which is an implementation
+ * detail the user cannot act on and is about to be sent to the login page.
+ */
+export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
 
-async function refreshSession(): Promise<boolean> {
+// Several requests can 401 at once, and every tab shares the one refresh cookie
+// in the jar. Both the app's bootstrap and the retries below go through this
+// single in-flight call, so a rotation the server performs exactly once is
+// never requested twice — a second request would carry a token the first has
+// already rotated away.
+let refreshInFlight: Promise<LoginResponse | null> | null = null;
+
+/** Restore the session from the refresh cookie, or `null` when there is none. */
+export function refreshSession(): Promise<LoginResponse | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
@@ -105,16 +118,16 @@ async function refreshSession(): Promise<boolean> {
           headers: { Accept: 'application/json' },
         });
         if (!response.ok) {
-          return false;
+          return null;
         }
-        const body = (await response.json()) as { access_token?: string };
-        if (!body.access_token) {
-          return false;
+        const session = (await response.json()) as LoginResponse;
+        if (!session.access_token) {
+          return null;
         }
-        setAccessToken(body.access_token);
-        return true;
+        setAccessToken(session.access_token);
+        return session;
       } catch {
-        return false;
+        return null;
       }
     })().finally(() => {
       refreshInFlight = null;
@@ -164,12 +177,13 @@ async function performRequest<T>(
   }
 
   if (response.status === 401 && allowRefresh && !isAuthPath(path)) {
-    const refreshed = await refreshSession();
-    if (refreshed) {
+    const session = await refreshSession();
+    if (session) {
       return performRequest<T>(path, options, false);
     }
     setAccessToken(null);
     authExpiredListeners.forEach((listener) => listener());
+    throw new ApiError(SESSION_EXPIRED_MESSAGE, { status: response.status });
   }
 
   const raw = await response.text();

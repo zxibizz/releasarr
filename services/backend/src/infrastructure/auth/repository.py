@@ -72,6 +72,20 @@ class SqlAlchemyRefreshTokenRepository(BaseSqlAlchemyRepository, RefreshTokenRep
             for token in result.scalars().all():
                 token.revoked_at = now
 
+    async def has_live_token(self, family_id: str, *, now: datetime) -> bool:
+        async with self.db.session() as session:
+            stmt = (
+                select(models.RefreshToken.id)
+                .where(
+                    models.RefreshToken.family_id == family_id,
+                    models.RefreshToken.revoked_at.is_(None),
+                    models.RefreshToken.expires_at > now,
+                )
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            return result.first() is not None
+
     async def purge_expired(self, *, now: datetime) -> int:
         async with self.db.transaction() as session:
             result = await session.execute(

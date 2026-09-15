@@ -34,8 +34,13 @@ const users = new Map<string, MockUserRecord>();
 // At most one: the service key isn't bound to a user, so it isn't stored per-user.
 let serviceKey: MockServiceKeyRecord | null = null;
 // token -> user id. Refresh tokens rotate; access tokens do not expire in the mock.
+// A rotated token is kept, stamped, for a grace window rather than dropped: the
+// backend forgives a rotation replayed within milliseconds of it, because a
+// browser's tabs share one cookie and the loser of that race replays what the
+// winner just rotated away.
 const accessTokens = new Map<string, string>();
-const refreshTokens = new Map<string, string>();
+const refreshTokens = new Map<string, { userId: string; rotatedAt: number | null }>();
+const REFRESH_REUSE_GRACE_MS = 15_000;
 
 const now = () => new Date().toISOString();
 
@@ -129,7 +134,7 @@ function issueSession(user: MockUserRecord) {
   const accessToken = randomUUID();
   const refreshToken = randomUUID();
   accessTokens.set(accessToken, user.id);
-  refreshTokens.set(refreshToken, user.id);
+  refreshTokens.set(refreshToken, { userId: user.id, rotatedAt: null });
   user.last_login_at = now();
   return { access_token: accessToken, refresh_token: refreshToken, user: toPublicUser(user) };
 }
@@ -199,12 +204,18 @@ export const mockAuth = {
   },
 
   refresh(refreshToken: string | undefined) {
-    if (!refreshToken || !refreshTokens.has(refreshToken)) {
+    const record = refreshToken ? refreshTokens.get(refreshToken) : undefined;
+    const raced =
+      record?.rotatedAt != null && Date.now() - record.rotatedAt <= REFRESH_REUSE_GRACE_MS;
+    if (!record || (record.rotatedAt !== null && !raced)) {
       throw new MockAuthError(401, 'invalid_refresh_token', 'Refresh token is invalid or expired');
     }
-    const userId = refreshTokens.get(refreshToken)!;
-    refreshTokens.delete(refreshToken);
-    const user = users.get(userId);
+    // Logout deletes the record outright, so a token replayed after it is gone
+    // rather than forgiven — the grace window is only for a mid-rotation race.
+    if (record.rotatedAt === null) {
+      record.rotatedAt = Date.now();
+    }
+    const user = users.get(record.userId);
     if (!user) {
       throw new MockAuthError(401, 'invalid_refresh_token', 'Refresh token is invalid or expired');
     }

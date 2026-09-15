@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from src.application.use_cases.auth.exceptions import InvalidRefreshTokenError
+from src.application.use_cases.auth.logout import LogoutUseCase
 from src.application.use_cases.auth.refresh_session import RefreshSessionUseCase
 from src.application.use_cases.auth.session_issuer import SessionIssuer
 from src.application.use_cases.users.commands import CreateUserCommand
@@ -17,7 +18,7 @@ from tests.application.use_cases.auth.fakes import (
 )
 
 
-async def _setup():
+async def _setup(reuse_grace_seconds: int = 0):
     users = InMemoryUserRepository()
     refresh_tokens = InMemoryRefreshTokenRepository()
     issuer = SessionIssuer(
@@ -31,7 +32,10 @@ async def _setup():
         CreateUserCommand(username="carol", password="hunter2000")
     )
     use_case = RefreshSessionUseCase(
-        users=users, refresh_tokens=refresh_tokens, session_issuer=issuer
+        users=users,
+        refresh_tokens=refresh_tokens,
+        session_issuer=issuer,
+        reuse_grace_seconds=reuse_grace_seconds,
     )
     first_session = await issuer.issue(user, remember_me=False)
     return use_case, refresh_tokens, first_session
@@ -66,6 +70,32 @@ async def test_reusing_a_rotated_token_revokes_the_whole_family() -> None:
     # ...and burns the token that replaced it too.
     with pytest.raises(InvalidRefreshTokenError):
         await use_case.execute(rotated.refresh_token)
+
+
+@pytest.mark.asyncio
+async def test_a_second_client_racing_the_same_cookie_still_gets_a_session() -> None:
+    """Two tabs present one cookie; the loser must not cost both of them the session."""
+
+    use_case, _refresh_tokens, first_session = await _setup(reuse_grace_seconds=15)
+
+    winner = await use_case.execute(first_session.refresh_token)
+    # The loser's request was already on the wire carrying the same cookie.
+    loser = await use_case.execute(first_session.refresh_token)
+
+    assert loser.refresh_token != winner.refresh_token
+    # Neither the winner nor the loser is on a chain that has been burned.
+    assert (await use_case.execute(winner.refresh_token)).access_token
+    assert (await use_case.execute(loser.refresh_token)).access_token
+
+
+@pytest.mark.asyncio
+async def test_reuse_after_logout_does_not_resurrect_the_session() -> None:
+    use_case, refresh_tokens, first_session = await _setup(reuse_grace_seconds=15)
+    await LogoutUseCase(refresh_tokens=refresh_tokens).execute(first_session.refresh_token)
+
+    # Logging out left nothing live, so the replay is not forgiven as a race.
+    with pytest.raises(InvalidRefreshTokenError):
+        await use_case.execute(first_session.refresh_token)
 
 
 @pytest.mark.asyncio

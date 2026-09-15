@@ -88,8 +88,10 @@ depends on via `require_user` / `require_admin` / `require_permission(...)` — 
 A session's refresh token is the one piece of this that is not a bearer token: it lives in an
 httpOnly cookie (`releasarr_refresh`, path `/api/auth`, set by `POST /auth/login|refresh`), so
 `services/frontend/src/lib/api/client.ts` never touches it directly. It reads the access token
-from memory instead, and reacts to a `401` by refreshing once (a single shared attempt for any
-number of concurrent 401s) and retrying — see [`frontend.md`](frontend.md#auth).
+from memory instead, and reacts to a `401` by refreshing once and retrying. That refresh is the
+client's `refreshSession()`, used by `AuthProvider`'s bootstrap too, so however many requests 401
+at once — or however many times React StrictMode mounts the provider — the server is asked to
+rotate the cookie once. See [`frontend.md`](frontend.md#auth).
 
 Permissions are flat and per-user, not role hierarchies: `role` is `admin` or `user`, and four
 independent booleans (`view all requests`, `tasks`, `indexers`, `logs`) plus a root-folder

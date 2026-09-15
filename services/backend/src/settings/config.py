@@ -33,6 +33,10 @@ class AppSettings(BaseSettings):
     auth_cookie_samesite: Literal["lax", "strict", "none"] = Field(default="lax")
     auth_max_failed_logins: int = Field(default=10)
     auth_lockout_seconds: int = Field(default=900)
+    # A browser's tabs share one refresh cookie, so two of them can present the
+    # same token before either response replaces it. Reuse inside this window is
+    # read as that race rather than as a stolen token, and the session survives.
+    auth_refresh_reuse_grace_seconds: int = Field(default=15)
 
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False)

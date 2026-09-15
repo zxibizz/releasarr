@@ -35,10 +35,13 @@ request, drops empty query values, and normalizes every failure into an `ApiErro
 204s; a 202 is an ordinary success whose JSON body is returned.
 
 A 401 from anything other than `/auth/login|refresh|setup|logout` triggers exactly one shared
-`POST /auth/refresh` (concurrent 401s share the same in-flight promise), then retries the
-original request once. If the refresh itself fails, the token is cleared and every
-`onAuthExpired` subscriber fires — `AuthProvider` is the only current subscriber, and drops the
-session to `anonymous`.
+`POST /auth/refresh` — `refreshSession()` in the same module is the *only* way a session is
+restored, so concurrent 401s and `AuthProvider`'s bootstrap share its in-flight promise instead of
+asking the server to rotate one cookie twice — then retries the original request once. If the
+refresh itself fails, the token is cleared, every `onAuthExpired` subscriber fires (`AuthProvider`
+is the only current subscriber, and drops the session to `anonymous`), and the caller receives an
+`ApiError` carrying `SESSION_EXPIRED_MESSAGE`: the backend's own message names the access token,
+which is an implementation detail to show someone who is on their way to the login page.
 
 In the UI, surface errors with `getErrorMessage(error, fallback)` from `src/utils/errors.ts`
 rather than reading `error.message` directly.
@@ -191,9 +194,11 @@ server-side, so there is nothing for them to filter by owner.
 ## Auth
 
 `src/features/auth/AuthProvider.tsx` is the single source of truth for who is signed in. On
-mount it checks `GET /auth/setup`, and failing that tries `POST /auth/refresh` to restore a
-remembered session before the app renders anything — `status` is `'loading' | 'setup-required' |
-'anonymous' | 'authenticated'`. `useAuth()` exposes `user`, `isAdmin`, `hasPermission(permission)`,
+mount it checks `GET /auth/setup`, and failing that calls the API client's `refreshSession()` to
+restore a remembered session before the app renders anything — `status` is `'loading' |
+'setup-required' | 'anonymous' | 'authenticated'`. Restoring a session deliberately lives in the
+client rather than here, so the bootstrap cannot race a request that 401s at the same moment for
+the one rotation the server allows. `useAuth()` exposes `user`, `isAdmin`, `hasPermission(permission)`,
 and the `login` / `completeSetup` / `logout` actions; `Permission` mirrors the backend's flat
 enum (`view_all_requests`, `tasks`, `indexers`, `logs`, `manage_users`) and an admin passes every
 check.

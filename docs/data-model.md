@@ -208,10 +208,13 @@ means unrestricted**, not "nothing allowed" — the same convention `RequestScop
 
 One row per issued refresh token; only `token_hash` (SHA-256 of the opaque token) is stored, so a
 database leak alone cannot mint a session. `family_id` is shared by every token born from one
-login: rotating keeps the family id, and presenting an already-rotated (`revoked_at` set) token
-revokes the whole family — the standard response to refresh-token reuse, which most plausibly
-means the token was stolen. `remember` records whether "remember me" was checked at login, so
-rotation can preserve the original session length instead of collapsing it to a browser session.
+login: rotating keeps the family id, and presenting a token that was already rotated away revokes
+the whole family — the standard response to refresh-token reuse, which most plausibly means the
+token was stolen. A replay within `RELEASARR_AUTH_REFRESH_REUSE_GRACE_SECONDS` of that rotation is
+the one exception, and only while the family still has a live token: a browser's tabs share one
+refresh cookie, so two requests can be sent with it before either response replaces it, and the
+loser of that race is not a thief. `remember` records whether "remember me" was checked at login,
+so rotation can preserve the original session length instead of collapsing it to a browser session.
 
 ### `service_api_keys`
 
