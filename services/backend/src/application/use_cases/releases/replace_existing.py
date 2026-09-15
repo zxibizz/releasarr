@@ -25,8 +25,8 @@ class ExistingReleaseReplacer:
         self,
         repository: ReleaseRepository,
         download_service: ReleaseDownloadService,
-        warning_repository: RequestWarningRepository | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        warning_repository: RequestWarningRepository,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
@@ -61,12 +61,10 @@ class ExistingReleaseReplacer:
 
     async def _clear_unlinked(self, request_id: str, release_id: str) -> None:
         try:
-            if self._warning_repository is not None:
-                await self._warning_repository.delete_for_request_release(request_id, release_id)
-            if self._recompute_state is not None:
-                # Only this request's release set changed; the release's other
-                # requests are unaffected by losing this one link.
-                await self._recompute_state.execute([request_id])
+            await self._warning_repository.delete_for_request_release(request_id, release_id)
+            # Only this request's release set changed; the release's other
+            # requests are unaffected by losing this one link.
+            await self._recompute_state.execute([request_id])
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
                 "Failed to settle request for an unlinked release",
@@ -77,10 +75,8 @@ class ExistingReleaseReplacer:
 
     async def _clear_deleted(self, release: ReleaseRecord) -> None:
         try:
-            if self._warning_repository is not None:
-                await self._warning_repository.delete_for_release(release.id)
-            if self._recompute_state is not None:
-                await self._recompute_state.execute(release.request_ids)
+            await self._warning_repository.delete_for_release(release.id)
+            await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
                 "Failed to settle requests for a replaced release",

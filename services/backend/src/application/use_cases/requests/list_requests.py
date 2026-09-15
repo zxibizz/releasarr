@@ -16,7 +16,7 @@ class ListMediaRequestsUseCase:
     def __init__(
         self,
         repository: MediaRequestRepository,
-        warning_repository: RequestWarningRepository | None = None,
+        warning_repository: RequestWarningRepository,
         settings: AppSettings | None = None,
     ) -> None:
         self._repository = repository
@@ -38,11 +38,9 @@ class ListMediaRequestsUseCase:
             has_warnings=opts.has_warnings,
         )
 
-        warnings_by_request = {}
-        if self._warning_repository is not None:
-            warnings_by_request = await self._warning_repository.list_for_requests(
-                [record.id for record in records]
-            )
+        warnings_by_request = await self._warning_repository.list_for_requests(
+            [record.id for record in records]
+        )
 
         return records_to_page(
             records,

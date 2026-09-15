@@ -15,7 +15,7 @@ class GetMediaRequestUseCase:
     def __init__(
         self,
         repository: MediaRequestRepository,
-        warning_repository: RequestWarningRepository | None = None,
+        warning_repository: RequestWarningRepository,
     ) -> None:
         self._repository = repository
         self._warning_repository = warning_repository
@@ -25,10 +25,8 @@ class GetMediaRequestUseCase:
         if record is None:
             raise MediaRequestNotFoundError(request_id)
 
-        warnings = []
-        if self._warning_repository is not None:
-            by_request = await self._warning_repository.list_for_requests([request_id])
-            warnings = by_request.get(request_id, [])
+        by_request = await self._warning_repository.list_for_requests([request_id])
+        warnings = by_request.get(request_id, [])
 
         return record_to_dto(record, warnings)
 

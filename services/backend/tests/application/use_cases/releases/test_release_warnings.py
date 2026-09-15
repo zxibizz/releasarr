@@ -250,7 +250,9 @@ async def test_synchronizer_writes_a_row_per_request_sharing_the_release() -> No
 
     releases_repo = FakeReleaseRepositoryForWarnings([release_a, release_b])
     warning_repo = FakeRequestWarningRepository()
-    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+    synchronizer = RequestWarningSynchronizer(
+        releases_repo, warning_repo, ReleaseWarningEvaluator()
+    )
 
     await synchronizer.sync_for_requests(["req-1"])
 
@@ -273,7 +275,9 @@ async def test_synchronizer_clears_a_release_that_stopped_overlapping() -> None:
 
     releases_repo = FakeReleaseRepositoryForWarnings([release_a, release_b, release_c])
     warning_repo = FakeRequestWarningRepository()
-    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+    synchronizer = RequestWarningSynchronizer(
+        releases_repo, warning_repo, ReleaseWarningEvaluator()
+    )
 
     await synchronizer.sync_for_requests(["req-1"])
     _, _, first_rows = warning_repo.calls[0]
@@ -304,7 +308,9 @@ async def test_synchronizer_ignores_requests_outside_its_scope() -> None:
 
     releases_repo = FakeReleaseRepositoryForWarnings([shared_release])
     warning_repo = FakeRequestWarningRepository()
-    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+    synchronizer = RequestWarningSynchronizer(
+        releases_repo, warning_repo, ReleaseWarningEvaluator()
+    )
 
     await synchronizer.sync_for_requests(["req-a"])
 

@@ -16,8 +16,8 @@ class DeleteReleaseUseCase:
         self,
         repository: ReleaseRepository,
         download_service: ReleaseDownloadService,
-        warning_repository: RequestWarningRepository | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        warning_repository: RequestWarningRepository,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
@@ -46,15 +46,13 @@ class DeleteReleaseUseCase:
 
     async def _settle_requests(self, release_id: str, request_ids: list[str]) -> None:
         try:
-            if self._warning_repository is not None:
-                # Not implied by the FK cascade - see the warning repository's
-                # own docstring for why removal here is explicit.
-                await self._warning_repository.delete_for_release(release_id)
-            if self._recompute_state is not None:
-                # A release deleted out from under a request can resolve an
-                # overlap for whichever releases it still has left, and can be
-                # the request's only release, which must not stay in flight.
-                await self._recompute_state.execute(request_ids)
+            # Not implied by the FK cascade - see the warning repository's
+            # own docstring for why removal here is explicit.
+            await self._warning_repository.delete_for_release(release_id)
+            # A release deleted out from under a request can resolve an
+            # overlap for whichever releases it still has left, and can be
+            # the request's only release, which must not stay in flight.
+            await self._recompute_state.execute(request_ids)
         except Exception as exc:  # pragma: no cover - defensive
             self._logger.warning(
                 "Failed to settle requests for a deleted release",

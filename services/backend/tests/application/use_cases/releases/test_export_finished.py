@@ -25,6 +25,7 @@ from src.application.use_cases.releases.export_finished import ExportFinishedRel
 from src.application.use_cases.requests.state import ArrCompletion
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from tests.builders import stub_radarr, stub_recompute_state
 
 SERIES_ID = 42
 DOWNLOAD_DIR = "/media/downloads"
@@ -235,6 +236,7 @@ def build_use_case(
         sonarr=sonarr,  # type: ignore[arg-type]
         auto_mapper=build_auto_mapper(repository, request_repository),
         download_service=FakeDownloadService(),  # type: ignore[arg-type]
+        radarr=stub_radarr(),
         request_repository=request_repository,  # type: ignore[arg-type]
         recompute_state=recompute_state,  # type: ignore[arg-type]
     )
@@ -368,7 +370,9 @@ async def test_release_stays_unexported_when_the_download_directory_is_unknown()
         sonarr=sonarr,  # type: ignore[arg-type]
         auto_mapper=build_auto_mapper(repository, request_repository),
         download_service=FakeDownloadService(None),  # type: ignore[arg-type]
+        radarr=stub_radarr(),
         request_repository=request_repository,  # type: ignore[arg-type]
+        recompute_state=stub_recompute_state(),
     )
 
     result = await use_case.execute()

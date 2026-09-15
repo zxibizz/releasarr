@@ -225,6 +225,7 @@ async def test_recompute_is_a_no_op_for_empty_input() -> None:
         repository=repository,
         release_repository=FakeReleaseRepository([]),
         warning_synchronizer=warning_synchronizer,  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
     )
 
     result = await use_case.execute([])
@@ -241,6 +242,7 @@ async def test_recompute_skips_missing_requests() -> None:
         repository=repository,
         release_repository=FakeReleaseRepository([]),
         warning_synchronizer=warning_synchronizer,  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
     )
 
     result = await use_case.execute(["missing"])
@@ -265,6 +267,7 @@ async def test_recompute_writes_a_changed_status_and_syncs_warnings() -> None:
         repository=repository,
         release_repository=FakeReleaseRepository([release]),
         warning_synchronizer=warning_synchronizer,  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
     )
 
     result = await use_case.execute([REQUEST_ID])
@@ -295,6 +298,7 @@ async def test_recompute_is_a_no_op_when_nothing_changed() -> None:
         repository=recording_repository,
         release_repository=FakeReleaseRepository([]),
         warning_synchronizer=warning_synchronizer,  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
     )
 
     result = await use_case.execute([REQUEST_ID])
@@ -313,6 +317,7 @@ async def test_recompute_applies_the_arr_verdict_for_the_matching_request() -> N
         repository=repository,
         release_repository=FakeReleaseRepository([]),
         warning_synchronizer=warning_synchronizer,  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
     )
 
     result = await use_case.execute(

@@ -27,6 +27,12 @@ from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
 from src.domain.enums import ReleaseStatus
+from tests.builders import (
+    stub_auto_mapper,
+    stub_enqueue_sync,
+    stub_existing_release_replacer,
+    stub_recompute_state,
+)
 
 
 class StubReleaseRepository:
@@ -80,7 +86,9 @@ async def test_saving_a_file_mapping_logs_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
     use_case = UpdateReleaseFileMappingsUseCase(
-        repository=StubReleaseRepository(make_release())  # type: ignore[arg-type]
+        repository=StubReleaseRepository(make_release()),  # type: ignore[arg-type]
+        enqueue_sync=stub_enqueue_sync(),
+        recompute_state=stub_recompute_state(),
     )
     command = UpdateFileMappingsCommand(
         release_id="rel-1",
@@ -147,6 +155,9 @@ async def test_a_failed_grab_logs_against_the_request(
         repository=StubEmptyReleaseRepository(),  # type: ignore[arg-type]
         download_service=FailingDownloadService(),  # type: ignore[arg-type]
         search_service=StubSearchService(candidate),  # type: ignore[arg-type]
+        auto_mapper=stub_auto_mapper(),
+        existing_release_replacer=stub_existing_release_replacer(),
+        recompute_state=stub_recompute_state(),
     )
 
     with pytest.raises(ReleaseDownloadFailedError):

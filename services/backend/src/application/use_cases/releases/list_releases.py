@@ -17,7 +17,7 @@ class ListReleasesUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
-        warning_repository: RequestWarningRepository | None = None,
+        warning_repository: RequestWarningRepository,
         settings: AppSettings | None = None,
     ) -> None:
         self._repository = repository
@@ -37,15 +37,13 @@ class ListReleasesUseCase:
             request_id=opts.request_id,
         )
 
-        warnings_by_release = {}
-        if self._warning_repository is not None:
-            rows_by_release = await self._warning_repository.list_for_releases(
-                [record.id for record in records]
-            )
-            warnings_by_release = {
-                release_id: rows_to_release_warnings(rows)
-                for release_id, rows in rows_by_release.items()
-            }
+        rows_by_release = await self._warning_repository.list_for_releases(
+            [record.id for record in records]
+        )
+        warnings_by_release = {
+            release_id: rows_to_release_warnings(rows)
+            for release_id, rows in rows_by_release.items()
+        }
 
         return records_to_page(
             records,

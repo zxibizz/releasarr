@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from base64 import b64encode
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from torrentool.api import Torrent
@@ -27,6 +28,13 @@ from src.application.use_cases.releases.queue_manual_release import QueueManualR
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.domain.enums import ExistingReleasesAction, MediaType, ReleaseStatus
+from tests.builders import (
+    stub_auto_mapper,
+    stub_existing_release_replacer,
+    stub_media_request_repository,
+    stub_recompute_state,
+    stub_warning_repository,
+)
 
 REQUEST_ID = "req-1"
 MAGNET = "magnet:?xt=urn:btih:abc123def4567890abc123def4567890abc123de&dn=Show.S01.1080p"
@@ -171,11 +179,22 @@ def series_snapshot() -> ReleaseRequestSnapshot:
     )
 
 
+def build_use_case(
+    repository: FakeReleaseRepository,
+    download_service: FakeDownloadService,
+    **overrides: Any,
+) -> QueueManualReleaseUseCase:
+    overrides.setdefault("auto_mapper", stub_auto_mapper())
+    overrides.setdefault("existing_release_replacer", stub_existing_release_replacer())
+    overrides.setdefault("recompute_state", stub_recompute_state())
+    return QueueManualReleaseUseCase(repository, download_service, **overrides)
+
+
 @pytest.mark.asyncio
 async def test_uploaded_torrent_is_queued_with_its_bytes(season_pack: bytes) -> None:
     repository = FakeReleaseRepository()
     download_service = FakeDownloadService()
-    use_case = QueueManualReleaseUseCase(repository, download_service)
+    use_case = build_use_case(repository, download_service)
 
     result = await use_case.execute(
         QueueManualReleaseCommand(
@@ -207,7 +226,7 @@ async def test_uploaded_torrent_is_queued_with_its_bytes(season_pack: bytes) -> 
 async def test_magnet_is_queued_without_a_file_list() -> None:
     repository = FakeReleaseRepository()
     download_service = FakeDownloadService()
-    use_case = QueueManualReleaseUseCase(repository, download_service)
+    use_case = build_use_case(repository, download_service)
 
     await use_case.execute(QueueManualReleaseCommand(request_id=REQUEST_ID, magnet_link=MAGNET))
 
@@ -224,10 +243,12 @@ async def test_magnet_is_queued_without_a_file_list() -> None:
 @pytest.mark.asyncio
 async def test_uploaded_torrent_files_are_mapped_on_arrival(season_pack: bytes) -> None:
     repository = FakeReleaseRepository(known_requests={REQUEST_ID: series_snapshot()})
-    use_case = QueueManualReleaseUseCase(
+    use_case = build_use_case(
         repository,
         FakeDownloadService(),
-        auto_mapper=ReleaseAutoMapper(repository, ReleaseFileMatcher()),
+        auto_mapper=ReleaseAutoMapper(
+            repository, ReleaseFileMatcher(), stub_media_request_repository()
+        ),
     )
 
     await use_case.execute(
@@ -248,7 +269,7 @@ async def test_uploaded_torrent_files_are_mapped_on_arrival(season_pack: bytes) 
 @pytest.mark.asyncio
 async def test_grab_settles_request_state() -> None:
     recompute_state = FakeRecomputeState()
-    use_case = QueueManualReleaseUseCase(
+    use_case = build_use_case(
         FakeReleaseRepository(),
         FakeDownloadService(),
         recompute_state=recompute_state,
@@ -281,7 +302,7 @@ async def test_grab_settles_request_state() -> None:
 )
 async def test_unusable_payloads_are_rejected(command: QueueManualReleaseCommand) -> None:
     download_service = FakeDownloadService()
-    use_case = QueueManualReleaseUseCase(FakeReleaseRepository(), download_service)
+    use_case = build_use_case(FakeReleaseRepository(), download_service)
 
     with pytest.raises(ValueError):
         await use_case.execute(command)
@@ -302,9 +323,7 @@ async def test_a_release_already_registered_is_a_conflict() -> None:
         )
     )
     download_service = FakeDownloadService()
-    use_case = QueueManualReleaseUseCase(
-        FakeReleaseRepository({existing.id: existing}), download_service
-    )
+    use_case = build_use_case(FakeReleaseRepository({existing.id: existing}), download_service)
 
     with pytest.raises(ReleaseDownloadConflictError):
         await use_case.execute(QueueManualReleaseCommand(request_id=REQUEST_ID, magnet_link=MAGNET))
@@ -315,7 +334,7 @@ async def test_a_release_already_registered_is_a_conflict() -> None:
 @pytest.mark.asyncio
 async def test_a_download_client_failure_surfaces() -> None:
     repository = FakeReleaseRepository()
-    use_case = QueueManualReleaseUseCase(repository, FailingDownloadService())
+    use_case = build_use_case(repository, FailingDownloadService())
 
     with pytest.raises(ReleaseDownloadFailedError):
         await use_case.execute(QueueManualReleaseCommand(request_id=REQUEST_ID, magnet_link=MAGNET))
@@ -327,7 +346,7 @@ async def test_a_download_client_failure_surfaces() -> None:
 @pytest.mark.asyncio
 async def test_unnamed_magnet_falls_back_to_its_info_hash() -> None:
     repository = FakeReleaseRepository()
-    use_case = QueueManualReleaseUseCase(repository, FakeDownloadService())
+    use_case = build_use_case(repository, FakeDownloadService())
 
     await use_case.execute(
         QueueManualReleaseCommand(
@@ -366,10 +385,10 @@ async def test_manual_grab_requires_decision_when_request_has_releases() -> None
     )
     repository = FakeReleaseRepository({existing.id: existing})
     download_service = FakeDownloadService()
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueManualReleaseUseCase(
-        repository, download_service, existing_release_replacer=replacer
+    replacer = ExistingReleaseReplacer(
+        repository, download_service, stub_warning_repository(), stub_recompute_state()
     )
+    use_case = build_use_case(repository, download_service, existing_release_replacer=replacer)
 
     other_magnet = "magnet:?xt=urn:btih:1112223334445556667778889990001112223334"
     with pytest.raises(ExistingReleasesDecisionRequiredError) as exc_info:
@@ -395,10 +414,10 @@ async def test_manual_grab_replace_deletes_exclusive_release() -> None:
     )
     repository = FakeReleaseRepository({existing.id: existing})
     download_service = FakeDownloadService()
-    replacer = ExistingReleaseReplacer(repository, download_service)
-    use_case = QueueManualReleaseUseCase(
-        repository, download_service, existing_release_replacer=replacer
+    replacer = ExistingReleaseReplacer(
+        repository, download_service, stub_warning_repository(), stub_recompute_state()
     )
+    use_case = build_use_case(repository, download_service, existing_release_replacer=replacer)
 
     other_magnet = "magnet:?xt=urn:btih:1112223334445556667778889990001112223334"
     await use_case.execute(

@@ -36,9 +36,9 @@ class QueueReleaseDownloadUseCase:
         repository: ReleaseRepository,
         download_service: ReleaseDownloadService,
         search_service: ReleaseSearchService,
-        auto_mapper: ReleaseAutoMapper | None = None,
-        existing_release_replacer: ExistingReleaseReplacer | None = None,
-        recompute_state: RecomputeRequestStateUseCase | None = None,
+        auto_mapper: ReleaseAutoMapper,
+        existing_release_replacer: ExistingReleaseReplacer,
+        recompute_state: RecomputeRequestStateUseCase,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
@@ -47,8 +47,6 @@ class QueueReleaseDownloadUseCase:
         self._existing_release_replacer = existing_release_replacer
 
     async def _existing_releases(self, request_id: str) -> list[ReleaseRecord]:
-        if self._existing_release_replacer is None:
-            return []
         return await self._existing_release_replacer.existing_for(request_id)
 
     async def execute(self, command: QueueReleaseDownloadCommand) -> AsyncOperationDTO:
@@ -147,11 +145,7 @@ class QueueReleaseDownloadUseCase:
         )
         await self._finalizer.finalize(release)
 
-        if (
-            command.existing_releases is ExistingReleasesAction.REPLACE
-            and existing_releases
-            and self._existing_release_replacer is not None
-        ):
+        if command.existing_releases is ExistingReleasesAction.REPLACE and existing_releases:
             await self._existing_release_replacer.replace(effective_request_id, existing_releases)
 
         return queued_download_to_async_operation(queued)
