@@ -195,6 +195,33 @@ describe('RequestDetailPage', () => {
     expect(apiRequest).not.toHaveBeenCalledWith('/requests/req-2/episodes', expect.anything());
   });
 
+  it('lists the request warnings after the media info card', async () => {
+    stubRoutes({
+      request: {
+        ...movie,
+        warnings: [
+          { code: 'mapping_overlap', release_id: 'rel-1', details: null, created_at: '2026-01-01T00:00:00Z' },
+          {
+            code: 'regrab_indexer_unavailable',
+            release_id: 'rel-2',
+            details: { reason: 'indexer offline' },
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      },
+    });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(
+      screen.getByText('Shares files with another release linked to this request.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Could not check for a fresher release: indexer offline'),
+    ).toBeInTheDocument();
+  });
+
   it('keeps quiet when the episodes cannot be listed', async () => {
     /*
      * Which is the ordinary state of a request the Sonarr sync has yet to link

@@ -573,6 +573,12 @@ export const resources = {
           saved: 'Owner updated',
           saveFailed: 'Could not update the owner',
         },
+        warnings: {
+          title: 'Warnings',
+          mappingOverlap: 'Shares files with another release linked to this request.',
+          regrabIndexerUnavailable: 'Could not check for a fresher release: {{reason}}',
+          unknownReason: 'unknown reason',
+        },
       },
       requestLogsModal: {
         title: 'Logs for {{title}}',
@@ -1447,6 +1453,12 @@ export const resources = {
           unowned: 'Без владельца',
           saved: 'Владелец обновлён',
           saveFailed: 'Не удалось обновить владельца',
+        },
+        warnings: {
+          title: 'Предупреждения',
+          mappingOverlap: 'Пересекается по файлам с другим релизом этого запроса.',
+          regrabIndexerUnavailable: 'Не удалось проверить наличие более свежего релиза: {{reason}}',
+          unknownReason: 'причина неизвестна',
         },
       },
       requestLogsModal: {

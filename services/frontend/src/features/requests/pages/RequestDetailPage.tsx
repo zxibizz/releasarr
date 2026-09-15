@@ -17,6 +17,7 @@ import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasons
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { RequestOwner } from '@/features/requests/components/RequestOwner';
+import { RequestWarnings } from '@/features/requests/components/RequestWarnings';
 import { SeasonEpisodes } from '@/features/requests/components/SeasonEpisodes';
 import {
   localizeRequest,
@@ -165,6 +166,8 @@ export function RequestDetailPage() {
         request={localizedRequest}
         onManageSeasons={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
       />
+
+      <RequestWarnings warnings={localizedRequest.warnings} />
 
       <RequestOwner request={localizedRequest} />
 
