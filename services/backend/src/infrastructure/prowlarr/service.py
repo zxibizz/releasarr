@@ -11,8 +11,9 @@ from src.application.interfaces.releases import (
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
     ReleaseSearchService,
+    ReleaseSearchUnavailableError,
 )
-from src.infrastructure.http import BaseHttpClient
+from src.infrastructure.http import BaseHttpClient, HttpClientError
 from src.infrastructure.prowlarr.parsing import (
     safe_datetime,
     safe_int,
@@ -44,20 +45,38 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
         params: list[tuple[str, str]] = [("query", query), ("type", "search")]
         for category in self.categories or []:
             params.append(("categories", str(category)))
+        if indexer_id is not None:
+            params.append(("indexerIds", str(indexer_id)))
 
-        response = await self._http.request("GET", "/search", params=params)
+        # Retries are the caller's to decide: a per-indexer fan-out attempts
+        # each indexer on its own schedule instead of inheriting the client's.
+        try:
+            response = await self._http.request("GET", "/search", params=params, retries=0)
+        except HttpClientError as exc:
+            raise ReleaseSearchUnavailableError(str(exc)) from exc
 
         if response.status_code == httpx.codes.BAD_REQUEST:
             payload = safe_json(response)
             if self._all_indexers_unavailable(payload):
+                if indexer_id is not None:
+                    # Scoped to one indexer, "all selected indexers" means that
+                    # indexer itself is down, not that results are merely absent.
+                    raise ReleaseSearchUnavailableError(
+                        f"indexer {indexer_id} rejected the search: {payload}"
+                    )
                 return ReleaseSearchResults(results=[], query=query, total_results=0)
-            response.raise_for_status()
+            self._raise_unavailable(response)
 
-        response.raise_for_status()
+        self._raise_unavailable(response)
         payload = response.json()
 
         results: list[ReleaseSearchResultRecord] = []
@@ -74,6 +93,12 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
 
         results.sort(key=lambda result: (-(result.seeders or 0), result.release_name.lower()))
         return ReleaseSearchResults(results=results, query=query, total_results=len(results))
+
+    def _raise_unavailable(self, response: httpx.Response) -> None:
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise ReleaseSearchUnavailableError(str(exc)) from exc
 
     def _map_result(
         self,

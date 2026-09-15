@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from src.application.interfaces.releases import ReleaseSearchResults
+from src.application.interfaces.releases import ReleaseSearchResults, ReleaseSearchUnavailableError
 from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 
 
@@ -120,3 +120,83 @@ async def test_search_skips_results_without_links() -> None:
     assert results.results[0].release_id == "magnet"
     assert results.results[0].magnet_link == "magnet:?xt=urn:btih:MAG"
     assert results.results[0].torrent_file_url is None
+
+
+@pytest.mark.asyncio
+async def test_search_sends_indexer_ids_param_when_scoped() -> None:
+    seen_params: list[tuple[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen_params.extend(request.url.params.multi_items())
+        return httpx.Response(200, json=[])
+
+    transport = httpx.MockTransport(handler)
+    service = ProwlarrReleaseSearchService(
+        base_url="https://prowlarr.example/api/v1",
+        api_key="token",
+        _transport=transport,
+    )
+
+    await service.search("Example", indexer_id=42)
+
+    assert ("indexerIds", "42") in seen_params
+
+
+@pytest.mark.asyncio
+async def test_search_does_not_retry_transport_errors() -> None:
+    """A per-indexer search owns its own retry budget, not the client's."""
+
+    attempts = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ConnectError("boom", request=request)
+
+    transport = httpx.MockTransport(handler)
+    service = ProwlarrReleaseSearchService(
+        base_url="https://prowlarr.example/api/v1",
+        api_key="token",
+        _transport=transport,
+    )
+
+    with pytest.raises(ReleaseSearchUnavailableError):
+        await service.search("Example", indexer_id=1)
+
+    assert attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_search_scoped_to_indexer_treats_all_unavailable_as_failure() -> None:
+    """Scoped to one indexer, 'all selected indexers' means that indexer is down."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payload = {"message": "Search failed due to all selected indexers being unavailable"}
+        return httpx.Response(400, json=payload)
+
+    transport = httpx.MockTransport(handler)
+    service = ProwlarrReleaseSearchService(
+        base_url="https://prowlarr.example/api/v1",
+        api_key="token",
+        _transport=transport,
+    )
+
+    with pytest.raises(ReleaseSearchUnavailableError):
+        await service.search("Anything", indexer_id=7)
+
+
+@pytest.mark.asyncio
+async def test_search_wraps_non_400_http_errors() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"message": "boom"})
+
+    transport = httpx.MockTransport(handler)
+    service = ProwlarrReleaseSearchService(
+        base_url="https://prowlarr.example/api/v1",
+        api_key="token",
+        _transport=transport,
+    )
+
+    with pytest.raises(ReleaseSearchUnavailableError):
+        await service.search("Anything", indexer_id=1)
+

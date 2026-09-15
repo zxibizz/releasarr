@@ -14,6 +14,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
+    IndexerSearchFailureDTO,
     ReleaseDTO,
     ReleaseFileDTO,
     ReleaseFileMappingDTO,
@@ -104,7 +105,12 @@ def records_to_page(
     return ReleasesPageDTO(releases=releases, total=total, page=page, per_page=per_page)
 
 
-def search_results_to_dto(results: ReleaseSearchResults) -> ReleaseSearchResponseDTO:
+def search_results_to_dto(
+    results: ReleaseSearchResults,
+    *,
+    failed_indexers: Sequence[IndexerSearchFailureDTO] = (),
+    searched_indexers: int = 0,
+) -> ReleaseSearchResponseDTO:
     payload = [
         ReleaseSearchResultDTO(
             release_id=result.release_id,
@@ -124,7 +130,11 @@ def search_results_to_dto(results: ReleaseSearchResults) -> ReleaseSearchRespons
     ]
 
     return ReleaseSearchResponseDTO(
-        results=payload, query=results.query, total_results=results.total_results
+        results=payload,
+        query=results.query,
+        total_results=results.total_results,
+        failed_indexers=list(failed_indexers),
+        searched_indexers=searched_indexers,
     )
 
 

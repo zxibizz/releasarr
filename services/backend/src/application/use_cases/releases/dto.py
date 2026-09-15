@@ -91,10 +91,21 @@ class ReleaseSearchResultDTO:
 
 
 @dataclass(slots=True)
+class IndexerSearchFailureDTO:
+    """One indexer that a search fan-out could not get an answer from."""
+
+    indexer_id: int
+    name: str
+    reason: str
+
+
+@dataclass(slots=True)
 class ReleaseSearchResponseDTO:
     results: list[ReleaseSearchResultDTO]
     query: str
     total_results: int
+    failed_indexers: list[IndexerSearchFailureDTO] = field(default_factory=list)
+    searched_indexers: int = 0
 
 
 @dataclass(slots=True)
@@ -110,6 +121,7 @@ class AsyncOperationDTO:
 
 __all__ = [
     "AsyncOperationDTO",
+    "IndexerSearchFailureDTO",
     "ReleaseDTO",
     "ReleaseFileDTO",
     "ReleaseFileMappingDTO",

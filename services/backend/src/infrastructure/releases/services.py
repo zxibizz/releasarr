@@ -56,7 +56,12 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
         for result in results:
             self._cache[result.release_id] = result
 
-    async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
         key = (query, request_id)
         matches = self._registry.get(key, [])
         return ReleaseSearchResults(results=list(matches), query=query, total_results=len(matches))

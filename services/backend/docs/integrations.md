@@ -136,9 +136,42 @@ Three behaviours worth knowing:
   torrent to get the info hash *and the file list*. Only if that fails does it fall back to the
   magnet — and a magnet carries no file list, so the mapping UI comes up empty. See
   [`file-mapping.md`](file-mapping.md).
-- **"All indexers unavailable" is not an error.** On a 400, the body is checked for
-  `"all selected indexers"`; if it matches, an empty result set is returned instead of raising,
-  so one broken indexer does not look like a broken search. Any other 400 propagates.
+- **"All indexers unavailable" is not an error, unless the search was scoped to one indexer.**
+  On a 400, the body is checked for `"all selected indexers"`. Unscoped (`indexer_id=None`),
+  that matches and an empty result set is returned instead of raising. Scoped to a single
+  indexer, the same message means that indexer is down, and `search()` raises
+  `ReleaseSearchUnavailableError` instead. Any other 400 propagates as `HttpClientError`.
+
+### Searching indexers one at a time
+
+`SearchReleaseSourcesUseCase` does not make Prowlarr's own aggregate `/search` call. Instead it
+calls `ProwlarrIndexerDirectory.list_indexers()`, keeps the ones that are `enabled` and
+`supports_search`, and fans out one `search(query, indexer_id=...)` per indexer under an
+`asyncio.Semaphore`. This exists because Prowlarr's own sweep serializes on whichever indexer
+answers last, so one dead indexer stalls (and, with the shared HTTP client's retries, re-stalls)
+every search. Each indexer instead gets its own timeout and retry budget:
+
+| Setting | Default | Env var |
+| --- | --- | --- |
+| Per-indexer timeout | `10.0`s | `RELEASARR_PROWLARR_SEARCH_TIMEOUT` |
+| Retries per indexer | `1` | `RELEASARR_PROWLARR_SEARCH_RETRIES` |
+| Concurrent indexers | `5` | `RELEASARR_PROWLARR_SEARCH_CONCURRENCY` |
+
+Retries live in the use case, not `BaseHttpClient`: `ProwlarrReleaseSearchService.search()` calls
+`BaseHttpClient.request(..., retries=0)`, so a use-case-level retry never becomes a
+client-level retry on top of it. Results from every indexer that answered are merged and
+re-sorted by seeders; indexers that time out or raise `ReleaseSearchUnavailableError` after
+exhausting their retries are reported back as `failed_indexers` on `ReleaseSearchResponse`
+rather than failing the whole search. `list_indexers()` itself failing (Prowlarr unreachable)
+still fails the request with a 502 — there is no per-indexer list to fall back to.
+
+An indexer Prowlarr is currently backing off (`derive_health(...) is IndexerHealth.BLOCKED`,
+i.e. `disabled_till` in the future) is reported as failed **without being queried at all** —
+Prowlarr would refuse it anyway, so attempting it would only spend the timeout budget. A
+`DEGRADED` indexer (past failures, not currently backed off) is still attempted.
+
+When Prowlarr is not configured (`indexer_directory` is `None`), the use case falls back to a
+single call to the search service directly, matching the pre-fan-out behaviour.
 
 ### Indexer health
 

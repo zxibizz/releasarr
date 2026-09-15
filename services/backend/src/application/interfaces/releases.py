@@ -215,11 +215,24 @@ class ReleaseLifecycleService(Protocol):
         """Attempt to resume a release download. Returns True when applied."""
 
 
+class ReleaseSearchUnavailableError(RuntimeError):
+    """Raised when a search request could not be answered by its indexer(s)."""
+
+
 class ReleaseSearchService(Protocol):
     """External search interface for release sources."""
 
-    async def search(self, query: str, request_id: str | None = None) -> ReleaseSearchResults:
-        """Search for releases matching the supplied query."""
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
+        """Search for releases matching the supplied query.
+
+        ``indexer_id`` scopes the search to a single indexer; omitted, the
+        provider sweeps every indexer it has configured.
+        """
 
     def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
         """Return a previously cached search result by identifier, when available."""
@@ -266,4 +279,5 @@ __all__ = [
     "ReleaseSearchResultRecord",
     "ReleaseSearchResults",
     "ReleaseSearchService",
+    "ReleaseSearchUnavailableError",
 ]
