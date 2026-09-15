@@ -93,6 +93,39 @@ def test_arr_says_not_complete_reopens_a_completed_request() -> None:
     assert derived.status is MediaRequestStatus.PENDING
 
 
+def test_arr_complete_with_unaired_episodes_does_not_close_the_request() -> None:
+    """An arr calls a season complete while it is still airing.
+
+    Sonarr counts only the episodes that have aired, so a verdict of complete
+    arrives every week of a running season. Taking it as final would close a
+    request that has an episode yet to come.
+    """
+
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.PENDING)
+    release = make_release(
+        "rel-1",
+        request_ids=[REQUEST_ID],
+        status=ReleaseStatus.COMPLETED,
+        last_exported_info_hash="hash",
+    )
+
+    derived = RequestStateDeriver().derive(
+        record, [release], ArrCompletion(is_complete=True, has_unaired=True)
+    )
+
+    assert derived.status is MediaRequestStatus.MONITORING
+
+
+def test_arr_complete_with_unaired_episodes_reopens_a_completed_request() -> None:
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.COMPLETED)
+
+    derived = RequestStateDeriver().derive(
+        record, [], ArrCompletion(is_complete=True, has_unaired=True)
+    )
+
+    assert derived.status is MediaRequestStatus.PENDING
+
+
 def test_completed_request_is_untouched_without_an_arr_verdict() -> None:
     record = make_record(REQUEST_ID, status=MediaRequestStatus.COMPLETED)
     release = make_release("rel-1", request_ids=[REQUEST_ID], status=ReleaseStatus.SEEDING)

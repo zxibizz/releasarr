@@ -316,7 +316,10 @@ class ExportFinishedReleasesUseCase:
                 UpdateMediaRequestData(exported_at=exported_at),
             )
 
-            if verdict.is_complete:
+            # `has_unaired` is what withholds completion from a season that is
+            # still airing, so logging on `is_complete` alone would announce a
+            # completion the recompute never wrote.
+            if verdict.is_complete and not verdict.has_unaired:
                 self._logger.info(
                     "Marked request as completed",
                     request_id=request.id,

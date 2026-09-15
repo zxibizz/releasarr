@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import cast
 from uuid import uuid4
 
@@ -16,7 +16,7 @@ from src.application.interfaces.media_requests import (
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
-from src.application.interfaces.sonarr import SeriesDetails, SonarrService
+from src.application.interfaces.sonarr import SeriesDetails, SeriesSeasonDetails, SonarrService
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
 from src.application.utility.localization import (
     LocalizationPicker,
@@ -250,25 +250,30 @@ class SyncSonarrMediaRequestsUseCase:
             key = (record.sonarr_series_id, record.season_number)
             if key in missing_keys:
                 continue
-            if await self._has_episodes_left_to_air(record):
-                await self._reopen(record)
+
+            season = await self._settling_season(record)
+            update = self._settled_update(record, season)
+            if update is None:
                 continue
-            if record.status == MediaRequestStatus.COMPLETED:
-                continue
-            update = UpdateMediaRequestData(
-                status=MediaRequestStatus.COMPLETED,
-                downloaded_episodes=record.aired_episodes,
-            )
             await self._repository.update_request(record.id, update)
-            transitioned += 1
+
             # A status transition belongs in the request's activity view, unlike
             # the metadata refresh above that runs on every sync.
-            self._logger.info(
-                "Marked Sonarr season as completed",
-                request_id=record.id,
-                sonarr_series_id=record.sonarr_series_id,
-                season_number=record.season_number,
-            )
+            if update.status is MediaRequestStatus.COMPLETED:
+                transitioned += 1
+                self._logger.info(
+                    "Marked Sonarr season as completed",
+                    request_id=record.id,
+                    sonarr_series_id=record.sonarr_series_id,
+                    season_number=record.season_number,
+                )
+            elif update.status is MediaRequestStatus.PENDING:
+                self._logger.info(
+                    "Reopened Sonarr season with episodes still to air",
+                    request_id=record.id,
+                    sonarr_series_id=record.sonarr_series_id,
+                    season_number=record.season_number,
+                )
         return transitioned
 
     async def _series(self, series_id: int) -> SeriesDetails:
@@ -284,46 +289,77 @@ class SyncSonarrMediaRequestsUseCase:
             self._series_cache[series_id] = details
         return details
 
-    async def _has_episodes_left_to_air(self, record: MediaRequestRecord) -> bool:
-        """Whether Sonarr knows of episodes for this season that have yet to air.
+    async def _settling_season(self, record: MediaRequestRecord) -> SeriesSeasonDetails | None:
+        """Sonarr's live numbers for a season, when the stored ones leave a doubt.
 
-        The counts stored on the request date from the last time the season was
-        reported missing, so a season that settled on its own since then still
-        looks unfinished. Those are the only seasons worth a round trip: one whose
-        stored counts show nothing left to air is settled either way.
+        The counts on a request date from the last time the season was reported
+        missing, because only that path rewrites them. A season that has left the
+        missing list since then keeps them, and the card derives what is pending
+        from them, so an episode Sonarr already holds goes on reading as one still
+        to fetch. Those are the seasons worth a round trip: one whose stored
+        counts have nothing outstanding is settled either way.
         """
 
         series_id = record.sonarr_series_id
         season_number = record.season_number
         if series_id is None or season_number is None:
-            return False
+            return None
         total_episodes = record.total_episodes
         aired_episodes = record.aired_episodes
-        if total_episodes is None or aired_episodes is None:
-            return False
-        if aired_episodes >= total_episodes:
-            return False
+        downloaded_episodes = record.downloaded_episodes
+        if total_episodes is None or aired_episodes is None or downloaded_episodes is None:
+            # A request that predates the counts has nothing to disagree with,
+            # and asking anyway risks a series Sonarr has since dropped.
+            return None
+        if aired_episodes >= total_episodes and downloaded_episodes >= aired_episodes:
+            return None
+        return (await self._series(series_id)).seasons.get(season_number)
 
-        season = (await self._series(series_id)).seasons.get(season_number)
+    @staticmethod
+    def _settled_update(
+        record: MediaRequestRecord,
+        season: SeriesSeasonDetails | None,
+    ) -> UpdateMediaRequestData | None:
+        """What Sonarr's answer implies for a request it no longer calls missing.
+
+        The stored counts are only trustworthy while a season is still reported
+        missing, so a settled one is written from Sonarr's own numbers -- the same
+        ones the missing-season refresh stores. Without an answer the stored
+        counts stand, and a season Sonarr wants nothing more from has nothing left
+        pending, which is what the completion has always recorded.
+
+        Returns None when the request already says as much, so a season that needs
+        neither a transition nor a correction is not rewritten on every sync.
+        """
+
+        unaired = season is not None and season.episode_count < season.total_episode_count
+        status: MediaRequestStatus | _Unset
+        if unaired:
+            # Only a completed request is reopened: an in-flight status belongs
+            # to the release sync and has to survive the sweep.
+            status = (
+                MediaRequestStatus.PENDING
+                if record.status is MediaRequestStatus.COMPLETED
+                else UNSET
+            )
+        elif record.status is MediaRequestStatus.COMPLETED:
+            status = UNSET
+        else:
+            status = MediaRequestStatus.COMPLETED
+
         if season is None:
-            return False
-        return season.episode_count < season.total_episode_count
-
-    async def _reopen(self, record: MediaRequestRecord) -> None:
-        """Put a completed season back on pending while episodes are still to come."""
-
-        if record.status != MediaRequestStatus.COMPLETED:
-            return
-        await self._repository.update_request(
-            record.id,
-            UpdateMediaRequestData(status=MediaRequestStatus.PENDING),
-        )
-        self._logger.info(
-            "Reopened Sonarr season with episodes still to air",
-            request_id=record.id,
-            sonarr_series_id=record.sonarr_series_id,
-            season_number=record.season_number,
-        )
+            update = UpdateMediaRequestData(
+                status=status,
+                downloaded_episodes=record.aired_episodes,
+            )
+        else:
+            update = UpdateMediaRequestData(
+                status=status,
+                total_episodes=season.total_episode_count,
+                aired_episodes=season.episode_count,
+                downloaded_episodes=season.episode_file_count,
+            )
+        return update if _changes_record(record, update) else None
 
     def _build_request_title(self, series_title: str, season_number: int) -> str:
         if season_number <= 0:
@@ -366,6 +402,16 @@ class SyncSonarrMediaRequestsUseCase:
             overview=details.overview,
         )
         return localizations
+
+
+def _changes_record(record: MediaRequestRecord, update: UpdateMediaRequestData) -> bool:
+    """Whether applying `update` would change the record at all."""
+
+    for field in fields(update):
+        value = getattr(update, field.name)
+        if value is not UNSET and getattr(record, field.name) != value:
+            return True
+    return False
 
 
 __all__ = ["SyncSonarrMediaRequestsUseCase", "SyncSonarrResult"]
