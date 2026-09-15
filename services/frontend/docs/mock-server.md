@@ -10,14 +10,14 @@ for the screenshots in the root README.
 
 ## Layout
 
-| File | Contents |
-| --- | --- |
-| `index.ts` | Express wiring and every route handler |
-| `store.ts` | `MockStore` — all mutable state and the behaviour behind it |
-| `mockAuth.ts` | Users, sessions, and service keys — see "Auth" below |
-| `mockData.ts` | Seed requests, releases, and release files |
-| `mockDiscover.ts` | The pretend Sonarr/Radarr library for the Add flow |
-| `mockLogs.ts` | Seed request and task log lines |
+| File              | Contents                                                    |
+| ----------------- | ----------------------------------------------------------- |
+| `index.ts`        | Express wiring and every route handler                      |
+| `store.ts`        | `MockStore` — all mutable state and the behaviour behind it |
+| `mockAuth.ts`     | Users, sessions, and service keys — see "Auth" below        |
+| `mockData.ts`     | Seed requests, releases, and release files                  |
+| `mockDiscover.ts` | The pretend Sonarr/Radarr library for the Add flow          |
+| `mockLogs.ts`     | Seed request and task log lines                             |
 
 Routes are thin and the store holds the behaviour, mirroring how the backend splits routers from
 use cases. `index.ts` also serves the contract itself at `/openapi.yaml` and a `/__health`
@@ -97,22 +97,22 @@ Task endpoints answer `202` with an operation envelope and a `Location` header, 
 backend:
 
 ```typescript
-  const body = {
-    ...buildAsyncResponse(
-      operation,
-      tracked.id,
-      created > 0 ? `${operation} queued (mock)` : 'An equivalent run is already queued.',
-      {
-        job_ids: jobs.map((job) => job.id),
-        tasks: jobs.map((job) => job.kind),
-        created,
-      },
-    ),
-    operation_id: tracked.id,
-    location: `${apiBaseUrl}/tasks/jobs/${tracked.id}`,
-  };
+const body = {
+  ...buildAsyncResponse(
+    operation,
+    tracked.id,
+    created > 0 ? `${operation} queued (mock)` : 'An equivalent run is already queued.',
+    {
+      job_ids: jobs.map((job) => job.id),
+      tasks: jobs.map((job) => job.kind),
+      created,
+    },
+  ),
+  operation_id: tracked.id,
+  location: `${apiBaseUrl}/tasks/jobs/${tracked.id}`,
+};
 
-  res.status(202).location(body.location).json(body);
+res.status(202).location(body.location).json(body);
 ```
 
 `sync_all` queues all five task kinds; `sync_downloads` queues `release_sync` then `export`, the

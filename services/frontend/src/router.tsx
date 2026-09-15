@@ -60,9 +60,8 @@ export const router = createBrowserRouter([
           {
             path: 'request/:id',
             lazy: async () => {
-              const { RequestDetailPage } = await import(
-                '@/features/requests/pages/RequestDetailPage'
-              );
+              const { RequestDetailPage } =
+                await import('@/features/requests/pages/RequestDetailPage');
               return { Component: RequestDetailPage };
             },
             loader: requestDetailLoader,

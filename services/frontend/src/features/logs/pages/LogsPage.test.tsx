@@ -147,11 +147,15 @@ describe('LogsPage', () => {
     respondWith([logEntry()]);
 
     renderWithProviders(<LogsPage />);
-    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toBeInTheDocument();
+    expect(
+      await visiblePanel().findByRole('combobox', { name: /minimum level/i }),
+    ).toBeInTheDocument();
 
     await openSchedulerTab(user);
 
-    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toBeInTheDocument();
+    expect(
+      await visiblePanel().findByRole('combobox', { name: /minimum level/i }),
+    ).toBeInTheDocument();
   });
 
   it('offers no task filter for the API, which never binds a task', async () => {

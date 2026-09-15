@@ -7,12 +7,9 @@ import { renderWithProviders } from '@/test/utils';
 
 const completeSetup = vi.fn();
 
-vi.mock('@/features/auth/AuthProvider', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/AuthProvider')>(
-    '@/features/auth/AuthProvider',
-  );
-  return { ...actual, useAuth: () => ({ completeSetup }) };
-});
+vi.mock('@/features/auth/useAuth', () => ({
+  useAuth: () => ({ completeSetup }),
+}));
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -39,9 +36,7 @@ describe('SetupPage', () => {
     await userEvent.type(screen.getByLabelText(/^password/i), 'short');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
-    expect(
-      await screen.findByText('Password must be at least 8 characters.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Password must be at least 8 characters.')).toBeInTheDocument();
     expect(completeSetup).not.toHaveBeenCalled();
   });
 
@@ -53,9 +48,7 @@ describe('SetupPage', () => {
     await userEvent.type(screen.getByLabelText(/^password/i), 'a-long-password');
     await userEvent.click(screen.getByRole('button', { name: 'Create admin account' }));
 
-    await waitFor(() =>
-      expect(completeSetup).toHaveBeenCalledWith('root', 'a-long-password', ''),
-    );
+    await waitFor(() => expect(completeSetup).toHaveBeenCalledWith('root', 'a-long-password', ''));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replace: true }));
   });
 

@@ -199,4 +199,3 @@ async def test_search_wraps_non_400_http_errors() -> None:
 
     with pytest.raises(ReleaseSearchUnavailableError):
         await service.search("Anything", indexer_id=1)
-

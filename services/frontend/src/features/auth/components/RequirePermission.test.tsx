@@ -2,8 +2,8 @@ import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Route, Routes } from 'react-router-dom';
 
-import type { AuthContextValue } from '@/features/auth/AuthProvider';
 import { RequirePermission } from '@/features/auth/components/RequirePermission';
+import type { AuthContextValue } from '@/features/auth/context';
 import { renderWithProviders } from '@/test/utils';
 
 function renderGuarded(auth: Partial<AuthContextValue>) {

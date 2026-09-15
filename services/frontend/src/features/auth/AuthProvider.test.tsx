@@ -2,7 +2,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import { AuthProvider } from '@/features/auth/AuthProvider';
+import { useAuth } from '@/features/auth/useAuth';
 import { setAccessToken } from '@/lib/api/client';
 import { TEST_ADMIN_USER } from '@/test/utils';
 

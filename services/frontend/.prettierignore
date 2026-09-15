@@ -1,0 +1,9 @@
+# Build output and dependencies.
+dist
+node_modules
+coverage
+
+# Written by `npm run codegen` from ../../openapi.yaml. Formatting it here would
+# be undone the next time the spec changes, leaving `prettier --check` red after
+# every codegen run.
+src/lib/api/generated

@@ -200,7 +200,12 @@ describe('RequestDetailPage', () => {
       request: {
         ...movie,
         warnings: [
-          { code: 'mapping_overlap', release_id: 'rel-1', details: null, created_at: '2026-01-01T00:00:00Z' },
+          {
+            code: 'mapping_overlap',
+            release_id: 'rel-1',
+            details: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
           {
             code: 'regrab_indexer_unavailable',
             release_id: 'rel-2',

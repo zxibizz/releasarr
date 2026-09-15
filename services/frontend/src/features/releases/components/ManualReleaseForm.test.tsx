@@ -179,9 +179,7 @@ describe('ManualReleaseForm with existing releases', () => {
     await userEvent.type(screen.getByLabelText(MAGNET_FIELD), MAGNET);
     await userEvent.click(screen.getByRole('button', { name: SUBMIT }));
 
-    expect(
-      await screen.findByText('This request already has releases'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('This request already has releases')).toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith(
       '/requests/req-1/releases/manual',
       expect.anything(),

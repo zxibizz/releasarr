@@ -759,7 +759,7 @@ export const resources = {
         logsModal: {
           title: 'Indexer logs',
           description:
-            "Straight from Prowlarr, newest first. Both views cover every application using these indexers, not just Releasarr.",
+            'Straight from Prowlarr, newest first. Both views cover every application using these indexers, not just Releasarr.',
           tabs: {
             events: 'Events',
             history: 'History',
@@ -790,7 +790,7 @@ export const resources = {
           },
           empty: {
             title: 'Prowlarr has logged nothing',
-            description: "Entries appear here as soon as Prowlarr writes to its log.",
+            description: 'Entries appear here as soon as Prowlarr writes to its log.',
             filtered: 'Nothing has been logged at this level.',
           },
           error: {
@@ -1335,7 +1335,8 @@ export const resources = {
         },
         overlapWarning: {
           badge: 'Пересечение',
-          withinRelease: 'Два или более файла здесь сопоставлены с одним и тем же эпизодом или фильмом.',
+          withinRelease:
+            'Два или более файла здесь сопоставлены с одним и тем же эпизодом или фильмом.',
           withOtherReleases_one:
             'Пересекается с {{count}} другим релизом, сопоставленным с тем же эпизодом или фильмом.',
           withOtherReleases_few:
@@ -1683,7 +1684,8 @@ export const resources = {
         testIndexer: 'Проверить «{{name}}»',
         blockedUntil:
           'Prowlarr отключил этот индексер после серии ошибок. Следующая попытка {{when}}.',
-        degradedHint: 'У этого индексера недавно были ошибки, но Prowlarr продолжает его опрашивать.',
+        degradedHint:
+          'У этого индексера недавно были ошибки, но Prowlarr продолжает его опрашивать.',
         alert_one: '{{count}} индексеру нужно внимание',
         alert_few: '{{count}} индексерам нужно внимание',
         alert_many: '{{count}} индексерам нужно внимание',

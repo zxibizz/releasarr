@@ -8,12 +8,9 @@ import { renderWithProviders } from '@/test/utils';
 
 const login = vi.fn();
 
-vi.mock('@/features/auth/AuthProvider', async () => {
-  const actual = await vi.importActual<typeof import('@/features/auth/AuthProvider')>(
-    '@/features/auth/AuthProvider',
-  );
-  return { ...actual, useAuth: () => ({ login }) };
-});
+vi.mock('@/features/auth/useAuth', () => ({
+  useAuth: () => ({ login }),
+}));
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -57,7 +54,9 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText(/^password/i), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(await screen.findByText('Too many failed attempts. Try again later.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Too many failed attempts. Try again later.'),
+    ).toBeInTheDocument();
   });
 
   it('checks remember me through to the login call', async () => {

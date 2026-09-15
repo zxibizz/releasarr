@@ -1,7 +1,7 @@
 import { Badge, Group, Select, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
-import { useAuth } from '@/features/auth/AuthProvider';
+import { useAuth } from '@/features/auth/useAuth';
 import { useUpdateRequestOwner } from '@/features/requests/queries';
 import { useUsersList } from '@/features/users/queries';
 import type { MediaRequest } from '@/types';

@@ -295,7 +295,8 @@ api.get('/requests', async (req, res) => {
   const hasWarnings = hasWarningsParam === undefined ? undefined : hasWarningsParam === 'true';
 
   const filtered = (await mockStore.listRequests({ status, type, hasWarnings })).filter(
-    (request) => !ownerFilter || (request as { owner_user_id?: string }).owner_user_id === ownerFilter,
+    (request) =>
+      !ownerFilter || (request as { owner_user_id?: string }).owner_user_id === ownerFilter,
   );
   const total = filtered.length;
   const start = (page - 1) * perPage;

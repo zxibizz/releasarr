@@ -7,14 +7,14 @@ job. The backend half — parsing, matching, and import — is documented in
 
 ## Pieces
 
-| File | Role |
-| --- | --- |
-| `components/ReleaseFilesModal.tsx` | Files tab (read-only) and Mapping tab |
-| `fileMapping/FileMappingForm.tsx` | Wires the hook to the save mutation |
-| `fileMapping/FileMappingToolbar.tsx` | Bulk actions |
-| `fileMapping/FileMappingRow.tsx` | One file's request select and season/episode inputs |
-| `fileMapping/useFileMappingForm.ts` | All the state |
-| `components/OtherFilesSection.tsx` | Collapsed non-video files |
+| File                                 | Role                                                |
+| ------------------------------------ | --------------------------------------------------- |
+| `components/ReleaseFilesModal.tsx`   | Files tab (read-only) and Mapping tab               |
+| `fileMapping/FileMappingForm.tsx`    | Wires the hook to the save mutation                 |
+| `fileMapping/FileMappingToolbar.tsx` | Bulk actions                                        |
+| `fileMapping/FileMappingRow.tsx`     | One file's request select and season/episode inputs |
+| `fileMapping/useFileMappingForm.ts`  | All the state                                       |
+| `components/OtherFilesSection.tsx`   | Collapsed non-video files                           |
 
 Video files are listed first and non-video files are collapsed, via `splitVideoFiles` in
 `utils/files.ts`. Both buckets sort with `compareByFileName`, a `localeCompare` with
@@ -82,17 +82,17 @@ each series to a `season → request` index, keyed by Sonarr id where available 
 to a normalized series title for requests that predate a Sonarr link.
 
 `seriesDraft` then resolves a file's request from its season rather than from whatever request
-the user clicked, which is why "apply request to all" on a series is really "apply this *series*
+the user clicked, which is why "apply request to all" on a series is really "apply this _series_
 to all" — each file still lands on the request owning its own season.
 
 ## Toolbar actions
 
-| Action | Semantics |
-| --- | --- |
+| Action                           | Semantics                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Apply request to all video files | Movie: every video file gets that request. Series: each file keeps its season and routes through the season index. |
-| Use suggested mapping | Overwrites all suggested rows, **discarding edits to them**. |
-| Number episodes in order | Fills empty episode numbers in name order. |
-| Reset changes | Back to the stored state. |
+| Use suggested mapping            | Overwrites all suggested rows, **discarding edits to them**.                                                       |
+| Number episodes in order         | Fills empty episode numbers in name order.                                                                         |
+| Reset changes                    | Back to the stored state.                                                                                          |
 
 All of them target **video files only**.
 

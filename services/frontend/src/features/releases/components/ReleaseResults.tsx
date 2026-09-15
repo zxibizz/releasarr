@@ -32,9 +32,7 @@ export function ReleaseResults({
       {results.map((candidate) => {
         const quality = candidate.quality;
         const age = ageInDays(candidate);
-        const publishedAt = candidate.publish_date
-          ? formatDateTime(candidate.publish_date)
-          : null;
+        const publishedAt = candidate.publish_date ? formatDateTime(candidate.publish_date) : null;
         return (
           <Paper key={candidate.release_id} withBorder radius="md" p={{ base: 'sm', sm: 'md' }}>
             <Group justify="space-between" align="center" wrap="wrap" gap="md">
@@ -44,7 +42,12 @@ export function ReleaseResults({
                 </Text>
                 <Group gap="sm" fz="xs" c="dimmed" wrap="wrap">
                   {quality && (
-                    <Badge size="sm" radius="xl" variant="light" color={QUALITY_COLOR[quality] ?? 'gray'}>
+                    <Badge
+                      size="sm"
+                      radius="xl"
+                      variant="light"
+                      color={QUALITY_COLOR[quality] ?? 'gray'}
+                    >
                       {quality}
                     </Badge>
                   )}
