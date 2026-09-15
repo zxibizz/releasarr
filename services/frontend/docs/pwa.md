@@ -73,10 +73,20 @@ so it survives a launcher masking it to a circle. The rest are generated and com
 npm run pwa:assets
 ```
 
-`pwa-assets.config.ts` overrides the `minimal-2023` preset's padding colour, which otherwise
-defaults to white and shows as a pale ring around a dark icon. **A normal build never runs the
-generator** — it reads the committed PNGs — so changing the artwork is a deliberate two-step:
-edit the SVG, regenerate, commit both.
+`pwa-assets.config.ts` sets `padding: 0` on every variant, which is the whole of its purpose.
+The `minimal-2023` preset insets the plain icons by 5% and pads Apple and maskable with sharp's
+default white; both show up on a home screen as a frame around the tile. Padding the maskable
+variant is only useful when the artwork runs to the canvas edge — it shrinks the art into the
+safe zone and fills the gap from a flat colour, which here would cut a square seam across the
+art's own gradient. The source already keeps the glyph inside the safe zone, so a full-bleed
+render is safe and only the declared `purpose` differs between the files. Note that the preset
+defines no `resizeOptions` at all, so they are written out by hand: spreading the missing object
+would silently drop `fit`.
+
+**A normal build never runs the generator** — it reads the committed PNGs — so changing the
+artwork is a deliberate two-step: edit the SVG, regenerate, commit both. Writing a config change
+without re-running `npm run pwa:assets` changes nothing on disk, which is worth knowing because
+the committed images are what actually ship.
 
 ## HTTPS
 
