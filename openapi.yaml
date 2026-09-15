@@ -28,6 +28,7 @@ paths:
         - $ref: '#/components/parameters/RequestStatus'
         - $ref: '#/components/parameters/RequestType'
         - $ref: '#/components/parameters/RequestOwner'
+        - $ref: '#/components/parameters/RequestHasWarnings'
       responses:
         '200':
           description: Paged list of media requests.
@@ -1899,6 +1900,12 @@ components:
       description: >-
         Filter requests by owner user id. Only callers with view_all_requests
         (or an admin) may use this; others are restricted to their own.
+    RequestHasWarnings:
+      in: query
+      name: has_warnings
+      schema:
+        type: boolean
+      description: Filter to requests with (`true`) or without (`false`) at least one warning.
     UserId:
       in: path
       name: userId
@@ -2223,6 +2230,11 @@ components:
           description: Localized titles and overviews keyed by 3-letter language codes.
           additionalProperties:
             $ref: '#/components/schemas/MediaLocalization'
+        warnings:
+          type: array
+          description: Persisted conditions worth surfacing on this request but not worth blocking on.
+          items:
+            $ref: '#/components/schemas/RequestWarning'
     MovieRequest:
       allOf:
         - $ref: '#/components/schemas/BaseMediaRequest'
@@ -2511,16 +2523,42 @@ components:
           type: string
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
+    RequestWarningCode:
+      type: string
+      description: >-
+        A condition worth surfacing but not worth blocking on. Shared between
+        release-scoped and request-scoped warnings, since both are stored as
+        the same (request, release, code) row.
+      enum: [mapping_overlap, regrab_indexer_unavailable]
+    RequestWarning:
+      type: object
+      required: [code, release_id, created_at]
+      description: >-
+        A warning as it appears on a request. `release_id` is the release the
+        warning is about, when the code names one.
+      properties:
+        code:
+          $ref: '#/components/schemas/RequestWarningCode'
+        release_id:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
     ReleaseWarning:
       type: object
       required: [code, file_ids, related_release_ids]
       description: >-
-        A condition worth surfacing to the user but not worth blocking on. The
-        `code` enum is the extension point for future checks.
+        A warning as it appears on a release. Only `mapping_overlap` shows up
+        here - other codes are request-level concerns without a file list to
+        report.
       properties:
         code:
-          type: string
-          enum: [mapping_overlap]
+          $ref: '#/components/schemas/RequestWarningCode'
         file_ids:
           type: array
           items:

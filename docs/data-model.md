@@ -12,6 +12,9 @@ media_requests ──┬── release_request_links ──┬── releases �
                  └───────────────────────────────── mapped_request_id
                      (SET NULL)
 
+media_requests ──┬── request_warnings ──── releases
+                 │   (request_id, release_id both nullable-on-release FKs)
+
 users ──┬── media_requests.owner_user_id      (SET NULL)
          ├── refresh_tokens.user_id           (CASCADE)
          └── service_api_keys.user_id         (CASCADE)
@@ -121,6 +124,33 @@ orphan the mapping, not delete the file row, so the release stays inspectable an
 
 Composite primary key `(release_id, request_id)`, both `CASCADE`. Many-to-many because one
 release can serve several requests — a complete-series pack, or a movie collection.
+
+### `request_warnings`
+
+One row per (request, release, code) — a condition worth surfacing on a request but not worth
+blocking on. `release_id` is nullable, for a future request-only code that names no release.
+`code` is `mapping_overlap` or `regrab_indexer_unavailable`; `details` is a JSON blob whose shape
+is code-specific (`{file_ids, related_release_ids}` for an overlap, `{reason}` for a regrab
+failure).
+
+| Code | Written by | Cleared by |
+| --- | --- | --- |
+| `mapping_overlap` | `RequestWarningSynchronizer`, called from every mapping-changing use case (`UpdateReleaseFileMappingsUseCase`, `ReleaseGrabFinalizer.auto_map_files`, `DeleteReleaseUseCase`, `ExistingReleaseReplacer`) and a reconcile pass folded into `release_sync` | A recompute over the request's whole release set that no longer finds the release in an overlapping bucket — see `RequestWarningSynchronizer.sync_for_requests` |
+| `regrab_indexer_unavailable` | `RegrabOutdatedReleasesUseCase`, on `ReleaseSearchUnavailableError` | The same use case, the next time that release's own search returns a valid response, whether or not anything changed |
+
+The two codes are scoped to write and clear at different granularities on purpose — see
+[`services/backend/docs/integrations.md`](../services/backend/docs/integrations.md#searching-indexers-one-at-a-time)
+for why one clears per-request and the other per-release.
+
+**Removal is explicit, not left to the FK cascade.** `ondelete="CASCADE"` is set on both FKs for
+Postgres correctness, but nothing relies on it: SQLite does not enforce foreign keys (there is no
+`PRAGMA foreign_keys=ON` anywhere), and unlinking a release that is shared between requests
+violates no FK at all — the row it should clear is scoped by a link table, not by either parent
+being deleted. `DeleteReleaseUseCase` and `ExistingReleaseReplacer` both call
+`RequestWarningRepository.delete_for_release`/`delete_for_request_release` themselves.
+
+`GET /requests?has_warnings=` filters with an `EXISTS` subquery against this table rather than a
+join, so a request with several warning rows is not duplicated in the page.
 
 ### `sync_jobs`
 

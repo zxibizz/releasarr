@@ -15,6 +15,7 @@ export interface RequestListFilters {
   status?: MediaRequestStatus;
   type?: MediaType;
   owner?: string;
+  hasWarnings?: boolean;
 }
 
 export const requestsApi = {
@@ -27,6 +28,7 @@ export const requestsApi = {
         status: filters.status,
         type: filters.type,
         owner: filters.owner,
+        has_warnings: filters.hasWarnings,
       },
     }),
 

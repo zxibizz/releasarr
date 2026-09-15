@@ -235,4 +235,64 @@ describe('RequestsPage', () => {
     // `space-between` orders them, so document order has to be date-then-counts.
     expect(date.compareDocumentPosition(counts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it('shows a warning badge only on a request that has one', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      requests: [
+        {
+          ...movie,
+          warnings: [
+            {
+              code: 'regrab_indexer_unavailable',
+              release_id: 'rel-1',
+              details: { reason: 'indexer banned' },
+              created_at: '2026-03-01T00:00:00.000Z',
+            },
+          ],
+        },
+        series,
+      ],
+      total: 2,
+    });
+
+    renderWithProviders(<RequestsPage />, { route: '/?status=all' });
+
+    const warnedCard = (await screen.findByText('The Dark Knight')).closest('a');
+    const cleanCard = screen.getByText('Severance').closest('a');
+    expect(warnedCard).not.toBeNull();
+    expect(cleanCard).not.toBeNull();
+    expect(within(warnedCard!).getByText('⚠️ 1')).toBeInTheDocument();
+    expect(within(cleanCard!).queryByText(/⚠️/)).not.toBeInTheDocument();
+  });
+
+  it('narrows the list to problematic requests only, from the URL and the toggle', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      requests: [
+        {
+          ...movie,
+          warnings: [
+            {
+              code: 'regrab_indexer_unavailable',
+              release_id: 'rel-1',
+              details: null,
+              created_at: '2026-03-01T00:00:00.000Z',
+            },
+          ],
+        },
+        series,
+      ],
+      total: 2,
+    });
+
+    renderWithProviders(<RequestsPage />, { route: '/?status=all&warnings=1' });
+
+    expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
+    expect(screen.queryByText('Severance')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /problematic only/i }));
+
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+    expect(screen.getByText('The Dark Knight')).toBeInTheDocument();
+  });
 });

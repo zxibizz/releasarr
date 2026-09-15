@@ -236,6 +236,7 @@ async def list_requests(
     status_filter: str | None = Query(default=None, alias="status"),
     type_filter: str | None = Query(default=None, alias="type"),
     owner: str | None = Query(default=None),
+    has_warnings: bool | None = Query(default=None),
 ) -> RequestsResponse:
     status_value: MediaRequestStatus | None = None
     if status_filter:
@@ -264,6 +265,7 @@ async def list_requests(
         status=status_value,
         media_type=media_type,
         owner_user_id=owner_filter,
+        has_warnings=has_warnings,
     )
     result = await list_use_case.execute(options)
     return _page_to_response(result)

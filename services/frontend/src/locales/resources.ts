@@ -143,6 +143,8 @@ export const resources = {
           unaired_other: 'Unaired {{count}}',
         },
         exported: 'Last exported at {{date}}',
+        warnings_one: '{{count}} warning',
+        warnings_other: '{{count}} warnings',
       },
       mediaInfo: {
         sections: {
@@ -170,6 +172,8 @@ export const resources = {
           series: 'Series',
           ownerLabel: 'Owner',
           ownerAny: 'Anyone',
+          warningsLabel: 'Warnings',
+          warningsOnly: '⚠️ Problematic only',
         },
         sort: {
           created_desc: 'Newest first',
@@ -987,6 +991,10 @@ export const resources = {
           unaired_other: 'Не вышло {{count}}',
         },
         exported: 'Последний экспорт: {{date}}',
+        warnings_one: '{{count}} предупреждение',
+        warnings_few: '{{count}} предупреждения',
+        warnings_many: '{{count}} предупреждений',
+        warnings_other: '{{count}} предупреждений',
       },
       mediaInfo: {
         sections: {
@@ -1016,6 +1024,8 @@ export const resources = {
           series: 'Сериалы',
           ownerLabel: 'Владелец',
           ownerAny: 'Любой',
+          warningsLabel: 'Предупреждения',
+          warningsOnly: '⚠️ Только проблемные',
         },
         sort: {
           created_desc: 'Сначала новые',

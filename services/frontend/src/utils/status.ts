@@ -41,6 +41,9 @@ export const LOG_LEVEL_COLOR: Record<RequestLogLevel, string> = {
   error: 'red',
 };
 
+/** The one color a "this needs attention" badge uses, wherever it appears. */
+export const WARNING_COLOR = 'yellow';
+
 const INDEXER_EVENT_COLOR: Record<IndexerEventType, string> = {
   indexer_query: 'blue',
   indexer_rss: 'cyan',

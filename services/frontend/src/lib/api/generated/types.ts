@@ -987,6 +987,8 @@ export interface components {
             localizations?: {
                 [key: string]: components["schemas"]["MediaLocalization"];
             };
+            /** @description Persisted conditions worth surfacing on this request but not worth blocking on. */
+            warnings?: components["schemas"]["RequestWarning"][];
         };
         MovieRequest: components["schemas"]["BaseMediaRequest"] & {
             /** @enum {string} */
@@ -1129,10 +1131,24 @@ export interface components {
             path: string;
             request_mapping?: components["schemas"]["FileRequestMapping"];
         };
-        /** @description A condition worth surfacing to the user but not worth blocking on. The `code` enum is the extension point for future checks. */
+        /**
+         * @description A condition worth surfacing but not worth blocking on. Shared between release-scoped and request-scoped warnings, since both are stored as the same (request, release, code) row.
+         * @enum {string}
+         */
+        RequestWarningCode: "mapping_overlap" | "regrab_indexer_unavailable";
+        /** @description A warning as it appears on a request. `release_id` is the release the warning is about, when the code names one. */
+        RequestWarning: {
+            code: components["schemas"]["RequestWarningCode"];
+            release_id: string | null;
+            details?: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description A warning as it appears on a release. Only `mapping_overlap` shows up here - other codes are request-level concerns without a file list to report. */
         ReleaseWarning: {
-            /** @enum {string} */
-            code: "mapping_overlap";
+            code: components["schemas"]["RequestWarningCode"];
             /** @description Files on this release involved in the warning. */
             file_ids: string[];
             /** @description Other releases sharing the same overlap, if any. */
@@ -1622,6 +1638,8 @@ export interface components {
         RequestType: components["schemas"]["MediaType"];
         /** @description Filter requests by owner user id. Only callers with view_all_requests (or an admin) may use this; others are restricted to their own. */
         RequestOwner: string;
+        /** @description Filter to requests with (`true`) or without (`false`) at least one warning. */
+        RequestHasWarnings: boolean;
         /** @description Unique identifier for a user account. */
         UserId: string;
         /** @description Filter releases by lifecycle status. */
@@ -1667,6 +1685,8 @@ export interface operations {
                 type?: components["parameters"]["RequestType"];
                 /** @description Filter requests by owner user id. Only callers with view_all_requests (or an admin) may use this; others are restricted to their own. */
                 owner?: components["parameters"]["RequestOwner"];
+                /** @description Filter to requests with (`true`) or without (`false`) at least one warning. */
+                has_warnings?: components["parameters"]["RequestHasWarnings"];
             };
             header?: never;
             path?: never;

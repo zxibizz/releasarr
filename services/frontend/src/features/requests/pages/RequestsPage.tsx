@@ -54,7 +54,7 @@ export function RequestsPage() {
   const isMobile = useIsMobile();
   const { hasPermission } = useAuth();
   const canFilterByOwner = hasPermission('view_all_requests');
-  const { type, status, sort, search, owner, setType, setStatus, setSort, setSearch, setOwner } =
+  const { type, status, sort, search, owner, hasWarnings, setType, setStatus, setSort, setSearch, setOwner, setHasWarnings } =
     useRequestFilters();
   const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
   const { users } = useUsersList({ enabled: canFilterByOwner });
@@ -73,8 +73,9 @@ export function RequestsPage() {
         sort,
         search,
         owner: canFilterByOwner ? owner : null,
+        hasWarnings,
       }),
-    [localizedRequests, type, status, sort, search, owner, canFilterByOwner],
+    [localizedRequests, type, status, sort, search, owner, canFilterByOwner, hasWarnings],
   );
 
   const typeLabel = (key: TypeFilter) => t(TYPE_LABEL_KEYS[key]);
@@ -174,6 +175,8 @@ export function RequestsPage() {
             ? users.map((user) => ({ value: user.id, label: user.username }))
             : undefined
         }
+        hasWarnings={hasWarnings}
+        setHasWarnings={setHasWarnings}
       />
 
       <Group justify="space-between" align="center">

@@ -33,10 +33,17 @@ class ReleaseStatus(StrEnum):
     FAILED = "failed"
 
 
-class ReleaseWarningCode(StrEnum):
-    """A condition worth surfacing on a release but not worth blocking on."""
+class RequestWarningCode(StrEnum):
+    """A condition worth surfacing on a request but not worth blocking on.
+
+    Stored per (request, release) pair: a release-scoped code like
+    ``MAPPING_OVERLAP`` also answers "what is wrong with this release", while a
+    request-only code like ``REGRAB_INDEXER_UNAVAILABLE`` leaves ``release_id``
+    on the row filled in too, since a release is still what failed to answer.
+    """
 
     MAPPING_OVERLAP = "mapping_overlap"
+    REGRAB_INDEXER_UNAVAILABLE = "regrab_indexer_unavailable"
 
 
 class ExistingReleasesAction(StrEnum):

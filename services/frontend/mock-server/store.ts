@@ -260,9 +260,10 @@ export class MockStore {
     filters: {
       status?: RequestStatus;
       type?: RequestType;
+      hasWarnings?: boolean;
     } = {},
   ): Promise<MediaRequest[]> {
-    const { status, type } = filters;
+    const { status, type, hasWarnings } = filters;
     const requests = await this.ensureRequests();
 
     let result = requests;
@@ -271,6 +272,9 @@ export class MockStore {
     }
     if (type) {
       result = result.filter((request) => request.type === type);
+    }
+    if (hasWarnings !== undefined) {
+      result = result.filter((request) => ((request.warnings?.length ?? 0) > 0) === hasWarnings);
     }
 
     return result.map((request) => clone(request));
@@ -316,6 +320,7 @@ export class MockStore {
       status: 'pending' as RequestStatus,
       created_at: now,
       updated_at: now,
+      warnings: [],
     };
 
     let request: MediaRequest;

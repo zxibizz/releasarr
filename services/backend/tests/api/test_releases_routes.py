@@ -44,7 +44,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
-from src.domain.enums import ReleaseStatus, ReleaseWarningCode
+from src.domain.enums import ReleaseStatus, RequestWarningCode
 
 API_KEY_HEADER: dict[str, str] = {}
 
@@ -116,7 +116,7 @@ async def test_list_releases_serializes_warnings(api_client: AsyncClient) -> Non
     release = make_release_dto()
     release.warnings = [
         ReleaseWarningDTO(
-            code=ReleaseWarningCode.MAPPING_OVERLAP,
+            code=RequestWarningCode.MAPPING_OVERLAP,
             file_ids=["file-1"],
             related_release_ids=["rel-2"],
         )

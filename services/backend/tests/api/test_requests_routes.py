@@ -50,10 +50,11 @@ from src.application.use_cases.requests.commands import (
 )
 from src.application.use_cases.requests.dto import (
     MediaRequestsPageDTO,
+    RequestWarningDTO,
     SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
-from src.domain.enums import EpisodeStatus, MediaRequestStatus
+from src.domain.enums import EpisodeStatus, MediaRequestStatus, RequestWarningCode
 
 API_KEY_HEADER: dict[str, str] = {}
 
@@ -61,8 +62,10 @@ API_KEY_HEADER: dict[str, str] = {}
 class FakeListUseCase(ListMediaRequestsUseCase):
     def __init__(self, page: MediaRequestsPageDTO) -> None:
         self._page = page
+        self.last_options: ListRequestsOptions | None = None
 
     async def execute(self, options: ListRequestsOptions | None = None) -> MediaRequestsPageDTO:
+        self.last_options = options
         return self._page
 
 
@@ -179,7 +182,7 @@ def make_seasons_dto() -> SeriesSeasonsDTO:
     )
 
 
-def make_movie_dto() -> MovieRequestDTO:
+def make_movie_dto(warnings: list[RequestWarningDTO] | None = None) -> MovieRequestDTO:
     return MovieRequestDTO(
         id="req-1",
         title="Example",
@@ -192,6 +195,7 @@ def make_movie_dto() -> MovieRequestDTO:
         updated_at=datetime.now(UTC),
         runtime=120,
         imdb_id="tt1234567",
+        warnings=warnings or [],
     )
 
 
@@ -238,6 +242,42 @@ async def test_list_requests_returns_results(api_client: AsyncClient) -> None:
     payload = response.json()
     assert payload["total"] == 1
     assert payload["requests"][0]["id"] == dto.id
+
+
+@pytest.mark.asyncio
+async def test_list_requests_serialises_warnings(api_client: AsyncClient) -> None:
+    dto = make_movie_dto(
+        warnings=[
+            RequestWarningDTO(
+                code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+                release_id="rel-1",
+                details={"reason": "indexer banned"},
+                created_at=datetime.now(UTC),
+            )
+        ]
+    )
+    page = MediaRequestsPageDTO(requests=[dto], total=1, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get("/requests", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    warnings = response.json()["requests"][0]["warnings"]
+    assert warnings[0]["code"] == "regrab_indexer_unavailable"
+    assert warnings[0]["release_id"] == "rel-1"
+
+
+@pytest.mark.asyncio
+async def test_list_requests_passes_has_warnings_through(api_client: AsyncClient) -> None:
+    page = MediaRequestsPageDTO(requests=[], total=0, page=1, per_page=20)
+    use_case = FakeListUseCase(page)
+    with override_dependency(_get_list_use_case, use_case):
+        response = await api_client.get(
+            "/requests", params={"has_warnings": "true"}, headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.last_options is not None
+    assert use_case.last_options.has_warnings is True
 
 
 @pytest.mark.asyncio

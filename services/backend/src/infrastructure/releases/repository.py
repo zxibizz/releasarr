@@ -168,6 +168,12 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             result = await session.execute(stmt)
             return [self._to_record(release) for release in result.scalars().all()]
 
+    async def list_request_ids_with_releases(self) -> list[str]:
+        async with self.db.session() as session:
+            stmt = select(models.RELEASE_REQUEST_LINKS.c.request_id).distinct()
+            result = await session.execute(stmt)
+            return [row[0] for row in result.all()]
+
     async def update_file_mappings(
         self,
         release_id: str,

@@ -114,11 +114,14 @@ class MediaRequestRepository(Protocol):
         status: MediaRequestStatus | None,
         media_type: MediaType | None,
         owner_user_id: str | None = None,
+        has_warnings: bool | None = None,
     ) -> tuple[list[MediaRequestRecord], int]:
         """Return paginated media requests matching the provided filters.
 
         ``owner_user_id``, when set, restricts the results to that owner's
         requests; otherwise every request is eligible regardless of owner.
+        ``has_warnings``, when set, restricts to requests with (``True``) or
+        without (``False``) at least one row in `request_warnings`.
         """
 
     async def create_request(self, data: CreateMediaRequestData) -> MediaRequestRecord:

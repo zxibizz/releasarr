@@ -12,8 +12,14 @@ from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseRepository,
     ReleaseSearchService,
+    ReleaseSearchUnavailableError,
+)
+from src.application.interfaces.request_warnings import (
+    RequestWarningRecord,
+    RequestWarningRepository,
 )
 from src.core.logging import get_logger
+from src.domain.enums import RequestWarningCode
 
 
 class RegrabOutdatedReleasesUseCase:
@@ -25,12 +31,14 @@ class RegrabOutdatedReleasesUseCase:
         search_service: ReleaseSearchService,
         download_service: ReleaseDownloadService,
         directory: IndexerDirectory | None = None,
+        warning_repository: RequestWarningRepository | None = None,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._search_service = search_service
         self._download_service = download_service
         self._directory = directory
+        self._warning_repository = warning_repository
         self._logger = logger or get_logger(component="regrab_outdated_releases")
 
     async def execute(self) -> None:
@@ -75,7 +83,24 @@ class RegrabOutdatedReleasesUseCase:
             if release.torrent_source
             else None
         )
-        results = await self._search_service.search(release.name, indexer_id=indexer_id)
+        try:
+            results = await self._search_service.search(release.name, indexer_id=indexer_id)
+        except ReleaseSearchUnavailableError as exc:
+            # An indexer that is banned or not responding is an expected, transient
+            # condition rather than a bug, but the request it would have updated is
+            # left stale, which is worth surfacing on that request's activity log.
+            for request_id in release.request_ids or ["unknown"]:
+                self._logger.warning(
+                    "Could not check for updates: indexer unavailable",
+                    request_id=request_id,
+                    release_id=release.id,
+                    release_name=release.name,
+                    error=str(exc),
+                )
+            await self._write_regrab_warning(release, reason=str(exc))
+            return
+
+        await self._write_regrab_warning(release, reason=None)
 
         # Find the result that matches our current GUID (Release.id)
         match = next((r for r in results.results if r.release_id == release.id), None)
@@ -130,6 +155,40 @@ class RegrabOutdatedReleasesUseCase:
                 name=match.release_name,  # Update name in case of rename
                 info_url=match.info_url,
                 published_at=match.publish_date,
+            )
+
+    async def _write_regrab_warning(self, release, reason: str | None) -> None:
+        """Record or clear `REGRAB_INDEXER_UNAVAILABLE` for this release alone.
+
+        Scoped to the release, not the request: a request with several
+        releases must not have a sibling's fresh failure wiped out just
+        because this release's own check came back clean.
+        """
+
+        if self._warning_repository is None:
+            return
+        rows = (
+            []
+            if reason is None
+            else [
+                RequestWarningRecord(
+                    request_id=request_id,
+                    release_id=release.id,
+                    code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+                    details={"reason": reason},
+                )
+                for request_id in release.request_ids
+            ]
+        )
+        try:
+            await self._warning_repository.replace_for_releases(
+                RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE, [release.id], rows
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.warning(
+                "Failed to persist regrab indexer-unavailable warning",
+                release_id=release.id,
+                error=str(exc),
             )
 
     @staticmethod

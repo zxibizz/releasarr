@@ -66,6 +66,9 @@ const matchesSearch = (request: MediaRequest, search: string): boolean => {
 const matchesOwner = (request: MediaRequest, owner: string | null): boolean =>
   !owner || request.owner_user_id === owner;
 
+const matchesWarnings = (request: MediaRequest, hasWarnings: boolean): boolean =>
+  !hasWarnings || (request.warnings?.length ?? 0) > 0;
+
 export const filterAndSortRequests = (
   requests: MediaRequest[],
   {
@@ -74,12 +77,14 @@ export const filterAndSortRequests = (
     sort,
     search,
     owner = null,
+    hasWarnings = false,
   }: {
     type: TypeFilter;
     status: StatusFilter;
     sort: SortKey;
     search: string;
     owner?: string | null;
+    hasWarnings?: boolean;
   },
 ): MediaRequest[] => {
   const normalizedSearch = search.trim().toLowerCase();
@@ -90,7 +95,8 @@ export const filterAndSortRequests = (
         matchesType(request, type) &&
         matchesStatus(request, status) &&
         matchesSearch(request, normalizedSearch) &&
-        matchesOwner(request, owner),
+        matchesOwner(request, owner) &&
+        matchesWarnings(request, hasWarnings),
     )
     .sort(SORTERS[sort]);
 };

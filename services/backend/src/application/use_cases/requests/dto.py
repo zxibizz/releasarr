@@ -6,7 +6,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from src.application.interfaces.media_requests import MediaLocalization
-from src.domain.enums import EpisodeStatus, MediaRequestStatus, MediaType
+from src.domain.enums import EpisodeStatus, MediaRequestStatus, MediaType, RequestWarningCode
+
+
+@dataclass(slots=True)
+class RequestWarningDTO:
+    code: RequestWarningCode
+    release_id: str | None
+    details: dict[str, object] | None
+    created_at: datetime
 
 
 @dataclass(slots=True)
@@ -23,6 +31,7 @@ class BaseMediaRequestDTO:
     localizations: dict[str, MediaLocalization] = field(default_factory=dict)
     exported_at: datetime | None = None
     owner_user_id: str | None = None
+    warnings: list[RequestWarningDTO] = field(default_factory=list)
 
 
 @dataclass(slots=True)

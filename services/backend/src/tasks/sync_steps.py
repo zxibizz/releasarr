@@ -76,6 +76,13 @@ class SyncSteps:
     async def release_sync(self) -> StepSummary:
         """Refresh download state for every tracked release from qBittorrent."""
 
+        # Piggybacks on this task's cadence rather than its own `SyncJobKind`,
+        # since a reconcile pass has no independent meaning of its own to a
+        # user - it only exists to catch overlap drift the write-through
+        # call sites missed. Runs regardless of qBittorrent configuration,
+        # since it has nothing to do with download state.
+        reconciled = await self._reconcile_mapping_overlap_warnings()
+
         client = self.container.services.qbittorrent_client
         if client is None:
             return {"skipped": True, "reason": "qbittorrent_not_configured"}
@@ -92,7 +99,26 @@ class SyncSteps:
             "failed": result.failed,
             "not_found": result.not_found,
             "requests_updated": result.requests_updated,
+            "warnings_reconciled": reconciled,
         }
+
+    async def _reconcile_mapping_overlap_warnings(self) -> int:
+        """Recompute mapping-overlap warnings for every request that has releases.
+
+        Best-effort: a stale warning is worth catching, but not worth failing
+        the whole sync step over.
+        """
+
+        try:
+            releases_repo = self.container.repositories.releases
+            request_ids = await releases_repo.list_request_ids_with_releases()
+            await self.container.use_cases.releases.warning_synchronizer.sync_for_requests(
+                request_ids
+            )
+        except Exception as exc:
+            logger.warning("Failed to reconcile mapping overlap warnings", error=str(exc))
+            return 0
+        return len(request_ids)
 
     async def export(self) -> StepSummary:
         """Import finished releases into Sonarr and Radarr."""
