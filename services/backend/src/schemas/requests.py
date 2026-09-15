@@ -9,12 +9,19 @@ from pydantic import Field, field_serializer
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
-from src.schemas.enums import EpisodeStatus, MediaRequestStatus
+from src.schemas.enums import EpisodeStatus, MediaRequestStatus, RequestWarningCode
 
 
 class MediaLocalization(APIModel):
     title: str | None = None
     overview: str | None = None
+
+
+class RequestWarning(APIModel):
+    code: RequestWarningCode
+    release_id: str | None = None
+    details: dict[str, object] | None = None
+    created_at: datetime
 
 
 class BaseMediaRequest(APIModel):
@@ -30,6 +37,7 @@ class BaseMediaRequest(APIModel):
     localizations: dict[str, MediaLocalization] = Field(default_factory=dict)
     exported_at: datetime | None = None
     owner_user_id: str | None = None
+    warnings: list[RequestWarning] = Field(default_factory=list)
 
     @field_serializer("created_at", "updated_at", "exported_at")
     def _serialize_datetime(self, value: datetime | None) -> str | None:

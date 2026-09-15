@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
-from src.domain.enums import MediaType, ReleaseStatus, ReleaseWarningCode
+from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
 
 
 @dataclass(slots=True)
@@ -52,7 +52,7 @@ class ReleaseRequestSnapshot:
 class ReleaseWarning:
     """A condition worth surfacing on a release but not worth blocking on."""
 
-    code: ReleaseWarningCode
+    code: RequestWarningCode
     file_ids: list[str]
     related_release_ids: list[str]
     details: dict[str, object] | None = None
@@ -184,6 +184,9 @@ class ReleaseRepository(Protocol):
         Used to evaluate cross-release conditions (mapping overlaps, existing
         grabs) that a single release's own row cannot answer.
         """
+
+    async def list_request_ids_with_releases(self) -> list[str]:
+        """Every request id that has at least one release, for the warning reconcile pass."""
 
     async def update_file_mappings(
         self,

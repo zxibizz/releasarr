@@ -18,6 +18,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
 )
+from src.application.use_cases.releases.warnings import RequestWarningSynchronizer
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.domain.enums import MediaType, ReleaseStatus, SyncJobKind, SyncJobTrigger
 
@@ -29,9 +30,11 @@ class UpdateReleaseFileMappingsUseCase:
         self,
         repository: ReleaseRepository,
         enqueue_sync: EnqueueSyncJobUseCase | None = None,
+        warning_synchronizer: RequestWarningSynchronizer | None = None,
     ) -> None:
         self._repository = repository
         self._enqueue_sync = enqueue_sync
+        self._warning_synchronizer = warning_synchronizer
 
     async def execute(self, command: UpdateFileMappingsCommand) -> bool:
         release = await self._repository.get_release(command.release_id)
@@ -64,8 +67,23 @@ class UpdateReleaseFileMappingsUseCase:
 
         self._log_mappings(command)
         await self._queue_export(release)
+        await self._sync_warnings(release)
 
         return True
+
+    async def _sync_warnings(self, release: ReleaseRecord) -> None:
+        if self._warning_synchronizer is None:
+            return
+        try:
+            await self._warning_synchronizer.sync_for_requests(release.request_ids)
+        except Exception as exc:  # pragma: no cover - defensive
+            # The mappings already landed; a stale overlap warning is not worth
+            # failing the request over.
+            logger.opt(exception=exc).warning(
+                "Failed to recompute mapping overlap warnings",
+                release_id=release.id,
+                error=str(exc),
+            )
 
     async def _queue_export(self, release: ReleaseRecord) -> None:
         """Run the export again for a release that already finished downloading.

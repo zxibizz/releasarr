@@ -20,7 +20,7 @@ from src.application.interfaces.media_requests import (
 from src.db import Base
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import MediaRequestStatus, MediaType, RequestWarningCode
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
 
 
@@ -125,6 +125,38 @@ async def test_list_requests_supports_filters(
 
     assert total == 1
     assert page[0].id == "req-2"
+
+
+@pytest.mark.asyncio
+async def test_list_requests_filters_by_has_warnings(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+    seed_request: Callable[[str, MediaRequestStatus, MediaType], Awaitable[None]],
+) -> None:
+    await seed_request("req-1", MediaRequestStatus.PENDING, MediaType.MOVIE)
+    await seed_request("req-2", MediaRequestStatus.PENDING, MediaType.MOVIE)
+
+    async with db_manager.transaction() as session:
+        session.add(
+            models.RequestWarning(
+                id="warn-1",
+                request_id="req-1",
+                release_id=None,
+                code=RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE,
+            )
+        )
+
+    warned, warned_total = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, has_warnings=True
+    )
+    assert warned_total == 1
+    assert [record.id for record in warned] == ["req-1"]
+
+    clean, clean_total = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, has_warnings=False
+    )
+    assert clean_total == 1
+    assert [record.id for record in clean] == ["req-2"]
 
 
 @pytest.mark.asyncio

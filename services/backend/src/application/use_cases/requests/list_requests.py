@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.application.interfaces.media_requests import MediaRequestRepository
+from src.application.interfaces.request_warnings import RequestWarningRepository
 from src.application.use_cases.requests.commands import ListRequestsOptions
 from src.application.use_cases.requests.dto import MediaRequestsPageDTO
 from src.application.use_cases.requests.mappers import records_to_page
@@ -15,9 +16,11 @@ class ListMediaRequestsUseCase:
     def __init__(
         self,
         repository: MediaRequestRepository,
+        warning_repository: RequestWarningRepository | None = None,
         settings: AppSettings | None = None,
     ) -> None:
         self._repository = repository
+        self._warning_repository = warning_repository
         self._settings = settings or get_settings()
 
     async def execute(self, options: ListRequestsOptions | None = None) -> MediaRequestsPageDTO:
@@ -32,9 +35,22 @@ class ListMediaRequestsUseCase:
             status=opts.status,
             media_type=opts.media_type,
             owner_user_id=opts.owner_user_id,
+            has_warnings=opts.has_warnings,
         )
 
-        return records_to_page(records, total=total, page=page, per_page=per_page)
+        warnings_by_request = {}
+        if self._warning_repository is not None:
+            warnings_by_request = await self._warning_repository.list_for_requests(
+                [record.id for record in records]
+            )
+
+        return records_to_page(
+            records,
+            total=total,
+            page=page,
+            per_page=per_page,
+            warnings_by_request=warnings_by_request,
+        )
 
     def _normalise_page(self, page: int | None) -> int:
         if page is None or page <= 0:

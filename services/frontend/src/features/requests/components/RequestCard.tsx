@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest } from '@/types';
 import { formatDate, formatRuntime } from '@/utils/formatters';
-import { EPISODE_STATUS_COLOR } from '@/utils/status';
+import { EPISODE_STATUS_COLOR, WARNING_COLOR } from '@/utils/status';
 
 interface RequestCardProps {
   request: MediaRequest;
@@ -16,6 +16,7 @@ export function RequestCard({ request }: RequestCardProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
+  const warningCount = request.warnings?.length ?? 0;
 
   const subtitle = isMovie
     ? formatRuntime(request.runtime)
@@ -99,6 +100,17 @@ export function RequestCard({ request }: RequestCardProps) {
           */}
           <Group gap="xs">
             <StatusBadge status={request.status} />
+            {warningCount > 0 && (
+              <Badge
+                color={WARNING_COLOR}
+                variant="light"
+                radius="sm"
+                aria-label={t('requestCard.warnings', { count: warningCount })}
+                title={t('requestCard.warnings', { count: warningCount })}
+              >
+                ⚠️ {warningCount}
+              </Badge>
+            )}
             <Badge color={isMovie ? 'red' : 'blue'} variant="light" radius="sm">
               {isMovie ? '🎬' : '📺'} {t(`mediaType.${request.type}`)}
             </Badge>

@@ -24,6 +24,7 @@ from src.application.use_cases.releases.exceptions import (
 from src.application.use_cases.releases.grab import ReleaseGrabFinalizer, to_release_files
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
+from src.application.use_cases.releases.warnings import RequestWarningSynchronizer
 from src.application.utility.torrent import TorrentInfo, parse_torrent
 from src.domain.enums import ExistingReleasesAction
 
@@ -39,11 +40,14 @@ class QueueReleaseDownloadUseCase:
         request_repository: MediaRequestRepository | None = None,
         auto_mapper: ReleaseAutoMapper | None = None,
         existing_release_replacer: ExistingReleaseReplacer | None = None,
+        warning_synchronizer: RequestWarningSynchronizer | None = None,
     ) -> None:
         self._repository = repository
         self._download_service = download_service
         self._search_service = search_service
-        self._finalizer = ReleaseGrabFinalizer(request_repository, auto_mapper)
+        self._finalizer = ReleaseGrabFinalizer(
+            request_repository, auto_mapper, warning_synchronizer
+        )
         self._existing_release_replacer = existing_release_replacer
 
     async def _existing_releases(self, request_id: str) -> list[ReleaseRecord]:

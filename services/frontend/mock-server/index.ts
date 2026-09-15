@@ -290,7 +290,10 @@ api.get('/requests', async (req, res) => {
   }
   const ownerFilter = user.can_view_all_requests ? requestedOwner : user.id;
 
-  const filtered = (await mockStore.listRequests({ status, type })).filter(
+  const hasWarningsParam = req.query.has_warnings as string | undefined;
+  const hasWarnings = hasWarningsParam === undefined ? undefined : hasWarningsParam === 'true';
+
+  const filtered = (await mockStore.listRequests({ status, type, hasWarnings })).filter(
     (request) => !ownerFilter || (request as { owner_user_id?: string }).owner_user_id === ownerFilter,
   );
   const total = filtered.length;

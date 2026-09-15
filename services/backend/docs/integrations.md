@@ -177,7 +177,20 @@ single call to the search service directly, matching the pre-fan-out behaviour.
 `torrent_source` (the indexer name Prowlarr reported at grab time) back to an indexer id via
 `list_indexers()`, and searches only that indexer instead of sweeping all of them. An unknown
 name or an unreachable directory falls back to an unscoped search rather than skipping the
-release.
+release. If that search raises `ReleaseSearchUnavailableError` (the indexer is banned or not
+responding), the use case does not treat it as a bug: it logs a warning against every request
+the release belongs to (`request_id=`, picked up by that request's `/logs` activity view), and
+persists a `regrab_indexer_unavailable` row per request in `request_warnings` (see
+[`docs/data-model.md`](../../../docs/data-model.md#request_warnings)) scoped to that one release
+via `RequestWarningRepository.replace_for_releases`. The next release the loop checks is
+unaffected either way — a request with several releases must not have one release's fresh
+failure wiped out just because a sibling release answered.
+
+The row clears the moment that same release gets a valid search response again, match or not;
+it is not tied to the release actually changing. `mapping_overlap` (see
+`application/use_cases/releases/warnings.py`) is the other code sharing this table, written by
+`RequestWarningSynchronizer` instead — that one clears per-request rather than per-release,
+since it is recomputed over a request's whole release set at once.
 
 ### Indexer health
 

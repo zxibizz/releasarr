@@ -18,6 +18,7 @@ class ListRequestsOptions:
     # Set by the route from the caller's scope (or an admin's explicit filter).
     # None means unrestricted, not "owned by nobody".
     owner_user_id: str | None = None
+    has_warnings: bool | None = None
 
 
 @dataclass(slots=True)

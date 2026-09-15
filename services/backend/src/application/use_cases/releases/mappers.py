@@ -99,9 +99,7 @@ def records_to_page(
     warnings_by_release: dict[str, list[ReleaseWarning]] | None = None,
 ) -> ReleasesPageDTO:
     warnings_by_release = warnings_by_release or {}
-    releases = [
-        record_to_dto(record, warnings_by_release.get(record.id, ())) for record in records
-    ]
+    releases = [record_to_dto(record, warnings_by_release.get(record.id, ())) for record in records]
     return ReleasesPageDTO(releases=releases, total=total, page=page, per_page=per_page)
 
 

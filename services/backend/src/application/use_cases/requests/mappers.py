@@ -2,24 +2,43 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from src.application.interfaces.media_requests import MediaLocalization, MediaRequestRecord
+from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.use_cases.requests.dto import (
     MediaRequestDTO,
     MediaRequestsPageDTO,
     MovieRequestDTO,
+    RequestWarningDTO,
     SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
 from src.domain.enums import MediaType
 
 
-def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
+def _warning_to_dto(warning: RequestWarningRecord) -> RequestWarningDTO:
+    # Always populated by the repository on read; only optional on the write side.
+    assert warning.created_at is not None, "a read-back warning row always has created_at"
+    return RequestWarningDTO(
+        code=warning.code,
+        release_id=warning.release_id,
+        details=warning.details,
+        created_at=warning.created_at,
+    )
+
+
+def record_to_dto(
+    record: MediaRequestRecord,
+    warnings: Sequence[RequestWarningRecord] = (),
+) -> MediaRequestDTO:
     """Convert a repository record into a DTO for API consumption."""
 
     genres = list(record.genres) if record.genres else []
     poster_url = record.poster_url or ""
     overview = record.overview or ""
     imdb_id = record.imdb_id or ""
+    warning_dtos = [_warning_to_dto(warning) for warning in warnings]
 
     if record.media_type == MediaType.MOVIE:
         return MovieRequestDTO(
@@ -38,6 +57,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
             imdb_id=imdb_id,
             radarr_movie_id=record.radarr_movie_id,
             owner_user_id=record.owner_user_id,
+            warnings=warning_dtos,
         )
 
     # Derive episode counts when Sonarr-provided aired/downloaded values exist.
@@ -75,6 +95,7 @@ def record_to_dto(record: MediaRequestRecord) -> MediaRequestDTO:
         sonarr_series_id=record.sonarr_series_id,
         episode_counts=episode_counts,
         owner_user_id=record.owner_user_id,
+        warnings=warning_dtos,
     )
 
 
@@ -84,10 +105,12 @@ def records_to_page(
     total: int,
     page: int,
     per_page: int,
+    warnings_by_request: dict[str, list[RequestWarningRecord]] | None = None,
 ) -> MediaRequestsPageDTO:
     """Convert paginated repository results into DTO form."""
 
-    dtos = [record_to_dto(record) for record in records]
+    warnings_by_request = warnings_by_request or {}
+    dtos = [record_to_dto(record, warnings_by_request.get(record.id, ())) for record in records]
     return MediaRequestsPageDTO(requests=dtos, total=total, page=page, per_page=per_page)
 
 

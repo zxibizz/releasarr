@@ -10,8 +10,12 @@ from src.application.interfaces.releases import (
     ReleaseRecord,
     ReleaseRequestSnapshot,
 )
-from src.application.use_cases.releases.warnings import ReleaseWarningEvaluator
-from src.domain.enums import MediaType, ReleaseStatus, ReleaseWarningCode
+from src.application.interfaces.request_warnings import RequestWarningRecord
+from src.application.use_cases.releases.warnings import (
+    ReleaseWarningEvaluator,
+    RequestWarningSynchronizer,
+)
+from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
 
 
 def make_file(
@@ -130,7 +134,7 @@ def test_two_files_in_one_release_mapped_to_same_episode_warn_without_related_re
     warnings = ReleaseWarningEvaluator().evaluate([release])
 
     assert set(warnings["rel-1"][0].file_ids) == {"f1", "f2"}
-    assert warnings["rel-1"][0].code is ReleaseWarningCode.MAPPING_OVERLAP
+    assert warnings["rel-1"][0].code is RequestWarningCode.MAPPING_OVERLAP
     assert warnings["rel-1"][0].related_release_ids == []
 
 
@@ -197,3 +201,113 @@ def test_movie_releases_overlap_on_radarr_movie_id() -> None:
 def test_unmapped_files_are_ignored() -> None:
     release = make_release("rel-1", files=[make_file("f1")], requests=[])
     assert ReleaseWarningEvaluator().evaluate([release]) == {}
+
+
+class FakeReleaseRepositoryForWarnings:
+    """Serves whichever release set the test wants for `get_releases_for_requests`."""
+
+    def __init__(self, releases: list[ReleaseRecord]) -> None:
+        self._releases = releases
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        wanted = set(request_ids)
+        return [release for release in self._releases if wanted & set(release.request_ids)]
+
+
+class FakeRequestWarningRepository:
+    def __init__(self) -> None:
+        self.calls: list[tuple[RequestWarningCode, list[str], list[RequestWarningRecord]]] = []
+
+    async def replace_for_requests(
+        self,
+        code: RequestWarningCode,
+        request_ids: list[str],
+        warnings: list[RequestWarningRecord],
+    ) -> None:
+        self.calls.append((code, list(request_ids), list(warnings)))
+
+    async def replace_for_releases(self, code, release_ids, warnings) -> None:
+        raise AssertionError("not used in this test")
+
+    async def delete_for_release(self, release_id: str) -> None:
+        raise AssertionError("not used in this test")
+
+    async def delete_for_request_release(self, request_id: str, release_id: str) -> None:
+        raise AssertionError("not used in this test")
+
+    async def list_for_requests(self, request_ids):
+        raise AssertionError("not used in this test")
+
+    async def list_for_releases(self, release_ids):
+        raise AssertionError("not used in this test")
+
+
+async def test_synchronizer_writes_a_row_per_request_sharing_the_release() -> None:
+    request = series_request("req-1")
+    release_a = make_release("rel-a", files=[series_file("fa", "req-1")], requests=[request])
+    release_b = make_release("rel-b", files=[series_file("fb", "req-1")], requests=[request])
+
+    releases_repo = FakeReleaseRepositoryForWarnings([release_a, release_b])
+    warning_repo = FakeRequestWarningRepository()
+    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+
+    await synchronizer.sync_for_requests(["req-1"])
+
+    assert len(warning_repo.calls) == 1
+    code, request_ids, rows = warning_repo.calls[0]
+    assert code is RequestWarningCode.MAPPING_OVERLAP
+    assert request_ids == ["req-1"]
+    assert {row.release_id for row in rows} == {"rel-a", "rel-b"}
+    assert all(row.request_id == "req-1" for row in rows)
+
+
+async def test_synchronizer_clears_a_release_that_stopped_overlapping() -> None:
+    """Three releases on one request, one of which stops overlapping, must lose
+    only its own row - the other two keep theirs."""
+
+    request = series_request("req-1")
+    release_a = make_release("rel-a", files=[series_file("fa", "req-1", 1, 1)], requests=[request])
+    release_b = make_release("rel-b", files=[series_file("fb", "req-1", 1, 1)], requests=[request])
+    release_c = make_release("rel-c", files=[series_file("fc", "req-1", 1, 1)], requests=[request])
+
+    releases_repo = FakeReleaseRepositoryForWarnings([release_a, release_b, release_c])
+    warning_repo = FakeRequestWarningRepository()
+    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+
+    await synchronizer.sync_for_requests(["req-1"])
+    _, _, first_rows = warning_repo.calls[0]
+    assert {row.release_id for row in first_rows} == {"rel-a", "rel-b", "rel-c"}
+
+    # release-c's file now maps to a different episode: it no longer overlaps.
+    release_c_resolved = make_release(
+        "rel-c", files=[series_file("fc", "req-1", 1, 2)], requests=[request]
+    )
+    releases_repo._releases = [release_a, release_b, release_c_resolved]
+
+    await synchronizer.sync_for_requests(["req-1"])
+    _, _, second_rows = warning_repo.calls[1]
+    assert {row.release_id for row in second_rows} == {"rel-a", "rel-b"}
+
+
+async def test_synchronizer_ignores_requests_outside_its_scope() -> None:
+    """A release shared with a request outside the recompute scope must not
+    write a row for that other request."""
+
+    request_a = series_request("req-a")
+    request_b = series_request("req-b", sonarr_series_id=42)
+    shared_release = make_release(
+        "rel-shared",
+        files=[series_file("fa", "req-a"), series_file("fb", "req-b")],
+        requests=[request_a, request_b],
+    )
+
+    releases_repo = FakeReleaseRepositoryForWarnings([shared_release])
+    warning_repo = FakeRequestWarningRepository()
+    synchronizer = RequestWarningSynchronizer(releases_repo, warning_repo)
+
+    await synchronizer.sync_for_requests(["req-a"])
+
+    _, request_ids, rows = warning_repo.calls[0]
+    assert request_ids == ["req-a"]
+    assert all(row.request_id == "req-a" for row in rows)
+

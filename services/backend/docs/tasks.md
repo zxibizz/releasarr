@@ -62,6 +62,11 @@ and the API so the UI can never disagree with what actually runs.
 The order above is significant: `export` can only import releases that
 `release_sync` has already marked completed.
 
+`release_sync` also reconciles `mapping_overlap` warnings (in `request_warnings`) for every
+request that has releases, catching drift the write-through call sites missed. It piggybacks on
+this task's cadence rather than getting its own `SyncJobKind`, since a reconcile pass has no
+independent meaning of its own to report in the UI.
+
 ## Background Scheduler (separate worker)
 
 Runs each task on its interval and drains the jobs queued over the API. This is

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, exists, select
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
@@ -31,6 +31,7 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
         status: MediaRequestStatus | None,
         media_type: MediaType | None,
         owner_user_id: str | None = None,
+        has_warnings: bool | None = None,
     ) -> tuple[list[MediaRequestRecord], int]:
         async with self.db.session() as session:
             filters: list[Filter] = []
@@ -40,6 +41,11 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 filters.append(models.MediaRequest.media_type == media_type)
             if owner_user_id is not None:
                 filters.append(models.MediaRequest.owner_user_id == owner_user_id)
+            if has_warnings is not None:
+                warning_exists = exists().where(
+                    models.RequestWarning.request_id == models.MediaRequest.id
+                )
+                filters.append(warning_exists if has_warnings else ~warning_exists)
 
             total = await self._count(session, models.MediaRequest.id, filters)
 

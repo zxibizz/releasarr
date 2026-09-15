@@ -8,10 +8,15 @@ from collections.abc import Sequence
 from src.application.interfaces.releases import (
     ReleaseFileMapping,
     ReleaseRecord,
+    ReleaseRepository,
     ReleaseRequestSnapshot,
     ReleaseWarning,
 )
-from src.domain.enums import MediaType, ReleaseWarningCode
+from src.application.interfaces.request_warnings import (
+    RequestWarningRecord,
+    RequestWarningRepository,
+)
+from src.domain.enums import MediaType, RequestWarningCode
 
 TargetKey = tuple[object, ...]
 
@@ -58,7 +63,7 @@ class ReleaseWarningEvaluator:
         return {
             release_id: [
                 ReleaseWarning(
-                    code=ReleaseWarningCode.MAPPING_OVERLAP,
+                    code=RequestWarningCode.MAPPING_OVERLAP,
                     file_ids=sorted(file_ids),
                     related_release_ids=sorted(related_by_release[release_id]),
                 )
@@ -86,4 +91,96 @@ class ReleaseWarningEvaluator:
         return None
 
 
-__all__ = ["ReleaseWarningEvaluator"]
+class RequestWarningSynchronizer:
+    """Persist `ReleaseWarningEvaluator`'s output as `request_warnings` rows.
+
+    The one place that knows how to turn a release-keyed detector result into
+    rows scoped by request - every call site that can change a mapping goes
+    through `sync_for_requests` rather than writing rows itself.
+    """
+
+    def __init__(
+        self,
+        repository: ReleaseRepository,
+        warning_repository: RequestWarningRepository,
+        evaluator: ReleaseWarningEvaluator | None = None,
+    ) -> None:
+        self._repository = repository
+        self._warning_repository = warning_repository
+        self._evaluator = evaluator or ReleaseWarningEvaluator()
+
+    async def sync_for_requests(self, request_ids: Sequence[str]) -> None:
+        """Recompute `MAPPING_OVERLAP` for every one of `request_ids`.
+
+        Loads every release linked to any of them - the evaluator buckets
+        across a request's *whole* release set, so a partial load would
+        under-detect an overlap spanning a release left out - then replaces
+        that code's rows for exactly `request_ids`, which is what clears a
+        release that stopped overlapping.
+        """
+
+        ids = sorted({request_id for request_id in request_ids if request_id})
+        if not ids:
+            return
+
+        id_set = set(ids)
+        releases = await self._repository.get_releases_for_requests(ids)
+        warnings_by_release = self._evaluator.evaluate(releases)
+
+        rows = [
+            RequestWarningRecord(
+                request_id=request_id,
+                release_id=release.id,
+                code=RequestWarningCode.MAPPING_OVERLAP,
+                details={
+                    "file_ids": warning.file_ids,
+                    "related_release_ids": warning.related_release_ids,
+                },
+            )
+            for release in releases
+            for warning in warnings_by_release.get(release.id, [])
+            # A release can be shared with a request outside our recompute
+            # scope; that request's own rows are left for its own sync to touch.
+            for request_id in release.request_ids
+            if request_id in id_set
+        ]
+        await self._warning_repository.replace_for_requests(
+            RequestWarningCode.MAPPING_OVERLAP, ids, rows
+        )
+
+
+def rows_to_release_warnings(rows: Sequence[RequestWarningRecord]) -> list[ReleaseWarning]:
+    """Reconstruct a release's own warning view from persisted rows.
+
+    Only `MAPPING_OVERLAP` carries the file-level detail a release's own view
+    needs; other codes (e.g. a regrab failure) are request-level concerns and
+    stay off this list. One row exists per request sharing the release, all
+    carrying identical detail for the same code, so the first one seen is
+    enough.
+    """
+
+    seen: set[RequestWarningCode] = set()
+    warnings: list[ReleaseWarning] = []
+    for row in rows:
+        if row.code is not RequestWarningCode.MAPPING_OVERLAP or row.code in seen:
+            continue
+        seen.add(row.code)
+        details = row.details or {}
+        warnings.append(
+            ReleaseWarning(
+                code=row.code,
+                file_ids=_as_str_list(details.get("file_ids")),
+                related_release_ids=_as_str_list(details.get("related_release_ids")),
+                details=row.details,
+            )
+        )
+    return warnings
+
+
+def _as_str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+__all__ = ["ReleaseWarningEvaluator", "RequestWarningSynchronizer", "rows_to_release_warnings"]

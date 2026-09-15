@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from src.application.interfaces.releases import ReleaseRepository
+from src.application.interfaces.request_warnings import RequestWarningRepository
 from src.application.use_cases.releases.commands import ListReleasesOptions
 from src.application.use_cases.releases.dto import ReleasesPageDTO
 from src.application.use_cases.releases.mappers import records_to_page
-from src.application.use_cases.releases.warnings import ReleaseWarningEvaluator
+from src.application.use_cases.releases.warnings import rows_to_release_warnings
 from src.settings.config import AppSettings, get_settings
 
 
@@ -16,12 +17,12 @@ class ListReleasesUseCase:
     def __init__(
         self,
         repository: ReleaseRepository,
+        warning_repository: RequestWarningRepository | None = None,
         settings: AppSettings | None = None,
-        warning_evaluator: ReleaseWarningEvaluator | None = None,
     ) -> None:
         self._repository = repository
+        self._warning_repository = warning_repository
         self._settings = settings or get_settings()
-        self._warning_evaluator = warning_evaluator or ReleaseWarningEvaluator()
 
     async def execute(self, options: ListReleasesOptions | None = None) -> ReleasesPageDTO:
         opts = options or ListReleasesOptions()
@@ -36,9 +37,15 @@ class ListReleasesUseCase:
             request_id=opts.request_id,
         )
 
-        request_ids = sorted({req_id for record in records for req_id in record.request_ids})
-        related = await self._repository.get_releases_for_requests(request_ids)
-        warnings_by_release = self._warning_evaluator.evaluate(related)
+        warnings_by_release = {}
+        if self._warning_repository is not None:
+            rows_by_release = await self._warning_repository.list_for_releases(
+                [record.id for record in records]
+            )
+            warnings_by_release = {
+                release_id: rows_to_release_warnings(rows)
+                for release_id, rows in rows_by_release.items()
+            }
 
         return records_to_page(
             records,

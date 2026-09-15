@@ -23,6 +23,7 @@ const mockMovieRequests: MovieRequest[] = [
     created_at: '2024-01-15T10:30:00Z',
     updated_at: '2024-01-15T14:45:00Z',
     imdb_id: 'tt0468569',
+    warnings: [],
   },
   {
     id: '2',
@@ -40,6 +41,7 @@ const mockMovieRequests: MovieRequest[] = [
     imdb_id: 'tt1375666',
     // Owned by the restricted demo user, so its scoped view isn't empty.
     owner_user_id: 'user-1',
+    warnings: [],
   },
   {
     id: '3',
@@ -55,6 +57,7 @@ const mockMovieRequests: MovieRequest[] = [
     created_at: '2024-01-17T11:20:00Z',
     updated_at: '2024-01-17T11:25:00Z',
     imdb_id: 'tt0816692',
+    warnings: [],
   },
   {
     id: '4',
@@ -71,6 +74,7 @@ const mockMovieRequests: MovieRequest[] = [
     updated_at: '2024-01-18T08:45:00Z',
     exported_at: '2024-01-20T21:05:00Z',
     imdb_id: 'tt15239678',
+    warnings: [],
   },
 ];
 
@@ -95,6 +99,7 @@ const mockSeriesRequests: SeriesRequest[] = [
     updated_at: '2024-01-10T18:35:00Z',
     exported_at: '2024-01-10T18:30:00Z',
     imdb_id: 'tt0903747',
+    warnings: [],
   },
   {
     id: '6',
@@ -127,6 +132,7 @@ const mockSeriesRequests: SeriesRequest[] = [
       },
     },
     owner_user_id: 'user-1',
+    warnings: [],
   },
   {
     id: '7',
@@ -145,6 +151,15 @@ const mockSeriesRequests: SeriesRequest[] = [
     created_at: '2024-01-14T13:30:00Z',
     updated_at: '2024-01-14T15:45:00Z',
     imdb_id: 'tt3581920',
+    // Exercises the request-list warning badge without a real regrab run.
+    warnings: [
+      {
+        code: 'regrab_indexer_unavailable',
+        release_id: null,
+        details: { reason: 'indexer banned' },
+        created_at: '2024-01-14T16:00:00Z',
+      },
+    ],
   },
   {
     id: '8',
@@ -163,6 +178,7 @@ const mockSeriesRequests: SeriesRequest[] = [
     created_at: '2024-01-19T10:15:00Z',
     updated_at: '2024-01-19T10:20:00Z',
     imdb_id: 'tt11198330',
+    warnings: [],
   },
 ];
 

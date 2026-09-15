@@ -33,6 +33,7 @@ from src.domain.enums import (
     MediaRequestStatus,
     MediaType,
     ReleaseStatus,
+    RequestWarningCode,
     SyncJobKind,
     SyncJobStatus,
     SyncJobTrigger,
@@ -286,6 +287,42 @@ class ReleaseFile(Base):
     mapped_request: Mapped[MediaRequest | None] = relationship("MediaRequest", lazy="selectin")
 
 
+class RequestWarning(Base):
+    """A condition worth surfacing on a request but not worth blocking on.
+
+    Not related via the ORM to `MediaRequest`/`Release`: both writers (mapping
+    overlap, regrab) and readers go through `RequestWarningRepository`, which
+    scopes its own deletes explicitly rather than leaning on relationship
+    cascades - see that repository for why the FK `ondelete` here is not
+    the thing doing the cleanup.
+    """
+
+    __tablename__ = "request_warnings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    request_id: Mapped[str] = mapped_column(
+        ForeignKey("media_requests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    release_id: Mapped[str | None] = mapped_column(
+        ForeignKey("releases.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    code: Mapped[RequestWarningCode] = mapped_column(
+        build_enum(RequestWarningCode, "request_warning_code"),
+        nullable=False,
+    )
+    details: Mapped[dict[str, object] | None] = mapped_column(JSONDict, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class SyncJob(Base):
     """An on-demand run of a single task.
 
@@ -464,6 +501,7 @@ __all__ = [
     "RefreshToken",
     "Release",
     "ReleaseFile",
+    "RequestWarning",
     "ScheduledTask",
     "ServiceApiKey",
     "SyncJob",

@@ -25,6 +25,7 @@ export function useRequestFilters() {
   const sort: SortKey = isSortKey(sortParam) ? sortParam : DEFAULT_SORT;
   const search = searchParams.get('q') ?? '';
   const owner = searchParams.get('owner');
+  const hasWarnings = searchParams.get('warnings') === '1';
 
   const update = (key: string, value: string | null) => {
     const next = new URLSearchParams(searchParams);
@@ -42,10 +43,12 @@ export function useRequestFilters() {
     sort,
     search,
     owner,
+    hasWarnings,
     setType: (value: TypeFilter) => update('type', value === DEFAULT_TYPE ? null : value),
     setStatus: (value: StatusFilter) => update('status', value === DEFAULT_STATUS ? null : value),
     setSort: (value: SortKey) => update('sort', value === DEFAULT_SORT ? null : value),
     setSearch: (value: string) => update('q', value.trim() ? value : null),
     setOwner: (value: string | null) => update('owner', value),
+    setHasWarnings: (value: boolean) => update('warnings', value ? '1' : null),
   };
 }

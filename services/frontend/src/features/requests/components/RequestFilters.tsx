@@ -86,6 +86,8 @@ export interface RequestFiltersProps {
   owner?: string | null;
   setOwner?: (value: string | null) => void;
   ownerOptions?: { value: string; label: string }[];
+  hasWarnings: boolean;
+  setHasWarnings: (value: boolean) => void;
 }
 
 export function RequestFilters({
@@ -102,13 +104,19 @@ export function RequestFilters({
   owner = null,
   setOwner,
   ownerOptions,
+  hasWarnings,
+  setHasWarnings,
 }: RequestFiltersProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [expanded, { toggle }] = useDisclosure(false);
 
   const adjusted =
-    type !== DEFAULT_TYPE || status !== DEFAULT_STATUS || sort !== DEFAULT_SORT || Boolean(owner);
+    type !== DEFAULT_TYPE ||
+    status !== DEFAULT_STATUS ||
+    sort !== DEFAULT_SORT ||
+    Boolean(owner) ||
+    hasWarnings;
   return (
     <Stack gap="xs">
       <Group gap="xs" wrap="nowrap" align={isMobile ? 'center' : 'flex-end'}>
@@ -150,6 +158,18 @@ export function RequestFilters({
               onSelect={setStatus}
               label={statusLabel}
             />
+          </FilterRow>
+          <FilterRow label={t('requestsList.filters.warningsLabel')}>
+            <Button
+              size="xs"
+              radius="xl"
+              variant={hasWarnings ? 'filled' : 'default'}
+              color={hasWarnings ? 'yellow' : undefined}
+              aria-pressed={hasWarnings}
+              onClick={() => setHasWarnings(!hasWarnings)}
+            >
+              {t('requestsList.filters.warningsOnly')}
+            </Button>
           </FilterRow>
           {ownerOptions && setOwner ? (
             <Select

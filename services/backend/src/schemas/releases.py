@@ -9,7 +9,7 @@ from pydantic import Field
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
-from src.schemas.enums import ExistingReleasesAction, ReleaseStatus, ReleaseWarningCode
+from src.schemas.enums import ExistingReleasesAction, ReleaseStatus, RequestWarningCode
 
 
 class MovieFileRequestMapping(APIModel):
@@ -41,7 +41,7 @@ class ReleaseFile(APIModel):
 
 
 class ReleaseWarning(APIModel):
-    code: ReleaseWarningCode
+    code: RequestWarningCode
     file_ids: list[str]
     related_release_ids: list[str]
     details: dict[str, object] | None = None

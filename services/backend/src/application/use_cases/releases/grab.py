@@ -13,6 +13,7 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.releases import ReleaseFileRecord, ReleaseRecord
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
+from src.application.use_cases.releases.warnings import RequestWarningSynchronizer
 from src.application.utility.torrent import TorrentFileInfo
 from src.domain.enums import MediaRequestStatus
 
@@ -43,9 +44,11 @@ class ReleaseGrabFinalizer:
         self,
         request_repository: MediaRequestRepository | None = None,
         auto_mapper: ReleaseAutoMapper | None = None,
+        warning_synchronizer: RequestWarningSynchronizer | None = None,
     ) -> None:
         self._request_repository = request_repository
         self._auto_mapper = auto_mapper
+        self._warning_synchronizer = warning_synchronizer
 
     async def mark_request_downloading(self, request_id: str) -> None:
         """Reflect the grab on the request straight away.
@@ -80,6 +83,18 @@ class ReleaseGrabFinalizer:
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
                 "Failed to auto-map release files",
+                release_id=release.id,
+                error=str(exc),
+            )
+            return
+
+        if self._warning_synchronizer is None:
+            return
+        try:
+            await self._warning_synchronizer.sync_for_requests(release.request_ids)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to recompute mapping overlap warnings",
                 release_id=release.id,
                 error=str(exc),
             )

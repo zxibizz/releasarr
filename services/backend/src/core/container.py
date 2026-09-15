@@ -68,7 +68,10 @@ from src.application.use_cases.releases.suggest_file_mappings import (
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
-from src.application.use_cases.releases.warnings import ReleaseWarningEvaluator
+from src.application.use_cases.releases.warnings import (
+    ReleaseWarningEvaluator,
+    RequestWarningSynchronizer,
+)
 from src.application.use_cases.requests.create_request import CreateMediaRequestUseCase
 from src.application.use_cases.requests.delete_request import DeleteMediaRequestUseCase
 from src.application.use_cases.requests.get_request import GetMediaRequestUseCase
@@ -115,6 +118,7 @@ from src.infrastructure.releases import (
     InMemoryReleaseSearchService,
     SqlAlchemyReleaseRepository,
 )
+from src.infrastructure.request_warnings import SqlAlchemyRequestWarningRepository
 from src.infrastructure.sonarr import SonarrHttpClient
 from src.infrastructure.sync_jobs import (
     SqlAlchemyScheduledTaskRepository,
@@ -141,6 +145,10 @@ class RepositoryContainer:
     @cached_property
     def releases(self) -> SqlAlchemyReleaseRepository:
         return SqlAlchemyReleaseRepository(db=self._container.db_manager)
+
+    @cached_property
+    def request_warnings(self) -> SqlAlchemyRequestWarningRepository:
+        return SqlAlchemyRequestWarningRepository(db=self._container.db_manager)
 
     @cached_property
     def sync_jobs(self) -> SqlAlchemySyncJobRepository:
@@ -490,6 +498,7 @@ class MediaRequestUseCases:
     def list(self) -> ListMediaRequestsUseCase:
         return ListMediaRequestsUseCase(
             repository=self._container.repositories.media_requests,
+            warning_repository=self._container.repositories.request_warnings,
             settings=self._container.settings,
         )
 
@@ -499,7 +508,10 @@ class MediaRequestUseCases:
 
     @cached_property
     def get(self) -> GetMediaRequestUseCase:
-        return GetMediaRequestUseCase(repository=self._container.repositories.media_requests)
+        return GetMediaRequestUseCase(
+            repository=self._container.repositories.media_requests,
+            warning_repository=self._container.repositories.request_warnings,
+        )
 
     @cached_property
     def update(self) -> UpdateMediaRequestUseCase:
@@ -608,8 +620,8 @@ class ReleaseUseCases:
     def list(self) -> ListReleasesUseCase:
         return ListReleasesUseCase(
             repository=self._container.repositories.releases,
+            warning_repository=self._container.repositories.request_warnings,
             settings=self._container.settings,
-            warning_evaluator=self.warning_evaluator,
         )
 
     @cached_property
@@ -620,7 +632,7 @@ class ReleaseUseCases:
     def get(self) -> GetReleaseUseCase:
         return GetReleaseUseCase(
             repository=self._container.repositories.releases,
-            warning_evaluator=self.warning_evaluator,
+            warning_repository=self._container.repositories.request_warnings,
         )
 
     @cached_property
@@ -628,6 +640,8 @@ class ReleaseUseCases:
         return DeleteReleaseUseCase(
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
+            warning_repository=self._container.repositories.request_warnings,
+            warning_synchronizer=self.warning_synchronizer,
         )
 
     @cached_property
@@ -635,6 +649,7 @@ class ReleaseUseCases:
         return UpdateReleaseFileMappingsUseCase(
             repository=self._container.repositories.releases,
             enqueue_sync=self._container.use_cases.tasks.enqueue_sync,
+            warning_synchronizer=self.warning_synchronizer,
         )
 
     @cached_property
@@ -684,10 +699,20 @@ class ReleaseUseCases:
         return ReleaseWarningEvaluator()
 
     @cached_property
+    def warning_synchronizer(self) -> RequestWarningSynchronizer:
+        return RequestWarningSynchronizer(
+            repository=self._container.repositories.releases,
+            warning_repository=self._container.repositories.request_warnings,
+            evaluator=self.warning_evaluator,
+        )
+
+    @cached_property
     def existing_release_replacer(self) -> ExistingReleaseReplacer:
         return ExistingReleaseReplacer(
             repository=self._container.repositories.releases,
             download_service=self._container.services.release_download,
+            warning_repository=self._container.repositories.request_warnings,
+            warning_synchronizer=self.warning_synchronizer,
         )
 
     @cached_property
@@ -699,6 +724,7 @@ class ReleaseUseCases:
             request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
             existing_release_replacer=self.existing_release_replacer,
+            warning_synchronizer=self.warning_synchronizer,
         )
 
     @cached_property
@@ -709,6 +735,7 @@ class ReleaseUseCases:
             request_repository=self._container.repositories.media_requests,
             auto_mapper=self.auto_mapper,
             existing_release_replacer=self.existing_release_replacer,
+            warning_synchronizer=self.warning_synchronizer,
         )
 
     @cached_property
@@ -735,6 +762,7 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
             download_service=self._container.services.release_download,
             directory=self._container.services.indexer_directory,
+            warning_repository=self._container.repositories.request_warnings,
         )
 
 

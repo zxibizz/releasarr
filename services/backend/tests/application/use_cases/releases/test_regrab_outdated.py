@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from src.application.interfaces.indexers import IndexerRecord
 from src.application.interfaces.releases import (
@@ -10,14 +11,20 @@ from src.application.interfaces.releases import (
     ReleaseRecord,
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
+    ReleaseSearchUnavailableError,
 )
 from src.application.use_cases.releases.regrab_outdated import RegrabOutdatedReleasesUseCase
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import ReleaseStatus, RequestWarningCode
 
 RELEASE_ID = "https://tracker.example/details/1"
 
 
-def make_release(*, name: str = "Old.Release.Name", info_hash: str = "OLDHASH") -> ReleaseRecord:
+def make_release(
+    *,
+    name: str = "Old.Release.Name",
+    info_hash: str = "OLDHASH",
+    request_ids: list[str] | None = None,
+) -> ReleaseRecord:
     now = datetime.now(UTC)
     return ReleaseRecord(
         id=RELEASE_ID,
@@ -33,7 +40,7 @@ def make_release(*, name: str = "Old.Release.Name", info_hash: str = "OLDHASH") 
         ratio=1.0,
         added_at=now,
         completed_at=now,
-        request_ids=["req-1"],
+        request_ids=request_ids if request_ids is not None else ["req-1"],
         requests=[],
         torrent_source="prowlarr",
         quality="1080p",
@@ -82,8 +89,14 @@ class FakeReleaseRepository:
 
 
 class FakeSearchService:
-    def __init__(self, match: ReleaseSearchResultRecord | None) -> None:
+    def __init__(
+        self,
+        match: ReleaseSearchResultRecord | None,
+        *,
+        error: Exception | None = None,
+    ) -> None:
         self._match = match
+        self._error = error
         self.queries: list[str] = []
         self.indexer_ids: list[int | None] = []
 
@@ -95,6 +108,8 @@ class FakeSearchService:
     ) -> ReleaseSearchResults:
         self.queries.append(query)
         self.indexer_ids.append(indexer_id)
+        if self._error is not None:
+            raise self._error
         results = [self._match] if self._match else []
         return ReleaseSearchResults(results=results, query=query, total_results=len(results))
 
@@ -258,3 +273,127 @@ async def test_regrab_falls_back_to_unscoped_search_when_directory_fails() -> No
 
     assert search_service.indexer_ids == [None]
     assert len(download_service.calls) == 1
+
+
+async def test_regrab_warns_the_request_when_the_indexer_is_unavailable(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    release = make_release()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(None, error=ReleaseSearchUnavailableError("indexer banned"))
+    download_service = FakeDownloadService()
+
+    use_case = RegrabOutdatedReleasesUseCase(repository, search_service, download_service)
+    await use_case.execute()
+
+    warnings = [record for record in captured_records if record.get("request_id") == "req-1"]
+    assert warnings, "an unavailable indexer produced no log entry bound to the request"
+    assert warnings[0]["level"] == "WARNING"
+    assert "indexer banned" in warnings[0]["error"]
+    assert repository.updates == {}
+    assert download_service.calls == []
+
+
+async def test_regrab_warns_every_request_sharing_the_release() -> None:
+    release = make_release(request_ids=["req-1", "req-2"])
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(None, error=ReleaseSearchUnavailableError("indexer banned"))
+    download_service = FakeDownloadService()
+
+    logged_request_ids: list[str] = []
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository,
+        search_service,
+        download_service,
+        logger=_CollectingLogger(logged_request_ids),  # type: ignore[arg-type]
+    )
+    await use_case.execute()
+
+    assert logged_request_ids == ["req-1", "req-2"]
+
+
+class _CollectingLogger:
+    """Minimal stand-in recording only the `request_id` kwarg of each warning call."""
+
+    def __init__(self, sink: list[str]) -> None:
+        self._sink = sink
+
+    def warning(self, message: str, **kwargs: Any) -> None:
+        self._sink.append(kwargs["request_id"])
+
+    def opt(self, **kwargs: Any) -> _CollectingLogger:
+        return self
+
+    def error(self, message: str, **kwargs: Any) -> None:
+        raise AssertionError("unexpected error-level log for an indexer-unavailable regrab")
+
+
+class FakeRequestWarningRepository:
+    def __init__(self) -> None:
+        self.calls: list[tuple[Any, list[str], list[Any]]] = []
+
+    async def replace_for_releases(
+        self, code: Any, release_ids: list[str], warnings: list[Any]
+    ) -> None:
+        self.calls.append((code, list(release_ids), list(warnings)))
+
+    async def replace_for_requests(
+        self, code: Any, request_ids: list[str], warnings: list[Any]
+    ) -> None:
+        raise AssertionError("not used in this test")
+
+    async def delete_for_release(self, release_id: str) -> None:
+        raise AssertionError("not used in this test")
+
+    async def delete_for_request_release(self, request_id: str, release_id: str) -> None:
+        raise AssertionError("not used in this test")
+
+    async def list_for_requests(self, request_ids: list[str]) -> dict[str, list[Any]]:
+        raise AssertionError("not used in this test")
+
+    async def list_for_releases(self, release_ids: list[str]) -> dict[str, list[Any]]:
+        raise AssertionError("not used in this test")
+
+
+async def test_regrab_persists_a_warning_row_when_the_indexer_is_unavailable() -> None:
+    release = make_release()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(None, error=ReleaseSearchUnavailableError("indexer banned"))
+    download_service = FakeDownloadService()
+    warning_repository = FakeRequestWarningRepository()
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository, search_service, download_service, warning_repository=warning_repository
+    )
+    await use_case.execute()
+
+    assert len(warning_repository.calls) == 1
+    code, release_ids, rows = warning_repository.calls[0]
+    assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
+    assert release_ids == [RELEASE_ID]
+    assert [row.request_id for row in rows] == ["req-1"]
+    assert rows[0].details == {"reason": "indexer banned"}
+
+
+async def test_regrab_clears_the_warning_row_on_a_valid_search_response() -> None:
+    """A release that regains a response is cleared, even if nothing else changed."""
+
+    release = make_release(info_hash="SAMEHASH")
+    match = make_match(magnet_link="magnet:?xt=urn:btih:SAMEHASH")
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(match)
+    download_service = FakeDownloadService()
+    warning_repository = FakeRequestWarningRepository()
+
+    use_case = RegrabOutdatedReleasesUseCase(
+        repository, search_service, download_service, warning_repository=warning_repository
+    )
+    await use_case.execute()
+
+    assert len(warning_repository.calls) == 1
+    code, release_ids, rows = warning_repository.calls[0]
+    assert code is RequestWarningCode.REGRAB_INDEXER_UNAVAILABLE
+    assert release_ids == [RELEASE_ID]
+    assert rows == []
+
+
