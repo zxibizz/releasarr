@@ -8,7 +8,6 @@ import type {
   ReleaseFileMappingSuggestion,
   SeriesRequest,
 } from '@/types';
-import { compareByFileName } from '@/utils/files';
 
 export type MappingType = 'movie' | 'series';
 
@@ -200,17 +199,12 @@ export function useFileMappingForm(
   suggestions: ReleaseFileMappingSuggestion[] = NO_SUGGESTIONS,
 ) {
   const seasonIndexes = useMemo(() => buildSeasonIndexes(availableRequests), [availableRequests]);
-  const requestsById = useMemo(
-    () => new Map(availableRequests.map((request) => [request.id, request])),
-    [availableRequests],
-  );
 
   const initialDrafts = useMemo(() => buildInitialDrafts(files), [files]);
 
   const [drafts, setDrafts] = useState<DraftMap>(() =>
     withSuggestions(initialDrafts, initialDrafts, suggestions),
   );
-  const [resetToken, setResetToken] = useState(0);
 
   // Rebuild drafts whenever the underlying files change (e.g. after a save).
   const [seenInitial, setSeenInitial] = useState(initialDrafts);
@@ -307,66 +301,25 @@ export function useFileMappingForm(
   );
 
   /**
-   * Numbers the series rows that have no episode yet, in name order, continuing
-   * from the highest already set for their season. The server deliberately will
-   * not guess at a file whose name carries no number, so this is how a release
-   * named that way gets mapped at all - by the person who can see the order.
+   * Everything the automapper proposes, and nothing else: the stored mappings go
+   * first, so a file it proposes nothing for ends up unmapped rather than keeping
+   * whatever was chosen for it last time.
    */
-  const numberEpisodes = useCallback(
-    (targetFiles: ReleaseFile[]) => {
-      setDrafts((current) => {
-        const next = { ...current };
-        const lastEpisode = new Map<number, number>();
+  const automap = useCallback(() => {
+    const next: DraftMap = {};
 
-        [...targetFiles].sort(compareByFileName).forEach((file) => {
-          const draft = next[file.id];
-          if (!draft?.requestId || draft.mappingType !== 'series') {
-            return;
-          }
-
-          const season = draft.season;
-          if (season === undefined) {
-            return;
-          }
-
-          const episode = draft.episode ?? (lastEpisode.get(season) ?? 0) + 1;
-          lastEpisode.set(season, Math.max(lastEpisode.get(season) ?? 0, episode));
-
-          const request = requestsById.get(draft.requestId);
-          const seasonIndex =
-            request && isSeriesRequest(request)
-              ? seasonIndexes.get(seriesKeyOfRequest(request))
-              : undefined;
-
-          next[file.id] = seriesDraft(
-            season,
-            episode,
-            { id: draft.requestId, title: draft.requestTitle },
-            seasonIndex,
-          );
-        });
-
-        return next;
-      });
-    },
-    [requestsById, seasonIndexes],
-  );
-
-  /** Put the server's proposals back over the rows, discarding edits to them. */
-  const applySuggestions = useCallback(() => {
-    setDrafts((current) => {
-      const next = { ...current };
-      suggestions.forEach((suggestion) => {
-        next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
-      });
-      return next;
+    files.forEach((file) => {
+      next[file.id] = { ...EMPTY_DRAFT };
     });
-  }, [suggestions]);
 
-  const reset = useCallback(() => {
-    setDrafts(initialDrafts);
-    setResetToken((token) => token + 1);
-  }, [initialDrafts]);
+    suggestions.forEach((suggestion) => {
+      next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
+    });
+
+    setDrafts(next);
+  }, [files, suggestions]);
+
+  const reset = useCallback(() => setDrafts(initialDrafts), [initialDrafts]);
 
   const isDirty = useCallback(
     (fileId: string) => !isSameDraft(getDraft(fileId), initialDrafts[fileId] ?? EMPTY_DRAFT),
@@ -389,26 +342,15 @@ export function useFileMappingForm(
     [getDraft],
   );
 
-  const canNumberEpisodes = useMemo(
-    () =>
-      Object.values(drafts).some(
-        (draft) => draft.mappingType === 'series' && Boolean(draft.requestId),
-      ),
-    [drafts],
-  );
-
   return {
     getDraft,
     updateDraft,
     selectRequest,
     applyToAll,
-    applySuggestions,
-    numberEpisodes,
+    automap,
     reset,
-    resetToken,
     isDirty,
     dirtyFileIds,
     buildPayload,
-    canNumberEpisodes,
   };
 }
