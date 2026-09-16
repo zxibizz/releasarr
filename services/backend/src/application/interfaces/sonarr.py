@@ -154,6 +154,15 @@ class SonarrService(Protocol):
     ) -> SeriesDetails:
         """Wait until Sonarr has populated episodes for the given seasons."""
 
+    async def delete_series(self, series_id: int) -> None:
+        """Delete a series from the library, leaving anything on disk alone.
+
+        For a series releasarr added and nothing wants any more: the library
+        entry is all that is left of it, and the next add would rebuild it from
+        the same request. Files are never deleted - anything on disk is what
+        keeps a series out of this call in the first place.
+        """
+
 
 __all__ = [
     "ManualImportFile",

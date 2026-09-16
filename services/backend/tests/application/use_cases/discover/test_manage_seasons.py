@@ -299,7 +299,45 @@ async def test_an_empty_selection_withdraws_every_season_request() -> None:
         }
     ]
     assert repository.records == {}
+    # Nothing is left of it either - no season monitored, no episode file - so
+    # the series goes with its last request. The answer cannot read it back from
+    # Sonarr afterwards, so the seasons come from before the write.
+    assert sonarr.deleted == [12]
+    assert result.in_library is False
+    assert result.library_id is None
     assert all(season.monitored is False for season in result.seasons)
+
+
+@pytest.mark.asyncio
+async def test_a_series_wanted_for_future_seasons_outlives_its_last_season() -> None:
+    """The flag is the user asking for what Sonarr has yet to see."""
+
+    repository = FakeMediaRequestRepository(
+        {"req-1": make_record("req-1", season_number=1, sonarr_series_id=12)}
+    )
+    sonarr = series_sonarr()
+
+    await build_update_use_case(repository=repository, sonarr=sonarr).execute(
+        "req-1",
+        UpdateRequestSeasonsCommand(monitor_new_seasons=True),
+    )
+
+    assert sonarr.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_a_series_holding_a_file_outlives_its_last_season() -> None:
+    repository = FakeMediaRequestRepository(
+        {"req-1": make_record("req-1", season_number=1, sonarr_series_id=12)}
+    )
+    sonarr = series_sonarr({1: (10, True), 2: (8, False)}, downloaded_seasons=[1])
+
+    await build_update_use_case(repository=repository, sonarr=sonarr).execute(
+        "req-1",
+        UpdateRequestSeasonsCommand(),
+    )
+
+    assert sonarr.deleted == []
 
 
 @pytest.mark.asyncio

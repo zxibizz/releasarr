@@ -176,6 +176,10 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         library fields filled in, which is what Sonarr's own add form does: it
         carries the title slug, images and season list Sonarr expects, and
         rebuilding those by hand risks disagreeing with its metadata.
+
+        The season selection is what Sonarr ends up applying, because no
+        monitoring strategy is named beside it - see the add options below for
+        why that, and only that, leaves the other seasons alone.
         """
 
         payload = await self._lookup_by_tvdb_id(tvdb_id)
@@ -194,10 +198,18 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
             if isinstance(season, dict)
         ]
         payload["addOptions"] = {
-            # Monitors the episodes of the seasons flagged above. Without it the
-            # episodes arrive unmonitored, which keeps them out of Sonarr's
-            # wanted list and so out of our own sync.
-            "monitor": "all",
+            # Sonarr reads the season flags above only when no monitoring
+            # strategy is named: naming one overrides them wholesale, and "all"
+            # - the obvious choice for "monitor the episodes of these seasons" -
+            # marks every season monitored once the series is scanned. Naming
+            # none leaves it to the fallback that keeps the seasons as sent.
+            #
+            # Both ignore flags are sent explicitly because they default to on,
+            # and either one on would leave the flagged seasons' episodes
+            # unmonitored, which keeps them out of Sonarr's wanted list and so
+            # out of our own sync.
+            "ignoreEpisodesWithFiles": False,
+            "ignoreEpisodesWithoutFiles": False,
             # Releasarr does its own grabbing through Prowlarr and qBittorrent.
             "searchForMissingEpisodes": False,
             "searchForCutoffUnmetEpisodes": False,
@@ -560,11 +572,28 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
     def _reads_monitor_new_items(self, data: dict[str, Any]) -> bool:
         return str(data.get("monitorNewItems") or "").lower() == MONITOR_NEW_ITEMS_ALL
 
+    async def delete_series(self, series_id: int) -> None:
+        """Delete a series from the library, leaving anything on disk alone.
+
+        Nothing is measured first: releasarr asks for this only once it has read
+        the series and found nothing monitored and no episode file, and Sonarr
+        keeps the files of a series it is not told to delete files with.
+        """
+
+        await self._request_no_content(
+            "DELETE",
+            f"/series/{series_id}",
+            params={"deleteFiles": "false", "addImportListExclusion": "false"},
+        )
+
+    def _require_api_key(self) -> None:
+        if not self._api_key:
+            raise HttpClientError("Sonarr API key is not configured; set RELEASARR_SONARR_API_KEY")
+
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Checked per request rather than in __init__ so that movie-only
         # deployments can still build the container without a Sonarr key.
-        if not self._api_key:
-            raise HttpClientError("Sonarr API key is not configured; set RELEASARR_SONARR_API_KEY")
+        self._require_api_key()
         return await self._http.request_json(method, path, **kwargs)
 
 

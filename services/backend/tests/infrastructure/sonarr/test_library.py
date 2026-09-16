@@ -155,10 +155,17 @@ async def test_add_series_monitors_only_the_requested_seasons() -> None:
         (1, False),
         (2, True),
     ]
-    # Episodes must be monitored or they stay out of Sonarr's wanted list, and
+    # Naming no monitoring strategy is what makes Sonarr read the season flags
+    # above: naming one replaces them wholesale, and "all" - the reading that
+    # sounds right for "monitor the episodes of these seasons" - marks every
+    # season monitored once the series is scanned. Both ignore flags are named
+    # because they default to on, and either one on leaves the flagged seasons'
+    # episodes unmonitored, keeping them out of Sonarr's wanted list and so out
+    # of our own sync. Episodes must be monitored for the same reason;
     # releasarr grabs through its own indexers rather than Sonarr's.
     assert payload["addOptions"] == {
-        "monitor": "all",
+        "ignoreEpisodesWithFiles": False,
+        "ignoreEpisodesWithoutFiles": False,
         "searchForMissingEpisodes": False,
         "searchForCutoffUnmetEpisodes": False,
     }
@@ -201,6 +208,30 @@ async def test_add_series_rejects_a_tvdb_id_sonarr_cannot_resolve() -> None:
         assert "555" in str(exc)
     else:  # pragma: no cover - the call must not succeed
         raise AssertionError("expected an HttpClientError")
+
+
+async def test_delete_series_asks_sonarr_to_keep_the_files() -> None:
+    """The library entry goes; anything on disk stays for a later import.
+
+    An empty body is what Sonarr answers a delete with, and parsing it would
+    report a failure at the last step of a call that did what it was asked to.
+    """
+
+    calls: list[tuple[str, str, dict[str, str]]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, dict(request.url.params)))
+        return httpx.Response(200)
+
+    await build_client(handler).delete_series(12)
+
+    assert calls == [
+        (
+            "DELETE",
+            "/api/v3/series/12",
+            {"deleteFiles": "false", "addImportListExclusion": "false"},
+        )
+    ]
 
 
 def build_monitoring_handler(
