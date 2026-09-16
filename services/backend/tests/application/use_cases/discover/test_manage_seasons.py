@@ -20,6 +20,7 @@ from tests.fakes import (
     FakeMediaRequestRepository,
     FakeSonarrService,
     FakeTvdbService,
+    UnusedRecomputeStateCalls,
     make_record,
     make_series_details,
 )
@@ -47,6 +48,7 @@ def build_update_use_case(
             repository=repository,
             sonarr_service=sonarr,
             tvdb_service=FakeTvdbService(is_configured=False),
+            recompute_state=UnusedRecomputeStateCalls(),  # type: ignore[arg-type]
         ),
     )
 

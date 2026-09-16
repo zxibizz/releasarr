@@ -882,9 +882,9 @@ export interface components {
         /** @enum {string} */
         MediaType: "movie" | "series";
         /** @enum {string} */
-        MediaRequestStatus: "pending" | "searching" | "downloading" | "monitoring" | "completed" | "failed";
+        MediaRequestStatus: "pending" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
         /** @enum {string} */
-        ReleaseStatus: "pending" | "downloading" | "seeding" | "completed" | "failed";
+        ReleaseStatus: "pending" | "downloading" | "completed" | "failed";
         /** @enum {string} */
         RequestLogLevel: "info" | "warning" | "error";
         /**

@@ -18,7 +18,7 @@ const STATUS_PRESENTATION = {
   searching: { color: 'grape', icon: '🔍' },
   downloading: { color: 'blue', icon: '⬇️' },
   monitoring: { color: 'indigo', icon: '📡' },
-  seeding: { color: 'cyan', icon: '🌱' },
+  importing: { color: 'violet', icon: '📥' },
   completed: { color: 'teal', icon: '✅' },
   failed: { color: 'red', icon: '❌' },
   queued: { color: 'gray', icon: '🕒' },

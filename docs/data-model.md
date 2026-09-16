@@ -66,8 +66,13 @@ final and falls through to the release rules instead.
 `RecomputeRequestStateUseCase` (`application/use_cases/requests/recompute_state.py`). Sonarr and
 Radarr are the only authority on `completed` — the sync use cases pass their verdict in as an
 `ArrCompletion`, and no other code path is allowed to set or clear that status. Everything else
-the release set implies — `downloading`, `failed`, `monitoring`, and falling back to `pending`
-once nothing is left in flight or worth regrabbing — is derived from the linked releases alone.
+the release set implies — `downloading`, `importing`, `failed`, `monitoring`, and falling back
+to `pending` once nothing is left in flight or worth regrabbing — is derived from the linked
+releases alone. `importing` is a completed release still waiting on the arr: the download is
+done and the import has not landed, which reads very differently from an actual transfer when
+the import is stuck. The one direct write of `status` outside the recompute is user intent:
+explicitly re-requesting a completed season or movie reopens it to `pending`, which no verdict
+can express — the next sync's verdict settles it again.
 The recompute also settles `MAPPING_OVERLAP` warnings and `newest_release_published_at` in the
 same pass, since all three depend on the same release set. It runs synchronously from every
 release-lifecycle use case (grab, delete, remap, replace, regrab, export) and from the
@@ -130,15 +135,27 @@ query to replay — and the check falls back to `name` for those.
 Live stats, refreshed by `release_sync`: `status`, `progress`, `download_speed`, `upload_speed`,
 `seeders`, `leechers`, `ratio`, `added_at`, `completed_at`.
 Export bookkeeping: `last_exported_info_hash`, `export_failures_count`.
+Client reconciliation: `missing_since`.
+
+`missing_since` is when qBittorrent first stopped reporting the torrent, cleared the moment it
+reappears. qBittorrent is the only writer of a release's status, so a removed torrent would
+otherwise leave the row at its last-known state forever — including `completed`, which pins its
+request on `importing`. Past `RELEASARR_RELEASE_MISSING_GRACE_SECONDS` (default 900s), an
+in-flight release whose torrent is still absent is failed; an already-exported one is left
+alone, because a seeded-then-removed torrent is the normal end of its life. A cycle in which
+qBittorrent lists no torrents at all stamps nothing: the sync reads only its own category, so
+that can also mean the client was re-categorised, not that the whole library vanished.
 
 `last_exported_info_hash` is how `regrab` and `export` cooperate. The export queue is every
 release that is `completed`, has `export_failures_count < 5`, and whose `last_exported_info_hash`
 is either NULL or different from its current `info_hash` — so a repack that changes the hash
-becomes eligible for import again, and a release that has failed five times stops being retried
-forever. A re-grab therefore also puts the release back to `downloading`, `progress` 0 and no
-completion time: the row cannot go on being eligible while the files the new torrent is
-downloading are still replacing the old ones. It becomes `completed` again when the replacement
-finishes and the next `release_sync` reads that back.
+becomes eligible for import again, and a release that has failed five times stops being retried.
+The fifth failure also fails the release: dropping it out of the queue alone would leave the row
+`completed` and in flight, which is the same pin as a vanished torrent. A re-grab therefore also
+puts the release back to `downloading`, `progress` 0, no completion time, and no missing stamp:
+the row cannot go on being eligible while the files the new torrent is downloading are still
+replacing the old ones. It becomes `completed` again when the replacement finishes and the next
+`release_sync` reads that back.
 
 A release reaches `completed` only when qBittorrent reports full progress **and** a completion
 timestamp. Its reported state is not usable for this, because a finished torrent keeps seeding.
@@ -265,8 +282,8 @@ Stored as their string values, not member names, via `build_enum()` in `models.p
 | Enum | Values |
 | --- | --- |
 | `MediaType` | `movie`, `series` |
-| `MediaRequestStatus` | `pending`, `searching`, `downloading`, `monitoring`, `completed`, `failed` |
-| `ReleaseStatus` | `pending`, `downloading`, `seeding`, `completed`, `failed` |
+| `MediaRequestStatus` | `pending`, `searching`, `downloading`, `monitoring`, `importing`, `completed`, `failed` |
+| `ReleaseStatus` | `pending`, `downloading`, `completed`, `failed` |
 | `EpisodeStatus` | `downloaded`, `missing`, `unaired` |
 | `SyncJobKind` | `sonarr_sync`, `radarr_sync`, `release_sync`, `export`, `regrab` |
 | `SyncJobStatus` | `queued`, `running`, `completed`, `failed` |

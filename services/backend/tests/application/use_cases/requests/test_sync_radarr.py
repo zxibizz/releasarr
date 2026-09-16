@@ -16,11 +16,19 @@ from src.application.interfaces.media_requests import (
     UpdateMediaRequestData,
 )
 from src.application.interfaces.radarr import MovieDetails, MovieImportFile
+from src.application.interfaces.releases import ReleaseRecord
 from src.application.interfaces.tmdb import TmdbMovieMetadata, TmdbService, TmdbTranslation
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.use_cases.requests.state import RequestStateDeriver
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
-from src.domain.enums import MediaRequestStatus, MediaType
-from tests.fakes import UnusedMediaRequestCalls, UnusedRadarrLibraryCalls, UnusedTmdbSearch
+from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from tests.fakes import (
+    UnusedMediaRequestCalls,
+    UnusedRadarrLibraryCalls,
+    UnusedReleaseRepositoryCalls,
+    UnusedTmdbSearch,
+)
 
 
 class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository):
@@ -105,6 +113,68 @@ class FakeRadarrService(UnusedRadarrLibraryCalls):
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         return True
+
+
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
+    """Serves the release set the deriver sees for `get_releases_for_requests`."""
+
+    def __init__(self, releases: list[ReleaseRecord] | None = None) -> None:
+        self._releases = releases or []
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        wanted = set(request_ids)
+        return [release for release in self._releases if wanted & set(release.request_ids)]
+
+
+class FakeWarningSynchronizer:
+    async def sync_for_requests(self, request_ids: list[str]) -> None:
+        pass
+
+
+def make_release(
+    release_id: str,
+    *,
+    request_ids: list[str],
+    status: ReleaseStatus = ReleaseStatus.DOWNLOADING,
+    info_hash: str = "hash",
+    last_exported_info_hash: str | None = None,
+) -> ReleaseRecord:
+    return ReleaseRecord(
+        id=release_id,
+        name=release_id,
+        info_hash=info_hash,
+        size_bytes=1024,
+        status=status,
+        progress=0.0,
+        download_speed=0.0,
+        upload_speed=0.0,
+        seeders=0,
+        leechers=0,
+        ratio=0.0,
+        added_at=datetime.now(UTC),
+        completed_at=None,
+        request_ids=request_ids,
+        requests=[],
+        torrent_source="indexer",
+        quality="1080p",
+        files=[],
+        last_exported_info_hash=last_exported_info_hash,
+        export_failures_count=0,
+    )
+
+
+def make_recompute(
+    repository: FakeMediaRequestRepository,
+    releases: list[ReleaseRecord] | None = None,
+) -> RecomputeRequestStateUseCase:
+    """The real recompute, so the tests cover what the syncs hand it, not a fake."""
+
+    return RecomputeRequestStateUseCase(
+        repository=repository,
+        release_repository=FakeReleaseRepository(releases),
+        warning_synchronizer=FakeWarningSynchronizer(),  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
+    )
 
 
 class FakeTmdbService(UnusedTmdbSearch, TmdbService):
@@ -211,6 +281,7 @@ async def test_sync_radarr_creates_updates_and_completes() -> None:
         repository=repository,
         radarr_service=radarr,
         tmdb_service=tmdb,
+        recompute_state=make_recompute(repository),
         metadata_languages=("rus", "eng"),
     )
     result = await use_case.execute()
@@ -259,6 +330,7 @@ async def test_sync_radarr_logs_a_completion_against_the_request(
         repository=repository,
         radarr_service=FakeRadarrService([]),
         tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
     )
     await use_case.execute()
 
@@ -282,6 +354,7 @@ async def test_sync_radarr_keeps_routine_refreshes_out_of_the_activity_view(
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
         tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
     )
     await use_case.execute()
 
@@ -290,7 +363,11 @@ async def test_sync_radarr_keeps_routine_refreshes_out_of_the_activity_view(
 
 @pytest.mark.asyncio
 async def test_sync_radarr_preserves_in_flight_status() -> None:
-    """A metadata refresh must not knock a downloading movie back to pending."""
+    """A metadata refresh must not knock a downloading movie back to pending.
+
+    The sync hands the recompute a not-complete verdict, and the in-flight
+    release is what keeps the request downloading.
+    """
 
     repository = FakeMediaRequestRepository(
         records={"req-1": make_record("req-1", 156, MediaRequestStatus.DOWNLOADING)}
@@ -300,6 +377,9 @@ async def test_sync_radarr_preserves_in_flight_status() -> None:
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
         tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(
+            repository, releases=[make_release("rel-1", request_ids=["req-1"])]
+        ),
     )
     await use_case.execute()
 
@@ -321,6 +401,7 @@ async def test_sync_radarr_falls_back_to_radarr_metadata_without_tmdb() -> None:
         repository=repository,
         radarr_service=FakeRadarrService([make_movie()]),
         tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
         metadata_languages=("rus", "eng"),
     )
     await use_case.execute()

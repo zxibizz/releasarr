@@ -527,6 +527,7 @@ class MediaRequestUseCases:
             repository=self._container.repositories.media_requests,
             sonarr_service=self._container.services.sonarr,
             tvdb_service=self._container.services.tvdb,
+            recompute_state=self.recompute_state,
             metadata_languages=self._container.settings.metadata_languages,
         )
 
@@ -536,6 +537,7 @@ class MediaRequestUseCases:
             repository=self._container.repositories.media_requests,
             radarr_service=self._container.services.radarr,
             tmdb_service=self._container.services.tmdb,
+            recompute_state=self.recompute_state,
             metadata_languages=self._container.settings.metadata_languages,
         )
 

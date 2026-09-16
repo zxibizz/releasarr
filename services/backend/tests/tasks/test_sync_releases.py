@@ -8,10 +8,12 @@ coverage. This task now only owns the release rows themselves.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
 
+from src.db.datetimes import as_utc
 from src.db.session import DBManager
 from src.domain import models
 from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
@@ -19,6 +21,7 @@ from src.infrastructure.qbittorrent import QbittorrentClient
 from src.tasks.sync_releases import SyncReleasesTask
 
 INFO_HASH = "ABC123"
+NOW = datetime(2026, 9, 16, tzinfo=UTC)
 
 
 class FakeQbittorrentClient:
@@ -53,15 +56,22 @@ def finished_torrent(state: str, *, info_hash: str = INFO_HASH) -> dict[str, Any
     return torrent(state, info_hash=info_hash) | {"progress": 1.0, "completion_on": 1_700_000_000}
 
 
-def make_task(db: DBManager, torrents: list[dict[str, Any]]) -> SyncReleasesTask:
+def make_task(
+    db: DBManager,
+    torrents: list[dict[str, Any]],
+    *,
+    grace_seconds: int = 900,
+) -> SyncReleasesTask:
     client = cast(QbittorrentClient, FakeQbittorrentClient(torrents))
-    return SyncReleasesTask(db=db, client=client)
+    return SyncReleasesTask(db=db, client=client, grace_seconds=grace_seconds, clock=lambda: NOW)
 
 
 async def seed(
     db: DBManager,
     *,
     release_status: ReleaseStatus = ReleaseStatus.PENDING,
+    missing_since: datetime | None = None,
+    last_exported_info_hash: str | None = None,
 ) -> None:
     async with db.transaction() as session:
         request = models.MediaRequest(
@@ -83,6 +93,8 @@ async def seed(
             info_hash=INFO_HASH,
             size_bytes=0,
             status=release_status,
+            missing_since=missing_since,
+            last_exported_info_hash=last_exported_info_hash,
         )
         release.requests.append(request)
         session.add(release)
@@ -172,3 +184,96 @@ async def test_completion_time_survives_later_cycles(db_manager: DBManager) -> N
 
     assert result.synced == 1
     assert (await release_record(db_manager)).completed_at == stamped
+
+
+async def test_a_missing_torrent_is_stamped_first_and_left_alone(
+    db_manager: DBManager,
+) -> None:
+    await seed(db_manager, release_status=ReleaseStatus.COMPLETED)
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    release = await release_record(db_manager)
+    assert as_utc(release.missing_since) == NOW
+    assert release.status == ReleaseStatus.COMPLETED
+    assert (result.not_found, result.missing_new) == (1, 1)
+
+
+async def test_a_missing_torrent_inside_the_grace_period_is_left_alone(
+    db_manager: DBManager,
+) -> None:
+    await seed(
+        db_manager,
+        release_status=ReleaseStatus.COMPLETED,
+        missing_since=NOW - timedelta(seconds=300),
+    )
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.COMPLETED
+    assert result.missing_pending == 1
+
+
+async def test_a_missing_in_flight_release_is_failed_past_the_grace_period(
+    db_manager: DBManager,
+) -> None:
+    await seed(
+        db_manager,
+        release_status=ReleaseStatus.COMPLETED,
+        missing_since=NOW - timedelta(seconds=901),
+    )
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.FAILED
+    assert result.missing_failed == 1
+
+
+async def test_a_missing_exported_release_is_never_failed(db_manager: DBManager) -> None:
+    """A seeded-then-removed torrent is the normal end of a release's life."""
+
+    await seed(
+        db_manager,
+        release_status=ReleaseStatus.COMPLETED,
+        missing_since=NOW - timedelta(days=7),
+        last_exported_info_hash=INFO_HASH,
+    )
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    release = await release_record(db_manager)
+    assert release.status == ReleaseStatus.COMPLETED
+    assert result.missing_failed == 0
+
+
+async def test_a_reappearing_torrent_clears_the_stamp(db_manager: DBManager) -> None:
+    await seed(db_manager, missing_since=NOW - timedelta(seconds=60))
+    data = torrent("downloading")
+
+    result = await make_task(db_manager, [data]).execute()
+
+    assert (await release_record(db_manager)).missing_since is None
+    assert result.synced == 1
+
+
+async def test_an_empty_listing_stamps_nothing(db_manager: DBManager) -> None:
+    """The sync reads one category, so zero torrents can also mean a re-categorised client."""
+
+    await seed(db_manager, release_status=ReleaseStatus.COMPLETED)
+
+    result = await make_task(db_manager, []).execute()
+
+    release = await release_record(db_manager)
+    assert release.missing_since is None
+    assert release.status == ReleaseStatus.COMPLETED
+    assert (result.not_found, result.missing_new) == (1, 0)

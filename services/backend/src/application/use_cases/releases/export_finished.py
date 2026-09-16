@@ -14,6 +14,7 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.radarr import MovieImportFile, RadarrService
 from src.application.interfaces.releases import (
+    MAX_EXPORT_FAILURES,
     ReleaseDownloadService,
     ReleaseFileRecord,
     ReleaseRecord,
@@ -23,9 +24,9 @@ from src.application.interfaces.releases import (
 from src.application.interfaces.sonarr import ManualImportFile, SeriesDetails, SonarrService
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
-from src.application.use_cases.requests.state import ArrCompletion
+from src.application.use_cases.requests.state import ArrCompletion, season_completion
 from src.core.logging import get_logger
-from src.domain.enums import MediaType
+from src.domain.enums import MediaType, ReleaseStatus
 
 
 @dataclass(slots=True)
@@ -98,9 +99,7 @@ class ExportFinishedReleasesUseCase:
                         release_name=release.name,
                         error=str(exc),
                     )
-                await self._repository.update_release(
-                    release.id, export_failures_count=release.export_failures_count + 1
-                )
+                await self._record_failure(release, str(exc))
                 result.failed += 1
 
         return result
@@ -118,14 +117,9 @@ class ExportFinishedReleasesUseCase:
 
         download_dir = await self._download_service.get_download_directory(release.info_hash)
         if not download_dir:
-            for request_id in release.request_ids or ["unknown"]:
-                self._logger.warning(
-                    "Skipping export: download directory is unknown",
-                    request_id=request_id,
-                    release_id=release.id,
-                    release_name=release.name,
-                    info_hash=release.info_hash,
-                )
+            # The client has never heard of the hash and no fallback save path is
+            # configured: every run lands here, so the attempts count.
+            await self._record_failure(release, "download directory is unknown")
             return
 
         # 3. Hand each media type to the app that owns it
@@ -134,8 +128,9 @@ class ExportFinishedReleasesUseCase:
         imported.movies = await self._export_movies(release, requests_map, download_dir)
 
         if not imported:
-            # Nothing resolvable yet: leave the release unexported so a later run
-            # can retry once mappings or metadata catch up.
+            # Mappings or metadata that have not caught up yet resolve on a later
+            # run; ones that never do retire at the failure cap.
+            await self._record_failure(release, "nothing importable")
             return
 
         await self._repository.update_release(
@@ -144,6 +139,24 @@ class ExportFinishedReleasesUseCase:
             export_failures_count=0,
         )
         await self._record_exports(candidates, imported)
+
+    async def _record_failure(self, release: ReleaseRecord, reason: str) -> None:
+        """Count one failed export attempt, failing the release at the cap."""
+
+        failures = release.export_failures_count + 1
+        update: dict[str, object] = {"export_failures_count": failures}
+        if failures >= MAX_EXPORT_FAILURES:
+            update["status"] = ReleaseStatus.FAILED
+        await self._repository.update_release(release.id, **update)
+
+        for request_id in release.request_ids or ["unknown"]:
+            self._logger.warning(
+                f"Export attempt {failures}/{MAX_EXPORT_FAILURES} failed: {reason}",
+                request_id=request_id,
+                release_id=release.id,
+                release_name=release.name,
+                info_hash=release.info_hash,
+            )
 
     def _has_exportable_files(
         self,
@@ -364,11 +377,7 @@ class ExportFinishedReleasesUseCase:
         if season is None:
             return ArrCompletion(is_complete=False)
 
-        is_complete = (
-            bool(season.episode_count) and season.episode_file_count >= season.episode_count
-        )
-        has_unaired = season.episode_count < season.total_episode_count
-        return ArrCompletion(is_complete=is_complete, has_unaired=has_unaired)
+        return season_completion(season)
 
     async def _movie_verdict(
         self,

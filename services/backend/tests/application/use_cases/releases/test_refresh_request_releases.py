@@ -369,6 +369,7 @@ async def test_a_finished_release_is_downloaded_again_when_its_hash_moved() -> N
                 "info_hash": "NEWHASH",
                 "export_failures_count": 0,
                 "last_exported_info_hash": None,
+                "missing_since": None,
                 "name": "New.Release.Name",
                 "info_url": "https://tracker.example/details/1",
                 "published_at": datetime(2026, 2, 1, tzinfo=UTC),

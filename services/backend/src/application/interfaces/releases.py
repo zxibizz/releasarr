@@ -12,6 +12,11 @@ from src.domain.enums import MediaType, ReleaseStatus, RequestWarningCode
 # hand-supplied torrents, which have no indexer to go back to.
 MANUAL_SOURCE = "manual"
 
+# A release that refuses to export this many times is failed, not just skipped:
+# dropping it out of the export query alone would leave the row completed and
+# in flight, which pins its request on importing forever.
+MAX_EXPORT_FAILURES = 5
+
 
 @dataclass(slots=True)
 class ReleaseFileMapping:
@@ -92,6 +97,7 @@ class ReleaseRecord:
     # tracker's own title is not what its search engine was asked for, and on
     # some trackers is not what it can match at all.
     search_query: str | None = None
+    missing_since: datetime | None = None
 
 
 @dataclass(slots=True)

@@ -15,6 +15,7 @@ from src.application.interfaces.media_requests import (
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
+from src.application.interfaces.releases import ReleaseRecord
 from src.application.interfaces.sonarr import (
     ManualImportFile,
     MissingSeriesRecord,
@@ -23,10 +24,17 @@ from src.application.interfaces.sonarr import (
     SonarrEpisode,
 )
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService, TvdbTranslation
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.use_cases.requests.state import RequestStateDeriver
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.utility.sentinels import UNSET
-from src.domain.enums import MediaRequestStatus, MediaType
-from tests.fakes import UnusedMediaRequestCalls, UnusedSonarrLibraryCalls, UnusedTvdbSearch
+from src.domain.enums import MediaRequestStatus, MediaType, ReleaseStatus
+from tests.fakes import (
+    UnusedMediaRequestCalls,
+    UnusedReleaseRepositoryCalls,
+    UnusedSonarrLibraryCalls,
+    UnusedTvdbSearch,
+)
 
 
 class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository):
@@ -130,6 +138,69 @@ class FakeSonarrService(UnusedSonarrLibraryCalls):
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         return True
+
+
+class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
+    """Serves the release set the deriver sees for `get_releases_for_requests`."""
+
+    def __init__(self, releases: list[ReleaseRecord] | None = None) -> None:
+        self._releases = releases or []
+
+    async def get_releases_for_requests(self, request_ids: list[str]) -> list[ReleaseRecord]:
+        wanted = set(request_ids)
+        return [release for release in self._releases if wanted & set(release.request_ids)]
+
+
+class FakeWarningSynchronizer:
+    async def sync_for_requests(self, request_ids: list[str]) -> None:
+        pass
+
+
+def make_release(
+    release_id: str,
+    *,
+    request_ids: list[str],
+    status: ReleaseStatus = ReleaseStatus.DOWNLOADING,
+    info_hash: str = "hash",
+    last_exported_info_hash: str | None = None,
+    torrent_source: str | None = "indexer",
+) -> ReleaseRecord:
+    return ReleaseRecord(
+        id=release_id,
+        name=release_id,
+        info_hash=info_hash,
+        size_bytes=1024,
+        status=status,
+        progress=0.0,
+        download_speed=0.0,
+        upload_speed=0.0,
+        seeders=0,
+        leechers=0,
+        ratio=0.0,
+        added_at=datetime.now(UTC),
+        completed_at=None,
+        request_ids=request_ids,
+        requests=[],
+        torrent_source=torrent_source,
+        quality="1080p",
+        files=[],
+        last_exported_info_hash=last_exported_info_hash,
+        export_failures_count=0,
+    )
+
+
+def make_recompute(
+    repository: FakeMediaRequestRepository,
+    releases: list[ReleaseRecord] | None = None,
+) -> RecomputeRequestStateUseCase:
+    """The real recompute, so the tests cover what the syncs hand it, not a fake."""
+
+    return RecomputeRequestStateUseCase(
+        repository=repository,
+        release_repository=FakeReleaseRepository(releases),
+        warning_synchronizer=FakeWarningSynchronizer(),  # type: ignore[arg-type]
+        deriver=RequestStateDeriver(),
+    )
 
 
 def make_series_details() -> SeriesDetails:
@@ -274,6 +345,7 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=tvdb,
+        recompute_state=make_recompute(repository),
         metadata_languages=("rus", "eng"),
     )
     result = await use_case.execute()
@@ -341,6 +413,7 @@ async def test_sync_sonarr_logs_a_completion_against_the_request(
         repository=repository,
         sonarr_service=FakeSonarrService([], {}),
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
     )
     await use_case.execute()
 
@@ -352,7 +425,11 @@ async def test_sync_sonarr_logs_a_completion_against_the_request(
 
 @pytest.mark.asyncio
 async def test_sync_sonarr_preserves_in_flight_status() -> None:
-    """A metadata refresh must not knock a downloading season back to pending."""
+    """A metadata refresh must not knock a downloading season back to pending.
+
+    The sync hands the recompute a not-complete verdict, and the in-flight
+    release is what keeps the request downloading.
+    """
 
     records = make_existing_records()
     records["req-1"].status = MediaRequestStatus.DOWNLOADING
@@ -372,6 +449,9 @@ async def test_sync_sonarr_preserves_in_flight_status() -> None:
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(
+            repository, releases=[make_release("rel-1", request_ids=["req-1"])]
+        ),
     )
     await use_case.execute()
 
@@ -453,6 +533,7 @@ async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
     )
     result = await use_case.execute()
 
@@ -537,11 +618,20 @@ async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> No
     sonarr = FakeSonarrService(
         missing=[], catalogue={10: make_season_details(aired=7, total=8, files=7)}
     )
+    # An already-imported release the indexer could still improve on is what a
+    # monitoring status rests on; without one there is nothing to monitor.
+    exported = make_release(
+        "rel-1",
+        request_ids=["req-1"],
+        status=ReleaseStatus.COMPLETED,
+        last_exported_info_hash="hash",
+    )
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository, releases=[exported]),
     )
     await use_case.execute()
 
@@ -578,6 +668,7 @@ async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
     )
     result = await use_case.execute()
 
@@ -588,7 +679,7 @@ async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
 
 @pytest.mark.asyncio
 async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
-    """An in-flight status belongs to the release sync, episodes to come or not."""
+    """Episodes still to air do not close a request whose release is in flight."""
 
     repository = FakeMediaRequestRepository(
         records=make_airing_records(MediaRequestStatus.DOWNLOADING)
@@ -599,6 +690,9 @@ async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
         repository=repository,
         sonarr_service=sonarr,
         tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(
+            repository, releases=[make_release("rel-1", request_ids=["req-1"])]
+        ),
     )
     await use_case.execute()
 

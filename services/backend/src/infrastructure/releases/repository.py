@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from src.application.interfaces.releases import (
     MANUAL_SOURCE,
+    MAX_EXPORT_FAILURES,
     CreateReleaseData,
     FileMappingUpdateData,
     FileReconciliation,
@@ -276,7 +277,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 )
                 .where(
                     models.Release.status == ReleaseStatus.COMPLETED,
-                    models.Release.export_failures_count < 5,
+                    models.Release.export_failures_count < MAX_EXPORT_FAILURES,
                     (models.Release.last_exported_info_hash != models.Release.info_hash)
                     | (models.Release.last_exported_info_hash.is_(None)),
                 )
@@ -412,6 +413,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             info_url=release.info_url or None,
             published_at=as_utc(release.published_at),
             search_query=release.search_query or None,
+            missing_since=as_utc(release.missing_since),
         )
 
     def _to_file_record(self, file: models.ReleaseFile) -> ReleaseFileRecord:

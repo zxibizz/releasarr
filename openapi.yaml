@@ -2050,10 +2050,10 @@ components:
       enum: [movie, series]
     MediaRequestStatus:
       type: string
-      enum: [pending, searching, downloading, monitoring, completed, failed]
+      enum: [pending, searching, downloading, monitoring, importing, completed, failed]
     ReleaseStatus:
       type: string
-      enum: [pending, downloading, seeding, completed, failed]
+      enum: [pending, downloading, completed, failed]
     RequestLogLevel:
       type: string
       enum: [info, warning, error]

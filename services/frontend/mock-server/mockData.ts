@@ -35,7 +35,7 @@ const mockMovieRequests: MovieRequest[] = [
     overview:
       'Dom Cobb is a skilled thief, the absolute best in the dangerous art of extraction, stealing valuable secrets from deep within the subconscious during the dream state.',
     genres: ['Action', 'Sci-Fi', 'Thriller'],
-    status: 'downloading',
+    status: 'importing',
     created_at: '2024-01-16T09:15:00Z',
     updated_at: '2024-01-16T12:30:00Z',
     imdb_id: 'tt1375666',
@@ -461,7 +461,7 @@ const mockReleases: Release[] = [
         },
       },
     ],
-    status: 'seeding',
+    status: 'completed',
     progress: 100,
     download_speed: 0,
     upload_speed: 3145728,

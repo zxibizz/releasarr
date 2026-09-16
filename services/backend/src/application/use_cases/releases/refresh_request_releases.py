@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 # A release in one of these states can still move, so its row is worth reading
 # back from the client. Anything else is settled by the scheduled sync.
-LIVE_STATUSES = frozenset({ReleaseStatus.PENDING, ReleaseStatus.DOWNLOADING, ReleaseStatus.SEEDING})
+LIVE_STATUSES = frozenset({ReleaseStatus.PENDING, ReleaseStatus.DOWNLOADING})
 
 
 class RefreshRequestReleasesUseCase:

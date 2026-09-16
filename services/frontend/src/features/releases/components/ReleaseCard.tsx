@@ -74,7 +74,7 @@ export function ReleaseCard({
   const isMobile = useIsMobile();
 
   const isActive = release.status === 'downloading' || release.status === 'pending';
-  const isComplete = release.status === 'completed' || release.status === 'seeding';
+  const isComplete = release.status === 'completed';
   const progress = isComplete ? 100 : release.progress;
   const downloadedBytes = Math.round((progress / 100) * release.size);
   const eta =

@@ -14,6 +14,7 @@ export const STATUS_KEYS = [
   'searching',
   'downloading',
   'monitoring',
+  'importing',
   'completed',
   'failed',
 ] as const;

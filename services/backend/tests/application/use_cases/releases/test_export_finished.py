@@ -361,7 +361,11 @@ async def test_release_stays_unexported_when_nothing_could_be_mapped() -> None:
 
 
 async def test_release_stays_unexported_when_the_download_directory_is_unknown() -> None:
-    """Sonarr resolves paths on its own filesystem, so a relative path is useless."""
+    """Sonarr resolves paths on its own filesystem, so a relative path is useless.
+
+    The client not knowing the hash can only repeat on every run, so the attempt
+    counts toward the failure cap.
+    """
 
     release = make_release([make_file("f1", "Avatar/Avatar.S01E01.mkv")], season=1)
     repository = FakeReleaseRepository(release)
@@ -381,4 +385,28 @@ async def test_release_stays_unexported_when_the_download_directory_is_unknown()
 
     assert result.succeeded == 1
     assert sonarr.imported == []
-    assert repository.release_updates == {}
+    assert "last_exported_info_hash" not in repository.release_updates
+    assert repository.release_updates["export_failures_count"] == 1
+
+
+async def test_a_release_that_keeps_failing_to_export_is_failed_at_the_cap() -> None:
+    """The cap is terminal: the row must stop claiming a state that pins the request."""
+
+    release = make_release([make_file("f1", "Avatar/Avatar.S01E01.mkv")], season=1)
+    release.export_failures_count = 4
+    repository = FakeReleaseRepository(release)
+    request_repository = FakeMediaRequestRepository([])
+    use_case = ExportFinishedReleasesUseCase(
+        repository=repository,  # type: ignore[arg-type]
+        sonarr=FakeSonarrService(),  # type: ignore[arg-type]
+        auto_mapper=build_auto_mapper(repository, request_repository),
+        download_service=FakeDownloadService(None),  # type: ignore[arg-type]
+        radarr=stub_radarr(),
+        request_repository=request_repository,  # type: ignore[arg-type]
+        recompute_state=stub_recompute_state(),
+    )
+
+    await use_case.execute()
+
+    assert repository.release_updates["export_failures_count"] == 5
+    assert repository.release_updates["status"] is ReleaseStatus.FAILED
