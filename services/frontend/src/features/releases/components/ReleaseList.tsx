@@ -19,8 +19,8 @@ import {
   useReleaseActions,
   useReleasesByRequest,
 } from '@/features/releases/queries';
+import { useRelatedRequestTitles } from '@/features/releases/relatedRequests';
 import { hasMappingOverlap } from '@/features/releases/warnings';
-import { useRequestsList } from '@/features/requests/queries';
 import type { Release } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -40,11 +40,11 @@ const sortReleases = (releases: Release[]): Release[] =>
 
 interface ReleaseListProps {
   requestId: string;
-  onViewFiles: (release: Release) => void;
+  onViewDetails: (release: Release) => void;
   onReleasesLoaded?: (releases: Release[]) => void;
 }
 
-export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: ReleaseListProps) {
+export function ReleaseList({ requestId, onViewDetails, onReleasesLoaded }: ReleaseListProps) {
   const { t } = useTranslation();
   const { data, isLoading, isFetching, error, refetch } = useReleasesByRequest(requestId);
   const { pause, resume, remove } = useReleaseActions(requestId);
@@ -65,11 +65,7 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
 
   // The requests list is already cached by the home route loader, so related
   // request titles come for free instead of a per-release lookup.
-  const { requests } = useRequestsList();
-  const relatedRequestTitles = useMemo(
-    () => new Map(requests.map((request) => [request.id, request.title])),
-    [requests],
-  );
+  const relatedRequestTitles = useRelatedRequestTitles();
 
   const releases = useMemo(() => sortReleases(data ?? []), [data]);
   const isBusy = pause.isPending || resume.isPending || remove.isPending;
@@ -153,7 +149,7 @@ export function ReleaseList({ requestId, onViewFiles, onReleasesLoaded }: Releas
           release={release}
           currentRequestId={requestId}
           relatedRequestTitles={relatedRequestTitles}
-          onViewFiles={onViewFiles}
+          onViewDetails={onViewDetails}
           onPause={(id) => pause.mutate(id)}
           onResume={(id) => resume.mutate(id)}
           onDelete={(id) => remove.mutate(id)}

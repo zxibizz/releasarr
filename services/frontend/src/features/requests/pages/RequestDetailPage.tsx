@@ -9,7 +9,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { EmptyState } from '@/components/EmptyState';
 import { LogsModal } from '@/features/logs/LogsModal';
-import { ReleaseFilesModal } from '@/features/releases/components/ReleaseFilesModal';
+import { ReleaseDetailsModal } from '@/features/releases/components/ReleaseDetailsModal';
 import { ReleaseList } from '@/features/releases/components/ReleaseList';
 import { ReleaseSearch } from '@/features/releases/components/ReleaseSearch';
 import { releaseKeys, useReleasesByRequest } from '@/features/releases/queries';
@@ -56,7 +56,7 @@ export function RequestDetailPage() {
   const [searchRequested, setSearchRequested] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
 
-  const [filesOpened, filesModal] = useDisclosure(false);
+  const [detailsOpened, detailsModal] = useDisclosure(false);
   const [logsOpened, logsModal] = useDisclosure(false);
   const [seasonsOpened, seasonsModal] = useDisclosure(false);
   const [isRefreshing, setRefreshing] = useState(false);
@@ -116,12 +116,12 @@ export function RequestDetailPage() {
     });
   }, []);
 
-  const handleViewFiles = useCallback(
+  const handleViewDetails = useCallback(
     (release: Release) => {
       setSelectedReleaseId(release.id);
-      filesModal.open();
+      detailsModal.open();
     },
-    [filesModal],
+    [detailsModal],
   );
 
   const backToRequests = useCallback(() => void navigate('/'), [navigate]);
@@ -181,7 +181,7 @@ export function RequestDetailPage() {
 
       <ReleaseList
         requestId={localizedRequest.id}
-        onViewFiles={handleViewFiles}
+        onViewDetails={handleViewDetails}
         onReleasesLoaded={handleReleasesLoaded}
       />
 
@@ -237,11 +237,11 @@ export function RequestDetailPage() {
         ]}
       />
 
-      <ReleaseFilesModal
+      <ReleaseDetailsModal
         release={selectedRelease}
         currentRequest={localizedRequest}
-        opened={filesOpened}
-        onClose={filesModal.close}
+        opened={detailsOpened}
+        onClose={detailsModal.close}
       />
       <LogsModal
         requestId={localizedRequest.id}

@@ -1,4 +1,5 @@
 import { Alert, Button, Group, Stack, Text, Title } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,9 +20,22 @@ interface FileMappingFormProps {
   releaseId: string;
   requestId: string;
   files: ReleaseFile[];
+  /** Off when the form is the body of a tab that already says what it is. */
+  showHeading?: boolean;
+  /** Called once the mappings are stored, for a caller that opened the form as a mode. */
+  onSaved?: () => void;
+  /** Adds a way out of the form that does not save; confirm-then-discard when dirty. */
+  onCancel?: () => void;
 }
 
-export function FileMappingForm({ releaseId, requestId, files }: FileMappingFormProps) {
+export function FileMappingForm({
+  releaseId,
+  requestId,
+  files,
+  showHeading = true,
+  onSaved,
+  onCancel,
+}: FileMappingFormProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
 
@@ -71,6 +85,7 @@ export function FileMappingForm({ releaseId, requestId, files }: FileMappingForm
         }),
         color: 'teal',
       });
+      onSaved?.();
     } catch (error) {
       notifications.show({
         title: t('fileMapping.saveFailed', { defaultValue: 'Failed to save mappings' }),
@@ -78,6 +93,24 @@ export function FileMappingForm({ releaseId, requestId, files }: FileMappingForm
         color: 'red',
       });
     }
+  };
+
+  const leaveWithoutSaving = () => {
+    if (!hasChanges) {
+      onCancel?.();
+      return;
+    }
+
+    modals.openConfirmModal({
+      title: t('releaseDetails.editMode.discard.title'),
+      children: <Text size="sm">{t('releaseDetails.editMode.discard.body')}</Text>,
+      labels: {
+        confirm: t('releaseDetails.editMode.discard.confirm'),
+        cancel: t('common.cancel'),
+      },
+      confirmProps: { color: 'red' },
+      onConfirm: () => onCancel?.(),
+    });
   };
 
   const renderRow = (file: ReleaseFile) => (
@@ -95,16 +128,18 @@ export function FileMappingForm({ releaseId, requestId, files }: FileMappingForm
 
   return (
     <Stack gap="lg">
-      <Stack gap={4}>
-        <Title order={4}>
-          🔗 {t('fileMapping.title', { defaultValue: 'File request mapping' })}
-        </Title>
-        <Text size="sm" c="dimmed">
-          {t('fileMapping.description', {
-            defaultValue: 'Map release files to requests to manage shared content.',
-          })}
-        </Text>
-      </Stack>
+      {showHeading && (
+        <Stack gap={4}>
+          <Title order={4}>
+            🔗 {t('fileMapping.title', { defaultValue: 'File request mapping' })}
+          </Title>
+          <Text size="sm" c="dimmed">
+            {t('fileMapping.description', {
+              defaultValue: 'Map release files to requests to manage shared content.',
+            })}
+          </Text>
+        </Stack>
+      )}
 
       {/*
         The bulk actions stay on the videos. Mapping a sample or an NFO onto a
@@ -157,6 +192,11 @@ export function FileMappingForm({ releaseId, requestId, files }: FileMappingForm
             : t('fileMapping.noChanges', { defaultValue: 'No unsaved changes' })}
         </Text>
         <Group gap="sm" wrap="wrap" w={{ base: '100%', sm: 'auto' }}>
+          {onCancel && (
+            <Button variant="default" onClick={leaveWithoutSaving} style={{ flex: buttonFlex }}>
+              {t('common.cancel')}
+            </Button>
+          )}
           <Button
             variant="default"
             onClick={form.reset}

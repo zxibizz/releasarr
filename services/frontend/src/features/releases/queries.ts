@@ -113,7 +113,7 @@ export function useRefreshRequestReleases(requestId: string | undefined) {
       // change on screen needs saying out loud.
       if (response.regrabbed > 0) {
         // The files a suggestion was worked out against have just been replaced,
-        // so an open mapping tab has to ask again rather than keep proposing
+        // so the mapping editor has to ask again rather than keep proposing
         // mappings for the torrent that is gone.
         void queryClient.invalidateQueries({ queryKey: releaseKeys.mappingSuggestionsRoot });
         notifications.show({

@@ -9,18 +9,37 @@ job. The backend half — parsing, matching, and import — is documented in
 
 | File                                 | Role                                                |
 | ------------------------------------ | --------------------------------------------------- |
-| `components/ReleaseFilesModal.tsx`   | Files tab (read-only) and Mapping tab               |
+| `components/ReleaseDetailsModal.tsx` | The window: General and Content tabs, and edit mode |
+| `components/ReleaseGeneralTab.tsx`   | Everything the release row itself knows             |
+| `components/ReleaseContentTab.tsx`   | The files and where they are mapped, read-only      |
 | `fileMapping/FileMappingForm.tsx`    | Wires the hook to the save mutation                 |
 | `fileMapping/FileMappingToolbar.tsx` | Bulk actions                                        |
 | `fileMapping/FileMappingRow.tsx`     | One file's request select and season/episode inputs |
 | `fileMapping/useFileMappingForm.ts`  | All the state                                       |
 | `components/OtherFilesSection.tsx`   | Collapsed non-video files                           |
 
+## The window
+
+A release card's **Details** button opens `ReleaseDetailsModal`, which is two tabs over one
+release. **General** is a label/value read of the release row — status, quality, size, tracker
+link, info hash, its three dates, the transfer stats, file counts, related requests and the
+warnings the card only shows as badges. **Content** is the file list with each file's current
+mapping.
+
+The mapping editor is not a tab. `Content` is read-only until **Edit mapping** is pressed, and
+the form then replaces the list in place: it is a mode of one tab, so a glance at the files
+cannot change anything. Save stores the mappings and hands the list back; Cancel exits too,
+asking first when there are unsaved changes. With Mantine's default `keepMounted` both panels
+stay mounted, so peeking at General mid-edit does not drop the drafts. Closing the window, or
+opening it for another release, resets to General with the list read-only — a render-phase sync
+in `ReleaseDetailsModal`, the same shape as the one `useFileMappingForm` keeps itself current
+with.
+
 Video files are listed first and non-video files are collapsed, via `splitVideoFiles` in
 `utils/files.ts`. Both buckets sort with `compareByFileName`, a `localeCompare` with
 `numeric: true`, so `E9` precedes `E10`.
 
-The modal does not hold the release it was opened from: `RequestDetailPage` keeps the clicked
+The window does not hold the release it was opened from: `RequestDetailPage` keeps the clicked
 release's id and reads the release out of the releases query, so a re-grab that rewrites it — and
 swaps its whole file list with the replacement torrent's — shows up in a panel that is already
 open. A refresh that re-grabbed anything also invalidates the suggestions query
