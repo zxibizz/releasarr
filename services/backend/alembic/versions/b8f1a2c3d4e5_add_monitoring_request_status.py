@@ -39,6 +39,10 @@ def downgrade() -> None:
     # fall back to pending, the status the release sync promotes them from.
     allowed = ", ".join(f"'{label}'" for label in OLD_STATUSES)
 
+    # The column default is stored as ``'pending'::media_request_status`` and
+    # keeps depending on the type across the cast to text, so DROP TYPE fails
+    # unless it is removed first and restored once the new type exists.
+    op.execute(sa.text("ALTER TABLE media_requests ALTER COLUMN status DROP DEFAULT"))
     op.execute(
         sa.text(
             "ALTER TABLE media_requests ALTER COLUMN status TYPE text USING status::text"
@@ -55,3 +59,4 @@ def downgrade() -> None:
             "USING status::media_request_status"
         )
     )
+    op.execute(sa.text("ALTER TABLE media_requests ALTER COLUMN status SET DEFAULT 'pending'"))

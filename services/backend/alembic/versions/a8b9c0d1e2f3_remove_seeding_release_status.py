@@ -37,6 +37,10 @@ def upgrade() -> None:
     # finished downloads awaiting import, which is what ``completed`` means.
     allowed = ", ".join(f"'{label}'" for label in OLD_STATUSES if label != REMOVED_STATUS)
 
+    # The column default is stored as ``'pending'::release_status`` and keeps
+    # depending on the type across the cast to text, so DROP TYPE fails unless it
+    # is removed first and restored once the new type exists.
+    op.execute(sa.text("ALTER TABLE releases ALTER COLUMN status DROP DEFAULT"))
     op.execute(
         sa.text(
             "ALTER TABLE releases ALTER COLUMN status TYPE text USING status::text"
@@ -55,6 +59,7 @@ def upgrade() -> None:
             "USING status::release_status"
         )
     )
+    op.execute(sa.text("ALTER TABLE releases ALTER COLUMN status SET DEFAULT 'pending'"))
 
 
 def downgrade() -> None:
