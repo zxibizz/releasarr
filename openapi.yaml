@@ -2693,6 +2693,14 @@ components:
         mapping:
           movie: '#/components/schemas/MovieFileRequestMapping'
           series: '#/components/schemas/SeriesFileRequestMapping'
+    FileRequestMappingOrNull:
+      description: >-
+        A mapping to store for a release file, or `null`, which clears the file's
+        mapping. Omitting the file from an update altogether leaves its mapping
+        as it is.
+      nullable: true
+      oneOf:
+        - $ref: '#/components/schemas/FileRequestMapping'
     MovieFileRequestMapping:
       type: object
       required: [request_id, mapping_type]
@@ -2728,7 +2736,7 @@ components:
         file_id:
           type: string
         request_mapping:
-          $ref: '#/components/schemas/FileRequestMapping'
+          $ref: '#/components/schemas/FileRequestMappingOrNull'
     ReleaseFileMappingsUpdate:
       type: object
       required: [files]

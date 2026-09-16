@@ -159,20 +159,25 @@ const withSuggestions = (
   return next;
 };
 
-/** A mapping is only persistable once it points at a request. */
-const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput | null => {
+/**
+ * What to send for one file. A draft the reader has left unmapped clears the
+ * file's stored mapping rather than saying nothing about it — automapping, and
+ * clearing a row by hand, both depend on that. A file that was never mapped has
+ * nothing to clear and is left out of the payload.
+ */
+const toPayload = (file: ReleaseFile, draft: MappingDraft): ReleaseFileMappingInput | null => {
   if (!draft.requestId) {
-    return null;
+    return file.request_mapping ? { file_id: file.id, request_mapping: null } : null;
   }
 
   if (draft.mappingType === 'series') {
-    // Guessing 1 here would persist a wrong episode; leave the file unmapped instead.
+    // Guessing 1 here would persist a wrong episode; leave the file as it is instead.
     if (!draft.season || !draft.episode) {
       return null;
     }
 
     return {
-      file_id: fileId,
+      file_id: file.id,
       request_mapping: {
         request_id: draft.requestId,
         request_title: draft.requestTitle || undefined,
@@ -184,7 +189,7 @@ const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput
   }
 
   return {
-    file_id: fileId,
+    file_id: file.id,
     request_mapping: {
       request_id: draft.requestId,
       request_title: draft.requestTitle || undefined,
@@ -337,7 +342,7 @@ export function useFileMappingForm(
   const buildPayload = useCallback(
     (targetFiles: ReleaseFile[]): ReleaseFileMappingInput[] =>
       targetFiles
-        .map((file) => toPayload(file.id, getDraft(file.id)))
+        .map((file) => toPayload(file, getDraft(file.id)))
         .filter((entry): entry is ReleaseFileMappingInput => entry !== null),
     [getDraft],
   );

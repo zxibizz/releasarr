@@ -228,6 +228,46 @@ describe('useFileMappingForm', () => {
       season: 2,
       episode: 2,
     });
+
+    // And saving says so: the file the automapper could not place is cleared
+    // rather than left on the mapping it used to have.
+    expect(result.current.buildPayload(stored)).toEqual([
+      { file_id: 'f1', request_mapping: null },
+      {
+        file_id: 'f2',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Avatar - Season 2',
+          mapping_type: 'series',
+          season: 2,
+          episode: 2,
+        },
+      },
+    ]);
+  });
+
+  it('clears a mapping when its row is emptied', () => {
+    const stored: ReleaseFile[] = [
+      {
+        ...files[0],
+        request_mapping: {
+          request_id: 'req-9',
+          request_title: 'Existing',
+          mapping_type: 'series',
+          season: 3,
+          episode: 7,
+        },
+      },
+    ];
+
+    const { result } = renderHook(() => useFileMappingForm(stored));
+
+    act(() => result.current.selectRequest('f1', null));
+
+    // An emptied row says `null` rather than dropping out of the payload: the
+    // stored mapping has to be cleared, not left standing.
+    expect(result.current.buildPayload(stored)).toEqual([{ file_id: 'f1', request_mapping: null }]);
+    expect(result.current.buildPayload([files[1]])).toEqual([]);
   });
 
   it('spreads a pack across seasons when applying one request to all files', () => {

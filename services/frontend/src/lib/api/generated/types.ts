@@ -1203,6 +1203,8 @@ export interface components {
             } | null;
         };
         FileRequestMapping: components["schemas"]["MovieFileRequestMapping"] | components["schemas"]["SeriesFileRequestMapping"];
+        /** @description A mapping to store for a release file, or `null`, which clears the file's mapping. Omitting the file from an update altogether leaves its mapping as it is. */
+        FileRequestMappingOrNull: components["schemas"]["FileRequestMapping"] | null;
         MovieFileRequestMapping: {
             request_id: string;
             request_title?: string;
@@ -1225,7 +1227,7 @@ export interface components {
         };
         ReleaseFileMappingInput: {
             file_id: string;
-            request_mapping?: components["schemas"]["FileRequestMapping"];
+            request_mapping?: components["schemas"]["FileRequestMappingOrNull"];
         };
         ReleaseFileMappingsUpdate: {
             files: components["schemas"]["ReleaseFileMappingInput"][];
