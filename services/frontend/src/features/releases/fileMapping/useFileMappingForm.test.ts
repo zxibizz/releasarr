@@ -28,6 +28,21 @@ const seriesRequest: MediaRequest = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
+const movieRequest: MediaRequest = {
+  id: 'req-m',
+  type: 'movie',
+  title: 'Dune: Part Two',
+  year: 2024,
+  runtime: 166,
+  imdb_id: 'tt15239678',
+  poster_url: 'https://example.test/dune.jpg',
+  overview: '',
+  genres: [],
+  status: 'downloading',
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+};
+
 const seasonRequest = (id: string, seasonNumber: number): MediaRequest => ({
   ...seriesRequest,
   id,
@@ -87,18 +102,187 @@ describe('useFileMappingForm', () => {
     expect(result.current.buildPayload(files)).toEqual([]);
   });
 
-  it('applies a series request to every file, leaving the episode to be filled in', () => {
-    const { result } = renderHook(() => useFileMappingForm(files));
+  it('maps the whole release onto its own request, numbering what it cannot place', () => {
+    const { result } = renderHook(() => useFileMappingForm(files, packRequests));
 
-    act(() => result.current.applyToAll(seriesRequest, files));
+    act(() => result.current.automap(seriesRequest, [files[0], files[1]]));
 
+    // The request owns a season but no series entry for it, so it maps itself;
+    // the files are numbered in name order from one.
     expect(result.current.getDraft('f1')).toMatchObject({
+      requestId: 'req-1',
+      requestTitle: 'Show',
+      mappingType: 'series',
+      season: 2,
+      episode: 1,
+    });
+    expect(result.current.getDraft('f2')).toMatchObject({
       requestId: 'req-1',
       mappingType: 'series',
       season: 2,
-      episode: undefined,
+      episode: 2,
     });
-    expect(result.current.dirtyFileIds).toHaveLength(3);
+    // Not one of the files it was handed, so it is left alone.
+    expect(result.current.getDraft('f3').requestId).toBe('');
+
+    expect(result.current.buildPayload([files[0], files[1]])).toEqual([
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Show',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+      {
+        file_id: 'f2',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Show',
+          mapping_type: 'series',
+          season: 2,
+          episode: 2,
+        },
+      },
+    ]);
+  });
+
+  it('replaces the stored mappings rather than building on them', () => {
+    const stored: ReleaseFile[] = [
+      {
+        ...files[0],
+        request_mapping: {
+          request_id: 'req-9',
+          request_title: 'Existing',
+          mapping_type: 'series',
+          season: 3,
+          episode: 7,
+        },
+      },
+      {
+        ...files[2],
+        request_mapping: {
+          request_id: 'req-9',
+          request_title: 'Existing',
+          mapping_type: 'movie',
+        },
+      },
+    ];
+
+    const { result } = renderHook(() => useFileMappingForm(stored, packRequests));
+
+    expect(result.current.getDraft('f1')).toMatchObject({ requestId: 'req-9', episode: 7 });
+
+    act(() => result.current.automap(seriesRequest, [stored[0]]));
+
+    // The stored season 3 episode 7 is gone, not carried over.
+    expect(result.current.getDraft('f1')).toMatchObject({
+      requestId: 'req-1',
+      season: 2,
+      episode: 1,
+    });
+
+    // And saving says so: the file automapping did not speak for is cleared
+    // rather than left on the mapping it used to have.
+    expect(result.current.buildPayload(stored)).toEqual([
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Show',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+      { file_id: 'f3', request_mapping: null },
+    ]);
+  });
+
+  it('numbers files on after the episodes the automapper placed itself', () => {
+    const mixed: ReleaseFile[] = [
+      { id: 'a', name: 'Avatar.S01E01.mkv', size: 1, path: 'Avatar/Avatar.S01E01.mkv' },
+      { id: 'b', name: 'Second.mkv', size: 1, path: 'Avatar/Second.mkv' },
+      { id: 'c', name: 'Third.mkv', size: 1, path: 'Avatar/Third.mkv' },
+    ];
+
+    const { result } = renderHook(() =>
+      useFileMappingForm(mixed, packRequests, [suggest('a', 'req-s1', 1, 1)]),
+    );
+
+    act(() => result.current.automap(packRequests[0], mixed));
+
+    // The proposal keeps its episode; numbering carries on from it instead of
+    // starting again at one and clashing with it.
+    expect(result.current.getDraft('a')).toMatchObject({
+      requestId: 'req-s1',
+      season: 1,
+      episode: 1,
+    });
+    expect(result.current.getDraft('b')).toMatchObject({
+      requestId: 'req-s1',
+      season: 1,
+      episode: 2,
+    });
+    expect(result.current.getDraft('c')).toMatchObject({
+      requestId: 'req-s1',
+      season: 1,
+      episode: 3,
+    });
+  });
+
+  it('maps every listed file to a movie request', () => {
+    const { result } = renderHook(() => useFileMappingForm(files, packRequests));
+
+    act(() => result.current.automap(movieRequest, [files[0], files[1]]));
+
+    expect(result.current.getDraft('f1')).toMatchObject({
+      requestId: 'req-m',
+      requestTitle: 'Dune: Part Two',
+      mappingType: 'movie',
+    });
+    expect(result.current.buildPayload([files[0], files[1]])).toEqual([
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-m',
+          request_title: 'Dune: Part Two',
+          mapping_type: 'movie',
+        },
+      },
+      {
+        file_id: 'f2',
+        request_mapping: {
+          request_id: 'req-m',
+          request_title: 'Dune: Part Two',
+          mapping_type: 'movie',
+        },
+      },
+    ]);
+  });
+
+  it('leaves the stored mappings alone when there is no request to map to', () => {
+    const stored: ReleaseFile[] = [
+      {
+        ...files[0],
+        request_mapping: {
+          request_id: 'req-9',
+          request_title: 'Existing',
+          mapping_type: 'series',
+          season: 3,
+          episode: 7,
+        },
+      },
+    ];
+
+    const { result } = renderHook(() => useFileMappingForm(stored, packRequests));
+
+    act(() => result.current.automap(undefined, stored));
+
+    expect(result.current.getDraft('f1').requestId).toBe('');
+    expect(result.current.buildPayload(stored)).toEqual([{ file_id: 'f1', request_mapping: null }]);
   });
 
   it('serialises series mappings into the API payload shape', () => {
@@ -121,10 +305,10 @@ describe('useFileMappingForm', () => {
   });
 
   it('reverts drafts back to their initial values on reset', () => {
-    const { result } = renderHook(() => useFileMappingForm(files));
+    const { result } = renderHook(() => useFileMappingForm(files, packRequests));
 
-    act(() => result.current.applyToAll(seriesRequest, files));
-    expect(result.current.dirtyFileIds).toHaveLength(3);
+    act(() => result.current.automap(seriesRequest, [files[0], files[1]]));
+    expect(result.current.dirtyFileIds).toHaveLength(2);
 
     act(() => result.current.reset());
     expect(result.current.dirtyFileIds).toEqual([]);
@@ -197,55 +381,6 @@ describe('useFileMappingForm', () => {
     expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
   });
 
-  it('drops the stored mappings and leaves the automapper the whole answer', () => {
-    const stored: ReleaseFile[] = [
-      {
-        ...files[0],
-        request_mapping: {
-          request_id: 'req-9',
-          request_title: 'Existing',
-          mapping_type: 'series',
-          season: 3,
-          episode: 7,
-        },
-      },
-      files[1],
-    ];
-
-    // A proposal for the second file only. The first one's stored mapping has to
-    // go: automapping replaces the whole set rather than patching holes in it.
-    const { result } = renderHook(() =>
-      useFileMappingForm(stored, packRequests, [suggest('f2', 'req-1', 2, 2)]),
-    );
-
-    expect(result.current.getDraft('f1')).toMatchObject({ requestId: 'req-9', episode: 7 });
-
-    act(() => result.current.automap());
-
-    expect(result.current.getDraft('f1').requestId).toBe('');
-    expect(result.current.getDraft('f2')).toMatchObject({
-      requestId: 'req-1',
-      season: 2,
-      episode: 2,
-    });
-
-    // And saving says so: the file the automapper could not place is cleared
-    // rather than left on the mapping it used to have.
-    expect(result.current.buildPayload(stored)).toEqual([
-      { file_id: 'f1', request_mapping: null },
-      {
-        file_id: 'f2',
-        request_mapping: {
-          request_id: 'req-1',
-          request_title: 'Avatar - Season 2',
-          mapping_type: 'series',
-          season: 2,
-          episode: 2,
-        },
-      },
-    ]);
-  });
-
   it('clears a mapping when its row is emptied', () => {
     const stored: ReleaseFile[] = [
       {
@@ -270,27 +405,12 @@ describe('useFileMappingForm', () => {
     expect(result.current.buildPayload([files[1]])).toEqual([]);
   });
 
-  it('spreads a pack across seasons when applying one request to all files', () => {
-    const { result } = renderHook(() =>
-      useFileMappingForm(packFiles, packRequests, packSuggestions),
-    );
+  it('leaves a series choice without an episode number out of the payload', () => {
+    const { result } = renderHook(() => useFileMappingForm(files, packRequests));
 
-    act(() => result.current.applyToAll(packRequests[0], packFiles));
+    act(() => result.current.selectRequest('f1', packRequests[0]));
 
-    expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
-    expect(result.current.getDraft('p3')).toMatchObject({ requestId: 'req-s3', season: 3 });
-  });
-
-  it('leaves series files without an episode number out of the payload', () => {
-    const unmatched: ReleaseFile[] = [
-      { id: 'x1', name: 'behind the scenes.mkv', size: 1, path: 'Avatar/behind the scenes.mkv' },
-    ];
-
-    const { result } = renderHook(() => useFileMappingForm(unmatched, packRequests));
-
-    act(() => result.current.applyToAll(packRequests[0], unmatched));
-
-    expect(result.current.getDraft('x1')).toMatchObject({ season: 1, episode: undefined });
-    expect(result.current.buildPayload(unmatched)).toEqual([]);
+    expect(result.current.getDraft('f1')).toMatchObject({ season: 1, episode: undefined });
+    expect(result.current.buildPayload(files)).toEqual([]);
   });
 });

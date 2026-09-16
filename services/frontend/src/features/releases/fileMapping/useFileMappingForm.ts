@@ -8,6 +8,7 @@ import type {
   ReleaseFileMappingSuggestion,
   SeriesRequest,
 } from '@/types';
+import { compareByFileName } from '@/utils/files';
 
 export type MappingType = 'movie' | 'series';
 
@@ -268,61 +269,73 @@ export function useFileMappingForm(
   );
 
   /**
-   * Applies one request to every listed file. For a series the request only sets
-   * the series: each file still lands on the request owning its own season.
+   * The whole release mapped to the request whose page this is, in one tap: the
+   * automapper's proposals where it has them, and the files it cannot place
+   * numbered in name order around them. The stored mappings go first, so what a
+   * file was mapped to before never decides what it is mapped to now.
    */
-  const applyToAll = useCallback(
-    (request: MediaRequest, targetFiles: ReleaseFile[]) => {
-      const seasonIndex = isSeriesRequest(request)
-        ? seasonIndexes.get(seriesKeyOfRequest(request))
+  const automap = useCallback(
+    (targetRequest: MediaRequest | undefined, targetFiles: ReleaseFile[]) => {
+      const next: DraftMap = {};
+
+      files.forEach((file) => {
+        next[file.id] = { ...EMPTY_DRAFT };
+      });
+
+      suggestions.forEach((suggestion) => {
+        next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
+      });
+
+      if (!targetRequest) {
+        setDrafts(next);
+        return;
+      }
+
+      /*
+       * Numbering continues from whatever the proposals already placed, per
+       * season, so numbering a half-mapped season carries on after the highest
+       * episode there rather than renumbering it from one.
+       */
+      const lastEpisode = new Map<number, number>();
+      Object.values(next).forEach((draft) => {
+        if (draft.season !== undefined && draft.episode !== undefined) {
+          lastEpisode.set(
+            draft.season,
+            Math.max(lastEpisode.get(draft.season) ?? 0, draft.episode),
+          );
+        }
+      });
+
+      const isSeries = isSeriesRequest(targetRequest);
+      const season = isSeries ? targetRequest.season_number : undefined;
+      const seasonIndex = isSeries
+        ? seasonIndexes.get(seriesKeyOfRequest(targetRequest))
         : undefined;
 
-      setDrafts((current) => {
-        const next = { ...current };
+      // Name order, because that is the order the release itself is in.
+      [...targetFiles].sort(compareByFileName).forEach((file) => {
+        if (next[file.id]?.requestId) {
+          return;
+        }
 
-        targetFiles.forEach((file) => {
-          if (!isSeriesRequest(request)) {
-            next[file.id] = {
-              requestId: request.id,
-              requestTitle: request.title,
-              mappingType: 'movie',
-            };
-            return;
-          }
+        if (season === undefined) {
+          next[file.id] = {
+            requestId: targetRequest.id,
+            requestTitle: targetRequest.title,
+            mappingType: 'movie',
+          };
+          return;
+        }
 
-          const draft = current[file.id];
-          next[file.id] = seriesDraft(
-            draft?.season ?? request.season_number,
-            draft?.episode,
-            request,
-            seasonIndex,
-          );
-        });
-
-        return next;
+        const episode = (lastEpisode.get(season) ?? 0) + 1;
+        lastEpisode.set(season, episode);
+        next[file.id] = seriesDraft(season, episode, targetRequest, seasonIndex);
       });
+
+      setDrafts(next);
     },
-    [seasonIndexes],
+    [files, seasonIndexes, suggestions],
   );
-
-  /**
-   * Everything the automapper proposes, and nothing else: the stored mappings go
-   * first, so a file it proposes nothing for ends up unmapped rather than keeping
-   * whatever was chosen for it last time.
-   */
-  const automap = useCallback(() => {
-    const next: DraftMap = {};
-
-    files.forEach((file) => {
-      next[file.id] = { ...EMPTY_DRAFT };
-    });
-
-    suggestions.forEach((suggestion) => {
-      next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
-    });
-
-    setDrafts(next);
-  }, [files, suggestions]);
 
   const reset = useCallback(() => setDrafts(initialDrafts), [initialDrafts]);
 
@@ -351,7 +364,6 @@ export function useFileMappingForm(
     getDraft,
     updateDraft,
     selectRequest,
-    applyToAll,
     automap,
     reset,
     isDirty,
