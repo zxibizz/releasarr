@@ -60,7 +60,7 @@ const REFRESH_BUTTON = 'Refresh';
 
 function renderList() {
   return renderWithProviders(
-    <ReleaseList requestId="1" onViewFiles={() => {}} onReleasesLoaded={() => {}} />,
+    <ReleaseList requestId="1" onViewDetails={() => {}} onReleasesLoaded={() => {}} />,
   );
 }
 

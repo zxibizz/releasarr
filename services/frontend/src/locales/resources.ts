@@ -466,12 +466,11 @@ export const resources = {
           subtitle_other: '{{count}} subtitles',
         },
         aria: {
-          viewFiles: 'View files',
           toggleDetails: 'Toggle details',
           delete: 'Delete release',
         },
         buttons: {
-          files: 'Files',
+          details: 'Details',
           pause: 'Pause',
           resume: 'Resume',
         },
@@ -498,6 +497,45 @@ export const resources = {
         fileWarnings: {
           unmappedBadge: 'New files unmapped',
           missingBadge: 'Replacement incomplete',
+        },
+      },
+      releaseDetails: {
+        tabs: {
+          general: 'General',
+          content: 'Content',
+        },
+        general: {
+          status: 'Status',
+          quality: 'Quality',
+          size: 'Size',
+          source: 'Source',
+          hash: 'Info hash',
+          published: 'Published',
+          added: 'Added',
+          completed: 'Completed',
+          downloaded: 'Downloaded',
+          downloadSpeed: 'Download speed',
+          uploadSpeed: 'Upload speed',
+          eta: 'ETA',
+          files: 'Files',
+          otherFiles_one: '{{count}} other file',
+          otherFiles_other: '{{count}} other files',
+        },
+        content: {
+          editMapping: 'Edit mapping',
+          mapping: 'Mapping',
+          notMapped: 'Not mapped',
+          empty: {
+            title: 'No files to list',
+            description: 'This release has not reported any files yet.',
+          },
+        },
+        editMode: {
+          discard: {
+            title: 'Discard mapping changes',
+            body: 'Your unsaved mapping changes will be lost.',
+            confirm: 'Discard',
+          },
         },
       },
       existingReleases: {
@@ -1383,12 +1421,11 @@ export const resources = {
           subtitle_many: '{{count}} субтитров',
         },
         aria: {
-          viewFiles: 'Открыть файлы',
           toggleDetails: 'Показать детали',
           delete: 'Удалить релиз',
         },
         buttons: {
-          files: 'Файлы',
+          details: 'Детали',
           pause: 'Пауза',
           resume: 'Продолжить',
         },
@@ -1420,6 +1457,47 @@ export const resources = {
         fileWarnings: {
           unmappedBadge: 'Новые файлы не сопоставлены',
           missingBadge: 'Замена неполная',
+        },
+      },
+      releaseDetails: {
+        tabs: {
+          general: 'Общее',
+          content: 'Содержимое',
+        },
+        general: {
+          status: 'Статус',
+          quality: 'Качество',
+          size: 'Размер',
+          source: 'Источник',
+          hash: 'Хеш',
+          published: 'Опубликован',
+          added: 'Добавлен',
+          completed: 'Завершён',
+          downloaded: 'Скачано',
+          downloadSpeed: 'Скорость загрузки',
+          uploadSpeed: 'Скорость отдачи',
+          eta: 'Осталось',
+          files: 'Файлы',
+          otherFiles_one: '{{count}} прочий файл',
+          otherFiles_few: '{{count}} прочих файла',
+          otherFiles_many: '{{count}} прочих файлов',
+          otherFiles_other: '{{count}} прочих файлов',
+        },
+        content: {
+          editMapping: 'Изменить сопоставление',
+          mapping: 'Сопоставление',
+          notMapped: 'Не сопоставлен',
+          empty: {
+            title: 'Нет файлов',
+            description: 'Этот релиз ещё не сообщил о своих файлах.',
+          },
+        },
+        editMode: {
+          discard: {
+            title: 'Отменить изменения сопоставления',
+            body: 'Несохранённые изменения сопоставления будут потеряны.',
+            confirm: 'Отменить',
+          },
         },
       },
       existingReleases: {

@@ -15,18 +15,8 @@ import { IconAlertTriangle, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import type { Release } from '@/types';
-import {
-  calculateEta,
-  daysSince,
-  formatDateTime,
-  formatFileSize,
-  formatProgress,
-  formatRatio,
-  formatSpeed,
-} from '@/utils/formatters';
-import { groupFilesByType } from '@/utils/files';
+import { healthColor, releaseAgeLabel, releaseHealthScore } from '@/features/releases/formatting';
+import { relatedRequestIds } from '@/features/releases/relatedRequests';
 import {
   hasMappingOverlap,
   missingRegrabFileCount,
@@ -35,36 +25,35 @@ import {
   regrabUnavailableReason,
   unmappedRegrabFileCount,
 } from '@/features/releases/warnings';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import type { Release } from '@/types';
+import {
+  calculateEta,
+  formatDateTime,
+  formatFileSize,
+  formatProgress,
+  formatRatio,
+  formatSpeed,
+} from '@/utils/formatters';
+import { groupFilesByType } from '@/utils/files';
 
 interface ReleaseCardProps {
   release: Release;
   /** Titles of other requests this release also belongs to, keyed by request id. */
   relatedRequestTitles: Map<string, string>;
   currentRequestId: string;
-  onViewFiles: (release: Release) => void;
+  onViewDetails: (release: Release) => void;
   onPause: (releaseId: string) => void;
   onResume: (releaseId: string) => void;
   onDelete: (releaseId: string) => void;
   isBusy?: boolean;
 }
 
-const healthScore = (release: Release): number => {
-  if (release.seeders === 0) return 0;
-  if (release.leechers === 0) return 100;
-  return Math.round((release.seeders / (release.seeders + release.leechers)) * 100);
-};
-
-const healthColor = (score: number): string => {
-  if (score >= 70) return 'teal';
-  if (score >= 40) return 'yellow';
-  return 'red';
-};
-
 export function ReleaseCard({
   release,
   relatedRequestTitles,
   currentRequestId,
-  onViewFiles,
+  onViewDetails,
   onPause,
   onResume,
   onDelete,
@@ -83,18 +72,10 @@ export function ReleaseCard({
       : null;
 
   const files = groupFilesByType(release.files ?? []);
-  const health = healthScore(release);
-  const releaseAge = daysSince(release.published_date);
+  const health = releaseHealthScore(release);
   const publishedAt = release.published_date ? formatDateTime(release.published_date) : null;
-  const ageLabel = (days: number | null): string => {
-    if (days === null) return t('releaseSearch.age.unknown');
-    if (days < 1) return t('releaseSearch.age.today');
-    return t('releaseSearch.age.days', { count: Math.floor(days) });
-  };
 
-  const relatedRequests = [...new Set(release.request_ids ?? [])].filter(
-    (id) => id !== currentRequestId,
-  );
+  const relatedRequests = relatedRequestIds(release, currentRequestId);
 
   const confirmDelete = () =>
     modals.openConfirmModal({
@@ -127,7 +108,7 @@ export function ReleaseCard({
               <Group gap={6} c="dimmed" wrap="wrap">
                 {release.published_date && (
                   <Text size="sm" title={publishedAt ?? undefined}>
-                    🕒 {ageLabel(releaseAge)}
+                    🕒 {releaseAgeLabel(release, t)}
                   </Text>
                 )}
                 {release.published_date && (release.torrent_source || release.info_url) && (
@@ -340,11 +321,11 @@ export function ReleaseCard({
           <Group gap="xs" wrap="nowrap" style={{ flex: actionRowFlex }}>
             <Button
               size={actionSize}
-              onClick={() => onViewFiles(release)}
+              onClick={() => onViewDetails(release)}
               disabled={isBusy}
               style={{ flex: actionFlex }}
             >
-              {t('releaseCard.buttons.files')}
+              {t('releaseCard.buttons.details')}
             </Button>
 
             {isActive && release.status === 'downloading' && (

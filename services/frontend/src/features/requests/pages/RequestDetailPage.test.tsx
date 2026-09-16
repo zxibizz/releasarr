@@ -308,7 +308,7 @@ describe('RequestDetailPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the open files modal showing the release as it now stands', async () => {
+  it('keeps the open details window showing the release as it now stands', async () => {
     /*
      * A re-grab rewrites the release and swaps its files underneath, so the panel
      * has to read the release out of the list rather than out of the click that
@@ -317,7 +317,8 @@ describe('RequestDetailPage', () => {
     stubRoutes({ releases: [releaseWith('Show.S02E01.mkv')] });
     const { queryClient } = renderWithProviders(<RequestDetailPage />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Files' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Details' }));
+    await userEvent.click(await screen.findByRole('tab', { name: 'Content' }));
     expect((await screen.findAllByText('Show.S02E01.mkv')).length).toBeGreaterThan(0);
 
     stubRoutes({ releases: [releaseWith('Show.S02E01.mkv', 'Show.S02E02.mkv')] });
