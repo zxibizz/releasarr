@@ -75,8 +75,12 @@ Things that will surprise you:
 - **`/wanted/missing` is fetched as one page** of `pageSize=1000`. There is no pagination
   follow-up; a library with more missing episodes than that would be silently truncated.
 - **`wait_for_series_episodes`** polls `/series/{id}` every second for up to 30s after an add,
-  because Sonarr populates episodes asynchronously. A timeout is *not* an error — it returns
-  whatever it last read, so the caller must cope with an incomplete season list.
+  because Sonarr both populates episodes and settles monitoring asynchronously. It returns once
+  the requested seasons report episodes *and* `addOptions` has gone from the payload — Sonarr
+  clears those last, after the post-add pass has rewritten season and episode monitoring, so
+  anything read or written before that is overwritten seconds later. A timeout is *not* an
+  error — it returns whatever it last read, so the caller must cope with an incomplete season
+  list and with `has_add_options` still set.
 - **`_await_command`** polls for up to 300s and treats a timeout as success. A slow Sonarr
   therefore looks like a successful import.
 - **`manual_import` swallows HTTP errors and returns `False`.** The export use case turns that
@@ -92,6 +96,13 @@ Things that will surprise you:
   episode is flagged monitored). Both `IgnoreEpisodes*` flags are sent as `false` because they
   default to `on`, and either one on leaves the flagged seasons' episodes unmonitored, so they
   stay out of Sonarr's wanted list and out of our own sync.
+- **The add is checked afterwards rather than trusted.** What Sonarr ends up monitoring is its
+  own decision, taken after the scan that follows the add, and a season selection it does not
+  apply is invisible until the next sync adopts every monitored season it finds as a request of
+  its own. `AddMediaRequestUseCase._confine_to_requested_seasons` reads the settled series back
+  and unmonitors anything outside the request, logging a warning when it has to. Only a series
+  just added is corrected this way: nothing else can have monitored those seasons a moment ago,
+  so nothing of the user's is taken away.
 - **`apply_season_monitoring` is additive and safe**: monitor wins over unmonitor, seasons not
   mentioned keep their current flag.
 - **`delete_series` is asked for only after reading the series back and finding it empty**: no

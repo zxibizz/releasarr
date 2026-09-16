@@ -842,6 +842,7 @@ def make_series_details(
     seasons: dict[int, tuple[int, bool]] | None = None,
     downloaded_seasons: Sequence[int] | None = None,
     monitor_new_seasons: bool = False,
+    has_add_options: bool = False,
 ) -> SeriesDetails:
     """Build Sonarr series details from ``{season: (episode_count, monitored)}``.
 
@@ -871,6 +872,7 @@ def make_series_details(
             for season_number, (episode_count, season_monitored) in resolved.items()
         },
         monitor_new_seasons=monitor_new_seasons,
+        has_add_options=has_add_options,
     )
 
 

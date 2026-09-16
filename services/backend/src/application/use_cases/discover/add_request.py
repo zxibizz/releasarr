@@ -8,7 +8,7 @@ from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import MediaRequestRepository
 from src.application.interfaces.radarr import RadarrService
-from src.application.interfaces.sonarr import SonarrService
+from src.application.interfaces.sonarr import SeriesDetails, SonarrService
 from src.application.use_cases.discover.exceptions import (
     DisallowedRootFolderError,
     InvalidRootFolderError,
@@ -86,6 +86,7 @@ class AddMediaRequestUseCase:
             raise SeasonSelectionError(f"'{lookup.title}' has no season {missing}")
 
         series_id = lookup.existing_series_id
+        added = series_id is None
         if series_id is None:
             # Sonarr wants to know what to monitor to add a series at all, and a
             # series monitoring nothing is not something anyone asked for.
@@ -123,7 +124,9 @@ class AddMediaRequestUseCase:
 
         # A series added a moment ago has no episodes yet, and a request built
         # now would record every one of its seasons as empty.
-        await self._sonarr.wait_for_series_episodes(series_id, seasons)
+        details = await self._sonarr.wait_for_series_episodes(series_id, seasons)
+        if added:
+            await self._confine_to_requested_seasons(command, series_id, seasons, details)
 
         request_ids = await self._sync_sonarr.sync_series(
             series_id, seasons, owner_user_id=command.owner_user_id
@@ -136,6 +139,54 @@ class AddMediaRequestUseCase:
             requests=len(request_ids),
         )
         return await self._load_requests(request_ids)
+
+    async def _confine_to_requested_seasons(
+        self,
+        command: AddMediaRequestCommand,
+        series_id: int,
+        seasons: list[int],
+        details: SeriesDetails,
+    ) -> None:
+        """Leave a series just added monitoring the requested seasons and nothing else.
+
+        Sonarr settles a new series' monitoring itself, from the add options,
+        after the scan that follows the add - and a season selection it does not
+        end up applying is invisible until the next sync adopts every monitored
+        season it finds as a request of its own. Nothing but this add can have
+        monitored these seasons a moment ago, so correcting them takes nothing
+        away from the user, which is why only a series just added is corrected.
+        """
+
+        if details.has_add_options:
+            self._logger.warning(
+                "Sonarr had not settled the added series; left its monitoring unchecked",
+                tvdb_id=command.provider_id,
+                sonarr_series_id=series_id,
+            )
+            return
+
+        wanted = set(seasons)
+        stray = sorted(
+            season_number
+            for season_number, season in details.seasons.items()
+            if season.monitored and season_number not in wanted
+        )
+        if not stray:
+            return
+
+        self._logger.warning(
+            "Sonarr monitored seasons that were not requested",
+            tvdb_id=command.provider_id,
+            sonarr_series_id=series_id,
+            requested=seasons,
+            unmonitored=stray,
+        )
+        await self._sonarr.apply_season_monitoring(
+            series_id,
+            monitor=seasons,
+            unmonitor=stray,
+            monitor_new_seasons=command.monitor_new_seasons,
+        )
 
     async def _add_movie(self, command: AddMediaRequestCommand) -> list[MediaRequestDTO]:
         if command.season_numbers or command.monitor_new_seasons:
