@@ -60,6 +60,10 @@ export function FileMappingForm({
   const orderedFiles = useMemo(() => [...video, ...other], [video, other]);
   const rootFolder = useMemo(() => commonRootFolder(files), [files]);
 
+  // A release belongs to a request before anybody opens it, so automapping maps
+  // to this one rather than asking. A failed request is not a mapping target.
+  const targetRequest = availableRequests.find((request) => request.id === requestId);
+
   const hasChanges = form.dirtyFileIds.length > 0;
 
   const handleSave = async () => {
@@ -144,22 +148,17 @@ export function FileMappingForm({
       )}
 
       {/*
-        The bulk actions stay on the videos. Mapping a sample or an NFO onto a
-        request is never what "apply to all" was reached for, and the odd
-        subtitle that does need one is a single row away.
-      */}
+       * Numbering stays on the videos: a sample or an NFO is never the next
+       * episode, and the odd subtitle that is wanted is a single row away.
+       */}
       <FileMappingToolbar
-        requests={availableRequests}
-        requestsLoading={requestsLoading}
-        currentRequestId={requestId}
         /*
          * Automapping before the proposals are here would blank every stored
          * mapping only for the arriving proposals to leave those rows alone:
          * the sync fills in untouched rows, and these are no longer untouched.
          */
-        canAutomap={!suggestionsPending}
-        onApplyToAll={(request) => form.applyToAll(request, video)}
-        onAutomap={form.automap}
+        canAutomap={!suggestionsPending && Boolean(targetRequest)}
+        onAutomap={() => form.automap(targetRequest, video)}
       />
 
       {availableRequests.length === 0 && !requestsLoading && (

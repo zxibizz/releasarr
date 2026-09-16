@@ -542,8 +542,6 @@ export const resources = {
       fileMapping: {
         title: 'File request mapping',
         description: 'Map release files to requests to manage shared content.',
-        applyToAll: 'Apply request to all video files',
-        loadingRequests: 'Loading requests...',
         selectRequest: 'Select a request...',
         automap: 'Map automatically',
         undoAll: 'Undo all changes',
@@ -1538,8 +1536,6 @@ export const resources = {
       fileMapping: {
         title: 'Сопоставление файлов с запросами',
         description: 'Сопоставьте файлы релиза с запросами, чтобы управлять общим содержимым.',
-        applyToAll: 'Применить запрос ко всем видеофайлам',
-        loadingRequests: 'Загрузка запросов…',
         selectRequest: 'Выберите запрос…',
         automap: 'Сопоставить автоматически',
         undoAll: 'Отменить все изменения',

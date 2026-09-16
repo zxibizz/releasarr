@@ -13,7 +13,7 @@ job. The backend half — parsing, matching, and import — is documented in
 | `components/ReleaseGeneralTab.tsx`   | Everything the release row itself knows             |
 | `components/ReleaseContentTab.tsx`   | The files and where they are mapped, read-only      |
 | `fileMapping/FileMappingForm.tsx`    | Wires the hook to the save mutation                 |
-| `fileMapping/FileMappingToolbar.tsx` | Bulk actions                                        |
+| `fileMapping/FileMappingToolbar.tsx` | The automap action                                  |
 | `fileMapping/FileMappingRow.tsx`     | One file's request select and season/episode inputs |
 | `fileMapping/useFileMappingForm.ts`  | All the state                                       |
 | `components/OtherFilesSection.tsx`   | Collapsed non-video files                           |
@@ -117,28 +117,40 @@ each series to a `season → request` index, keyed by Sonarr id where available 
 to a normalized series title for requests that predate a Sonarr link.
 
 `seriesDraft` then resolves a file's request from its season rather than from whatever request
-the user clicked, which is why "apply request to all" on a series is really "apply this _series_
-to all" — each file still lands on the request owning its own season.
+the user clicked, which is why a proposal for a season other than the one on the page still lands
+on the request owning its own season.
 
-## Toolbar actions
+## The automap button
 
-| Action                           | Semantics                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Apply request to all video files | Movie: every video file gets that request. Series: each file keeps its season and routes through the season index. |
-| Map automatically                | The stored mappings go, and the automapper's proposals take their place.                                           |
+One action, and no request picker: the release already belongs to a request — the one whose page
+it was opened from — and the form hands that to `automap(targetRequest, videoFiles)`.
 
-The first targets **video files only**. The second covers every file in the release, because a
-subtitle the backend can place belongs on the episode it belongs to.
+| Step | What it does                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------- |
+| 1    | Blanks every file's draft, so nothing stored survives into the new set.                                       |
+| 2    | Lays the automapper's proposals over that as they are: they keep their own request, season and episode.       |
+| 3    | Numbers the video files it proposed nothing for onto the release's own request, in `compareByFileName` order. |
 
-Automapping is not a patch over what is stored: `automap` starts from a blank draft for every
-file and lays the proposals over that, so a file the server proposes nothing for ends up
-**unmapped** rather than keeping whatever a human chose for it last time. Nothing is persisted
-until Save, so "Undo all changes" is still there to take it back.
+Step 3 is what makes the button worth pressing on a release the backend cannot read: a file named
+`Hyakkano TV-3 - 01 (WEBRip 1920x1080).mkv` has no season or episode number to match on, so the
+automapper proposes nothing for it, and without the fallback it would be left blank.
+
+Numbering continues from what is already placed, per season, instead of restarting at one: a
+half-`S01E01..E04` series numbers `S01E05` next, whether those earlier episodes came from a
+proposal or from step 3. A series target maps to the season the request tracks; a movie target
+takes the whole file.
+
+Only **video files** are numbered — a sample or an NFO is not the next episode — while a proposal
+for any file, video or not, is kept as it is.
 
 The button is held disabled until the proposals have arrived (`isPending` on the suggestions
-query). Pressing it earlier would blank the stored mappings, and the proposals landing afterwards
-would then leave those rows alone — `withSuggestions` fills in untouched rows only, and these are
-no longer untouched.
+query). An earlier press would number a list the proposals are about to change underneath it, and
+`withSuggestions` only fills in rows nobody has touched.
+
+Step 1 is why automapping is not a patch over what is stored. A file left blank by all three steps
+— a non-video the automapper proposed nothing for — is **cleared** rather than left on whatever a
+human chose for it last time; see `toPayload`. Nothing is persisted until Save, so "Undo all
+changes" is still there to take it back.
 
 Mantine clips a Button's label instead of wrapping it (fixed root height, label kept to one
 line), so this button carries `styles` freeing both: its label is a sentence, and the Russian one

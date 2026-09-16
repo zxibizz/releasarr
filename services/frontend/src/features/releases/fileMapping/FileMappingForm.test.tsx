@@ -88,16 +88,20 @@ describe('FileMappingForm', () => {
     expect(await screen.findByText(/2 unsaved change/)).toBeInTheDocument();
   });
 
-  it('shows the current request preselected in the apply-to-all field', async () => {
+  it('maps to the request it was opened for, without asking which one', async () => {
     renderForm();
 
     await screen.findByText('Severance.S02E01.1080p.mkv');
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole('combobox', { name: /apply request to all video files/i }),
-      ).toHaveValue('Severance (2022)');
-    });
+    expect(
+      screen.queryByRole('combobox', { name: /apply request to all/i }),
+    ).not.toBeInTheDocument();
+
+    // Held back until the automapper's proposals are in, so a tap cannot blank
+    // the stored mappings for a list that is about to change underneath it.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Map automatically' })).toBeEnabled(),
+    );
   });
 
   it('keeps non-video files behind a collapsed section', async () => {

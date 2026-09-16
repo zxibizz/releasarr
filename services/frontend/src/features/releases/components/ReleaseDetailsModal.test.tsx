@@ -51,6 +51,13 @@ const unmappedExtra: ReleaseFile = {
   path: '/d/readme.nfo',
 };
 
+const secondVideo: ReleaseFile = {
+  id: 'f3',
+  name: 'Severance.S02E02.1080p.mkv',
+  size: 100,
+  path: '/d/f3.mkv',
+};
+
 const release = (...files: ReleaseFile[]): Release => ({
   id: 'rel-1',
   name: 'Severance.S02.2160p.WEB-DL-FLUX',
@@ -173,6 +180,10 @@ describe('ReleaseDetailsModal', () => {
 
     expect(await screen.findByRole('combobox', { name: 'Request' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit mapping' })).not.toBeInTheDocument();
+    // The release knows which request it belongs to, so nothing asks again.
+    expect(
+      screen.queryByRole('combobox', { name: /apply request to all/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('stores the mappings and hands the list back', async () => {
@@ -192,32 +203,59 @@ describe('ReleaseDetailsModal', () => {
     expect(await screen.findByRole('button', { name: 'Edit mapping' })).toBeInTheDocument();
   });
 
-  it('stops a row claiming to be mapped once automapping could not place it', async () => {
-    // Nothing to propose, so the file keeps only what the server already holds.
+  it('numbers the files automapping cannot place on the release own request', async () => {
+    // Nothing to propose: these are the files the backend cannot read an episode
+    // number out of, which is exactly when a person reaches for the button.
     vi.mocked(apiRequest).mockImplementation(async (path: string) => {
       if (path === `${MAPPING_PATH}/suggestions`) {
         return { files: [] };
       }
+      if (path === MAPPING_PATH) {
+        return { success: true };
+      }
       return { requests: [seriesRequest], total: 1 };
     });
 
-    renderModal(release(mappedVideo));
+    renderModal(release(mappedVideo, secondVideo));
     await enterEditMode();
 
     expect(await screen.findByText('Mapped')).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: 'Map automatically' }));
 
-    const select = screen.getByRole('combobox', { name: 'Request' });
-    expect(select).toHaveValue('');
-    expect(screen.queryByText('Mapped')).not.toBeInTheDocument();
-    // Said only while it disagrees with the row, which this one now does.
-    expect(screen.getByText(/Current: Severance — S02E01/)).toBeInTheDocument();
+    // The mapped file is numbered back onto what it already had; the unplaced one
+    // carries on from it rather than being left blank.
+    expect(await screen.findByText(/1 unsaved change/)).toBeInTheDocument();
+    expect(screen.getAllByText('Mapped')).toHaveLength(2);
+    expect(screen.queryByText(/Current:/)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /save mappings/i }));
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith(MAPPING_PATH, {
         method: 'PUT',
-        body: { files: [{ file_id: 'f1', request_mapping: null }] },
+        body: {
+          files: [
+            {
+              file_id: 'f1',
+              request_mapping: {
+                request_id: 'req-1',
+                request_title: 'Severance',
+                mapping_type: 'series',
+                season: 2,
+                episode: 1,
+              },
+            },
+            {
+              file_id: 'f3',
+              request_mapping: {
+                request_id: 'req-1',
+                request_title: 'Severance',
+                mapping_type: 'series',
+                season: 2,
+                episode: 2,
+              },
+            },
+          ],
+        },
       }),
     );
   });
