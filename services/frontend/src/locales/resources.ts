@@ -651,16 +651,16 @@ export const resources = {
             'Sonarr has not linked this request to a series yet, so its seasons cannot be managed.',
           removeDialog: {
             title: 'Stop monitoring seasons',
-            body: 'Sonarr will stop monitoring {{seasons}}, and any requests for them will be removed. Files already downloaded are left alone.',
+            body: 'Sonarr will stop monitoring {{seasons}}, and any requests for them will be removed. A series left with nothing monitored and no file downloaded is removed from Sonarr altogether; files on disk are left alone.',
             confirm: 'Unmonitor and save',
           },
         },
         remove: {
           dialogTitle: 'Remove request',
           dialogBodySeries:
-            'The request will be removed and Sonarr will stop monitoring this season. The series stays in your library, as do any files already downloaded.',
+            'The request will be removed and Sonarr will stop monitoring this season. A series left with nothing monitored and no file downloaded is removed from Sonarr altogether; files on disk are left alone.',
           dialogBodyMovie:
-            'The request will be removed and Radarr will stop monitoring this movie. It stays in your library, as do any files already downloaded.',
+            'The request will be removed and Radarr will stop monitoring this movie. A movie with no file downloaded is removed from Radarr altogether; files on disk are left alone.',
           confirm: 'Remove request',
           removed: 'Request removed',
           failed: 'Could not remove the request',
@@ -1651,16 +1651,16 @@ export const resources = {
             'Sonarr ещё не связал этот запрос с сериалом, поэтому управлять его сезонами нельзя.',
           removeDialog: {
             title: 'Отключить отслеживание сезонов',
-            body: 'Sonarr перестанет отслеживать {{seasons}}, а их запросы будут удалены. Уже скачанные файлы останутся на месте.',
+            body: 'Sonarr перестанет отслеживать {{seasons}}, а их запросы будут удалены. Сериал, у которого не осталось отслеживаемых сезонов и нет скачанных файлов, будет удалён из Sonarr; файлы на диске останутся.',
             confirm: 'Отключить и сохранить',
           },
         },
         remove: {
           dialogTitle: 'Удалить запрос',
           dialogBodySeries:
-            'Запрос будет удалён, а Sonarr перестанет отслеживать этот сезон. Сериал останется в библиотеке, как и уже скачанные файлы.',
+            'Запрос будет удалён, а Sonarr перестанет отслеживать этот сезон. Сериал, у которого не осталось отслеживаемых сезонов и нет скачанных файлов, будет удалён из Sonarr; файлы на диске останутся.',
           dialogBodyMovie:
-            'Запрос будет удалён, а Radarr перестанет отслеживать этот фильм. Он останется в библиотеке, как и уже скачанные файлы.',
+            'Запрос будет удалён, а Radarr перестанет отслеживать этот фильм. Фильм, у которого нет скачанных файлов, будет удалён из Radarr; файлы на диске останутся.',
           confirm: 'Удалить запрос',
           removed: 'Запрос удалён',
           failed: 'Не удалось удалить запрос',

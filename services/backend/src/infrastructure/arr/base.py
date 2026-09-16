@@ -19,10 +19,24 @@ TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborte
 class ArrHttpClient(BaseHttpClient):
     """Common logic for Sonarr and Radarr integrations."""
 
+    # Held by each concrete client, which builds it with its own base URL and
+    # API key. Declared here so the shared helpers below can reach it.
+    _http: BaseHttpClient
+
     async def get_root_folders(self) -> list[ArrRootFolder]:
         raise NotImplementedError
 
     async def get_quality_profiles(self) -> list[ArrQualityProfile]:
+        raise NotImplementedError
+
+    async def _request_no_content(self, method: str, path: str, **kwargs: Any) -> None:
+        """Perform a request whose answer is empty on success, such as a delete."""
+
+        self._require_api_key()
+        await self._http.request_no_content(method, path, **kwargs)
+
+    def _require_api_key(self) -> None:
+        """Raise when this client has no key to reach its app with."""
         raise NotImplementedError
 
     async def _await_command(self, command_id: int | None) -> bool:

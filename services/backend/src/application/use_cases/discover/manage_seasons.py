@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 from loguru._logger import Logger
 
@@ -16,6 +17,10 @@ from src.application.use_cases.discover.exceptions import (
 from src.application.use_cases.discover.request_state import requested_seasons_by_series
 from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
+from src.application.use_cases.requests.withdrawal import (
+    SupportsInfo,
+    drop_series_if_unwanted,
+)
 from src.core.logging import get_logger
 from src.domain.enums import MediaType
 
@@ -112,6 +117,10 @@ class UpdateRequestSeasonsUseCase:
     unmonitored and any request of theirs deleted, because a request removed
     while Sonarr still wants its season comes back on the next sync.
 
+    Dropping the last of them leaves a series with no season monitored, which
+    is a series nothing is wanted from: where it also has no episode file, it is
+    deleted from Sonarr rather than left behind as an empty library entry.
+
     Both halves go through a single Sonarr write, so the series never passes
     through a state where it has been emptied of seasons and is about to be
     filled again - the moment its own monitoring would be switched off, only to
@@ -186,6 +195,26 @@ class UpdateRequestSeasonsUseCase:
             deleted_requests=dropped,
             monitor_new_seasons=command.monitor_new_seasons,
         )
+
+        # Asked once the requests are gone, so that a series one of them still
+        # named is somebody else's request and is kept.
+        if await drop_series_if_unwanted(
+            sonarr=self._sonarr,
+            repository=self._repository,
+            series_id=series_id,
+            logger=cast(SupportsInfo, self._logger),
+        ):
+            # Reading the series back would now 404, so the answer is built from
+            # what Sonarr reported before the write: the same seasons the picker
+            # was offered, with nothing monitored and no library behind them.
+            return SeriesSeasonsDTO(
+                tvdb_id=details.tvdb_id,
+                seasons=[
+                    SeasonOptionDTO(season_number=season_number)
+                    for season_number in sorted(details.seasons)
+                ],
+            )
+
         return await _describe_seasons(self._repository, self._sonarr, series_id)
 
 

@@ -40,9 +40,11 @@ export interface paths {
          *     recurring sync rebuilds a request for every monitored season Sonarr still
          *     reports as missing.
          *
-         *     The series or movie itself stays in the library, as do any files already
-         *     imported, and a series stays monitored even once its last season has
-         *     gone - Sonarr reads one with no monitored season as wanting nothing.
+         *     The series or movie itself stays in the library as long as anything is
+         *     left of it - a season still monitored, a file already imported, or
+         *     another request of ours naming it. One with none of those is deleted
+         *     from Sonarr or Radarr outright: the library entry is all that is left of
+         *     it, and the next add would only rebuild it. Files are never deleted.
          */
         delete: operations["deleteRequest"];
         options?: never;
@@ -113,6 +115,11 @@ export interface paths {
          *     Both halves go through a single Sonarr write, so the series never passes
          *     through a state where every season has been dropped and is about to be
          *     added back.
+         *
+         *     A selection that leaves the series with nothing monitored takes the
+         *     series with it where it has no episode file and no request of ours left,
+         *     the dropped ones having just gone. The answer then reports it as no
+         *     longer in the library, naming the seasons it had.
          */
         put: operations["updateRequestSeasons"];
         post?: never;
@@ -1564,7 +1571,7 @@ export interface components {
             monitor_new_seasons: boolean;
         };
         UpdateSeasonsPayload: {
-            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had, and the series itself stays monitored however few seasons are left. */
+            /** @description The seasons Sonarr should monitor afterwards, saved to its own flags as given. Absolute rather than a delta: a season left out is unmonitored in Sonarr and any request it had removed. Specials are out of scope and keep what they had, and a selection that unmonitors the last season of a series with no episode file deletes the series from Sonarr as well. */
             season_numbers: number[];
             /** @default false */
             monitor_new_seasons: boolean;

@@ -353,11 +353,28 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         size = self._safe_int(file.get("size"))
         return size or None
 
+    async def delete_movie(self, movie_id: int) -> None:
+        """Delete a movie from the library, leaving anything on disk alone.
+
+        Nothing is measured first: releasarr asks for this only once it has read
+        the movie and found no file, and Radarr keeps the files of a movie it is
+        not told to delete files with.
+        """
+
+        await self._request_no_content(
+            "DELETE",
+            f"/movie/{movie_id}",
+            params={"deleteFiles": "false", "addImportExclusion": "false"},
+        )
+
+    def _require_api_key(self) -> None:
+        if not self._api_key:
+            raise HttpClientError("Radarr API key is not configured; set RELEASARR_RADARR_API_KEY")
+
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Checked per request rather than in __init__ so that series-only
         # deployments can still build the container without a Radarr key.
-        if not self._api_key:
-            raise HttpClientError("Radarr API key is not configured; set RELEASARR_RADARR_API_KEY")
+        self._require_api_key()
         return await self._http.request_json(method, path, **kwargs)
 
 

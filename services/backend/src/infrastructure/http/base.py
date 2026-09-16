@@ -109,6 +109,17 @@ class BaseHttpClient:
         response.raise_for_status()
         return response.json()
 
+    async def request_no_content(self, method: str, url: str, **kwargs: Any) -> None:
+        """Perform a request whose success answer carries no body.
+
+        Both *arr apps answer a delete with a 200 and an empty body, which the
+        JSON helper would report as a failure at the last step of a call that
+        did exactly what it was asked to.
+        """
+
+        response = await self.request(method, url, **kwargs)
+        response.raise_for_status()
+
     async def _backoff(self, attempt: int) -> None:
         await asyncio.sleep(self._backoff_base * (2**attempt))
 

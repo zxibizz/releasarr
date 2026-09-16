@@ -86,6 +86,13 @@ class RadarrService(Protocol):
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
         """Set whether Radarr monitors a movie already in the library."""
 
+    async def delete_movie(self, movie_id: int) -> None:
+        """Delete a movie from the library, leaving anything on disk alone.
+
+        The counterpart of ``SonarrService.delete_series``: for a movie
+        releasarr added and nothing wants any more, with no file to show for it.
+        """
+
 
 __all__ = [
     "MovieDetails",

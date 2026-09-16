@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from loguru._logger import Logger
 
 from src.application.interfaces.media_requests import MediaRequestRecord, MediaRequestRepository
 from src.application.interfaces.radarr import RadarrService
 from src.application.interfaces.sonarr import SonarrService
 from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
+from src.application.use_cases.requests.withdrawal import (
+    SupportsInfo,
+    drop_movie_if_unwanted,
+    drop_series_if_unwanted,
+)
 from src.core.logging import get_logger
 
 
@@ -19,8 +26,10 @@ class DeleteMediaRequestUseCase:
     missing, so the next run would hand straight back what was just removed.
     Unmonitoring in Sonarr or Radarr is what makes the removal stick.
 
-    The series or movie itself stays in the library, as do any files already
-    imported. Only what releasarr asked for is withdrawn.
+    A file already imported is left where it is, and the title it belongs to is
+    left with it. A title releasarr asked for and nothing is left of, though -
+    no season monitored, no file on disk - is deleted outright: the library
+    entry is all that is left of it, and the next add would only rebuild it.
     """
 
     def __init__(
@@ -49,6 +58,28 @@ class DeleteMediaRequestUseCase:
         deleted = await self._repository.delete_request(request_id)
         if not deleted:
             raise MediaRequestNotFoundError(request_id)
+
+        # After the row, so that a request of ours still naming this series is
+        # one of somebody else's and keeps the title in the library.
+        await self._drop_what_is_left_of(record)
+
+    async def _drop_what_is_left_of(self, record: MediaRequestRecord) -> None:
+        """Delete the series or movie this request was the last of."""
+
+        if record.sonarr_series_id is not None:
+            await drop_series_if_unwanted(
+                sonarr=self._sonarr,
+                repository=self._repository,
+                series_id=record.sonarr_series_id,
+                logger=cast(SupportsInfo, self._logger),
+            )
+        elif record.radarr_movie_id is not None:
+            await drop_movie_if_unwanted(
+                radarr=self._radarr,
+                repository=self._repository,
+                movie_id=record.radarr_movie_id,
+                logger=cast(SupportsInfo, self._logger),
+            )
 
     async def unmonitor(self, record: MediaRequestRecord) -> None:
         """Tell Sonarr or Radarr that this request is no longer wanted.

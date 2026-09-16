@@ -174,3 +174,27 @@ async def test_set_movie_monitored_can_unmonitor_a_movie() -> None:
 
     assert [method for method, _ in calls] == ["GET", "PUT"]
     assert calls[1][1]["monitored"] is False
+
+
+async def test_delete_movie_asks_radarr_to_keep_the_files() -> None:
+    """The library entry goes; anything on disk stays for a later import.
+
+    An empty body is what Radarr answers a delete with, and parsing it would
+    report a failure at the last step of a call that did what it was asked to.
+    """
+
+    calls: list[tuple[str, str, dict[str, str]]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, dict(request.url.params)))
+        return httpx.Response(200)
+
+    await build_client(handler).delete_movie(31)
+
+    assert calls == [
+        (
+            "DELETE",
+            "/api/v3/movie/31",
+            {"deleteFiles": "false", "addImportExclusion": "false"},
+        )
+    ]

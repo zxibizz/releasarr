@@ -91,7 +91,8 @@ class UpdateSeasonsPayload(APIModel):
     monitored afterwards and seasons left out are not, so dropping one both
     unmonitors it in Sonarr and removes any request it had. Specials are out of
     scope and keep whatever they had, and the series itself is unmonitored once
-    nothing of it is left monitored.
+    nothing of it is left monitored - and, with no episode file either, deleted
+    from Sonarr altogether.
     """
 
     season_numbers: list[int] = Field(default_factory=list)

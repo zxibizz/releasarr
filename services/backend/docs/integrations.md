@@ -64,6 +64,7 @@ key raises `HttpClientError` at call time with the name of the env var to set.
 | POST | `/series` | Add a series |
 | PUT | `/series/{id}` | Apply season monitoring |
 | GET | `/episode` | Episodes for a series, with files |
+| DELETE | `/series/{id}` | Delete a series nothing is wanted from |
 | GET | `/rootfolder`, `/qualityprofile` | Library folders and profiles for the add flow |
 | POST | `/manualimport` | Import preview, to validate before committing |
 | POST | `/command` | Queue the `ManualImport` command (`importMode: copy`) |
@@ -83,8 +84,20 @@ Things that will surprise you:
 - **Adding a series posts the lookup payload back verbatim**, with
   `searchForMissingEpisodes: false` — Releasarr grabs releases itself and must not have Sonarr
   racing it.
+- **The add names no monitoring strategy, and that is deliberate.** Sonarr applies the
+  `seasons` flags of the same payload only when `addOptions.monitor` is left out; naming one
+  replaces them wholesale, and `all` — the reading that sounds right for "monitor the episodes
+  of these seasons" — marks every season monitored once the series is scanned (the post-add
+  pass runs `SetEpisodeMonitoredStatus` with the strategy, and every season holding a monitored
+  episode is flagged monitored). Both `IgnoreEpisodes*` flags are sent as `false` because they
+  default to `on`, and either one on leaves the flagged seasons' episodes unmonitored, so they
+  stay out of Sonarr's wanted list and out of our own sync.
 - **`apply_season_monitoring` is additive and safe**: monitor wins over unmonitor, seasons not
   mentioned keep their current flag.
+- **`delete_series` is asked for only after reading the series back and finding it empty**: no
+  season monitored, no future-seasons flag, no episode file, and no request of ours still naming
+  it. It never asks Sonarr to delete files, and Sonarr answers a delete with an empty 200, which
+  is why it goes through `request_no_content` rather than the JSON helper.
 - Lookup results for series already in the library carry a non-zero `id`; absent ones report
   `id: 0`. That is how the discover flow knows what is already in Sonarr.
 - The manual-import preview sends `quality: {quality: {id: 0}}` and `languages: []` so Sonarr
@@ -102,6 +115,7 @@ polling, and error-swallowing behaviour as Sonarr.
 | GET | `/movie/lookup` | Search and TMDB lookup (`term=tmdb:{id}`) |
 | POST | `/movie` | Add a movie |
 | PUT | `/movie/{id}` | Set `monitored` |
+| DELETE | `/movie/{id}` | Delete a movie nothing is wanted from |
 | GET | `/rootfolder`, `/qualityprofile` | Add flow |
 | POST | `/manualimport`, `/command`, GET `/command/{id}` | Import and poll |
 
@@ -111,6 +125,8 @@ Radarr-specific:
   `/wanted/missing`, so it would never become a request.
 - `addOptions.searchForMovie: false`, for the same reason as Sonarr.
 - `set_movie_monitored` no-ops when the flag already matches.
+- **`delete_movie`** is the counterpart of Sonarr's `delete_series`, asked for on the same
+  reading: a movie with no file of its own and no request of ours left. Files are never deleted.
 
 ## Prowlarr
 

@@ -132,6 +132,9 @@ class UnusedSonarrLibraryCalls:
     ) -> SeriesDetails:
         raise NotImplementedError
 
+    async def delete_series(self, series_id: int) -> None:
+        raise NotImplementedError
+
 
 class UnusedRadarrLibraryCalls:
     """The library-management half of ``RadarrService``."""
@@ -158,6 +161,9 @@ class UnusedRadarrLibraryCalls:
         raise NotImplementedError
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
+        raise NotImplementedError
+
+    async def delete_movie(self, movie_id: int) -> None:
         raise NotImplementedError
 
 
@@ -589,6 +595,7 @@ class FakeSonarrService:
         self.added: list[dict[str, Any]] = []
         self.monitored: list[dict[str, Any]] = []
         self.waited: list[tuple[int, list[int]]] = []
+        self.deleted: list[int] = []
 
     async def get_missing_series(self) -> list[MissingSeriesRecord]:
         return []
@@ -677,6 +684,13 @@ class FakeSonarrService:
         self.waited.append((series_id, list(season_numbers)))
         return self._catalogue[series_id]
 
+    async def delete_series(self, series_id: int) -> None:
+        self.deleted.append(series_id)
+        # Dropped rather than kept as a tombstone, so that a read after the
+        # delete behaves like Sonarr's 404 rather than answering from a stale
+        # copy of a series that is gone.
+        self._catalogue.pop(series_id, None)
+
 
 class FakeRadarrService:
     """A Radarr whose library is a dict, recording the calls that change it."""
@@ -705,6 +719,7 @@ class FakeRadarrService:
         self._search_error = search_error
         self.added: list[dict[str, Any]] = []
         self.monitored: list[tuple[int, bool]] = []
+        self.deleted: list[int] = []
 
     async def get_missing_movies(self) -> list[MovieDetails]:
         return []
@@ -747,6 +762,10 @@ class FakeRadarrService:
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
         self.monitored.append((movie_id, monitored))
+
+    async def delete_movie(self, movie_id: int) -> None:
+        self.deleted.append(movie_id)
+        self._catalogue.pop(movie_id, None)
 
 
 class FakeTvdbService:
@@ -855,7 +874,7 @@ def make_series_details(
     )
 
 
-def make_movie_details(movie_id: int = 31) -> MovieDetails:
+def make_movie_details(movie_id: int = 31, *, has_file: bool = False) -> MovieDetails:
     return MovieDetails(
         id=movie_id,
         title="Example Movie",
@@ -866,6 +885,7 @@ def make_movie_details(movie_id: int = 31) -> MovieDetails:
         tmdb_id=777,
         genres=["Sci-Fi"],
         runtime_minutes=116,
+        has_file=has_file,
     )
 
 

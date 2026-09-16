@@ -26,6 +26,9 @@ interface ManageSeasonsModalProps {
  *
  * A season can therefore be untaken, which unmonitors it in Sonarr and deletes
  * whatever request it had — including the request this modal was opened from.
+ * Untaking the last one of a series with no file on disk deletes the series from
+ * Sonarr too, which the backend reports as the series no longer being in the
+ * library.
  */
 export function ManageSeasonsModal({
   request,
