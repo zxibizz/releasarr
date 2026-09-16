@@ -25,6 +25,7 @@ const parseRequestStatus = (
     'searching',
     'downloading',
     'monitoring',
+    'importing',
     'completed',
     'failed',
   ];
@@ -35,7 +36,7 @@ const parseRequestStatus = (
 
 const parseReleaseStatus = (value: string | undefined | null): Release['status'] | undefined => {
   if (!value) return undefined;
-  const allowed: Release['status'][] = ['pending', 'downloading', 'seeding', 'completed', 'failed'];
+  const allowed: Release['status'][] = ['pending', 'downloading', 'completed', 'failed'];
   return allowed.includes(value as Release['status']) ? (value as Release['status']) : undefined;
 };
 

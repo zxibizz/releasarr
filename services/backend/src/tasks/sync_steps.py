@@ -83,6 +83,7 @@ class SyncSteps:
                 db=self.container.db_manager,
                 client=client,
                 category=self.container.settings.qbittorrent_category,
+                grace_seconds=self.container.settings.release_missing_grace_seconds,
             )
             result = await task.execute()
 
@@ -102,6 +103,9 @@ class SyncSteps:
             "unchanged": result.unchanged,
             "failed": result.failed,
             "not_found": result.not_found,
+            "missing_new": result.missing_new,
+            "missing_pending": result.missing_pending,
+            "missing_failed": result.missing_failed,
             "requests_updated": requests_updated,
         }
 

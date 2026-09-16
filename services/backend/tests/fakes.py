@@ -81,6 +81,13 @@ from src.domain.enums import (
 )
 
 
+class UnusedRecomputeStateCalls:
+    """For flows that never recompute: a call here is a wiring mistake."""
+
+    async def execute(self, *args: object, **kwargs: object) -> None:
+        raise AssertionError("unexpected RecomputeRequestStateUseCase.execute call")
+
+
 class UnusedSonarrLibraryCalls:
     """The library-management half of ``SonarrService``."""
 

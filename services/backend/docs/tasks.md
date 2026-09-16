@@ -69,6 +69,14 @@ The order above is significant: `export` can only import releases that
 `release_sync` exists here as a periodic sweep that catches drift those write-through call sites
 missed, not as the primary way a request's state stays current.
 
+The same pass reconciles releases whose torrent qBittorrent no longer lists: each one is stamped
+`missing_since` on first absence, and an in-flight release still missing past
+`RELEASARR_RELEASE_MISSING_GRACE_SECONDS` is failed, which the recompute then propagates to its
+requests. An already-exported release is never failed this way — seeding ends with removal by
+design. A listing that comes back completely empty is distrusted and stamps nothing, because the
+sync reads only its configured category and the alternative reading is "every torrent vanished at
+once".
+
 ## Background Scheduler (separate worker)
 
 Runs each task on its interval and drains the jobs queued over the API. This is

@@ -307,6 +307,7 @@ one, so the first profile they report is used unless you pick one.
 | `RELEASARR_QBITTORRENT_TAG_PREFIX` | *(none)* | Prefix for tags applied to Releasarr's torrents |
 | `RELEASARR_QBITTORRENT_PAUSED` | `false` | Add torrents paused |
 | `RELEASARR_QBITTORRENT_TIMEOUT` | `15.0` | Request timeout in seconds |
+| `RELEASARR_RELEASE_MISSING_GRACE_SECONDS` | `900` | How long a torrent may be absent from qBittorrent before its release is failed |
 
 ## Hooking up qBittorrent
 

@@ -14,14 +14,9 @@ from datetime import datetime
 
 from src.application.interfaces.media_requests import MediaRequestRecord
 from src.application.interfaces.releases import MANUAL_SOURCE, ReleaseRecord
+from src.application.interfaces.sonarr import SeriesSeasonDetails
 from src.application.utility.sentinels import UNSET, _Unset
 from src.domain.enums import MediaRequestStatus, ReleaseStatus
-
-# A finished-but-still-seeding torrent is as much "in flight" as one still
-# downloading: Sonarr/Radarr have not imported it yet, so the request is not done.
-ACTIVE_RELEASE_STATUSES = frozenset(
-    {ReleaseStatus.DOWNLOADING, ReleaseStatus.SEEDING, ReleaseStatus.COMPLETED}
-)
 
 
 @dataclass(slots=True)
@@ -40,6 +35,16 @@ class DerivedRequestState:
 
     status: MediaRequestStatus | _Unset
     newest_release_published_at: datetime | None
+
+
+def season_completion(season: SeriesSeasonDetails) -> ArrCompletion:
+    """The verdict a Sonarr season's own counts imply, shared by export and sync."""
+
+    return ArrCompletion(
+        is_complete=bool(season.episode_count)
+        and season.episode_file_count >= season.episode_count,
+        has_unaired=season.episode_count < season.total_episode_count,
+    )
 
 
 class RequestStateDeriver:
@@ -87,9 +92,14 @@ class RequestStateDeriver:
             release for release in releases if release.last_exported_info_hash != release.info_hash
         ]
         if in_flight:
-            if any(release.status in ACTIVE_RELEASE_STATUSES for release in in_flight):
+            # A completed release stays in flight until the arr imports it, which
+            # is IMPORTING rather than DOWNLOADING; a sibling that is still
+            # transferring dominates, since the season is not yet all here.
+            if any(release.status is ReleaseStatus.DOWNLOADING for release in in_flight):
                 return MediaRequestStatus.DOWNLOADING
-            if all(release.status == ReleaseStatus.FAILED for release in in_flight):
+            if any(release.status is ReleaseStatus.COMPLETED for release in in_flight):
+                return MediaRequestStatus.IMPORTING
+            if all(release.status is ReleaseStatus.FAILED for release in in_flight):
                 return MediaRequestStatus.FAILED
             return UNSET
         if any(self._is_regrabbable(release) for release in releases):
@@ -113,4 +123,4 @@ class RequestStateDeriver:
         return max(published, default=None)
 
 
-__all__ = ["ArrCompletion", "DerivedRequestState", "RequestStateDeriver"]
+__all__ = ["ArrCompletion", "DerivedRequestState", "RequestStateDeriver", "season_completion"]

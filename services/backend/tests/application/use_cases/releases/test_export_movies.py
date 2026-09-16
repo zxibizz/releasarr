@@ -343,4 +343,5 @@ async def test_a_movie_release_stays_unexported_without_a_download_directory() -
 
     assert result.succeeded == 1
     assert radarr.imported == []
-    assert repository.release_updates == {}
+    assert "last_exported_info_hash" not in repository.release_updates
+    assert repository.release_updates["export_failures_count"] == 1

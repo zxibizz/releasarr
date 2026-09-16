@@ -78,8 +78,10 @@ def _map_status(qbt_state: str, *, finished: bool = False) -> ReleaseStatus:
         return ReleaseStatus.COMPLETED
     if qbt_state in ("downloading", "stalleddl", "queueddl", "forceddl", "metadl"):
         return ReleaseStatus.DOWNLOADING
+    # Seeding is not a releasarr state: the download is done, the arr has not
+    # taken the files yet, and that is what COMPLETED means here.
     if qbt_state in ("uploading", "stalledup", "queuedup", "forcedup"):
-        return ReleaseStatus.SEEDING
+        return ReleaseStatus.COMPLETED
     if qbt_state in ("pauseddl", "pausedup"):
         return ReleaseStatus.PENDING
     if qbt_state in ("checkingdl", "checkingup", "checkingresumedata"):

@@ -22,6 +22,7 @@ class MediaRequestStatus(StrEnum):
     SEARCHING = "searching"
     DOWNLOADING = "downloading"
     MONITORING = "monitoring"
+    IMPORTING = "importing"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -29,7 +30,6 @@ class MediaRequestStatus(StrEnum):
 class ReleaseStatus(StrEnum):
     PENDING = "pending"
     DOWNLOADING = "downloading"
-    SEEDING = "seeding"
     COMPLETED = "completed"
     FAILED = "failed"
 

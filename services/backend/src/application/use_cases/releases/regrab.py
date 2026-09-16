@@ -281,6 +281,8 @@ class ReleaseRegrapper:
             info_hash=new_hash.upper(),
             export_failures_count=0,
             last_exported_info_hash=None,  # Reset export
+            # A stamp from the previous hash must not follow the replacement.
+            missing_since=None,
             name=match.release_name,  # Update name in case of rename
             info_url=match.info_url,
             published_at=match.publish_date,

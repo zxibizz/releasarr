@@ -128,7 +128,7 @@ def test_arr_complete_with_unaired_episodes_reopens_a_completed_request() -> Non
 
 def test_completed_request_is_untouched_without_an_arr_verdict() -> None:
     record = make_record(REQUEST_ID, status=MediaRequestStatus.COMPLETED)
-    release = make_release("rel-1", request_ids=[REQUEST_ID], status=ReleaseStatus.SEEDING)
+    release = make_release("rel-1", request_ids=[REQUEST_ID], status=ReleaseStatus.COMPLETED)
 
     derived = RequestStateDeriver().derive(record, [release], arr=None)
 
@@ -140,12 +140,53 @@ def test_active_in_flight_release_moves_to_downloading() -> None:
     release = make_release(
         "rel-1",
         request_ids=[REQUEST_ID],
-        status=ReleaseStatus.SEEDING,
+        status=ReleaseStatus.DOWNLOADING,
         info_hash="hash",
         last_exported_info_hash=None,
     )
 
     derived = RequestStateDeriver().derive(record, [release], arr=None)
+
+    assert derived.status is MediaRequestStatus.DOWNLOADING
+
+
+def test_completed_in_flight_release_moves_to_importing() -> None:
+    """The download is done; the arr has yet to import it."""
+
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.DOWNLOADING)
+    release = make_release(
+        "rel-1",
+        request_ids=[REQUEST_ID],
+        status=ReleaseStatus.COMPLETED,
+        info_hash="hash",
+        last_exported_info_hash=None,
+    )
+
+    derived = RequestStateDeriver().derive(record, [release], arr=None)
+
+    assert derived.status is MediaRequestStatus.IMPORTING
+
+
+def test_a_transferring_sibling_outranks_importing() -> None:
+    """A season split across releases is not all here until every one finished."""
+
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.IMPORTING)
+    finished = make_release(
+        "rel-1",
+        request_ids=[REQUEST_ID],
+        status=ReleaseStatus.COMPLETED,
+        info_hash="hash-a",
+        last_exported_info_hash=None,
+    )
+    transferring = make_release(
+        "rel-2",
+        request_ids=[REQUEST_ID],
+        status=ReleaseStatus.DOWNLOADING,
+        info_hash="hash-b",
+        last_exported_info_hash=None,
+    )
+
+    derived = RequestStateDeriver().derive(record, [finished, transferring], arr=None)
 
     assert derived.status is MediaRequestStatus.DOWNLOADING
 
@@ -291,7 +332,7 @@ async def test_recompute_writes_a_changed_status_and_syncs_warnings() -> None:
     release = make_release(
         "rel-1",
         request_ids=[REQUEST_ID],
-        status=ReleaseStatus.SEEDING,
+        status=ReleaseStatus.DOWNLOADING,
         info_hash="hash",
         last_exported_info_hash=None,
     )

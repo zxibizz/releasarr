@@ -93,6 +93,10 @@ class AppSettings(BaseSettings):
     qbittorrent_tag_prefix: str | None = Field(default=None)
     qbittorrent_paused: bool = Field(default=False)
     qbittorrent_timeout: float = Field(default=15.0)
+    # How long a torrent may be absent from qBittorrent before the release is
+    # failed. The release sync runs on a 30s interval, so the default is thirty
+    # consecutive misses.
+    release_missing_grace_seconds: int = Field(default=900)
 
     model_config = {
         "env_prefix": "RELEASARR_",

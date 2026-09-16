@@ -24,7 +24,7 @@ import { useRequestsList } from '@/features/requests/queries';
 import type { Release } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
-const STATUS_ORDER = ['downloading', 'pending', 'seeding', 'completed', 'failed'];
+const STATUS_ORDER = ['downloading', 'pending', 'completed', 'failed'];
 
 /** How long the button stays on the success colour; the pop is shorter. */
 const SUCCESS_FLASH_MS = 1000;

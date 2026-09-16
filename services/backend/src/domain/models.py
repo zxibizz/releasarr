@@ -199,6 +199,10 @@ class Release(Base):
         server_default="0",
     )
     last_exported_info_hash: Mapped[str | None] = mapped_column(String(128))
+    # When qBittorrent first stopped reporting the torrent; cleared the moment it
+    # reappears. The release sync fails an in-flight release once this is older
+    # than the configured grace period.
+    missing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     export_failures_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

@@ -18,6 +18,8 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.sonarr import SeriesDetails, SeriesSeasonDetails, SonarrService
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
+from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.use_cases.requests.state import ArrCompletion, season_completion
 from src.application.utility.localization import (
     LocalizationPicker,
     merge_default_localization,
@@ -46,12 +48,14 @@ class SyncSonarrMediaRequestsUseCase:
         repository: MediaRequestRepository,
         sonarr_service: SonarrService,
         tvdb_service: TvdbService,
+        recompute_state: RecomputeRequestStateUseCase,
         metadata_languages: Sequence[str] | None = None,
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
         self._sonarr = sonarr_service
         self._tvdb = tvdb_service
+        self._recompute_state = recompute_state
         self._localization = LocalizationPicker(metadata_languages)
         self._metadata_languages = self._localization.languages
         self._logger = logger or get_logger(component="sync_sonarr_requests")
@@ -72,7 +76,12 @@ class SyncSonarrMediaRequestsUseCase:
         }
 
         existing = await self._repository.list_sonarr_requests()
-        result.completed += await self._mark_completed(existing, missing_keys)
+        # The sync sees every Sonarr-backed request exactly once, so it hands the
+        # recompute a verdict for each: "still missing" from the list itself,
+        # Sonarr's own season counts for a season that left it. Status moves in
+        # exactly one place from here on.
+        verdicts: dict[str, ArrCompletion] = {}
+        result.completed += await self._mark_completed(existing, missing_keys, verdicts)
 
         # A series' seasons are normally all requested by the same person, so a
         # newly missing season under "monitor future seasons" should default to
@@ -91,12 +100,15 @@ class SyncSonarrMediaRequestsUseCase:
             owner_user_id = series_owners.get(series.series_id)
             for season_number in series.season_numbers:
                 updated = await self._sync_season(
-                    details, season_number, owner_user_id=owner_user_id
+                    details, season_number, owner_user_id=owner_user_id, verdicts=verdicts
                 )
                 if updated == "created":
                     result.created += 1
                 elif updated == "updated":
                     result.updated += 1
+
+        if verdicts:
+            await self._recompute_state.execute(sorted(verdicts), arr_completion=verdicts)
 
         self._logger.info(
             "Sonarr sync finished",
@@ -127,7 +139,9 @@ class SyncSonarrMediaRequestsUseCase:
 
         request_ids: list[str] = []
         for season_number in sorted(set(season_numbers)):
-            await self._sync_season(details, season_number, owner_user_id=owner_user_id)
+            await self._sync_season(
+                details, season_number, owner_user_id=owner_user_id, reopen_completed=True
+            )
             record = await self._repository.find_by_sonarr(
                 sonarr_series_id=series_id,
                 season_number=season_number,
@@ -137,7 +151,13 @@ class SyncSonarrMediaRequestsUseCase:
         return request_ids
 
     async def _sync_season(
-        self, details: SeriesDetails, season_number: int, *, owner_user_id: str | None = None
+        self,
+        details: SeriesDetails,
+        season_number: int,
+        *,
+        owner_user_id: str | None = None,
+        verdicts: dict[str, ArrCompletion] | None = None,
+        reopen_completed: bool = False,
     ) -> str:
         """Create or update a Sonarr-backed request for a specific season."""
 
@@ -192,13 +212,20 @@ class SyncSonarrMediaRequestsUseCase:
                 season_number=season_number,
                 request_title=title,
             )
+            if verdicts is not None:
+                verdicts[data.id] = ArrCompletion(is_complete=False)
             return "created"
 
-        # This is a metadata refresh for a season Sonarr still reports as missing.
-        # Only a previously completed request needs to fall back to pending; an
-        # in-flight status is owned by the release sync and must survive the refresh.
+        # A season on Sonarr's missing list is incomplete by definition; what
+        # that implies for the status is the recompute's call, not this refresh's.
+        if verdicts is not None:
+            verdicts[existing.id] = ArrCompletion(is_complete=False)
+
+        # Re-requesting a completed season by hand is user intent, which the
+        # recompute has no signal for, so it is written directly. The next full
+        # sync's verdict settles it again if nothing was grabbed meanwhile.
         status: MediaRequestStatus | _Unset = UNSET
-        if existing.status == MediaRequestStatus.COMPLETED:
+        if reopen_completed and existing.status is MediaRequestStatus.COMPLETED:
             status = MediaRequestStatus.PENDING
 
         update = UpdateMediaRequestData(
@@ -231,16 +258,17 @@ class SyncSonarrMediaRequestsUseCase:
         self,
         existing: list[MediaRequestRecord],
         missing_keys: set[tuple[int, int]],
+        verdicts: dict[str, ArrCompletion],
     ) -> int:
         """Settle the Sonarr-linked requests Sonarr no longer reports as missing.
 
         Leaving the missing list is not the same as being finished. Sonarr drops a
         season from it as soon as every episode that has aired holds a file, so a
         season that is still airing leaves it weekly and returns the moment the
-        next episode is wanted. Completing the request there would only have the
-        next sync reopen it, so a season with episodes still to air is left on
-        pending. That is also what keeps a release grabbed by hand actionable --
-        nothing can re-grab it for the episodes that follow.
+        next episode is wanted. The verdict carries ``has_unaired`` so the
+        recompute withholds completion from such a season instead of closing and
+        reopening it. That is also what keeps a release grabbed by hand
+        actionable -- nothing can re-grab it for the episodes that follow.
         """
 
         transitioned = 0
@@ -252,14 +280,24 @@ class SyncSonarrMediaRequestsUseCase:
                 continue
 
             season = await self._settling_season(record)
+            # Without a live answer the stored counts stand, and a season Sonarr
+            # wants nothing more from has nothing left pending.
+            verdict = (
+                season_completion(season) if season is not None else ArrCompletion(is_complete=True)
+            )
+            verdicts[record.id] = verdict
+
             update = self._settled_update(record, season)
-            if update is None:
-                continue
-            await self._repository.update_request(record.id, update)
+            if update is not None:
+                await self._repository.update_request(record.id, update)
 
             # A status transition belongs in the request's activity view, unlike
             # the metadata refresh above that runs on every sync.
-            if update.status is MediaRequestStatus.COMPLETED:
+            if (
+                verdict.is_complete
+                and not verdict.has_unaired
+                and record.status is not MediaRequestStatus.COMPLETED
+            ):
                 transitioned += 1
                 self._logger.info(
                     "Marked Sonarr season as completed",
@@ -267,7 +305,7 @@ class SyncSonarrMediaRequestsUseCase:
                     sonarr_series_id=record.sonarr_series_id,
                     season_number=record.season_number,
                 )
-            elif update.status is MediaRequestStatus.PENDING:
+            elif verdict.has_unaired and record.status is MediaRequestStatus.COMPLETED:
                 self._logger.info(
                     "Reopened Sonarr season with episodes still to air",
                     request_id=record.id,
@@ -320,41 +358,25 @@ class SyncSonarrMediaRequestsUseCase:
         record: MediaRequestRecord,
         season: SeriesSeasonDetails | None,
     ) -> UpdateMediaRequestData | None:
-        """What Sonarr's answer implies for a request it no longer calls missing.
+        """The count corrections for a season that left the missing list.
 
-        The stored counts are only trustworthy while a season is still reported
-        missing, so a settled one is written from Sonarr's own numbers -- the same
-        ones the missing-season refresh stores. Without an answer the stored
-        counts stand, and a season Sonarr wants nothing more from has nothing left
-        pending, which is what the completion has always recorded.
+        The status the same answer implies reaches the recompute as an
+        `ArrCompletion` verdict instead, so status has exactly one writer. The
+        stored counts are only trustworthy while a season is still reported
+        missing, so a settled one is written from Sonarr's own numbers -- the
+        same ones the missing-season refresh stores. Without an answer the stored
+        counts stand, and the settled download count is simply the aired one.
 
         Returns None when the request already says as much, so a season that needs
-        neither a transition nor a correction is not rewritten on every sync.
+        no correction is not rewritten on every sync.
         """
-
-        unaired = season is not None and season.episode_count < season.total_episode_count
-        status: MediaRequestStatus | _Unset
-        if unaired:
-            # Only a completed request is reopened: an in-flight status belongs
-            # to the release sync and has to survive the sweep.
-            status = (
-                MediaRequestStatus.PENDING
-                if record.status is MediaRequestStatus.COMPLETED
-                else UNSET
-            )
-        elif record.status is MediaRequestStatus.COMPLETED:
-            status = UNSET
-        else:
-            status = MediaRequestStatus.COMPLETED
 
         if season is None:
             update = UpdateMediaRequestData(
-                status=status,
                 downloaded_episodes=record.aired_episodes,
             )
         else:
             update = UpdateMediaRequestData(
-                status=status,
                 total_episodes=season.total_episode_count,
                 aired_episodes=season.episode_count,
                 downloaded_episodes=season.episode_file_count,

@@ -31,6 +31,7 @@ from tests.fakes import (
     FakeSonarrService,
     FakeTmdbService,
     FakeTvdbService,
+    UnusedRecomputeStateCalls,
     make_movie_details,
     make_record,
     make_series_details,
@@ -55,11 +56,15 @@ def build_use_case(
             repository=repository,
             sonarr_service=sonarr,
             tvdb_service=FakeTvdbService(is_configured=False),
+            # The add-request flow creates through sync_series, which recomputes
+            # nothing; a call here is a wiring mistake.
+            recompute_state=UnusedRecomputeStateCalls(),  # type: ignore[arg-type]
         ),
         sync_radarr=SyncRadarrMediaRequestsUseCase(
             repository=repository,
             radarr_service=radarr,
             tmdb_service=FakeTmdbService(is_configured=False),
+            recompute_state=UnusedRecomputeStateCalls(),  # type: ignore[arg-type]
         ),
         sonarr_quality_profile_id=sonarr_quality_profile_id,
         radarr_quality_profile_id=radarr_quality_profile_id,
