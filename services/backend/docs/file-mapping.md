@@ -69,10 +69,10 @@ files have to follow it, since the export imports by their paths.
 file list — exact relative path first, then the basename when both sides carry the same number of
 files under it, which is how a repack that renamed only the torrent's root keeps its mappings:
 
-| Case | What happens |
-| --- | --- |
-| A stored file the torrent still carries | The row is repointed at the new name, size and path, and keeps **every** mapping column |
-| A file only the torrent has | Inserted unmapped, then automapped on its own (`ReleaseAutoMapper.apply_to`) |
+| Case                                     | What happens                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| A stored file the torrent still carries  | The row is repointed at the new name, size and path, and keeps **every** mapping column                   |
+| A file only the torrent has              | Inserted unmapped, then automapped on its own (`ReleaseAutoMapper.apply_to`)                              |
 | A stored file the torrent does not carry | The re-grab is refused outright — nothing queued, nothing written — with a `regrab_files_missing` warning |
 
 That last rule is why the file list is read before anything is queued: a replacement that dropped
@@ -105,18 +105,18 @@ clears the row (`UpdateReleaseFileMappingsUseCase`), and so does a later re-grab
 
 Season and episode together, in precedence order:
 
-| Pattern | Matches |
-| --- | --- |
-| `s(\d{1,3})[\s._-]*e(\d{1,3})` | `S01E02`, `s2e7` |
-| `season\s*N\s*(episode\|ep)\s*N` | `Season 2 Episode 5` |
-| `(\d{1,2})x(\d{1,3})` | `2x05` — the trailing `(?![\dip])` is what stops `1920x1080` |
+| Pattern                          | Matches                                                      |
+| -------------------------------- | ------------------------------------------------------------ |
+| `s(\d{1,3})[\s._-]*e(\d{1,3})`   | `S01E02`, `s2e7`                                             |
+| `season\s*N\s*(episode\|ep)\s*N` | `Season 2 Episode 5`                                         |
+| `(\d{1,2})x(\d{1,3})`            | `2x05` — the trailing `(?![\dip])` is what stops `1920x1080` |
 
 Then season-only (`Season 2`, `S2`, `Saison 3`, `Temporada 3`) from the filename stem or, failing
 that, by walking parent directories in reverse. Then episode-only (`Episode 5`, `ep5`, `e5`).
 
 `parse_episode` runs these in order, removing matched text as it goes, and validates the result
 (season `0..100`, episode `1..999`). A `season_hint` unlocks looser reading but is never
-*returned* as the parsed season, so a hint can never be mistaken for evidence.
+_returned_ as the parsed season, so a hint can never be mistaken for evidence.
 
 ### The loose pass, and why it needs a junk filter
 
@@ -196,12 +196,12 @@ against a single season's request. With neither, the file is skipped.
 
 Movies:
 
-| Case | Behaviour |
-| --- | --- |
-| One movie request, many files | Map only the **largest file by size** |
-| Several movie requests | Match on normalized title from `movie_titles()` |
-| Colliding titles (a remake) | Disambiguate on `parse_year` vs `request.year` |
-| Colliding titles, no year | Leave unmapped |
+| Case                          | Behaviour                                       |
+| ----------------------------- | ----------------------------------------------- |
+| One movie request, many files | Map only the **largest file by size**           |
+| Several movie requests        | Match on normalized title from `movie_titles()` |
+| Colliding titles (a remake)   | Disambiguate on `parse_year` vs `request.year`  |
+| Colliding titles, no year     | Leave unmapped                                  |
 
 Title matches must be complete, so `Iron Man 2` does not claim `Iron Man`'s files.
 `tests/application/utility/test_file_matcher.py` covers 20-odd of these, including
@@ -216,12 +216,12 @@ Because the matcher runs at grab, on every suggestion request, and again at expo
   grabbed against one season's request.
 - Non-video files, unrequested seasons, and ambiguous bare numbers are skipped rather than
   guessed at.
-- A file whose name clearly contains a season *and* episode but which could not be resolved does
+- A file whose name clearly contains a season _and_ episode but which could not be resolved does
   **not** fall through to the movie pass.
 
 `ReleaseAutoMapper.apply` persists only files whose mapping actually changed, so a re-run over
 an already-correct release is a no-op write. `suggest` does the same work without persisting,
-and returns only the files it *would* change — which is why an already-correct release returns
+and returns only the files it _would_ change — which is why an already-correct release returns
 an empty suggestion list rather than confirming every file.
 
 `ReleaseAutoMapper` also widens the candidate request set before matching: sibling seasons of
@@ -261,13 +261,15 @@ zeroing the failure count gives it a fresh five attempts. If the release is `COM
 scheduler. A still-downloading release is left alone — export runs on completion anyway. A
 failure to queue is logged but does not fail the save.
 
-Passing `mapping_type: null` clears a mapping. The backend supports it; the frontend currently
-cannot send it (see the frontend doc).
+Passing `request_mapping: null` for a file clears its mapping; leaving the file out of the
+`files` list leaves whatever it has. The contract says so
+(`ReleaseFileMappingInput.request_mapping`, nullable), and both the editor and the automap button
+in the UI rely on it.
 
 ## Export
 
 `export_finished.py` joins the qBittorrent download directory to each file's relative path with
-`posixpath.join`, so **Releasarr and the *arrs must see the same filesystem at the same paths**.
+`posixpath.join`, so *_Releasarr and the *arrs must see the same filesystem at the same paths*_.
 
 Episode IDs are resolved from Sonarr, not from Releasarr's database — the mapping's
 `(season, episode)` is looked up against `get_episodes(series_id)`:

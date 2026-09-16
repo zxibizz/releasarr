@@ -33,7 +33,7 @@ export function FileMappingRow({
 }: FileMappingRowProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const existing = file.request_mapping;
+  const stored = file.request_mapping;
   const isSeries = draft.mappingType === 'series';
 
   const options = requests.map((request) => ({
@@ -48,7 +48,12 @@ export function FileMappingRow({
   const episodeFieldsFlex = isMobile ? '1 1 100%' : '1 1 200px';
 
   return (
-    <Paper withBorder radius="md" p="md" bg={existing ? 'rgba(59, 130, 246, 0.08)' : undefined}>
+    <Paper
+      withBorder
+      radius="md"
+      p="md"
+      bg={draft.requestId ? 'rgba(59, 130, 246, 0.08)' : undefined}
+    >
       <Stack gap="sm">
         <Stack gap={6}>
           {/*
@@ -67,7 +72,11 @@ export function FileMappingRow({
             <Text size="xs" c="dimmed">
               {formatFileSize(file.size)}
             </Text>
-            {existing && (
+            {/*
+              About what this row would save, not about what the server holds:
+              a row automapping could not place has to stop reading as mapped.
+            */}
+            {draft.requestId && (
               <Badge size="sm" variant="light" color="blue">
                 {t('fileMapping.mapped', { defaultValue: 'Mapped' })}
               </Badge>
@@ -80,12 +89,16 @@ export function FileMappingRow({
           </Group>
         </Stack>
 
-        {existing && (
+        {/*
+          Only while the two disagree: otherwise it repeats the select above, and
+          a cleared row would still be told what it is mapped to.
+        */}
+        {stored && isDirty && (
           <Text size="sm" c="dimmed" className="break-anywhere">
             {t('fileMapping.current', { defaultValue: 'Current' })}:{' '}
-            {existing.request_title || existing.request_id}
-            {existing.mapping_type === 'series' &&
-              ` — ${formatEpisodeCode(existing.season, existing.episode)}`}
+            {stored.request_title || stored.request_id}
+            {stored.mapping_type === 'series' &&
+              ` — ${formatEpisodeCode(stored.season, stored.episode)}`}
           </Text>
         )}
 

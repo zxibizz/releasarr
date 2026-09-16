@@ -150,33 +150,33 @@ is longer than a phone's button is wide.
 not sent:
 
 ```typescript
-const toPayload = (fileId: string, draft: MappingDraft): ReleaseFileMappingInput | null => {
+const toPayload = (
+  file: ReleaseFile,
+  draft: MappingDraft,
+): ReleaseFileMappingInput | null => {
   if (!draft.requestId) {
-    return null;
+    return file.request_mapping ? { file_id: file.id, request_mapping: null } : null;
   }
 
   if (draft.mappingType === 'series') {
-    // Guessing 1 here would persist a wrong episode; leave the file unmapped instead.
+    // Guessing 1 here would persist a wrong episode; leave the file as it is instead.
     if (!draft.season || !draft.episode) {
       return null;
     }
 ```
 
-A file with no request, and a series file missing a season or episode, are both omitted rather
-than guessed at. An empty payload shows a "nothing to save" notification instead of firing a
-request.
+A draft with no request is sent as `request_mapping: null`, which **clears** that file's stored
+mapping — that is what makes automapping able to drop a mapping it cannot replace, and clearing
+a row by hand work at all. A file that was never mapped has nothing to clear and is left out.
+A series draft missing a season or episode is left out too rather than guessed at. An empty
+payload shows a "nothing to save" notification instead of firing a request.
 
 The save `PUT`s to `/releases/{id}/files/mapping` and then invalidates releases-by-request,
 the mapping suggestions, and task jobs — jobs because the backend may have queued an export in
 response (it does, for any `COMPLETED` release). Errors surface the `ApiError` message in a red
 notification.
 
-## Two known gaps
-
-**Unmapping does not persist.** The request select is clearable and clearing it blanks the
-draft, but a draft with no `requestId` returns `null` from `toPayload` and is dropped from the
-payload. The backend accepts `mapping_type: null` to clear a mapping; the UI has no way to send
-it. Clearing a row therefore looks like it worked until the query refetches.
+## One known gap
 
 **The video extension lists have drifted.** The frontend knows 8 extensions, in
 `utils/files.ts`:

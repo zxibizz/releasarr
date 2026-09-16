@@ -192,6 +192,36 @@ describe('ReleaseDetailsModal', () => {
     expect(await screen.findByRole('button', { name: 'Edit mapping' })).toBeInTheDocument();
   });
 
+  it('stops a row claiming to be mapped once automapping could not place it', async () => {
+    // Nothing to propose, so the file keeps only what the server already holds.
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      if (path === `${MAPPING_PATH}/suggestions`) {
+        return { files: [] };
+      }
+      return { requests: [seriesRequest], total: 1 };
+    });
+
+    renderModal(release(mappedVideo));
+    await enterEditMode();
+
+    expect(await screen.findByText('Mapped')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Map automatically' }));
+
+    const select = screen.getByRole('combobox', { name: 'Request' });
+    expect(select).toHaveValue('');
+    expect(screen.queryByText('Mapped')).not.toBeInTheDocument();
+    // Said only while it disagrees with the row, which this one now does.
+    expect(screen.getByText(/Current: Severance — S02E01/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /save mappings/i }));
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith(MAPPING_PATH, {
+        method: 'PUT',
+        body: { files: [{ file_id: 'f1', request_mapping: null }] },
+      }),
+    );
+  });
+
   it('asks before throwing away unsaved mappings', async () => {
     renderModal(release(mappedVideo, unmappedExtra));
     await enterEditMode();
