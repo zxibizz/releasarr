@@ -22,6 +22,8 @@ class MovieDetails:
     genres: list[str] = field(default_factory=list)
     runtime_minutes: int | None = None
     has_file: bool = False
+    # Bytes on disk, for a movie Radarr holds a file for.
+    file_size: int | None = None
 
 
 @dataclass(slots=True)

@@ -155,10 +155,16 @@ class FakeDownloadService:
 
 
 class FakeRadarrService:
-    def __init__(self, has_file: bool = True, succeeds: bool = True) -> None:
+    def __init__(
+        self,
+        has_file: bool = True,
+        succeeds: bool = True,
+        file_size: int | None = None,
+    ) -> None:
         self.imported: list[MovieImportFile] = []
         self.has_file = has_file
         self.succeeds = succeeds
+        self.file_size = file_size
 
     async def get_missing_movies(self) -> list[MovieDetails]:
         return []
@@ -173,6 +179,7 @@ class FakeRadarrService:
             imdb_id=None,
             tmdb_id=None,
             has_file=self.has_file,
+            file_size=self.file_size,
         )
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
@@ -337,11 +344,51 @@ async def test_a_movie_release_stays_unexported_without_a_download_directory() -
     use_case, repository, radarr, _ = build_use_case(
         release,
         FakeMediaRequestRepository(),
+        FakeRadarrService(has_file=False),
         download_service=FakeDownloadService(None),
     )
     result = await use_case.execute()
 
     assert result.succeeded == 1
     assert radarr.imported == []
+    assert "last_exported_info_hash" not in repository.release_updates
+    assert repository.release_updates["export_failures_count"] == 1
+
+
+async def test_an_unimportable_movie_radarr_already_holds_is_closed() -> None:
+    """Radarr holding this very file is the whole of what exporting would achieve."""
+
+    files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
+    release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+
+    use_case, repository, radarr, _ = build_use_case(
+        release,
+        FakeMediaRequestRepository(),
+        FakeRadarrService(has_file=True, file_size=8_000_000_000),
+        download_service=FakeDownloadService(None),
+    )
+    await use_case.execute()
+
+    assert radarr.imported == []
+    assert repository.release_updates == {
+        "last_exported_info_hash": "hash-1",
+        "export_failures_count": 0,
+    }
+
+
+async def test_a_different_movie_copy_on_disk_does_not_close_the_release() -> None:
+    """A file of another size is the older grab, not what this release carries."""
+
+    files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
+    release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+
+    use_case, repository, _, _ = build_use_case(
+        release,
+        FakeMediaRequestRepository(),
+        FakeRadarrService(has_file=True, file_size=123),
+        download_service=FakeDownloadService(None),
+    )
+    await use_case.execute()
+
     assert "last_exported_info_hash" not in repository.release_updates
     assert repository.release_updates["export_failures_count"] == 1

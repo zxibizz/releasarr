@@ -341,7 +341,17 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             runtime_minutes=self._safe_int(data.get("runtime")),
             has_file=bool(data.get("hasFile")),
+            file_size=self._movie_file_size(data),
         )
+
+    def _movie_file_size(self, data: dict[str, Any]) -> int | None:
+        """Bytes on disk, or nothing when Radarr reports no file to measure."""
+
+        file = data.get("movieFile")
+        if not isinstance(file, dict):
+            return None
+        size = self._safe_int(file.get("size"))
+        return size or None
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Checked per request rather than in __init__ so that series-only

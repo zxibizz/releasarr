@@ -152,8 +152,21 @@ release that is `completed`, has `export_failures_count < 5`, and whose `last_ex
 is either NULL or different from its current `info_hash` — so a repack that changes the hash
 becomes eligible for import again, and a release that has failed five times stops being retried.
 The fifth failure also fails the release: dropping it out of the queue alone would leave the row
-`completed` and in flight, which is the same pin as a vanished torrent. A re-grab therefore also
-puts the release back to `downloading`, `progress` 0, no completion time, and no missing stamp:
+`completed` and in flight, which is the same pin as a vanished torrent.
+
+Before counting a failure, an export that has established it cannot proceed — the download
+directory is unknown, or neither arr accepted anything — asks whether the library already holds
+every file the release carries. Identity there is **byte size**, not merely a file being present:
+the arr holding an episode proves nothing about this release, whose copy may be the better one
+grabbed to replace what is on disk, and closing on presence alone would silently discard the
+upgrade. Both arrs record the size of what they imported and a manual import copies the file
+unchanged, so an exact match on every mapped file is what says this release has nothing left to
+deliver; it is then marked exported rather than failed. The question is asked only once importing
+is known to be impossible, never up front, because a repack maps to episodes the arr already
+holds and short-circuiting there would stop it ever being upgraded.
+
+A re-grab puts the release back to `downloading`, `progress` 0, no completion time, and no
+missing stamp:
 the row cannot go on being eligible while the files the new torrent is downloading are still
 replacing the old ones. It becomes `completed` again when the replacement finishes and the next
 `release_sync` reads that back.
