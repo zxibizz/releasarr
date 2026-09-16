@@ -91,6 +91,11 @@ export function ReleaseGeneralTab({ release, currentRequestId }: ReleaseGeneralT
 
   return (
     <Stack gap="md">
+      {/* The window's title says which panel this is; this is which release. */}
+      <Text fw={700} className="break-anywhere">
+        {release.name}
+      </Text>
+
       <Paper withBorder radius="md" p="md">
         <Stack gap="sm">
           <DataField label={t('releaseDetails.general.status')}>
