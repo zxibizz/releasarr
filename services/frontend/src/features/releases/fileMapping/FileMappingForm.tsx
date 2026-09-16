@@ -14,7 +14,7 @@ import { useRequestsList } from '@/features/requests/queries';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ReleaseFile } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
-import { splitVideoFiles } from '@/utils/files';
+import { commonRootFolder, splitVideoFiles } from '@/utils/files';
 
 interface FileMappingFormProps {
   releaseId: string;
@@ -58,6 +58,7 @@ export function FileMappingForm({
 
   const { video, other } = useMemo(() => splitVideoFiles(files), [files]);
   const orderedFiles = useMemo(() => [...video, ...other], [video, other]);
+  const rootFolder = useMemo(() => commonRootFolder(files), [files]);
 
   const hasChanges = form.dirtyFileIds.length > 0;
 
@@ -117,6 +118,7 @@ export function FileMappingForm({
     <FileMappingRow
       key={file.id}
       file={file}
+      rootFolder={rootFolder}
       draft={form.getDraft(file.id)}
       requests={availableRequests}
       requestsDisabled={requestsLoading || availableRequests.length === 0}

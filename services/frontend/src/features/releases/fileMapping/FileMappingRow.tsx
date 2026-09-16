@@ -4,13 +4,15 @@ import { useTranslation } from 'react-i18next';
 import type { MappingDraft } from '@/features/releases/fileMapping/useFileMappingForm';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { MediaRequest, ReleaseFile } from '@/types';
-import { formatEpisodeCode, isVideoFile } from '@/utils/files';
+import { formatEpisodeCode, isVideoFile, withoutRootFolder } from '@/utils/files';
 import { formatFileSize } from '@/utils/formatters';
 
 const optionLabel = (request: MediaRequest) => `${request.title} (${request.year})`;
 
 interface FileMappingRowProps {
   file: ReleaseFile;
+  /** The folder the whole release sits in, which no row needs to repeat. */
+  rootFolder: string | null;
   draft: MappingDraft;
   requests: MediaRequest[];
   requestsDisabled: boolean;
@@ -21,6 +23,7 @@ interface FileMappingRowProps {
 
 export function FileMappingRow({
   file,
+  rootFolder,
   draft,
   requests,
   requestsDisabled,
@@ -56,7 +59,7 @@ export function FileMappingRow({
           <Group gap="xs" wrap="nowrap" align="flex-start">
             <Text>{isVideoFile(file.name) ? '🎬' : '📄'}</Text>
             <Text fw={600} className="break-anywhere" style={{ minWidth: 0 }}>
-              {file.name}
+              {withoutRootFolder(file.name, rootFolder)}
             </Text>
           </Group>
 

@@ -7,14 +7,21 @@ import { OtherFilesSection } from '@/features/releases/components/OtherFilesSect
 import { overlapRelatedReleaseCount, overlappingFileIds } from '@/features/releases/warnings';
 import type { Release, ReleaseFile } from '@/types';
 import { formatFileSize } from '@/utils/formatters';
-import { formatEpisodeCode, splitVideoFiles } from '@/utils/files';
+import {
+  commonRootFolder,
+  formatEpisodeCode,
+  splitVideoFiles,
+  withoutRootFolder,
+} from '@/utils/files';
 
 function ReleaseFileCard({
   file,
+  rootFolder,
   overlapping,
   relatedReleaseCount,
 }: {
   file: ReleaseFile;
+  rootFolder: string | null;
   overlapping: boolean;
   relatedReleaseCount: number;
 }) {
@@ -26,7 +33,7 @@ function ReleaseFileCard({
       <Stack gap={6}>
         <Group gap={6} wrap="nowrap" align="center">
           <Text fw={600} className="break-anywhere" style={{ flex: 1 }}>
-            {file.name}
+            {withoutRootFolder(file.name, rootFolder)}
           </Text>
           {overlapping && (
             <Tooltip
@@ -76,6 +83,7 @@ export function ReleaseContentTab({ release, onEditMapping }: ReleaseContentTabP
 
   const files = release.files ?? [];
   const { video, other } = splitVideoFiles(files);
+  const rootFolder = commonRootFolder(files);
   const overlappingIds = overlappingFileIds(release);
   const relatedReleaseCount = overlapRelatedReleaseCount(release);
 
@@ -83,6 +91,7 @@ export function ReleaseContentTab({ release, onEditMapping }: ReleaseContentTabP
     <ReleaseFileCard
       key={file.id}
       file={file}
+      rootFolder={rootFolder}
       overlapping={overlappingIds.has(file.id)}
       relatedReleaseCount={relatedReleaseCount}
     />

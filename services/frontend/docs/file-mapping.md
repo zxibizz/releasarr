@@ -26,6 +26,9 @@ link, info hash, its three dates, the transfer stats, file counts, related reque
 warnings the card only shows as badges. **Content** is the file list with each file's current
 mapping.
 
+The window is titled for what it is, not for which release: the torrent's name is the first line
+of **General**, where it sits in full rather than clamped into a dialog header.
+
 The mapping editor is not a tab. `Content` is read-only until **Edit mapping** is pressed, and
 the form then replaces the list in place: it is a mode of one tab, so a glance at the files
 cannot change anything. Save stores the mappings and hands the list back; Cancel exits too,
@@ -38,6 +41,13 @@ with.
 Video files are listed first and non-video files are collapsed, via `splitVideoFiles` in
 `utils/files.ts`. Both buckets sort with `compareByFileName`, a `localeCompare` with
 `numeric: true`, so `E9` precedes `E10`.
+
+Names are shown without the folder the whole release sits in (`commonRootFolder` and
+`withoutRootFolder`, also in `utils/files.ts`). A multi-file torrent names its files
+`Root/Season 02/episode.mkv`, so every row repeated the same folder and none of them was told
+apart by it; what is left tells the rows apart. The folder is only dropped when **every** file
+sits inside the same one — a single-file torrent has none, and a release whose files disagree
+has nothing to drop. Only the first segment goes: a season folder inside it stays.
 
 The window does not hold the release it was opened from: `RequestDetailPage` keeps the clicked
 release's id and reads the release out of the releases query, so a re-grab that rewrites it — and

@@ -500,6 +500,7 @@ export const resources = {
         },
       },
       releaseDetails: {
+        title: 'Release details',
         tabs: {
           general: 'General',
           content: 'Content',
@@ -1493,6 +1494,7 @@ export const resources = {
         },
       },
       releaseDetails: {
+        title: 'Детали релиза',
         tabs: {
           general: 'Общее',
           content: 'Содержимое',

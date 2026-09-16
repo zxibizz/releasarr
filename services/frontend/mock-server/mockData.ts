@@ -485,7 +485,7 @@ const mockReleases: Release[] = [
     files: [
       {
         id: 'f13',
-        name: 'Breaking.Bad.S02E01.Seven.Thirty-Seven.1080p.BluRay.x264-COMPLETE.mkv',
+        name: 'Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E01.Seven.Thirty-Seven.1080p.BluRay.x264-COMPLETE.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E01.Seven.Thirty-Seven.1080p.BluRay.x264-COMPLETE.mkv',
         request_mapping: {
@@ -498,7 +498,7 @@ const mockReleases: Release[] = [
       },
       {
         id: 'f14',
-        name: 'Breaking.Bad.S02E02.Grilled.1080p.BluRay.x264-COMPLETE.mkv',
+        name: 'Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E02.Grilled.1080p.BluRay.x264-COMPLETE.mkv',
         size: 1903017984,
         path: '/downloads/Breaking.Bad.Complete.Series.1080p.BluRay.x264-COMPLETE/Season.02/Breaking.Bad.S02E02.Grilled.1080p.BluRay.x264-COMPLETE.mkv',
         request_mapping: {

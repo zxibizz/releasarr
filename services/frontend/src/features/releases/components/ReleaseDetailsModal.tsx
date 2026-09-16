@@ -54,7 +54,7 @@ export function ReleaseDetailsModal({
   const changeTab = (next: string | null) => setTab(next === 'content' ? 'content' : FIRST_TAB);
 
   return (
-    <ResponsiveModal opened={opened} onClose={onClose} title={`📁 ${release.name}`}>
+    <ResponsiveModal opened={opened} onClose={onClose} title={t('releaseDetails.title')}>
       <Tabs value={tab} onChange={changeTab}>
         <Tabs.List grow>
           <Tabs.Tab value="general">{t('releaseDetails.tabs.general')}</Tabs.Tab>

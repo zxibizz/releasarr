@@ -135,6 +135,26 @@ describe('ReleaseDetailsModal', () => {
     expect(screen.getByText('Severance.S02E01.1080p.mkv')).not.toBeVisible();
   });
 
+  it('names the release in General rather than over the tabs', async () => {
+    renderModal(release(mappedVideo));
+
+    expect(await screen.findByRole('dialog')).toHaveAccessibleName('Release details');
+    expect(screen.getByText('Severance.S02.2160p.WEB-DL-FLUX')).toBeInTheDocument();
+  });
+
+  it('leaves the torrent folder off the file names, since they all share it', async () => {
+    const pack: ReleaseFile[] = [
+      { ...mappedVideo, name: 'Severance.S02.2160p/Severance.S02E01.1080p.mkv' },
+      { ...unmappedExtra, name: 'Severance.S02.2160p/readme.nfo' },
+    ];
+
+    renderModal(release(...pack));
+    await openContentTab();
+
+    expect(await screen.findByText('Severance.S02E01.1080p.mkv')).toBeInTheDocument();
+    expect(screen.queryByText(/Severance\.S02\.2160p\//)).not.toBeInTheDocument();
+  });
+
   it('lists the files and where they are mapped', async () => {
     renderModal(release(mappedVideo, unmappedExtra));
     await openContentTab();

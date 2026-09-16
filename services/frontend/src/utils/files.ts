@@ -61,3 +61,33 @@ export const splitVideoFiles = (files: ReleaseFile[]): SplitFiles => {
 
 export const formatEpisodeCode = (season: number, episode: number): string =>
   `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
+
+/** The folder a torrent-relative name sits in, or null when it has none. */
+const rootFolderOf = (name: string): string | null => {
+  const separator = name.indexOf('/');
+  return separator === -1 ? null : name.slice(0, separator);
+};
+
+/**
+ * The torrent's own top folder, when every file sits inside one. A multi-file
+ * torrent names its files `Root/…`, so the release says the same folder on every
+ * row and none of them is told apart by it. A single-file torrent has no folder
+ * at all, and a release whose files do not share one has nothing to drop.
+ */
+export const commonRootFolder = (files: ReleaseFile[]): string | null => {
+  const [first] = files;
+  if (!first) {
+    return null;
+  }
+
+  const root = rootFolderOf(first.name);
+  if (root === null) {
+    return null;
+  }
+
+  return files.every((file) => rootFolderOf(file.name) === root) ? root : null;
+};
+
+/** A file's name as it reads without the folder the whole release sits in. */
+export const withoutRootFolder = (name: string, root: string | null): string =>
+  root !== null && name.startsWith(`${root}/`) ? name.slice(root.length + 1) : name;
