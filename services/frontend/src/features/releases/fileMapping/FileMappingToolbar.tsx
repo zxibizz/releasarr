@@ -1,4 +1,5 @@
 import { Button, Group, Select } from '@mantine/core';
+import { IconWand } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,26 +10,19 @@ interface FileMappingToolbarProps {
   requests: MediaRequest[];
   requestsLoading: boolean;
   currentRequestId?: string;
-  canSuggest: boolean;
-  canNumberEpisodes: boolean;
-  hasChanges: boolean;
+  /** False until the automapper's proposals have arrived; see `FileMappingForm`. */
+  canAutomap: boolean;
   onApplyToAll: (request: MediaRequest) => void;
-  onApplySuggestions: () => void;
-  onNumberEpisodes: () => void;
-  onReset: () => void;
+  onAutomap: () => void;
 }
 
 export function FileMappingToolbar({
   requests,
   requestsLoading,
   currentRequestId,
-  canSuggest,
-  canNumberEpisodes,
-  hasChanges,
+  canAutomap,
   onApplyToAll,
-  onApplySuggestions,
-  onNumberEpisodes,
-  onReset,
+  onAutomap,
 }: FileMappingToolbarProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -41,10 +35,8 @@ export function FileMappingToolbar({
   }));
 
   /*
-   * These labels are long enough that sharing a row on a phone leaves the text
-   * narrower than the button's padding allows, so each takes its own row. On
-   * wider screens they keep their natural width: growing them would let
-   * flexbox shrink the labels below their content.
+   * The button takes a row of its own on a phone rather than sharing one with
+   * the select. On wider screens it keeps its natural width.
    */
   const buttonFlex = isMobile ? '1 1 100%' : undefined;
 
@@ -71,34 +63,30 @@ export function FileMappingToolbar({
         w={{ base: '100%', sm: 260 }}
       />
 
-      <Group gap="sm" wrap="wrap" w={{ base: '100%', sm: 'auto' }}>
-        <Button
-          variant="default"
-          onClick={onApplySuggestions}
-          disabled={!canSuggest}
-          style={{ flex: buttonFlex }}
-        >
-          {t('fileMapping.applySuggestions', { defaultValue: 'Use suggested mapping' })}
-        </Button>
-
-        <Button
-          variant="default"
-          onClick={onNumberEpisodes}
-          disabled={!canNumberEpisodes}
-          style={{ flex: buttonFlex }}
-        >
-          {t('fileMapping.numberEpisodes', { defaultValue: 'Number episodes in order' })}
-        </Button>
-
-        <Button
-          variant="default"
-          onClick={onReset}
-          disabled={!hasChanges}
-          style={{ flex: buttonFlex }}
-        >
-          {t('fileMapping.reset', { defaultValue: 'Reset changes' })}
-        </Button>
-      </Group>
+      <Button
+        variant="default"
+        leftSection={<IconWand size={16} />}
+        onClick={() => {
+          // The rows no longer carry the last pick, so the field above it must
+          // stop claiming they do.
+          setSelectedRequestId(null);
+          onAutomap();
+        }}
+        disabled={!canAutomap}
+        style={{ flex: buttonFlex }}
+        /*
+         * Mantine clips a Button's label instead of wrapping it - the root's
+         * height is fixed and the label is kept on one line - so a translation
+         * longer than the button is cut off mid-word. Freed here, so the button
+         * grows downwards instead.
+         */
+        styles={{
+          root: { height: 'auto', minHeight: 'var(--button-height-sm)' },
+          label: { whiteSpace: 'normal', textAlign: 'center' },
+        }}
+      >
+        {t('fileMapping.automap', { defaultValue: 'Map automatically' })}
+      </Button>
     </Group>
   );
 }

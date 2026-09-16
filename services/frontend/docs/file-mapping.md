@@ -96,8 +96,8 @@ const withSuggestions = (
 };
 ```
 
-An edit made while suggestions were still in flight outranks them. The explicit "use suggested
-mapping" button does not — it overwrites every suggested row, edits included.
+An edit made while suggestions were still in flight outranks them — the automap button is the
+way to overrule that, see below.
 
 ## Season packs route per season
 
@@ -115,26 +115,24 @@ to all" — each file still lands on the request owning its own season.
 | Action                           | Semantics                                                                                                          |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Apply request to all video files | Movie: every video file gets that request. Series: each file keeps its season and routes through the season index. |
-| Use suggested mapping            | Overwrites all suggested rows, **discarding edits to them**.                                                       |
-| Number episodes in order         | Fills empty episode numbers in name order.                                                                         |
-| Reset changes                    | Back to the stored state.                                                                                          |
+| Map automatically                | The stored mappings go, and the automapper's proposals take their place.                                           |
 
-All of them target **video files only**.
+The first targets **video files only**. The second covers every file in the release, because a
+subtitle the backend can place belongs on the episode it belongs to.
 
-Numbering deserves a note, because it is the escape hatch for releases the backend cannot parse
-at all:
+Automapping is not a patch over what is stored: `automap` starts from a blank draft for every
+file and lays the proposals over that, so a file the server proposes nothing for ends up
+**unmapped** rather than keeping whatever a human chose for it last time. Nothing is persisted
+until Save, so "Undo all changes" is still there to take it back.
 
-```typescript
-const episode = draft.episode ?? (lastEpisode.get(season) ?? 0) + 1;
-lastEpisode.set(season, Math.max(lastEpisode.get(season) ?? 0, episode));
-```
+The button is held disabled until the proposals have arrived (`isPending` on the suggestions
+query). Pressing it earlier would blank the stored mappings, and the proposals landing afterwards
+would then leave those rows alone — `withSuggestions` fills in untouched rows only, and these are
+no longer untouched.
 
-Counters are **per season**, rows that already have an episode keep it and raise the high-water
-mark, and only empty rows get filled. So numbering a half-mapped season continues from the
-highest number already there instead of renumbering from one.
-
-`reset` also bumps a `resetToken`, which the row components use to drop uncontrolled input
-state that would otherwise survive the reset.
+Mantine clips a Button's label instead of wrapping it (fixed root height, label kept to one
+line), so this button carries `styles` freeing both: its label is a sentence, and the Russian one
+is longer than a phone's button is wide.
 
 ## Saving
 

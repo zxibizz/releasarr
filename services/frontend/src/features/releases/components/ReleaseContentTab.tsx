@@ -100,15 +100,20 @@ export function ReleaseContentTab({ release, onEditMapping }: ReleaseContentTabP
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+      <Group justify="space-between" align="center" wrap="wrap" gap="sm">
         <Text size="sm" c="dimmed">
           {t('releaseCard.files.total', { count: files.length })}
         </Text>
+        {/*
+          A label as long as the Russian one needs the whole row: beside the
+          count on a phone it is squeezed past its own text and clipped.
+        */}
         <Button
           variant="light"
           size="sm"
           leftSection={<IconPencil size={16} />}
           onClick={onEditMapping}
+          w={{ base: '100%', sm: 'auto' }}
         >
           {t('releaseDetails.content.editMapping')}
         </Button>

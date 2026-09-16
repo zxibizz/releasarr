@@ -77,7 +77,6 @@ const packSuggestions: ReleaseFileMappingSuggestion[] = [
 ];
 
 const NO_SUGGESTIONS: ReleaseFileMappingSuggestion[] = [];
-const ALREADY_AT_TWELVE = [suggest('u1', 'req-s1', 1, 12)];
 
 describe('useFileMappingForm', () => {
   it('starts with empty drafts and no pending changes', () => {
@@ -198,20 +197,36 @@ describe('useFileMappingForm', () => {
     expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
   });
 
-  it('puts the proposals back over an edit when asked to', () => {
+  it('drops the stored mappings and leaves the automapper the whole answer', () => {
+    const stored: ReleaseFile[] = [
+      {
+        ...files[0],
+        request_mapping: {
+          request_id: 'req-9',
+          request_title: 'Existing',
+          mapping_type: 'series',
+          season: 3,
+          episode: 7,
+        },
+      },
+      files[1],
+    ];
+
+    // A proposal for the second file only. The first one's stored mapping has to
+    // go: automapping replaces the whole set rather than patching holes in it.
     const { result } = renderHook(() =>
-      useFileMappingForm(packFiles, packRequests, packSuggestions),
+      useFileMappingForm(stored, packRequests, [suggest('f2', 'req-1', 2, 2)]),
     );
 
-    act(() => result.current.selectRequest('p1', packRequests[2]));
-    expect(result.current.getDraft('p1')).toMatchObject({ requestId: 'req-s3' });
+    expect(result.current.getDraft('f1')).toMatchObject({ requestId: 'req-9', episode: 7 });
 
-    act(() => result.current.applySuggestions());
+    act(() => result.current.automap());
 
-    expect(result.current.getDraft('p1')).toMatchObject({
-      requestId: 'req-s1',
-      season: 1,
-      episode: 1,
+    expect(result.current.getDraft('f1').requestId).toBe('');
+    expect(result.current.getDraft('f2')).toMatchObject({
+      requestId: 'req-1',
+      season: 2,
+      episode: 2,
     });
   });
 
@@ -224,45 +239,6 @@ describe('useFileMappingForm', () => {
 
     expect(result.current.getDraft('p2')).toMatchObject({ requestId: 'req-s2', season: 2 });
     expect(result.current.getDraft('p3')).toMatchObject({ requestId: 'req-s3', season: 3 });
-  });
-
-  it('numbers episodes per season instead of across the whole release', () => {
-    const unnumbered: ReleaseFile[] = [
-      { id: 'u1', name: 'a.mkv', size: 1, path: 'Avatar/Season 1/a.mkv' },
-      { id: 'u2', name: 'b.mkv', size: 1, path: 'Avatar/Season 1/b.mkv' },
-      { id: 'u3', name: 'c.mkv', size: 1, path: 'Avatar/Season 2/c.mkv' },
-    ];
-
-    const { result } = renderHook(() => useFileMappingForm(unnumbered, packRequests));
-
-    act(() => result.current.applyToAll(packRequests[0], [unnumbered[0], unnumbered[1]]));
-    act(() => result.current.applyToAll(packRequests[1], [unnumbered[2]]));
-    act(() => result.current.numberEpisodes(unnumbered));
-
-    expect(result.current.getDraft('u1')).toMatchObject({ season: 1, episode: 1 });
-    expect(result.current.getDraft('u2')).toMatchObject({ season: 1, episode: 2 });
-    expect(result.current.getDraft('u3')).toMatchObject({
-      requestId: 'req-s2',
-      season: 2,
-      episode: 1,
-    });
-  });
-
-  it('numbers from the highest episode already set rather than from one', () => {
-    const unnumbered: ReleaseFile[] = [
-      { id: 'u1', name: 'a.mkv', size: 1, path: 'Avatar/Season 1/a.mkv' },
-      { id: 'u2', name: 'b.mkv', size: 1, path: 'Avatar/Season 1/b.mkv' },
-    ];
-
-    const { result } = renderHook(() =>
-      useFileMappingForm(unnumbered, packRequests, ALREADY_AT_TWELVE),
-    );
-
-    act(() => result.current.applyToAll(packRequests[0], unnumbered));
-    act(() => result.current.numberEpisodes(unnumbered));
-
-    expect(result.current.getDraft('u1')).toMatchObject({ episode: 12 });
-    expect(result.current.getDraft('u2')).toMatchObject({ episode: 13 });
   });
 
   it('leaves series files without an episode number out of the payload', () => {

@@ -51,7 +51,7 @@ export function FileMappingForm({
 
   // The proposals arrive after the first paint, so the rows start out as
   // whatever is stored and fill in from there.
-  const { data: suggestions } = useSuggestedFileMappings(releaseId);
+  const { data: suggestions, isPending: suggestionsPending } = useSuggestedFileMappings(releaseId);
 
   const form = useFileMappingForm(files, availableRequests, suggestions);
   const saveMappings = useUpdateFileMappings(releaseId, requestId);
@@ -150,13 +150,14 @@ export function FileMappingForm({
         requests={availableRequests}
         requestsLoading={requestsLoading}
         currentRequestId={requestId}
-        canSuggest={(suggestions?.length ?? 0) > 0}
-        canNumberEpisodes={form.canNumberEpisodes}
-        hasChanges={hasChanges}
+        /*
+         * Automapping before the proposals are here would blank every stored
+         * mapping only for the arriving proposals to leave those rows alone:
+         * the sync fills in untouched rows, and these are no longer untouched.
+         */
+        canAutomap={!suggestionsPending}
         onApplyToAll={(request) => form.applyToAll(request, video)}
-        onApplySuggestions={form.applySuggestions}
-        onNumberEpisodes={() => form.numberEpisodes(video)}
-        onReset={form.reset}
+        onAutomap={form.automap}
       />
 
       {availableRequests.length === 0 && !requestsLoading && (
