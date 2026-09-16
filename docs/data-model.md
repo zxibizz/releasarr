@@ -141,10 +141,11 @@ Client reconciliation: `missing_since`.
 reappears. qBittorrent is the only writer of a release's status, so a removed torrent would
 otherwise leave the row at its last-known state forever — including `completed`, which pins its
 request on `importing`. Past `RELEASARR_RELEASE_MISSING_GRACE_SECONDS` (default 900s), an
-in-flight release whose torrent is still absent is failed; an already-exported one is left
-alone, because a seeded-then-removed torrent is the normal end of its life. A cycle in which
-qBittorrent lists no torrents at all stamps nothing: the sync reads only its own category, so
-that can also mean the client was re-categorised, not that the whole library vanished.
+in-flight release whose torrent is still absent is failed. An already-exported one is not
+tracked at all: the arr has the files, the torrent was removed after seeding, and `regrab` adds
+a fresh one when the indexer has something better. A cycle in which qBittorrent lists no
+torrents at all stamps nothing: the sync reads only its own category, so that can also mean the
+client was re-categorised, not that the whole library vanished.
 
 `last_exported_info_hash` is how `regrab` and `export` cooperate. The export queue is every
 release that is `completed`, has `export_failures_count < 5`, and whose `last_exported_info_hash`
