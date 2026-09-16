@@ -166,9 +166,14 @@ class FakeDownloadService:
 
 
 class FakeSonarrService:
-    def __init__(self, files_per_season: dict[int, int] | None = None) -> None:
+    def __init__(
+        self,
+        files_per_season: dict[int, int] | None = None,
+        on_disk: dict[tuple[int, int], int] | None = None,
+    ) -> None:
         self.imported: list[ManualImportFile] = []
         self.files_per_season = files_per_season or dict.fromkeys((1, 2, 3), EPISODES_PER_SEASON)
+        self.on_disk = on_disk or {}
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return [
@@ -176,6 +181,8 @@ class FakeSonarrService:
                 id=season * 100 + episode,
                 season_number=season,
                 episode_number=episode,
+                has_file=(season, episode) in self.on_disk,
+                file_size=self.on_disk.get((season, episode)),
             )
             for season in (1, 2, 3)
             for episode in range(1, EPISODES_PER_SEASON + 1)
@@ -410,3 +417,71 @@ async def test_a_release_that_keeps_failing_to_export_is_failed_at_the_cap() -> 
 
     assert repository.release_updates["export_failures_count"] == 5
     assert repository.release_updates["status"] is ReleaseStatus.FAILED
+
+
+def build_unimportable_use_case(
+    release: ReleaseRecord,
+    sonarr: FakeSonarrService,
+) -> tuple[ExportFinishedReleasesUseCase, FakeReleaseRepository]:
+    """An export that cannot resolve where the download client put the payload."""
+
+    repository = FakeReleaseRepository(release)
+    request_repository = FakeMediaRequestRepository([])
+    use_case = ExportFinishedReleasesUseCase(
+        repository=repository,  # type: ignore[arg-type]
+        sonarr=sonarr,  # type: ignore[arg-type]
+        auto_mapper=build_auto_mapper(repository, request_repository),
+        download_service=FakeDownloadService(None),  # type: ignore[arg-type]
+        radarr=stub_radarr(),
+        request_repository=request_repository,  # type: ignore[arg-type]
+        recompute_state=stub_recompute_state(),
+    )
+    return use_case, repository
+
+
+async def test_an_unimportable_release_the_library_already_holds_is_closed() -> None:
+    """Files that reached Sonarr another way still mean this release is done with."""
+
+    release = make_release([make_file("f1", "Avatar/Avatar.S01E01.mkv")], season=1)
+    release.export_failures_count = 4
+    use_case, repository = build_unimportable_use_case(
+        release, FakeSonarrService(on_disk={(1, 1): 2048})
+    )
+
+    await use_case.execute()
+
+    assert repository.release_updates == {
+        "last_exported_info_hash": "hash-1",
+        "export_failures_count": 0,
+    }
+
+
+async def test_a_different_copy_on_disk_does_not_close_the_release() -> None:
+    """Sonarr holding the episode may just be the older grab this release replaces."""
+
+    use_case, repository = build_unimportable_use_case(
+        make_release([make_file("f1", "Avatar/Avatar.S01E01.mkv")], season=1),
+        FakeSonarrService(on_disk={(1, 1): 999}),
+    )
+
+    await use_case.execute()
+
+    assert "last_exported_info_hash" not in repository.release_updates
+    assert repository.release_updates["export_failures_count"] == 1
+
+
+async def test_an_unimportable_release_missing_one_episode_still_counts_a_failure() -> None:
+    """Part of a release on disk is not the whole of it; the rest is still wanted."""
+
+    files = [
+        make_file("f1", "Avatar/Avatar.S01E01.mkv"),
+        make_file("f2", "Avatar/Avatar.S01E02.mkv"),
+    ]
+    use_case, repository = build_unimportable_use_case(
+        make_release(files, season=1), FakeSonarrService(on_disk={(1, 1): 2048})
+    )
+
+    await use_case.execute()
+
+    assert "last_exported_info_hash" not in repository.release_updates
+    assert repository.release_updates["export_failures_count"] == 1

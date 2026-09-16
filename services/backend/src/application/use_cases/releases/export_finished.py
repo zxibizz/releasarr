@@ -119,7 +119,7 @@ class ExportFinishedReleasesUseCase:
         if not download_dir:
             # The client has never heard of the hash and no fallback save path is
             # configured: every run lands here, so the attempts count.
-            await self._record_failure(release, "download directory is unknown")
+            await self._settle_unimportable(release, requests_map, "download directory is unknown")
             return
 
         # 3. Hand each media type to the app that owns it
@@ -130,7 +130,7 @@ class ExportFinishedReleasesUseCase:
         if not imported:
             # Mappings or metadata that have not caught up yet resolve on a later
             # run; ones that never do retire at the failure cap.
-            await self._record_failure(release, "nothing importable")
+            await self._settle_unimportable(release, requests_map, "nothing importable")
             return
 
         await self._repository.update_release(
@@ -139,6 +139,89 @@ class ExportFinishedReleasesUseCase:
             export_failures_count=0,
         )
         await self._record_exports(candidates, imported)
+
+    async def _settle_unimportable(
+        self,
+        release: ReleaseRecord,
+        requests_map: dict[str, ReleaseRequestSnapshot],
+        reason: str,
+    ) -> None:
+        """Close a release the arr already holds, else count the attempt against the cap.
+
+        The export can only ever conclude "imported" by importing, so a release
+        whose files reached the library another way -- a row re-created for a
+        torrent that was already imported once -- would otherwise retry until it
+        failed. Asked only once an export is known to be impossible: a repack maps
+        to episodes the arr already holds, and checking up front would stop it
+        ever being upgraded.
+        """
+
+        if not await self._library_already_holds(release, requests_map):
+            await self._record_failure(release, reason)
+            return
+
+        await self._repository.update_release(
+            release.id,
+            last_exported_info_hash=release.info_hash,
+            export_failures_count=0,
+        )
+        for request_id in release.request_ids or ["unknown"]:
+            self._logger.info(
+                f"Release closed without importing ({reason}): "
+                "the library already holds every file it carries",
+                request_id=request_id,
+                release_id=release.id,
+                release_name=release.name,
+                info_hash=release.info_hash,
+            )
+
+    async def _library_already_holds(
+        self,
+        release: ReleaseRecord,
+        requests_map: dict[str, ReleaseRequestSnapshot],
+    ) -> bool:
+        """Whether the arr already holds this release's own file for every mapping.
+
+        Identity is byte size, not merely the presence of a file: the arr holding
+        *an* episode proves nothing about *this* release, whose copy may be the
+        better one grabbed to replace what is on disk. Sonarr and Radarr record
+        the size of what they imported, and a manual import copies the file
+        unchanged, so an exact match across every mapped file is what says the
+        library already has what this release would have delivered.
+        """
+
+        sizes_on_disk: dict[int, dict[tuple[int, int], int | None]] = {}
+        mapped = False
+
+        for file in release.files:
+            request = self._linked_request(file, requests_map)
+            if request is None or file.mapping is None:
+                continue
+            mapped = True
+
+            if file.mapping.mapping_type is MediaType.MOVIE:
+                movie_id = request.radarr_movie_id
+                if movie_id is None:
+                    return False
+                movie = await self._radarr.get_movie(movie_id)
+                if not movie.has_file or movie.file_size != file.size_bytes:
+                    return False
+                continue
+
+            series_id = request.sonarr_series_id
+            season, episode = file.mapping.season, file.mapping.episode
+            if series_id is None or season is None or episode is None:
+                return False
+            if series_id not in sizes_on_disk:
+                sizes_on_disk[series_id] = {
+                    (found.season_number, found.episode_number): found.file_size
+                    for found in await self._sonarr.get_episodes(series_id)
+                    if found.has_file
+                }
+            if sizes_on_disk[series_id].get((season, episode)) != file.size_bytes:
+                return False
+
+        return mapped
 
     async def _record_failure(self, release: ReleaseRecord, reason: str) -> None:
         """Count one failed export attempt, failing the release at the cap."""
