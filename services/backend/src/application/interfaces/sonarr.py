@@ -47,6 +47,10 @@ class SeriesDetails:
     seasons: dict[int, SeriesSeasonDetails]
     # Whether Sonarr monitors seasons that appear after the series was added.
     monitor_new_seasons: bool = False
+    # Sonarr clears the add options only once its post-add actions have rewritten
+    # season and episode monitoring, so while they are set nothing read back here
+    # about monitoring is final.
+    has_add_options: bool = False
 
 
 @dataclass(slots=True)
@@ -152,7 +156,11 @@ class SonarrService(Protocol):
         season_numbers: Sequence[int],
         timeout_seconds: float | None = None,
     ) -> SeriesDetails:
-        """Wait until Sonarr has populated episodes for the given seasons."""
+        """Wait until Sonarr has populated episodes and applied its add options.
+
+        Both halves of a freshly added series settle in the background, and the
+        returned details are only worth reading - or correcting - once they have.
+        """
 
     async def delete_series(self, series_id: int) -> None:
         """Delete a series from the library, leaving anything on disk alone.

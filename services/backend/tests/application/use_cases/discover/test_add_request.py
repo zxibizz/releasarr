@@ -6,7 +6,7 @@ import pytest
 
 from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.radarr import MovieLookup
-from src.application.interfaces.sonarr import SeriesLookup
+from src.application.interfaces.sonarr import SeriesDetails, SeriesLookup
 from src.application.use_cases.discover.add_request import (
     AddMediaRequestCommand,
     AddMediaRequestUseCase,
@@ -85,6 +85,7 @@ def series_sonarr(
     *,
     existing_series_id: int | None = None,
     season_numbers: list[int] | None = None,
+    catalogue: dict[int, SeriesDetails] | None = None,
     **kwargs: object,
 ) -> FakeSonarrService:
     return FakeSonarrService(
@@ -97,7 +98,11 @@ def series_sonarr(
                 season_numbers=season_numbers if season_numbers is not None else [1, 2, 3],
             )
         },
-        catalogue={12: make_series_details(12, seasons={1: (10, True), 2: (8, True)})},
+        catalogue=(
+            catalogue
+            if catalogue is not None
+            else {12: make_series_details(12, seasons={1: (10, True), 2: (8, True)})}
+        ),
         **kwargs,  # type: ignore[arg-type]
     )
 
@@ -129,6 +134,8 @@ async def test_adding_a_new_series_creates_a_request_per_season() -> None:
             "monitor_new_seasons": False,
         }
     ]
+    # Sonarr monitored exactly what it was asked to, so nothing is corrected.
+    assert sonarr.monitored == []
     # The requests must exist by the time the call returns, not after a poll.
     seasons = as_series(requests)
     assert [(request.season_number, request.title) for request in seasons] == [
@@ -137,6 +144,73 @@ async def test_adding_a_new_series_creates_a_request_per_season() -> None:
     ]
     assert all(request.status == MediaRequestStatus.PENDING for request in seasons)
     assert seasons[0].total_episodes == 10
+
+
+@pytest.mark.asyncio
+async def test_a_new_series_is_left_monitoring_only_the_requested_seasons() -> None:
+    repository = FakeMediaRequestRepository()
+    sonarr = series_sonarr(
+        catalogue={
+            12: make_series_details(
+                12,
+                seasons={0: (3, True), 1: (10, True), 2: (8, True), 3: (6, True)},
+            )
+        },
+    )
+
+    requests = await build_use_case(
+        repository=repository,
+        sonarr=sonarr,
+        radarr=FakeRadarrService(),
+    ).execute(
+        AddMediaRequestCommand(
+            media_type=MediaType.SERIES,
+            provider_id=555,
+            root_folder_path="/tv",
+            season_numbers=[1],
+        )
+    )
+
+    assert sonarr.monitored == [
+        {
+            "series_id": 12,
+            "monitor": [1],
+            "unmonitor": [0, 2, 3],
+            "monitor_new_seasons": False,
+        }
+    ]
+    assert [request.season_number for request in as_series(requests)] == [1]
+
+
+@pytest.mark.asyncio
+async def test_a_series_sonarr_is_still_adding_is_left_alone() -> None:
+    repository = FakeMediaRequestRepository()
+    sonarr = series_sonarr(
+        catalogue={
+            12: make_series_details(
+                12,
+                seasons={1: (10, True), 2: (8, True)},
+                has_add_options=True,
+            )
+        },
+    )
+
+    await build_use_case(
+        repository=repository,
+        sonarr=sonarr,
+        radarr=FakeRadarrService(),
+    ).execute(
+        AddMediaRequestCommand(
+            media_type=MediaType.SERIES,
+            provider_id=555,
+            root_folder_path="/tv",
+            season_numbers=[1],
+        )
+    )
+
+    # Sonarr has yet to apply its own monitoring, so a correction now would be
+    # overwritten by it rather than stick.
+    assert sonarr.monitored == []
 
 
 @pytest.mark.asyncio

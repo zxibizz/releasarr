@@ -468,6 +468,25 @@ async def test_wait_for_series_episodes_gives_up_without_failing() -> None:
     assert details.seasons[1].total_episode_count == 0
 
 
+async def test_wait_for_series_episodes_polls_while_the_add_options_stand() -> None:
+    """Sonarr clears them last, once its own monitoring has been written."""
+
+    season = {"seasonNumber": 1, "monitored": True, "statistics": {"totalEpisodeCount": 8}}
+    responses = [
+        {"id": 12, "seasons": [season], "addOptions": {"searchForMissingEpisodes": False}},
+        {"id": 12, "seasons": [season], "addOptions": None},
+    ]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses.pop(0) if len(responses) > 1 else responses[0])
+
+    with patch.object(sonarr_client, "REFRESH_POLL_INTERVAL_SECONDS", 0):
+        details = await build_client(handler).wait_for_series_episodes(12, [1])
+
+    assert details.has_add_options is False
+    assert responses == [{"id": 12, "seasons": [season], "addOptions": None}]
+
+
 async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
     queries: list[str] = []
 

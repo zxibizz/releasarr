@@ -280,10 +280,15 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         season_numbers: Sequence[int],
         timeout_seconds: float | None = None,
     ) -> SeriesDetails:
-        """Poll a series until Sonarr reports episodes for the given seasons.
+        """Poll a series until Sonarr has finished settling a freshly added one.
 
         A series added a moment ago still has no episodes, so reading its season
         statistics right away records every request as holding zero episodes.
+        Its monitoring is not final either: Sonarr applies the add options after
+        the scan that follows the add, rewriting season and episode monitoring
+        from them, so a selection read - or corrected - before that lands is
+        overwritten seconds later.
+
         Timing out is not an error: the counts are refreshed by the next sync,
         and failing the add over them would be worse than a stale number.
         """
@@ -292,7 +297,7 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         deadline = time.monotonic() + timeout
         while True:
             details = await self.get_series(series_id)
-            if self._seasons_populated(details, season_numbers):
+            if self._series_settled(details, season_numbers):
                 return details
             if time.monotonic() >= deadline:
                 return details
@@ -475,7 +480,9 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
                 payload[key] = value
         return payload
 
-    def _seasons_populated(self, details: SeriesDetails, season_numbers: Sequence[int]) -> bool:
+    def _series_settled(self, details: SeriesDetails, season_numbers: Sequence[int]) -> bool:
+        if details.has_add_options:
+            return False
         for season_number in season_numbers:
             season = details.seasons.get(season_number)
             if season is None or season.total_episode_count <= 0:
@@ -548,6 +555,7 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             seasons=seasons,
             monitor_new_seasons=self._reads_monitor_new_items(data),
+            has_add_options=bool(data.get("addOptions")),
         )
 
     def _season_number(self, season: dict[str, Any]) -> int | None:
