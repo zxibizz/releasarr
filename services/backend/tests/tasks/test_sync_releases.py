@@ -237,6 +237,21 @@ async def test_a_missing_in_flight_release_is_failed_past_the_grace_period(
     assert result.missing_failed == 1
 
 
+async def test_a_release_whose_torrent_never_registered_is_failed(
+    db_manager: DBManager,
+) -> None:
+    """A row left on the default pending status is a grab whose add silently failed."""
+
+    await seed(db_manager, missing_since=NOW - timedelta(seconds=901))
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    assert (await release_record(db_manager)).status == ReleaseStatus.FAILED
+    assert result.missing_failed == 1
+
+
 async def test_a_missing_exported_release_is_never_failed(db_manager: DBManager) -> None:
     """A seeded-then-removed torrent is the normal end of a release's life."""
 
@@ -253,7 +268,24 @@ async def test_a_missing_exported_release_is_never_failed(db_manager: DBManager)
 
     release = await release_record(db_manager)
     assert release.status == ReleaseStatus.COMPLETED
-    assert result.missing_failed == 0
+    assert (result.missing_failed, result.missing_pending) == (0, 0)
+
+
+async def test_a_missing_exported_release_is_not_even_stamped(db_manager: DBManager) -> None:
+    """Nothing consumes the stamp for a settled release, so it is not tracked at all."""
+
+    await seed(
+        db_manager,
+        release_status=ReleaseStatus.COMPLETED,
+        last_exported_info_hash=INFO_HASH,
+    )
+
+    result = await make_task(
+        db_manager, [finished_torrent("uploading", info_hash="OTHER")]
+    ).execute()
+
+    assert (await release_record(db_manager)).missing_since is None
+    assert (result.not_found, result.missing_new) == (1, 0)
 
 
 async def test_a_reappearing_torrent_clears_the_stamp(db_manager: DBManager) -> None:

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from enum import Enum, auto
 from typing import Any
 
 from loguru import logger
@@ -21,6 +23,19 @@ from src.infrastructure.qbittorrent import QbittorrentClient
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+class _MissingOutcome(Enum):
+    """What one absent torrent implied for its release.
+
+    ``SETTLED`` is deliberately not reported: an exported release losing its
+    torrent is routine, and counting it would swamp the outcomes worth watching.
+    """
+
+    SETTLED = auto()
+    STAMPED = auto()
+    PENDING = auto()
+    FAILED = auto()
 
 
 @dataclass(slots=True)
@@ -71,9 +86,7 @@ class SyncReleasesTask:
         unchanged = 0
         failed = 0
         not_found = 0
-        missing_new = 0
-        missing_pending = 0
-        missing_failed = 0
+        missing: Counter[_MissingOutcome] = Counter()
 
         # Get all releases from DB
         async with self.db.session() as session:
@@ -101,13 +114,7 @@ class SyncReleasesTask:
                 # like the whole library vanishing at once.
                 if not torrents:
                     continue
-                outcome = await self._reconcile_missing(release, now)
-                if outcome == "stamped":
-                    missing_new += 1
-                elif outcome == "failed":
-                    missing_failed += 1
-                else:
-                    missing_pending += 1
+                missing[await self._reconcile_missing(release, now)] += 1
                 continue
 
             try:
@@ -128,43 +135,43 @@ class SyncReleasesTask:
             failed=failed,
             not_found=not_found,
             unchanged=unchanged,
-            missing_new=missing_new,
-            missing_pending=missing_pending,
-            missing_failed=missing_failed,
+            missing_new=missing[_MissingOutcome.STAMPED],
+            missing_pending=missing[_MissingOutcome.PENDING],
+            missing_failed=missing[_MissingOutcome.FAILED],
         )
 
-    async def _reconcile_missing(self, release: models.Release, now: datetime) -> str:
+    async def _reconcile_missing(self, release: models.Release, now: datetime) -> _MissingOutcome:
         """Track how long a torrent has been gone, failing the release past the grace.
 
         qBittorrent is the only writer of a release's status, so a removed torrent
         would otherwise leave the row at whatever state it was last seen in —
-        including completed, which pins its request on importing forever. An
-        already-exported release is settled and stays untouched: a
-        seeded-then-removed torrent is the normal end of its life.
+        including completed, which pins its request on importing forever.
         """
+
+        # An exported release is settled: the arr has the files, the torrent was
+        # removed after seeding, and a re-grab adds a fresh one.
+        if release.last_exported_info_hash == release.info_hash:
+            return _MissingOutcome.SETTLED
 
         if release.missing_since is None:
             async with self.db.transaction() as session:
                 stored = await session.get(models.Release, release.id)
                 if stored is not None:
                     stored.missing_since = now
-            return "stamped"
+            return _MissingOutcome.STAMPED
 
         age = (now - as_utc(release.missing_since)).total_seconds()
         if age < self.grace_seconds:
-            return "pending"
+            return _MissingOutcome.PENDING
 
-        in_flight = release.last_exported_info_hash != release.info_hash
-        if not in_flight or release.status not in (
-            ReleaseStatus.DOWNLOADING,
-            ReleaseStatus.COMPLETED,
-        ):
-            return "pending"
+        # A release still pending with no torrent is an add that never landed.
+        if release.status is ReleaseStatus.FAILED:
+            return _MissingOutcome.PENDING
 
         async with self.db.transaction() as session:
             stored = await session.get(models.Release, release.id)
             if stored is None:
-                return "pending"
+                return _MissingOutcome.PENDING
             stored.status = ReleaseStatus.FAILED
 
         for request in release.requests:
@@ -174,7 +181,7 @@ class SyncReleasesTask:
                 release_id=release.id,
                 info_hash=release.info_hash,
             )
-        return "failed"
+        return _MissingOutcome.FAILED
 
     async def _update_release(self, release: models.Release, torrent: dict[str, Any]) -> bool:
         """Write the torrent's state onto the release, reporting whether it moved.
