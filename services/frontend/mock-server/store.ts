@@ -305,7 +305,9 @@ export class MockStore {
       result = result.filter((request) => request.status === status);
     }
     if (activeOnly) {
-      result = result.filter((request) => request.status !== 'completed');
+      result = result.filter(
+        (request) => request.status !== 'completed' && request.status !== 'upcoming',
+      );
     }
     if (type) {
       result = result.filter((request) => request.type === type);

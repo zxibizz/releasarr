@@ -30,6 +30,7 @@ const parseRequestStatus = (
   if (!value) return undefined;
   const allowed: MediaRequest['status'][] = [
     'pending',
+    'upcoming',
     'searching',
     'downloading',
     'monitoring',

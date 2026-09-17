@@ -8,8 +8,13 @@ import pytest
 
 from src.application.interfaces.media_requests import MediaRequestRecord, UpdateMediaRequestData
 from src.application.interfaces.releases import ReleaseRecord
+from src.application.interfaces.sonarr import SeriesSeasonDetails
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
-from src.application.use_cases.requests.state import ArrCompletion, RequestStateDeriver
+from src.application.use_cases.requests.state import (
+    ArrCompletion,
+    RequestStateDeriver,
+    season_completion,
+)
 from src.application.utility.sentinels import UNSET
 from src.domain.enums import MediaRequestStatus, ReleaseStatus
 from tests.fakes import FakeMediaRequestRepository, UnusedReleaseRepositoryCalls, make_record
@@ -131,6 +136,49 @@ def test_completed_request_is_untouched_without_an_arr_verdict() -> None:
     release = make_release("rel-1", request_ids=[REQUEST_ID], status=ReleaseStatus.COMPLETED)
 
     derived = RequestStateDeriver().derive(record, [release], arr=None)
+
+    assert derived.status is UNSET
+
+
+def test_an_arr_with_nothing_aired_yet_moves_to_upcoming() -> None:
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.PENDING)
+
+    derived = RequestStateDeriver().derive(
+        record, [], ArrCompletion(is_complete=False, has_unaired=True, is_upcoming=True)
+    )
+
+    assert derived.status is MediaRequestStatus.UPCOMING
+
+
+def test_upcoming_reopens_a_completed_request_as_upcoming() -> None:
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.COMPLETED)
+
+    derived = RequestStateDeriver().derive(
+        record, [], ArrCompletion(is_complete=False, is_upcoming=True)
+    )
+
+    assert derived.status is MediaRequestStatus.UPCOMING
+
+
+def test_a_release_in_flight_outranks_an_upcoming_verdict() -> None:
+    """A pre-air leak that is transferring is downloading, whatever the air date says."""
+
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.UPCOMING)
+    release = make_release("rel-1", request_ids=[REQUEST_ID], status=ReleaseStatus.DOWNLOADING)
+
+    derived = RequestStateDeriver().derive(
+        record, [release], ArrCompletion(is_complete=False, is_upcoming=True)
+    )
+
+    assert derived.status is MediaRequestStatus.DOWNLOADING
+
+
+def test_upcoming_request_is_untouched_without_an_arr_verdict() -> None:
+    """Only an arr sweep can say something has aired since; a recompute cannot."""
+
+    record = make_record(REQUEST_ID, status=MediaRequestStatus.UPCOMING)
+
+    derived = RequestStateDeriver().derive(record, [], arr=None)
 
     assert derived.status is UNSET
 
@@ -269,6 +317,40 @@ def test_no_releases_settles_on_pending() -> None:
     derived = RequestStateDeriver().derive(record, [], arr=None)
 
     assert derived.status is MediaRequestStatus.PENDING
+
+
+# --- season_completion ------------------------------------------------------
+
+
+def make_season(
+    *, episode_count: int, total_episode_count: int, episode_file_count: int = 0
+) -> SeriesSeasonDetails:
+    return SeriesSeasonDetails(
+        season_number=1,
+        episode_count=episode_count,
+        total_episode_count=total_episode_count,
+        episode_file_count=episode_file_count,
+    )
+
+
+def test_a_season_with_nothing_aired_is_upcoming() -> None:
+    verdict = season_completion(make_season(episode_count=0, total_episode_count=8))
+
+    assert (verdict.is_complete, verdict.has_unaired, verdict.is_upcoming) == (False, True, True)
+
+
+def test_a_season_partway_through_airing_is_not_upcoming() -> None:
+    verdict = season_completion(make_season(episode_count=3, total_episode_count=8))
+
+    assert (verdict.has_unaired, verdict.is_upcoming) == (True, False)
+
+
+def test_a_season_with_no_episodes_at_all_is_not_upcoming() -> None:
+    """A season Sonarr reports no episodes for is unscheduled, not yet to come."""
+
+    verdict = season_completion(make_season(episode_count=0, total_episode_count=0))
+
+    assert verdict.is_upcoming is False
 
 
 def test_newest_published_at_is_the_max_across_releases_ignoring_none() -> None:

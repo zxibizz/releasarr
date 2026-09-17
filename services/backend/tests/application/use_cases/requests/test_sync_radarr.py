@@ -211,6 +211,7 @@ def make_movie(
     *,
     monitored: bool = True,
     has_file: bool = False,
+    is_available: bool = True,
 ) -> MovieDetails:
     return MovieDetails(
         id=movie_id,
@@ -224,6 +225,7 @@ def make_movie(
         runtime_minutes=116,
         has_file=has_file,
         monitored=monitored,
+        is_available=is_available,
     )
 
 
@@ -317,6 +319,26 @@ async def test_sync_radarr_creates_updates_and_prunes() -> None:
 
     # The created row and the refreshed row share one TMDB read per run.
     assert tmdb.calls == [(329865, ("rus", "eng"))]
+
+
+@pytest.mark.asyncio
+async def test_a_movie_radarr_calls_unavailable_syncs_to_upcoming() -> None:
+    repository = FakeMediaRequestRepository(
+        records={"req-1": make_record("req-1", 156, MediaRequestStatus.PENDING)}
+    )
+    radarr = FakeRadarrService([make_movie(is_available=False)])
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=radarr,
+        tmdb_service=FakeTmdbService(metadata={}),
+        recompute_state=make_recompute(repository),
+    )
+    await use_case.execute()
+
+    refreshed = await repository.find_by_radarr(radarr_movie_id=156)
+    assert refreshed is not None
+    assert refreshed.status == MediaRequestStatus.UPCOMING
 
 
 @pytest.mark.asyncio

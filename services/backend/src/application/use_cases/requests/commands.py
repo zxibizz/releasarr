@@ -19,7 +19,8 @@ class ListRequestsOptions:
     # None means unrestricted, not "owned by nobody".
     owner_user_id: str | None = None
     has_warnings: bool | None = None
-    # The list page's "active" tab: every status except completed.
+    # The list page's "active" tab: every status except completed and upcoming,
+    # neither of which has work a search could pick up.
     active_only: bool = False
     search: str | None = None
     sort: RequestSort = RequestSort.CREATED_DESC

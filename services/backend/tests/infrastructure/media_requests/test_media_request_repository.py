@@ -322,13 +322,15 @@ async def test_list_requests_search_treats_wildcards_as_literal_text(
 
 
 @pytest.mark.asyncio
-async def test_list_requests_active_only_excludes_completed(
+async def test_list_requests_active_only_excludes_completed_and_upcoming(
     repository: SqlAlchemyMediaRequestRepository,
     db_manager: DBManager,
 ) -> None:
     await _seed_titled(db_manager, "req-1", title="One")
     await _seed_titled(db_manager, "req-2", title="Two", status=MediaRequestStatus.COMPLETED)
     await _seed_titled(db_manager, "req-3", title="Three", status=MediaRequestStatus.DOWNLOADING)
+    # Nothing has aired, so there is no work the active tab could show progress on.
+    await _seed_titled(db_manager, "req-4", title="Four", status=MediaRequestStatus.UPCOMING)
 
     records, total = await repository.list_requests(
         page=1, per_page=10, status=None, media_type=None, active_only=True

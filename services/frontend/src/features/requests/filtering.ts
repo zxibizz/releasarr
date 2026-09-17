@@ -12,6 +12,7 @@ export const STATUS_KEYS = [
   'active',
   'all',
   'pending',
+  'upcoming',
   'searching',
   'downloading',
   'monitoring',
