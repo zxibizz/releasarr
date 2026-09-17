@@ -214,15 +214,16 @@ who only wants errors wants them whatever the process, and after a reload.
 uvicorn has access logging, but its loggers are configured with
 `propagate: false` and a handler of their own, so nothing it writes reaches
 Loguru and the file this endpoint reads never saw a request line.
-`register_request_logging` logs them instead, through the same sink and the same
-file: one record per request with `status_code` and `duration_ms` on it.
+`register_request_logging` logs them instead: one record per request with
+`status_code` and `duration_ms` on it, `api.auth` for the auth routes and
+`api.http` for the rest. They are logged at DEBUG - below the file sink's INFO
+floor - because one line per request is mostly the UI's own polling and refresh
+chatter, so the logs page stays readable unless `RELEASARR_LOG_LEVEL=DEBUG`
+opts back in.
 
 Only the path is recorded, never the query string: the redaction patcher rewrites
 the message and not the metadata, and this file is served to the browser by the
 endpoint itself.
-
-One consequence of logging every request: the logs page's own polling shows up
-in it, attributed to `api.http`.
 
 ### How far back the logs view reaches
 

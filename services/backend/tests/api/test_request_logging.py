@@ -7,15 +7,40 @@ instead, and these tests pin that a request produces one usable record.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from loguru import logger
 
 from src.api.app import app
 from src.api.dependencies.auth import get_principal
 
 API_KEY_HEADER: dict[str, str] = {}
+
+
+@pytest.fixture()
+def captured_records() -> Iterator[list[dict[str, Any]]]:
+    """Like the shared fixture, but at DEBUG: the access log sits below the
+    file sink's INFO floor, so the shared fixture would miss it entirely.
+    """
+
+    records: list[dict[str, Any]] = []
+    sink_id = logger.add(
+        lambda message: records.append(
+            {
+                "message": message.record["message"],
+                "level": message.record["level"].name,
+                **message.record["extra"],
+            }
+        ),
+        level="DEBUG",
+    )
+    try:
+        yield records
+    finally:
+        logger.remove(sink_id)
 
 
 @pytest.mark.asyncio
@@ -26,9 +51,25 @@ async def test_a_served_request_is_logged(
 
     assert response.status_code == 200
     entry = next(record for record in captured_records if record["message"] == "GET /healthz")
-    assert entry["level"] == "INFO"
+    assert entry["level"] == "DEBUG"
+    assert entry["component"] == "api.http"
     assert entry["status_code"] == 200
     assert isinstance(entry["duration_ms"], int)
+
+
+@pytest.mark.asyncio
+async def test_an_auth_request_is_tagged_api_auth(
+    api_client: AsyncClient, captured_records: list[dict[str, Any]]
+) -> None:
+    """Login and refresh lines are the bulk of the chatter, so they get their
+    own component to filter on."""
+
+    response = await api_client.post("/auth/logout")
+
+    assert response.status_code == 204
+    entry = next(record for record in captured_records if record["message"] == "POST /auth/logout")
+    assert entry["level"] == "DEBUG"
+    assert entry["component"] == "api.auth"
 
 
 @pytest.mark.asyncio
@@ -53,4 +94,7 @@ async def test_the_query_string_is_not_recorded(
 
     await api_client.get("/logs", params={"api_key": "SUPERSECRET"}, headers=API_KEY_HEADER)
 
-    assert [record["message"] for record in captured_records] == ["GET /logs"]
+    messages = [
+        record["message"] for record in captured_records if record.get("component") == "api.http"
+    ]
+    assert messages == ["GET /logs"]
