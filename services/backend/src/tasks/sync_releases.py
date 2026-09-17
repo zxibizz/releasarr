@@ -71,6 +71,10 @@ class SyncReleasesTask:
     counts the releases that actually moved rather than the ones that were looked
     at; ``unchanged`` carries the rest.
 
+    A completed release is not synced at all: seeding stats move on every cycle,
+    so it would otherwise be rewritten for as long as it seeds, and nothing
+    reads those numbers back once the download is finished.
+
     Propagating the refreshed release state onto media requests is
     `SyncSteps.release_sync`'s job, via `RecomputeRequestStateUseCase` - this task
     only owns the release rows themselves.
@@ -117,6 +121,12 @@ class SyncReleasesTask:
                 if not torrents:
                     continue
                 missing[await self._reconcile_missing(release, now)] += 1
+                continue
+
+            # A stamped-missing completed release still goes through the update:
+            # that is the path that clears the stamp when its torrent returns.
+            if release.status is ReleaseStatus.COMPLETED and release.missing_since is None:
+                unchanged += 1
                 continue
 
             try:
