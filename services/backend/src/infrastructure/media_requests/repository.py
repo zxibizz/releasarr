@@ -63,7 +63,11 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
             if status is not None:
                 filters.append(models.MediaRequest.status == status)
             if active_only:
-                filters.append(models.MediaRequest.status != MediaRequestStatus.COMPLETED)
+                filters.append(
+                    models.MediaRequest.status.not_in(
+                        (MediaRequestStatus.COMPLETED, MediaRequestStatus.UPCOMING)
+                    )
+                )
             if media_type is not None:
                 filters.append(models.MediaRequest.media_type == media_type)
             if owner_user_id is not None:

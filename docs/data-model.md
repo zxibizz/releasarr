@@ -62,6 +62,18 @@ release grabbed by hand, since `regrab` has no indexer result to refresh it from
 once its aired episodes hold files, so a verdict that admits unaired episodes is not taken as
 final and falls through to the release rules instead.
 
+`ArrCompletion.is_upcoming` is the stronger statement, and separate for that reason: nothing has
+aired at all, so no indexer can be holding anything yet. A season is upcoming when Sonarr's
+`episode_count` is zero against a non-zero `total_episode_count`; a movie is upcoming when
+Radarr's own `isAvailable` is false, which is Radarr's verdict against the user's configured
+minimum availability rather than a date releasarr compares itself. A Radarr that omits the field
+counts as available, since defaulting the other way would park an entire library on `upcoming`.
+The resulting `upcoming` status only ever replaces the final fallback to `pending` — a
+pre-air leak that is actually transferring still reads as `downloading` — and it is excluded
+from the list page's `active` tab alongside `completed`, because neither has work a search could
+pick up. A recompute with no arr verdict leaves an `upcoming` request alone rather than dropping
+it to `pending`: only a sync knows whether something has aired since.
+
 `status` has exactly one place that decides what a request's releases and its arr imply:
 `RequestStateDeriver` (`application/use_cases/requests/state.py`), invoked through
 `RecomputeRequestStateUseCase` (`application/use_cases/requests/recompute_state.py`). Sonarr and

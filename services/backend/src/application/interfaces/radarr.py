@@ -23,6 +23,10 @@ class MovieDetails:
     runtime_minutes: int | None = None
     has_file: bool = False
     monitored: bool = False
+    # Radarr's own verdict on whether the movie has reached the minimum
+    # availability it grabs by. Defaults to available so a Radarr that does not
+    # report the field leaves the library alone.
+    is_available: bool = True
     # Bytes on disk, for a movie Radarr holds a file for.
     file_size: int | None = None
 

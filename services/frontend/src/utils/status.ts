@@ -15,6 +15,7 @@ export type StatusPresentation = {
 
 const STATUS_PRESENTATION = {
   pending: { color: 'yellow', icon: '⏳' },
+  upcoming: { color: 'cyan', icon: '📅' },
   searching: { color: 'grape', icon: '🔍' },
   downloading: { color: 'blue', icon: '⬇️' },
   monitoring: { color: 'indigo', icon: '📡' },

@@ -287,6 +287,7 @@ export const resources = {
       },
       status: {
         pending: 'Pending',
+        upcoming: 'Upcoming',
         searching: 'Searching',
         downloading: 'Downloading',
         monitoring: 'Monitoring',
@@ -1413,6 +1414,7 @@ export const resources = {
       },
       status: {
         pending: 'В ожидании',
+        upcoming: 'Скоро',
         searching: 'Поиск',
         downloading: 'Загрузка',
         monitoring: 'Отслеживание',

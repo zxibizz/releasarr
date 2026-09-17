@@ -336,8 +336,20 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             runtime_minutes=self._safe_int(data.get("runtime")),
             has_file=bool(data.get("hasFile")),
             monitored=bool(data.get("monitored")),
+            is_available=self._is_available(data),
             file_size=self._movie_file_size(data),
         )
+
+    @staticmethod
+    def _is_available(data: dict[str, Any]) -> bool:
+        """Radarr's availability verdict, absent on responses that omit the field.
+
+        Treating a missing field as unavailable would park an entire library on
+        `upcoming`, so anything but an explicit ``false`` counts as available.
+        """
+
+        available = data.get("isAvailable")
+        return True if available is None else bool(available)
 
     def _movie_file_size(self, data: dict[str, Any]) -> int | None:
         """Bytes on disk, or nothing when Radarr reports no file to measure."""

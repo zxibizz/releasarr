@@ -27,6 +27,9 @@ class ArrCompletion:
     # An arr only ever counts episodes that have aired, so a season that is still
     # running reads as complete every week between airings.
     has_unaired: bool = False
+    # Distinct from `has_unaired`: nothing has aired at all, so there is nothing an
+    # indexer could be holding yet, rather than more still to come.
+    is_upcoming: bool = False
 
 
 @dataclass(slots=True)
@@ -44,6 +47,7 @@ def season_completion(season: SeriesSeasonDetails) -> ArrCompletion:
         is_complete=bool(season.episode_count)
         and season.episode_file_count >= season.episode_count,
         has_unaired=season.episode_count < season.total_episode_count,
+        is_upcoming=season.episode_count == 0 and season.total_episode_count > 0,
     )
 
 
@@ -79,12 +83,16 @@ class RequestStateDeriver:
         close a request that has an episode yet to come, so a verdict carrying
         unaired episodes falls through to the release rules below -- monitoring
         for a release an indexer could improve on, pending otherwise.
+
+        `is_upcoming` only ever replaces that final pending: a request whose
+        releases are doing something still reports what they are doing, since a
+        pre-air leak that is downloading is downloading whatever the air date says.
         """
         if arr is not None:
             if arr.is_complete and not arr.has_unaired:
                 return MediaRequestStatus.COMPLETED
             if record.status is MediaRequestStatus.COMPLETED:
-                return MediaRequestStatus.PENDING
+                return self._nothing_to_do(arr)
         elif record.status is MediaRequestStatus.COMPLETED:
             return UNSET
 
@@ -108,6 +116,18 @@ class RequestStateDeriver:
         # request with no more work settles on pending rather than being left
         # wherever it was, which is what heals a request whose last release
         # was deleted.
+        if arr is None and record.status is MediaRequestStatus.UPCOMING:
+            # Only an arr sweep knows whether anything has aired since, and this
+            # recompute has no verdict; dropping to pending here would claim it has.
+            return UNSET
+        return self._nothing_to_do(arr)
+
+    @staticmethod
+    def _nothing_to_do(arr: ArrCompletion | None) -> MediaRequestStatus:
+        """Where a request with no outstanding release work comes to rest."""
+
+        if arr is not None and arr.is_upcoming:
+            return MediaRequestStatus.UPCOMING
         return MediaRequestStatus.PENDING
 
     @staticmethod

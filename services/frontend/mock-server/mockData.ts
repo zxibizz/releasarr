@@ -83,6 +83,23 @@ const mockMovieRequests: MovieRequest[] = [
       },
     ],
   },
+  {
+    id: '9',
+    type: 'movie',
+    title: 'Avatar: Fire and Ash',
+    year: 2025,
+    runtime: 190,
+    poster_url: 'https://image.tmdb.org/t/p/w500/8rpDcsfLJypbO6vREc0547VKqEv.jpg',
+    overview:
+      'Jake Sully and Neytiri face a new Na\u2019vi clan as the war for Pandora reaches the ash-covered volcanic reaches of the moon.',
+    genres: ['Action', 'Adventure', 'Sci-Fi'],
+    // Radarr has not called it available yet, so there is nothing to search for.
+    status: 'upcoming',
+    created_at: '2024-01-22T07:00:00Z',
+    updated_at: '2024-01-22T07:00:00Z',
+    imdb_id: 'tt1757678',
+    warnings: [],
+  },
 ];
 
 // Mock series requests
@@ -185,6 +202,27 @@ const mockSeriesRequests: SeriesRequest[] = [
     created_at: '2024-01-19T10:15:00Z',
     updated_at: '2024-01-19T10:20:00Z',
     imdb_id: 'tt11198330',
+    warnings: [],
+  },
+  {
+    id: '10',
+    type: 'series',
+    title: 'Severance - Season 3',
+    year: 2026,
+    season_number: 3,
+    total_episodes: 10,
+    // Nothing aired yet, which is what puts the request on `upcoming`.
+    episode_counts: { downloaded: 0, pending: 0, unaired: 10 },
+    series_title: 'Severance',
+    series_year: 2022,
+    poster_url: 'https://image.tmdb.org/t/p/w500/lFf6LLrQjYldcZItzOkGmMMigP7.jpg',
+    overview:
+      'Mark and the refiners face the consequences of the overtime contingency as Lumon tightens its grip on the severed floor.',
+    genres: ['Drama', 'Mystery', 'Thriller'],
+    status: 'upcoming',
+    created_at: '2024-01-23T09:40:00Z',
+    updated_at: '2024-01-23T09:40:00Z',
+    imdb_id: 'tt11280740',
     warnings: [],
   },
 ];

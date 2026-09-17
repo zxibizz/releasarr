@@ -2416,13 +2416,35 @@ components:
       enum: [movie, series]
     MediaRequestStatus:
       type: string
-      enum: [pending, searching, downloading, monitoring, importing, completed, failed]
+      enum:
+        [
+          pending,
+          upcoming,
+          searching,
+          downloading,
+          monitoring,
+          importing,
+          completed,
+          failed,
+        ]
     MediaRequestStatusFilter:
       type: string
-      enum: [active, pending, searching, downloading, monitoring, importing, completed, failed]
+      enum:
+        [
+          active,
+          pending,
+          upcoming,
+          searching,
+          downloading,
+          monitoring,
+          importing,
+          completed,
+          failed,
+        ]
       description: >-
         `MediaRequestStatus` plus `active`, which matches every status except
-        `completed`.
+        `completed` and `upcoming` — neither has work left that a search could
+        pick up.
     ReleaseStatus:
       type: string
       enum: [pending, downloading, completed, failed]

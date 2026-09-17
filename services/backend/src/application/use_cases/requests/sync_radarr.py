@@ -154,7 +154,10 @@ class SyncRadarrMediaRequestsUseCase:
             metadata = await self._load_tmdb_metadata(details)
             localizations = self._build_localizations(metadata, details)
 
-        verdict = ArrCompletion(is_complete=details.has_file)
+        verdict = ArrCompletion(
+            is_complete=details.has_file,
+            is_upcoming=not details.is_available,
+        )
 
         title = self._localization.select(localizations, "title", details.title)
         overview = self._localization.select(localizations, "overview", details.overview) or None

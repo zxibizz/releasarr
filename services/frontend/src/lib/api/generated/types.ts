@@ -1031,12 +1031,12 @@ export interface components {
         /** @enum {string} */
         MediaType: "movie" | "series";
         /** @enum {string} */
-        MediaRequestStatus: "pending" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
+        MediaRequestStatus: "pending" | "upcoming" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
         /**
-         * @description `MediaRequestStatus` plus `active`, which matches every status except `completed`.
+         * @description `MediaRequestStatus` plus `active`, which matches every status except `completed` and `upcoming` — neither has work left that a search could pick up.
          * @enum {string}
          */
-        MediaRequestStatusFilter: "active" | "pending" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
+        MediaRequestStatusFilter: "active" | "pending" | "upcoming" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
         /** @enum {string} */
         ReleaseStatus: "pending" | "downloading" | "completed" | "failed";
         /** @enum {string} */

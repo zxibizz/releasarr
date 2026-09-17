@@ -19,6 +19,9 @@ class MediaType(StrEnum):
 
 class MediaRequestStatus(StrEnum):
     PENDING = "pending"
+    # Nothing to search for yet: a season with no aired episode, or a movie
+    # Radarr has not yet called available.
+    UPCOMING = "upcoming"
     SEARCHING = "searching"
     DOWNLOADING = "downloading"
     MONITORING = "monitoring"
