@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
@@ -350,9 +351,25 @@ class ReleaseDownloadService(Protocol):
         """Read one torrent's current state, or None when the client has no such torrent."""
 
 
+class DownloadClientDirectory(Protocol):
+    """Read the download client's own configuration.
+
+    Kept apart from :class:`ReleaseDownloadService` so the settings form can ask
+    the client what it knows without every downloader having to answer.
+    """
+
+    @property
+    def is_configured(self) -> bool:
+        """Whether the client has the URL and credentials it needs."""
+
+    async def list_categories(self) -> Sequence[str]:
+        """Return the category names the client already has."""
+
+
 __all__ = [
     "MANUAL_SOURCE",
     "CreateReleaseData",
+    "DownloadClientDirectory",
     "FileMappingUpdateData",
     "FileReconciliation",
     "QueuedDownload",

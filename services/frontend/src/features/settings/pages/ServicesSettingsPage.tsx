@@ -2,21 +2,17 @@ import { Center, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ServiceCard } from '@/features/settings/components/ServiceCard';
-import { ServiceSettingsModal } from '@/features/settings/components/ServiceSettingsModal';
+import { IntegrationCard } from '@/features/settings/components/IntegrationCard';
+import { IntegrationSettingsModal } from '@/features/settings/components/IntegrationSettingsModal';
 import { useSettings, useTestConnection } from '@/features/settings/queries';
 import {
-  fieldsForService,
-  isServiceConfigured,
+  fieldsForIntegration,
+  isIntegrationConfigured,
   SERVICE_INTEGRATIONS,
   type ServiceIntegration,
+  urlKeyFor,
 } from '@/features/settings/serviceFields';
-import type { SettingsResponse } from '@/types';
-
-/** Field keys are unique across sections, so the sections flatten into one lookup. */
-function flattenValues(settings: SettingsResponse): Record<string, unknown> {
-  return Object.assign({}, ...Object.values(settings.values)) as Record<string, unknown>;
-}
+import { flattenSettingValues } from '@/features/settings/values';
 
 export function ServicesSettingsPage() {
   const { t } = useTranslation();
@@ -36,7 +32,7 @@ export function ServicesSettingsPage() {
     return <Text c="red">{t('settings.loadFailed')}</Text>;
   }
 
-  const values = flattenValues(settings.data);
+  const values = flattenSettingValues(settings.data);
   const fields = settings.data.fields ?? [];
 
   return (
@@ -50,11 +46,11 @@ export function ServicesSettingsPage() {
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         {SERVICE_INTEGRATIONS.map((integration) => (
-          <ServiceCard
+          <IntegrationCard
             key={integration}
             integration={integration}
-            url={String(values[`${integration}_url`] ?? '')}
-            configured={isServiceConfigured(integration, (key) => values[key])}
+            url={String(values[urlKeyFor(integration)] ?? '')}
+            configured={isIntegrationConfigured(integration, (key) => values[key])}
             testing={test.isPending && test.variables?.integration === integration}
             onTest={() => test.mutate({ integration })}
             onEdit={() => setEditing(integration)}
@@ -64,10 +60,11 @@ export function ServicesSettingsPage() {
 
       {/* Keyed and mounted only while open so each edit starts from an empty draft. */}
       {editing && (
-        <ServiceSettingsModal
+        <IntegrationSettingsModal
           key={editing}
           integration={editing}
-          fields={fieldsForService(fields, editing)}
+          primarySection="services"
+          fields={fieldsForIntegration(fields, editing)}
           values={values}
           onClose={() => setEditing(null)}
         />

@@ -2,10 +2,10 @@ import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
 import { IconPencil } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ServiceIntegration } from '@/features/settings/serviceFields';
+import { labelKeyFor, type PanelIntegration } from '@/features/settings/serviceFields';
 
-interface ServiceCardProps {
-  integration: ServiceIntegration;
+interface IntegrationCardProps {
+  integration: PanelIntegration;
   url: string;
   configured: boolean;
   testing: boolean;
@@ -14,16 +14,16 @@ interface ServiceCardProps {
 }
 
 /** One external service, summarised: where it points and whether it is usable. */
-export function ServiceCard({
+export function IntegrationCard({
   integration,
   url,
   configured,
   testing,
   onTest,
   onEdit,
-}: ServiceCardProps) {
+}: IntegrationCardProps) {
   const { t } = useTranslation();
-  const name = t(`settings.services.${integration}`);
+  const name = t(labelKeyFor(integration));
 
   return (
     <Card withBorder radius="md" padding="md">

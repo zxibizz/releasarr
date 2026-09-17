@@ -87,6 +87,11 @@ export type SettingsResponse = Schemas['SettingsResponse'];
 export type UpdateSettingsPayload = Schemas['UpdateSettingsPayload'];
 export type ConnectionTestPayload = Schemas['ConnectionTestPayload'];
 export type ConnectionTestResult = Schemas['ConnectionTestResult'];
+export type QualityProfileOption = Schemas['QualityProfileOption'];
+export type QualityProfilesResponse = Schemas['QualityProfilesResponse'];
+export type IndexerCategoryOption = Schemas['IndexerCategoryOption'];
+export type IndexerCategoriesResponse = Schemas['IndexerCategoriesResponse'];
+export type DownloadCategoriesResponse = Schemas['DownloadCategoriesResponse'];
 /** The six settings sections, mirrored from the backend registry. */
 export type SettingsSection = 'general' | 'services' | 'network' | 'metadata' | 'tasks' | 'logging';
 /** The six integration names accepted by the connection-test endpoint. */

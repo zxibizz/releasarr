@@ -6,6 +6,9 @@ import { settingsApi } from '@/features/settings/api';
 import { getErrorMessage } from '@/utils/errors';
 import type {
   ConnectionTestPayload,
+  DownloadCategoriesResponse,
+  IndexerCategoriesResponse,
+  QualityProfilesResponse,
   SettingsIntegration,
   SettingsResponse,
   SettingsSection,
@@ -14,6 +17,11 @@ import type {
 export const settingsKeys = {
   all: ['settings'] as const,
   detail: () => [...settingsKeys.all, 'detail'] as const,
+  options: () => [...settingsKeys.all, 'options'] as const,
+  qualityProfiles: (integration: string) =>
+    [...settingsKeys.options(), 'quality-profiles', integration] as const,
+  indexerCategories: () => [...settingsKeys.options(), 'indexer-categories'] as const,
+  downloadCategories: () => [...settingsKeys.options(), 'download-categories'] as const,
 };
 
 export const settingsQuery = () => ({
@@ -23,6 +31,45 @@ export const settingsQuery = () => ({
 
 export function useSettings() {
   return useQuery(settingsQuery());
+}
+
+/*
+ * A lookup only reaches the service the modal is editing, and only while that
+ * modal is open, so each is gated on `enabled` rather than fetched with the
+ * settings. They are not retried: an unconfigured service fails the same way
+ * every time, and the form says so instead of spinning.
+ */
+const optionQueryOptions = { enabled: true, retry: false, staleTime: 60_000 } as const;
+
+export function useQualityProfiles(integration: 'sonarr' | 'radarr', enabled: boolean) {
+  return useQuery({
+    ...optionQueryOptions,
+    enabled,
+    queryKey: settingsKeys.qualityProfiles(integration),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      settingsApi.qualityProfiles(integration, signal),
+    select: (data: QualityProfilesResponse) => data.profiles,
+  });
+}
+
+export function useIndexerCategories(enabled: boolean) {
+  return useQuery({
+    ...optionQueryOptions,
+    enabled,
+    queryKey: settingsKeys.indexerCategories(),
+    queryFn: ({ signal }: { signal: AbortSignal }) => settingsApi.indexerCategories(signal),
+    select: (data: IndexerCategoriesResponse) => data.categories,
+  });
+}
+
+export function useDownloadCategories(enabled: boolean) {
+  return useQuery({
+    ...optionQueryOptions,
+    enabled,
+    queryKey: settingsKeys.downloadCategories(),
+    queryFn: ({ signal }: { signal: AbortSignal }) => settingsApi.downloadCategories(signal),
+    select: (data: DownloadCategoriesResponse) => data.categories,
+  });
 }
 
 export function useUpdateSettingsSection() {

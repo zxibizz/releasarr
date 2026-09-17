@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, status
 
@@ -11,6 +11,9 @@ from src.api.responses import ADMIN_REQUIRED_RESPONSES, error_responses
 from src.application.use_cases.settings import (
     ConnectionTestCommand,
     GetSettingsUseCase,
+    ListDownloadCategoriesUseCase,
+    ListIndexerCategoriesUseCase,
+    ListQualityProfilesUseCase,
     TestIntegrationConnectionUseCase,
     UpdateSettingsSectionUseCase,
 )
@@ -18,6 +21,11 @@ from src.core.container import AppContainer, get_container
 from src.schemas.settings import (
     ConnectionTestPayload,
     ConnectionTestResult,
+    DownloadCategoriesResponse,
+    IndexerCategoriesResponse,
+    IndexerCategoryOption,
+    QualityProfileOption,
+    QualityProfilesResponse,
     SettingFieldInfo,
     SettingsResponse,
     UpdateSettingsPayload,
@@ -43,6 +51,15 @@ UPDATE_SETTINGS_RESPONSES = error_responses(
     }
 )
 
+OPTIONS_RESPONSES = error_responses(
+    {
+        **ADMIN_REQUIRED_RESPONSES,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: "Unexpected server error.",
+        status.HTTP_502_BAD_GATEWAY: "The service refused or could not answer the lookup.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: "The service is not configured yet.",
+    }
+)
+
 
 def _get_container() -> AppContainer:
     return get_container()
@@ -62,6 +79,24 @@ def _test_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> TestIntegrationConnectionUseCase:
     return container.use_cases.settings.test_connection
+
+
+def _quality_profiles_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListQualityProfilesUseCase:
+    return container.use_cases.settings.list_quality_profiles
+
+
+def _indexer_categories_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListIndexerCategoriesUseCase:
+    return container.use_cases.settings.list_indexer_categories
+
+
+def _download_categories_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListDownloadCategoriesUseCase:
+    return container.use_cases.settings.list_download_categories
 
 
 SectionParam = Annotated[SettingsSection, Path(...)]
@@ -137,6 +172,51 @@ async def test_integration_connection(
     return ConnectionTestResult(
         integration=result.integration, success=result.success, detail=result.detail
     )
+
+
+@router.get(
+    "/options/quality-profiles/{integration}",
+    response_model=QualityProfilesResponse,
+    responses=OPTIONS_RESPONSES,
+)
+async def list_quality_profiles(
+    integration: Annotated[Literal["sonarr", "radarr"], Path(...)],
+    use_case: ListQualityProfilesUseCase = Depends(_quality_profiles_use_case),
+) -> QualityProfilesResponse:
+    profiles = await use_case.execute(integration)
+    return QualityProfilesResponse(
+        profiles=[
+            QualityProfileOption(id=profile.profile_id, name=profile.name) for profile in profiles
+        ]
+    )
+
+
+@router.get(
+    "/options/indexer-categories",
+    response_model=IndexerCategoriesResponse,
+    responses=OPTIONS_RESPONSES,
+)
+async def list_indexer_categories(
+    use_case: ListIndexerCategoriesUseCase = Depends(_indexer_categories_use_case),
+) -> IndexerCategoriesResponse:
+    categories = await use_case.execute()
+    return IndexerCategoriesResponse(
+        categories=[
+            IndexerCategoryOption(id=category.category_id, name=category.name)
+            for category in categories
+        ]
+    )
+
+
+@router.get(
+    "/options/download-categories",
+    response_model=DownloadCategoriesResponse,
+    responses=OPTIONS_RESPONSES,
+)
+async def list_download_categories(
+    use_case: ListDownloadCategoriesUseCase = Depends(_download_categories_use_case),
+) -> DownloadCategoriesResponse:
+    return DownloadCategoriesResponse(categories=await use_case.execute())
 
 
 __all__ = ["router"]

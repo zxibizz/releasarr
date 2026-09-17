@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MetadataSettingsPage } from '@/features/settings/pages/MetadataSettingsPage';
 import { NetworkSettingsPage } from '@/features/settings/pages/NetworkSettingsPage';
 import { ServicesSettingsPage } from '@/features/settings/pages/ServicesSettingsPage';
 import { apiRequest } from '@/lib/api/client';
@@ -33,43 +34,74 @@ const settings: SettingsResponse = {
   fields: [
     field('sonarr_url', 'services', 'str'),
     field('sonarr_api_key', 'services', 'str', { is_secret: true }),
+    field('sonarr_quality_profile_id', 'services', 'int_optional'),
     field('prowlarr_url', 'services', 'str'),
     field('prowlarr_api_key', 'services', 'str', { is_secret: true }),
+    field('prowlarr_categories', 'services', 'str_list'),
     field('qbittorrent_url', 'services', 'str'),
+    field('qbittorrent_category', 'services', 'str_optional'),
     field('radarr_url', 'services', 'str'),
     field('radarr_api_key', 'services', 'str', { is_secret: true }),
     field('prowlarr_search_retries', 'network', 'int'),
     field('auth_lockout_seconds', 'network', 'int'),
+    field('tvdb_base_url', 'metadata', 'str'),
+    field('tvdb_api_key', 'metadata', 'str', { is_secret: true }),
+    field('tmdb_base_url', 'metadata', 'str'),
+    field('tmdb_api_key', 'metadata', 'str', { is_secret: true }),
+    field('metadata_languages', 'metadata', 'str_list'),
   ],
   values: {
     services: {
       sonarr_url: 'http://sonarr:8989/api/v3',
       sonarr_api_key: '**********',
+      sonarr_quality_profile_id: 4,
       prowlarr_url: 'http://prowlarr:9696/api/v1',
       prowlarr_api_key: '**********',
+      prowlarr_categories: ['5000'],
       qbittorrent_url: '',
+      qbittorrent_category: null,
       radarr_url: 'http://radarr:7878/api/v3',
       radarr_api_key: '',
     },
     network: { prowlarr_search_retries: 1, auth_lockout_seconds: 900 },
+    metadata: {
+      tvdb_base_url: 'https://api4.thetvdb.com/v4',
+      tvdb_api_key: '**********',
+      tmdb_base_url: 'https://api.themoviedb.org/3',
+      tmdb_api_key: '',
+      metadata_languages: ['eng'],
+    },
   },
   locked_keys: [],
   pending_restart_keys: [],
 };
 
+const QUALITY_PROFILES = { profiles: [{ id: 4, name: 'HD-1080p' }, { id: 6, name: 'Ultra-HD' }] };
+const INDEXER_CATEGORIES = { categories: [{ id: 5000, name: 'TV' }, { id: 2000, name: 'Movies' }] };
+
+let optionFailure: string | null = null;
+
 beforeEach(() => {
+  optionFailure = null;
   vi.mocked(apiRequest).mockReset();
   vi.mocked(apiRequest).mockImplementation(async (path: string) => {
     if (path === '/settings') return settings;
-    if (path.startsWith('/settings/test/')) return { integration: 'sonarr', success: true, detail: null };
+    if (path.startsWith('/settings/test/'))
+      return { integration: 'sonarr', success: true, detail: null };
+    if (path.startsWith('/settings/options/')) {
+      if (optionFailure) throw new Error(optionFailure);
+      if (path.includes('quality-profiles')) return QUALITY_PROFILES;
+      if (path.includes('indexer-categories')) return INDEXER_CATEGORIES;
+      return { categories: ['releasarr', 'tv'] };
+    }
     if (path.startsWith('/settings/')) return settings;
     throw new Error(`Unexpected request: ${path}`);
   });
 });
 
-async function openPanel(name: string) {
+async function openPanel(name: string, page = <ServicesSettingsPage />) {
   const user = userEvent.setup();
-  renderWithProviders(<ServicesSettingsPage />);
+  renderWithProviders(page);
 
   await user.click(await screen.findByRole('button', { name: `Edit ${name}` }));
   return { user, dialog: within(await screen.findByRole('dialog')) };
@@ -153,5 +185,76 @@ describe('NetworkSettingsPage', () => {
 
     expect(await screen.findByLabelText(/^lockout duration/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/^prowlarr search retries/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('the option pickers', () => {
+  it('offers the profiles the *arr reports instead of a bare id box', async () => {
+    const { user, dialog } = await openPanel('Sonarr');
+
+    const picker = dialog.getByRole('combobox', { name: /^sonarr quality profile/i });
+    expect(picker).toHaveValue('HD-1080p');
+
+    await user.click(picker);
+    expect(await screen.findByRole('option', { name: 'Ultra-HD' })).toBeInTheDocument();
+  });
+
+  it('saves the picked profile as the number the field holds', async () => {
+    const { user, dialog } = await openPanel('Sonarr');
+
+    await user.click(dialog.getByRole('combobox', { name: /^sonarr quality profile/i }));
+    await user.click(await screen.findByRole('option', { name: 'Ultra-HD' }));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    const patch = vi
+      .mocked(apiRequest)
+      .mock.calls.find(([, options]) => options?.method === 'PATCH');
+    expect(patch?.[1]?.body).toEqual({ values: { sonarr_quality_profile_id: 6 } });
+  });
+
+  it('names each indexer category rather than asking for the id', async () => {
+    const { user, dialog } = await openPanel('Prowlarr');
+
+    await user.click(dialog.getByRole('combobox', { name: /^prowlarr categories/i }));
+
+    expect(await screen.findByRole('option', { name: '2000 — Movies' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '5000 — TV' })).toBeInTheDocument();
+  });
+
+  it('disables the picker and says why when the service cannot answer', async () => {
+    optionFailure = 'qBittorrent is not configured';
+    const { dialog } = await openPanel('qBittorrent');
+
+    const picker = await dialog.findByRole('combobox', { name: /^qbittorrent category/i });
+    expect(picker).toBeDisabled();
+    expect(await dialog.findByText('qBittorrent is not configured')).toBeInTheDocument();
+  });
+});
+
+describe('MetadataSettingsPage', () => {
+  it('gives each provider its own panel', async () => {
+    renderWithProviders(<MetadataSettingsPage />);
+
+    expect(await screen.findByRole('button', { name: 'Edit TVDB' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit TMDB' })).toBeInTheDocument();
+    // TMDB has a URL but no key.
+    expect(screen.getByText('Not configured')).toBeInTheDocument();
+  });
+
+  it('leaves the shared languages field on the page, owned by no provider', async () => {
+    renderWithProviders(<MetadataSettingsPage />);
+
+    expect(
+      await screen.findByRole('combobox', { name: /^metadata languages/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^tvdb api key/i)).not.toBeInTheDocument();
+  });
+
+  it('edits one provider at a time in its own modal', async () => {
+    const { dialog } = await openPanel('TVDB', <MetadataSettingsPage />);
+
+    expect(dialog.getByLabelText(/^tvdb base url/i)).toBeInTheDocument();
+    expect(dialog.queryByLabelText(/^tmdb base url/i)).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(/^metadata languages/i)).not.toBeInTheDocument();
   });
 });

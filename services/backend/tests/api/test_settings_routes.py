@@ -11,10 +11,21 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.api.app import app
-from src.api.routes.settings import _get_use_case, _test_use_case, _update_use_case
+from src.api.routes.settings import (
+    _download_categories_use_case,
+    _get_use_case,
+    _indexer_categories_use_case,
+    _quality_profiles_use_case,
+    _test_use_case,
+    _update_use_case,
+)
+from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
+from src.application.use_cases.releases.exceptions import QbittorrentNotConfiguredError
 from src.application.use_cases.settings import (
     ConnectionTestResultDTO,
+    IndexerCategoryOptionDTO,
     InvalidSettingValueError,
+    QualityProfileOptionDTO,
     SettingLockedError,
     SettingsView,
     UnknownSettingKeyError,
@@ -169,3 +180,92 @@ async def test_connection_test_reports_success(api_client: AsyncClient) -> None:
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"integration": "qbittorrent", "success": True, "detail": None}
+
+
+class FakeOptions:
+    def __init__(self, result: Any = None, error: Exception | None = None) -> None:
+        self._result = result
+        self._error = error
+        self.calls: list[Any] = []
+
+    async def execute(self, *args: Any) -> Any:
+        self.calls.append(args)
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+
+@pytest.mark.asyncio
+async def test_quality_profile_options_name_each_profile(api_client: AsyncClient) -> None:
+    use_case = FakeOptions(
+        [QualityProfileOptionDTO(profile_id=4, name="HD-1080p")],
+    )
+    with override_dependency(_quality_profiles_use_case, use_case):
+        response = await api_client.get(
+            "/settings/options/quality-profiles/sonarr", headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"profiles": [{"id": 4, "name": "HD-1080p"}]}
+    assert use_case.calls == [("sonarr",)]
+
+
+@pytest.mark.asyncio
+async def test_quality_profile_options_reject_a_service_without_profiles(
+    api_client: AsyncClient,
+) -> None:
+    response = await api_client.get(
+        "/settings/options/quality-profiles/prowlarr", headers=API_KEY_HEADER
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@pytest.mark.asyncio
+async def test_indexer_category_options_merge_into_one_list(api_client: AsyncClient) -> None:
+    use_case = FakeOptions([IndexerCategoryOptionDTO(category_id=5000, name="TV")])
+    with override_dependency(_indexer_categories_use_case, use_case):
+        response = await api_client.get(
+            "/settings/options/indexer-categories", headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"categories": [{"id": 5000, "name": "TV"}]}
+
+
+@pytest.mark.asyncio
+async def test_indexer_category_options_say_prowlarr_is_absent(api_client: AsyncClient) -> None:
+    with override_dependency(
+        _indexer_categories_use_case, FakeOptions(error=ProwlarrNotConfiguredError())
+    ):
+        response = await api_client.get(
+            "/settings/options/indexer-categories", headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert response.json()["code"] == "prowlarr_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_download_category_options_list_the_client_names(api_client: AsyncClient) -> None:
+    with override_dependency(_download_categories_use_case, FakeOptions(["releasarr", "tv"])):
+        response = await api_client.get(
+            "/settings/options/download-categories", headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"categories": ["releasarr", "tv"]}
+
+
+@pytest.mark.asyncio
+async def test_download_category_options_say_qbittorrent_is_absent(
+    api_client: AsyncClient,
+) -> None:
+    with override_dependency(
+        _download_categories_use_case, FakeOptions(error=QbittorrentNotConfiguredError())
+    ):
+        response = await api_client.get(
+            "/settings/options/download-categories", headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE

@@ -60,9 +60,42 @@ class ConnectionTestResult(APIModel):
     detail: str | None = Field(default=None, description="Failure reason or a short OK summary")
 
 
+class QualityProfileOption(APIModel):
+    id: int
+    name: str
+
+
+class QualityProfilesResponse(APIModel):
+    """The quality profiles one *arr has, for the profile picker."""
+
+    profiles: list[QualityProfileOption]
+
+
+class IndexerCategoryOption(APIModel):
+    id: int = Field(description="The newznab category id a search filter takes")
+    name: str
+
+
+class IndexerCategoriesResponse(APIModel):
+    """Every category the configured indexers accept, merged and deduplicated."""
+
+    categories: list[IndexerCategoryOption]
+
+
+class DownloadCategoriesResponse(APIModel):
+    """The category names the download client already has."""
+
+    categories: list[str]
+
+
 __all__ = [
     "ConnectionTestPayload",
     "ConnectionTestResult",
+    "DownloadCategoriesResponse",
+    "IndexerCategoriesResponse",
+    "IndexerCategoryOption",
+    "QualityProfileOption",
+    "QualityProfilesResponse",
     "SettingFieldInfo",
     "SettingsResponse",
     "UpdateSettingsPayload",

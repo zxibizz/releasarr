@@ -8,6 +8,13 @@ from src.application.use_cases.settings.exceptions import (
     UnknownSettingKeyError,
 )
 from src.application.use_cases.settings.get_settings import GetSettingsUseCase, SettingsView
+from src.application.use_cases.settings.list_options import (
+    IndexerCategoryOptionDTO,
+    ListDownloadCategoriesUseCase,
+    ListIndexerCategoriesUseCase,
+    ListQualityProfilesUseCase,
+    QualityProfileOptionDTO,
+)
 from src.application.use_cases.settings.test_connection import (
     ConnectionTestCommand,
     ConnectionTestResultDTO,
@@ -20,7 +27,12 @@ __all__ = [
     "ConnectionTestResultDTO",
     "EmptySettingsUpdateError",
     "GetSettingsUseCase",
+    "IndexerCategoryOptionDTO",
     "InvalidSettingValueError",
+    "ListDownloadCategoriesUseCase",
+    "ListIndexerCategoriesUseCase",
+    "ListQualityProfilesUseCase",
+    "QualityProfileOptionDTO",
     "SettingLockedError",
     "SettingsError",
     "SettingsView",
