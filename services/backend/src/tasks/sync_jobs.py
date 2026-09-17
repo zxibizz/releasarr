@@ -14,7 +14,7 @@ from loguru import logger
 
 from src.application.interfaces.sync_jobs import SyncJobRecord, SyncJobRepository
 from src.core.logging import get_logger
-from src.domain.enums import SyncJobStatus
+from src.domain.enums import LogComponent, SyncJobStatus
 from src.tasks.sync_steps import SyncSteps
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class SyncJobRunner:
 
     repository: SyncJobRepository
     steps: SyncSteps
-    logger: Logger = field(default_factory=lambda: get_logger(component="sync_job_runner"))
+    logger: Logger = field(default_factory=lambda: get_logger(LogComponent.SCHEDULER_JOBS))
 
     async def run_next(self) -> SyncJobRecord | None:
         """Run the oldest queued job, or return None when the queue is empty."""

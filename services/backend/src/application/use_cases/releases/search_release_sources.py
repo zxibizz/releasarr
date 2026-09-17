@@ -24,7 +24,7 @@ from src.application.use_cases.releases.dto import (
 )
 from src.application.use_cases.releases.mappers import search_results_to_dto
 from src.core.logging import get_logger
-from src.domain.enums import IndexerHealth
+from src.domain.enums import IndexerHealth, LogComponent
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
 DEFAULT_RETRIES = 1
@@ -59,7 +59,7 @@ class SearchReleaseSourcesUseCase:
         self._timeout_seconds = timeout_seconds
         self._retries = retries
         self._concurrency = concurrency
-        self._logger = logger or get_logger(component="release_search")
+        self._logger = logger or get_logger(LogComponent.USECASE_RELEASE_SEARCH)
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def execute(self, command: SearchReleaseSourcesCommand) -> ReleaseSearchResponseDTO:

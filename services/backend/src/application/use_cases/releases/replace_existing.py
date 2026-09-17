@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from loguru import logger
-
 from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseRecord,
@@ -11,6 +9,10 @@ from src.application.interfaces.releases import (
 )
 from src.application.interfaces.request_warnings import RequestWarningRepository
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_REPLACE_EXISTING)
 
 
 class ExistingReleaseReplacer:
@@ -50,7 +52,7 @@ class ExistingReleaseReplacer:
         try:
             await self._download_service.delete_download(release.info_hash)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
+            _logger.warning(
                 "Failed to delete replaced release from downloader",
                 release_id=release.id,
                 info_hash=release.info_hash,
@@ -66,7 +68,7 @@ class ExistingReleaseReplacer:
             # requests are unaffected by losing this one link.
             await self._recompute_state.execute([request_id])
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
+            _logger.warning(
                 "Failed to settle request for an unlinked release",
                 release_id=release_id,
                 request_id=request_id,
@@ -78,7 +80,7 @@ class ExistingReleaseReplacer:
             await self._warning_repository.delete_for_release(release.id)
             await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
+            _logger.warning(
                 "Failed to settle requests for a replaced release",
                 release_id=release.id,
                 error=str(exc),

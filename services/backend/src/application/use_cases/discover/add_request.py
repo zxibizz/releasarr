@@ -21,7 +21,7 @@ from src.application.use_cases.requests.mappers import record_to_dto
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.core.logging import get_logger
-from src.domain.enums import MediaType
+from src.domain.enums import LogComponent, MediaType
 
 
 @dataclass(slots=True)
@@ -66,7 +66,7 @@ class AddMediaRequestUseCase:
         self._sync_radarr = sync_radarr
         self._sonarr_quality_profile_id = sonarr_quality_profile_id
         self._radarr_quality_profile_id = radarr_quality_profile_id
-        self._logger = logger or get_logger(component="add_media_request")
+        self._logger = logger or get_logger(LogComponent.USECASE_ADD_REQUEST)
 
     async def execute(self, command: AddMediaRequestCommand) -> list[MediaRequestDTO]:
         if command.media_type == MediaType.SERIES:

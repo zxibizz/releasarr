@@ -7,6 +7,7 @@ from src.application.interfaces.request_warnings import RequestWarningRepository
 from src.application.use_cases.releases.exceptions import ReleaseNotFoundError
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
 
 class DeleteReleaseUseCase:
@@ -23,7 +24,7 @@ class DeleteReleaseUseCase:
         self._download_service = download_service
         self._warning_repository = warning_repository
         self._recompute_state = recompute_state
-        self._logger = get_logger(component="delete_release")
+        self._logger = get_logger(LogComponent.USECASE_DELETE_RELEASE)
 
     async def execute(self, release_id: str) -> None:
         release = await self._repository.get_release(release_id)

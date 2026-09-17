@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { logsApi } from '@/features/logs/api';
-import type { LogService, RequestLogLevel, SyncJobKind } from '@/types';
+import type { LogComponent, LogService, RequestLogLevel, SyncJobKind } from '@/types';
 
 export const LOGS_PAGE_SIZE = 25;
 
@@ -17,7 +17,8 @@ export const logKeys = {
   byRequest: (requestId: string) => [...logKeys.all, 'by-request', requestId] as const,
   list: (filters: {
     page: number;
-    service: LogService;
+    service?: LogService;
+    component?: LogComponent;
     task?: SyncJobKind;
     minLevel?: RequestLogLevel;
   }) => [...logKeys.all, 'list', filters] as const,
@@ -36,8 +37,8 @@ export function useRequestLogs(requestId: string | undefined, enabled: boolean) 
 }
 
 /**
- * A page of application logs for one process, optionally narrowed to a task and to
- * a severity.
+ * A page of application logs, optionally narrowed to a process, a component, or a
+ * severity.
  *
  * The newest page refetches on an interval so the view follows the log as it is
  * written; a page further back is a deliberate, static read. Every call makes the
@@ -47,23 +48,19 @@ export function useRequestLogs(requestId: string | undefined, enabled: boolean) 
 export function useLogs({
   page,
   service,
-  task,
+  component,
   minLevel,
-  active = true,
 }: {
   page: number;
-  service: LogService;
-  task?: SyncJobKind;
+  service?: LogService;
+  component?: LogComponent;
   minLevel?: RequestLogLevel;
-  /** Whether this process's tab is the visible one; a hidden tab stays quiet. */
-  active?: boolean;
 }) {
   return useQuery({
-    queryKey: logKeys.list({ page, service, task, minLevel }),
+    queryKey: logKeys.list({ page, service, component, minLevel }),
     queryFn: ({ signal }) =>
-      logsApi.list({ page, perPage: LOGS_PAGE_SIZE, service, task, minLevel }, signal),
-    enabled: active,
+      logsApi.list({ page, perPage: LOGS_PAGE_SIZE, service, component, minLevel }, signal),
     placeholderData: (previous) => previous,
-    refetchInterval: active && page === 1 ? LOGS_POLL_INTERVAL_MS : false,
+    refetchInterval: page === 1 ? LOGS_POLL_INTERVAL_MS : false,
   });
 }

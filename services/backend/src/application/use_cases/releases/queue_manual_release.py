@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from loguru import logger
-
 from src.application.interfaces.releases import (
     MANUAL_SOURCE,
     CreateReleaseData,
@@ -27,7 +25,10 @@ from src.application.use_cases.releases.replace_existing import ExistingReleaseR
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.magnet import parse_magnet
 from src.application.utility.torrent import decode_torrent_base64, parse_torrent
-from src.domain.enums import ExistingReleasesAction
+from src.core.logging import get_logger
+from src.domain.enums import ExistingReleasesAction, LogComponent
+
+_logger = get_logger(LogComponent.USECASE_QUEUE_MANUAL)
 
 
 class QueueManualReleaseUseCase:
@@ -121,7 +122,7 @@ class QueueManualReleaseUseCase:
         except ValueError as exc:
             raise ReleaseDownloadConflictError(command.request_id, release_id) from exc
 
-        logger.info(
+        _logger.info(
             f"Grabbed release {name} manually",
             request_id=command.request_id,
             release_id=release_id,

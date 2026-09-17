@@ -8,7 +8,7 @@ from pydantic import Field
 
 from src.schemas.base import APIModel
 from src.schemas.common import PaginatedResponse
-from src.schemas.enums import RequestLogLevel
+from src.schemas.enums import LogComponent, RequestLogLevel
 
 
 class RequestLogEntry(APIModel):
@@ -17,6 +17,7 @@ class RequestLogEntry(APIModel):
     timestamp: str
     level: RequestLogLevel
     message: str
+    component: LogComponent | None = None
     source: str | None = None
     metadata: dict[str, Any] | None = None
     stack_trace: str | None = Field(default=None, serialization_alias="stackTrace")

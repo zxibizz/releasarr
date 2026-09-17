@@ -22,7 +22,7 @@ from src.application.use_cases.requests.withdrawal import (
     drop_series_if_unwanted,
 )
 from src.core.logging import get_logger
-from src.domain.enums import MediaType
+from src.domain.enums import LogComponent, MediaType
 
 
 @dataclass(slots=True)
@@ -138,7 +138,7 @@ class UpdateRequestSeasonsUseCase:
         self._repository = repository
         self._sonarr = sonarr_service
         self._sync_sonarr = sync_sonarr
-        self._logger = logger or get_logger(component="update_request_seasons")
+        self._logger = logger or get_logger(LogComponent.USECASE_UPDATE_SEASONS)
 
     async def execute(
         self,

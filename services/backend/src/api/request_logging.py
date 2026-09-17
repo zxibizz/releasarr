@@ -13,9 +13,13 @@ from __future__ import annotations
 import time
 
 from fastapi import FastAPI, Request, Response
-from loguru import logger
+
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
 __all__ = ["register_request_logging"]
+
+_logger = get_logger(LogComponent.API_HTTP)
 
 
 def register_request_logging(app: FastAPI) -> None:
@@ -38,7 +42,7 @@ def register_request_logging(app: FastAPI) -> None:
             # patcher only rewrites the message, and this file is served to the
             # browser by /logs -- so a key passed into metadata would be a key on
             # screen.
-            logger.info(
+            _logger.info(
                 f"{request.method} {request.url.path}",
                 status_code=status_code,
                 duration_ms=round((time.perf_counter() - started) * 1000),

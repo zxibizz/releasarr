@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from loguru import logger
-
 from src.application.interfaces.releases import (
     FileMappingUpdateData,
     ReleaseFileMapping,
@@ -24,13 +22,17 @@ from src.application.use_cases.releases.exceptions import (
 )
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
+from src.core.logging import get_logger
 from src.domain.enums import (
+    LogComponent,
     MediaType,
     ReleaseStatus,
     RequestWarningCode,
     SyncJobKind,
     SyncJobTrigger,
 )
+
+_logger = get_logger(LogComponent.USECASE_FILE_MAPPINGS)
 
 
 class UpdateReleaseFileMappingsUseCase:
@@ -125,7 +127,7 @@ class UpdateReleaseFileMappingsUseCase:
         except Exception as exc:  # pragma: no cover - defensive
             # The mappings are stored either way; a warning outliving them is not
             # worth failing a save over.
-            logger.opt(exception=exc).warning(
+            _logger.opt(exception=exc).warning(
                 "Failed to clear the re-grab file warning after remapping",
                 release_id=release_id,
                 error=str(exc),
@@ -137,7 +139,7 @@ class UpdateReleaseFileMappingsUseCase:
         except Exception as exc:  # pragma: no cover - defensive
             # The mappings already landed; a stale overlap warning or status is
             # not worth failing the request over.
-            logger.opt(exception=exc).warning(
+            _logger.opt(exception=exc).warning(
                 "Failed to settle requests after remapping",
                 release_id=release.id,
                 error=str(exc),
@@ -164,7 +166,7 @@ class UpdateReleaseFileMappingsUseCase:
         except Exception as exc:
             # The mappings are already stored, so this is not worth failing the
             # request over - the scheduled export run is the fallback.
-            logger.opt(exception=exc).warning(
+            _logger.opt(exception=exc).warning(
                 "Could not queue an export for the remapped release",
                 release_id=release.id,
                 error=str(exc),
@@ -201,7 +203,7 @@ class UpdateReleaseFileMappingsUseCase:
                 cleared_per_request[owner] = cleared_per_request.get(owner, 0) + 1
 
         for request_id, count in mapped_per_request.items():
-            logger.info(
+            _logger.info(
                 f"Mapped {count} release file(s) to this request",
                 request_id=request_id,
                 release_id=command.release_id,
@@ -209,7 +211,7 @@ class UpdateReleaseFileMappingsUseCase:
             )
 
         for request_id, count in cleared_per_request.items():
-            logger.info(
+            _logger.info(
                 f"Unmapped {count} release file(s) from this request",
                 request_id=request_id,
                 release_id=command.release_id,

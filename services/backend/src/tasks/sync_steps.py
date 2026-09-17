@@ -13,10 +13,13 @@ from dataclasses import dataclass, field
 from loguru import logger
 
 from src.core.container import AppContainer
-from src.domain.enums import SyncJobKind
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent, SyncJobKind
 from src.tasks.sync_releases import SyncReleasesTask
 
 StepSummary = dict[str, object]
+
+_logger = get_logger(LogComponent.SCHEDULER)
 
 
 @dataclass(slots=True)
@@ -121,7 +124,7 @@ class SyncSteps:
             request_ids = await releases_repo.list_request_ids_with_releases()
             await self.container.use_cases.media_requests.recompute_state.execute(request_ids)
         except Exception as exc:
-            logger.warning("Failed to recompute request state", error=str(exc))
+            _logger.warning("Failed to recompute request state", error=str(exc))
             return 0
         return len(request_ids)
 

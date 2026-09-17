@@ -19,6 +19,7 @@ class ListLogsUseCase:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        component: str | None = None,
         min_level: str | None = None,
     ) -> LogsPageResult:
         # The query parses every line of the log files to find its matches, which
@@ -30,5 +31,6 @@ class ListLogsUseCase:
             request_id=request_id,
             task=task,
             service=service,
+            component=component,
             min_level=min_level,
         )

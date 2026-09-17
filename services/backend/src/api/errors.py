@@ -14,7 +14,6 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from loguru import logger
 
 from src.application.interfaces.indexers import IndexerNotFoundError
 from src.application.interfaces.releases import ReleaseSearchUnavailableError
@@ -56,10 +55,14 @@ from src.application.use_cases.users.exceptions import (
     UsernameTakenError,
     UserNotFoundError,
 )
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 from src.infrastructure.http import HttpClientError
 
 ErrorDetail = Mapping[str, Any] | Sequence[Any] | None
 Handler = Callable[[Request, Exception], Awaitable[JSONResponse]]
+
+_logger = get_logger(LogComponent.API_ERROR)
 
 # Maps a domain exception type to the (status code, error code) it should emit.
 DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
@@ -162,7 +165,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
     # The response deliberately says nothing about the cause, so this is the only
     # record that the crash ever happened.
-    logger.opt(exception=exc).error(
+    _logger.opt(exception=exc).error(
         f"Unhandled error serving {request.method} {request.url.path}",
         method=request.method,
         path=request.url.path,

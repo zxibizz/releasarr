@@ -1,5 +1,11 @@
 import { apiRequest } from '@/lib/api/client';
-import type { LogService, LogsResponse, RequestLogLevel, SyncJobKind } from '@/types';
+import type {
+  LogComponent,
+  LogService,
+  LogsResponse,
+  RequestLogLevel,
+  SyncJobKind,
+} from '@/types';
 
 /** Upper bound on entries pulled per request; the backend paginates at 20 by default. */
 const LOGS_PER_PAGE = 100;
@@ -11,6 +17,8 @@ interface ListLogsParams {
   task?: SyncJobKind;
   /** Restricts results to entries written by this process. */
   service?: LogService;
+  /** Restricts results to entries written by this component. */
+  component?: LogComponent;
   /** Least severity to return, along with everything worse. */
   minLevel?: RequestLogLevel;
 }
@@ -23,7 +31,7 @@ export const logsApi = {
     }),
 
   list: (
-    { page = 1, perPage = 25, task, service, minLevel }: ListLogsParams = {},
+    { page = 1, perPage = 25, task, service, component, minLevel }: ListLogsParams = {},
     signal?: AbortSignal,
   ) =>
     apiRequest<LogsResponse>('/logs', {
@@ -33,6 +41,7 @@ export const logsApi = {
         per_page: perPage,
         ...(task ? { task } : {}),
         ...(service ? { service } : {}),
+        ...(component ? { component } : {}),
         ...(minLevel ? { min_level: minLevel } : {}),
       },
     }),

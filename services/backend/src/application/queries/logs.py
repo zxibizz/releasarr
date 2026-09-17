@@ -36,6 +36,7 @@ class ListLogsQuery:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        component: str | None = None,
         min_level: str | None = None,
     ) -> LogsPageResult:
         """Return a page of log entries.
@@ -46,6 +47,7 @@ class ListLogsQuery:
             request_id: Optional filter by request identifier
             task: Optional filter by the background task that logged the entry
             service: Optional filter by the process that logged the entry
+            component: Optional filter by the component that logged the entry
             min_level: Optional least severity to return, and everything worse
 
         Returns:
@@ -60,7 +62,11 @@ class ListLogsQuery:
             raise ValueError("per_page must be >= 1")
 
         all_entries = self.reader.read_entries(
-            request_id=request_id, task=task, service=service, min_level=min_level
+            request_id=request_id,
+            task=task,
+            service=service,
+            component=component,
+            min_level=min_level,
         )
         # Most recent logs first
         all_entries = list(reversed(all_entries))

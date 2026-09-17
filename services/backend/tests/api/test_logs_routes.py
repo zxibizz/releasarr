@@ -31,6 +31,7 @@ class FakeLogsUseCase(ListLogsUseCase):
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        component: str | None = None,
         min_level: str | None = None,
     ) -> LogsPageResult:
         self.calls.append(
@@ -40,6 +41,7 @@ class FakeLogsUseCase(ListLogsUseCase):
                 "request_id": request_id,
                 "task": task,
                 "service": service,
+                "component": component,
                 "min_level": min_level,
             }
         )

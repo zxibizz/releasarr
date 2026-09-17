@@ -7,10 +7,10 @@ from src.application.use_cases.indexers.dto import IndexerEventDTO, IndexerHisto
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.indexers.pagination import normalise_page, normalise_per_page
 from src.core.logging import get_logger
-from src.domain.enums import IndexerEventType
+from src.domain.enums import IndexerEventType, LogComponent
 from src.settings.config import AppSettings, get_settings
 
-logger = get_logger(component="indexers")
+logger = get_logger(LogComponent.USECASE_INDEXERS)
 
 
 class ListIndexerHistoryUseCase:

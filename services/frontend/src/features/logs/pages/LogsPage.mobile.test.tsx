@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +19,7 @@ const logEntry: RequestLogEntry = {
   level: 'info',
   message: 'Imported a release into Sonarr',
   source: 'src.application.use_cases.releases.export_finished',
+  component: 'usecase.export',
   metadata: { service: 'scheduler', task: 'release_sync' },
 };
 
@@ -34,25 +35,17 @@ afterEach(() => {
   setViewportWidth(DESKTOP_WIDTH);
 });
 
-const openSchedulerTab = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(await screen.findByRole('tab', { name: 'Scheduler' }));
-};
-
-/** Both tab panels are mounted; `getByRole` skips the hidden one, `getByText` does not. */
-const visiblePanel = () => within(screen.getByRole('tabpanel'));
-
 describe('LogsPage on a phone', () => {
-  it('keeps the tabs reachable and states each entry as a card', async () => {
+  it('states each entry as a card with its component', async () => {
     setViewportWidth(MOBILE_WIDTH);
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(userEvent.setup());
 
-    expect(await visiblePanel().findByText('Imported a release into Sonarr')).toBeInTheDocument();
+    expect(await screen.findByText('Imported a release into Sonarr')).toBeInTheDocument();
+    expect(screen.getAllByText('usecase.export').length).toBeGreaterThan(0);
 
     // A table here would only be reachable by scrolling horizontally.
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeInTheDocument());
-    expect(within(screen.getByRole('tablist')).getAllByRole('tab')).toHaveLength(2);
   });
 
   it('keeps log details reachable from a log card', async () => {
@@ -60,21 +53,18 @@ describe('LogsPage on a phone', () => {
     const user = userEvent.setup();
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
-    await user.click(await visiblePanel().findByRole('button', { name: /show log details/i }));
+    await user.click(await screen.findByRole('button', { name: /show log details/i }));
 
     expect(
-      await visiblePanel().findByText('src.application.use_cases.releases.export_finished'),
+      await screen.findByText('src.application.use_cases.releases.export_finished'),
     ).toBeInTheDocument();
   });
 
   it('renders a real table on a wide viewport', async () => {
     setViewportWidth(DESKTOP_WIDTH);
-    const user = userEvent.setup();
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
 
-    expect(await visiblePanel().findByRole('table')).toBeInTheDocument();
+    expect(await screen.findByRole('table')).toBeInTheDocument();
   });
 });

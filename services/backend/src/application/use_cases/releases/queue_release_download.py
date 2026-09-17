@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from loguru import logger
-
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
@@ -27,7 +25,10 @@ from src.application.use_cases.releases.mappers import queued_download_to_async_
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.torrent import TorrentInfo, parse_torrent
-from src.domain.enums import ExistingReleasesAction
+from src.core.logging import get_logger
+from src.domain.enums import ExistingReleasesAction, LogComponent
+
+_logger = get_logger(LogComponent.USECASE_QUEUE_DOWNLOAD)
 
 
 class QueueReleaseDownloadUseCase:
@@ -98,7 +99,7 @@ class QueueReleaseDownloadUseCase:
                     torrent = parse_torrent(torrent_bytes)
                     magnet_link = torrent.magnet_link
                 except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
-                    logger.warning(
+                    _logger.warning(
                         "Failed to resolve torrent file, falling back to magnet link",
                         request_id=effective_request_id,
                         release_id=command.release_id,
@@ -141,7 +142,7 @@ class QueueReleaseDownloadUseCase:
             except ValueError as exc:
                 raise ReleaseDownloadConflictError(command.request_id, command.release_id) from exc
         except Exception as exc:
-            logger.opt(exception=exc).error(
+            _logger.opt(exception=exc).error(
                 f"Failed to grab release: {exc}",
                 request_id=effective_request_id,
                 release_id=command.release_id,
@@ -149,7 +150,7 @@ class QueueReleaseDownloadUseCase:
             )
             raise
 
-        logger.info(
+        _logger.info(
             f"Grabbed release {candidate.release_name}",
             request_id=effective_request_id,
             release_id=command.release_id,

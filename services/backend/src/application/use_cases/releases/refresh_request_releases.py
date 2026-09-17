@@ -25,7 +25,7 @@ from src.application.use_cases.releases.warnings import rows_to_release_warnings
 from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import LogComponent, ReleaseStatus
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -62,7 +62,7 @@ class RefreshRequestReleasesUseCase:
         self._search_service = search_service
         self._regrapper = regrapper
         self._recompute_state = recompute_state
-        self._logger = logger or get_logger(component="refresh_request_releases")
+        self._logger = logger or get_logger(LogComponent.USECASE_REFRESH_RELEASES)
 
     async def execute(self, command: RefreshRequestReleasesCommand) -> ReleaseRefreshDTO:
         await self._guard_scope(command)

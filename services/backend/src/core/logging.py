@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from src.domain.enums import LogService
+from src.domain.enums import LogComponent, LogService
 from src.settings.config import AppSettings
 
 if TYPE_CHECKING:
@@ -109,7 +109,14 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
     """
 
     logger.remove()
-    logger.configure(extra={"request_id": None, "service": service.value}, patcher=redact_secrets)
+    logger.configure(
+        extra={
+            "request_id": None,
+            "service": service.value,
+            "component": service.value,
+        },
+        patcher=redact_secrets,
+    )
 
     level = _resolve_level(settings.log_level.upper())
 
@@ -145,10 +152,15 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
-def get_logger(**extra: object) -> Logger:
-    """Return a Loguru logger bound with optional context."""
+def get_logger(component: LogComponent, **extra: object) -> Logger:
+    """Return a Loguru logger bound with a component and optional context.
 
-    return logger.bind(**extra)
+    ``component`` is required so a module cannot silently log with none; the
+    default set by :func:`configure_logging` only covers records from third-party
+    loggers routed through the intercept handler.
+    """
+
+    return logger.bind(component=component, **extra)
 
 
 __all__ = ["configure_logging", "get_logger", "logger"]

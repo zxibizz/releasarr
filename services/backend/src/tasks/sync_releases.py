@@ -9,16 +9,18 @@ from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import Any
 
-from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.application.utility.torrent_state import project_torrent_state
+from src.core.logging import get_logger
 from src.db.datetimes import as_utc
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import ReleaseStatus
+from src.domain.enums import LogComponent, ReleaseStatus
 from src.infrastructure.qbittorrent import QbittorrentClient
+
+_logger = get_logger(LogComponent.TASK_RELEASE_SYNC)
 
 
 def _utc_now() -> datetime:
@@ -124,7 +126,7 @@ class SyncReleasesTask:
                     unchanged += 1
             except Exception as exc:
                 failed += 1
-                logger.opt(exception=exc).error(
+                _logger.opt(exception=exc).error(
                     f"Failed to sync release {release.id}: {exc}",
                     release_id=release.id,
                     error=str(exc),
@@ -175,7 +177,7 @@ class SyncReleasesTask:
             stored.status = ReleaseStatus.FAILED
 
         for request in release.requests:
-            logger.warning(
+            _logger.warning(
                 "Torrent missing from the download client past the grace period",
                 request_id=request.id,
                 release_id=release.id,

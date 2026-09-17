@@ -196,6 +196,7 @@ type TaskLogSeed = {
   level: RequestLogEntry['level'];
   message: string;
   source: string;
+  component: RequestLogEntry['component'];
   metadata?: Record<string, unknown>;
   stackTrace?: string;
 };
@@ -207,14 +208,15 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     level: 'info',
     message: 'Sonarr sync finished',
     source: 'src.application.use_cases.requests.sync_sonarr',
-    metadata: { component: 'sync_sonarr_requests', created: 0, updated: 2, completed: 1 },
+    component: 'usecase.sync_sonarr',
+    metadata: { created: 0, updated: 2, completed: 1 },
   },
   {
     task: 'sonarr_sync',
     level: 'error',
     message: "request to '/wanted/missing' failed: All connection attempts failed",
     source: 'src.tasks.scheduler_service',
-    metadata: { service: 'Scheduler' },
+    component: 'scheduler',
     stackTrace: [
       'Traceback (most recent call last):',
       '  File "src/tasks/scheduler_service.py", line 130, in _run_scheduled',
@@ -227,13 +229,15 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     level: 'info',
     message: 'Radarr sync finished',
     source: 'src.application.use_cases.requests.sync_radarr',
-    metadata: { component: 'sync_radarr_requests', created: 1, updated: 1, completed: 0 },
+    component: 'usecase.sync_radarr',
+    metadata: { created: 1, updated: 1, completed: 0 },
   },
   {
     task: 'release_sync',
     level: 'info',
     message: 'Request status changed from downloading to completed',
     source: 'src.tasks.sync_releases',
+    component: 'task.release_sync',
     metadata: { previous_status: 'downloading', status: 'completed' },
   },
   {
@@ -241,6 +245,7 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     level: 'warning',
     message: 'Torrent no longer present in the download client',
     source: 'src.tasks.sync_releases',
+    component: 'task.release_sync',
     metadata: { release_id: 'rls-15873' },
   },
   {
@@ -248,31 +253,31 @@ const TASK_LOG_SEEDS: TaskLogSeed[] = [
     level: 'info',
     message: 'Imported a release into Sonarr',
     source: 'src.application.use_cases.releases.export_finished',
-    metadata: { component: 'export_finished_releases', release_name: 'Some.Show.S02E04.1080p' },
+    component: 'usecase.export',
+    metadata: { release_name: 'Some.Show.S02E04.1080p' },
   },
   {
     task: 'export',
     level: 'info',
     message: 'Imported a release into Radarr',
     source: 'src.application.use_cases.releases.export_finished',
-    metadata: {
-      component: 'export_finished_releases',
-      release_name: 'Some.Movie.2019.1080p.BluRay.x264',
-    },
+    component: 'usecase.export',
+    metadata: { release_name: 'Some.Movie.2019.1080p.BluRay.x264' },
   },
   {
     task: 'export',
     level: 'info',
     message: 'Task complete',
     source: 'src.tasks.sync_jobs',
-    metadata: { component: 'sync_job_runner', job_id: 'a1b2c3d4', trigger: 'download_client' },
+    component: 'scheduler.jobs',
+    metadata: { job_id: 'a1b2c3d4', trigger: 'download_client' },
   },
   {
     task: 'regrab',
     level: 'info',
     message: 'No outdated releases found',
     source: 'src.application.use_cases.releases.regrab_outdated',
-    metadata: { component: 'regrab_outdated_releases' },
+    component: 'usecase.regrab_outdated',
   },
 ];
 
@@ -283,11 +288,12 @@ export const generateMockTaskLogs = (): RequestLogEntry[] => {
   const logs = Array.from({ length: 6 }).flatMap((_, round) =>
     TASK_LOG_SEEDS.map((seed, index) => {
       const minutes = round * 30 + index * 2;
-      const { task, metadata, ...rest } = seed;
+      const { task, metadata, component, ...rest } = seed;
 
       return buildLog(now, minutes, {
         ...rest,
         id: `task-log-${round}-${index}`,
+        component,
         // Mirrors the scheduler process, which stamps every record it writes.
         metadata: { ...metadata, task, service: 'scheduler' },
       });

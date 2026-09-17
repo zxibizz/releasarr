@@ -5,12 +5,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import uuid4
 
-from loguru import logger
-
 from src.application.interfaces.releases import ReleaseFileRecord, ReleaseRecord
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.torrent import TorrentFileInfo
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_GRAB)
 
 
 def to_release_files(files: Sequence[TorrentFileInfo]) -> list[ReleaseFileRecord]:
@@ -53,7 +55,7 @@ class ReleaseGrabFinalizer:
             try:
                 await self._auto_mapper.apply(release)
             except Exception as exc:  # pragma: no cover - defensive
-                logger.warning(
+                _logger.warning(
                     "Failed to auto-map release files",
                     release_id=release.id,
                     error=str(exc),
@@ -62,7 +64,7 @@ class ReleaseGrabFinalizer:
         try:
             await self._recompute_state.execute(release.request_ids)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
+            _logger.warning(
                 "Failed to recompute request state",
                 release_id=release.id,
                 error=str(exc),

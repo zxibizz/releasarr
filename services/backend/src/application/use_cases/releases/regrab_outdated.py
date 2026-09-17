@@ -17,6 +17,7 @@ from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.regrab import ReleaseRegrapper
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -44,7 +45,7 @@ class RegrabOutdatedReleasesUseCase:
         self._repository = repository
         self._search_service = search_service
         self._download_service = download_service
-        self._logger = logger or get_logger(component="regrab_outdated_releases")
+        self._logger = logger or get_logger(LogComponent.USECASE_REGRAB_OUTDATED)
         self._regrapper = ReleaseRegrapper(
             repository=repository,
             search_service=search_service,

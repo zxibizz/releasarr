@@ -184,7 +184,7 @@ class AddMediaRequestUseCase:
         self._repository = repository
         self._sonarr = sonarr_service
         self._radarr = radarr_service
-        self._logger = logger or get_logger(component="add_media_request")
+        self._logger = logger or get_logger(LogComponent.USECASE_ADD_REQUEST)
 ```
 
 The entry point is always `async def execute(...)`. Its shape varies with the operation: no

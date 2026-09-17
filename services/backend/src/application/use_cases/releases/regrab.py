@@ -39,7 +39,7 @@ from src.application.use_cases.requests.recompute_state import RecomputeRequestS
 from src.application.utility.torrent import parse_torrent
 from src.application.utility.torrent_files import reconcile_release_files
 from src.core.logging import get_logger
-from src.domain.enums import IndexerHealth, ReleaseStatus, RequestWarningCode
+from src.domain.enums import IndexerHealth, LogComponent, ReleaseStatus, RequestWarningCode
 
 if TYPE_CHECKING:
     from loguru import Logger
@@ -92,7 +92,7 @@ class ReleaseRegrapper:
         self._directory = directory
         self._warning_repository = warning_repository
         self._recompute_state = recompute_state
-        self._logger = logger or get_logger(component="regrab_releases")
+        self._logger = logger or get_logger(LogComponent.USECASE_REGRAB)
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def indexers_by_name(self) -> dict[str, IndexerRecord]:

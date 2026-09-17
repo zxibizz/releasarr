@@ -142,7 +142,7 @@ Other conventions, in brief:
 
 - **Python:** `from __future__ import annotations` at the top; `@dataclass(slots=True)` for
   commands, DTOs, and interface records; `async` throughout; `__all__` at module end.
-- **Logging:** `get_logger(component="…")` and structured kwargs
+- **Logging:** `get_logger(LogComponent.…)` and structured kwargs
   (`logger.info("Added series requests", tvdb_id=…, seasons=…)`), never f-strings for
   identifiers.
 - **Partial updates:** the `UNSET` sentinel from `src/application/utility/sentinels.py`

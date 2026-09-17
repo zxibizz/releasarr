@@ -795,17 +795,26 @@ export const resources = {
         warning: 'Warning',
         error: 'Error',
       },
-      taskLogs: {
+      logs: {
         title: 'Logs',
         description: 'Everything the API and the scheduler logged, newest first.',
-        tabs: {
+        levelFilterLabel: 'Minimum level',
+        allLevels: 'All levels',
+        serviceFilterLabel: 'Process',
+        allServices: 'All processes',
+        services: {
           api: 'Backend',
           scheduler: 'Scheduler',
         },
-        filterLabel: 'Filter by task',
-        allTasks: 'All tasks',
-        levelFilterLabel: 'Minimum level',
-        allLevels: 'All levels',
+        componentFilterLabel: 'Component',
+        allComponents: 'All components',
+        componentGroups: {
+          api: 'Backend',
+          scheduler: 'Scheduler',
+          task: 'Tasks',
+          usecase: 'Use cases',
+          integration: 'Integrations',
+        },
         source: 'Source',
         context: 'Context',
         toggleDetails: 'Show log details',
@@ -815,13 +824,13 @@ export const resources = {
         columns: {
           time: 'Time',
           level: 'Level',
-          task: 'Task',
+          component: 'Component',
           message: 'Message',
         },
         empty: {
           title: 'No log entries',
           description: 'Log entries appear here once the background tasks start running.',
-          filtered: 'Nothing has been logged by {{name}} yet.',
+          filtered: 'Nothing matches the current filters yet.',
         },
         error: {
           title: 'Could not load logs',
@@ -1804,17 +1813,26 @@ export const resources = {
         warning: 'Предупреждение',
         error: 'Ошибка',
       },
-      taskLogs: {
+      logs: {
         title: 'Логи',
         description: 'Всё, что записали API и планировщик, сначала новые.',
-        tabs: {
+        levelFilterLabel: 'Минимальный уровень',
+        allLevels: 'Все уровни',
+        serviceFilterLabel: 'Процесс',
+        allServices: 'Все процессы',
+        services: {
           api: 'Бэкенд',
           scheduler: 'Планировщик',
         },
-        filterLabel: 'Фильтр по задаче',
-        allTasks: 'Все задачи',
-        levelFilterLabel: 'Минимальный уровень',
-        allLevels: 'Все уровни',
+        componentFilterLabel: 'Компонент',
+        allComponents: 'Все компоненты',
+        componentGroups: {
+          api: 'Бэкенд',
+          scheduler: 'Планировщик',
+          task: 'Задачи',
+          usecase: 'Сценарии',
+          integration: 'Интеграции',
+        },
         source: 'Источник',
         context: 'Контекст',
         toggleDetails: 'Показать подробности записи',
@@ -1824,13 +1842,13 @@ export const resources = {
         columns: {
           time: 'Время',
           level: 'Уровень',
-          task: 'Задача',
+          component: 'Компонент',
           message: 'Сообщение',
         },
         empty: {
           title: 'Записей нет',
           description: 'Записи появятся здесь после первого запуска фоновых задач.',
-          filtered: 'Задача «{{name}}» пока ничего не записала.',
+          filtered: 'По текущим фильтрам ничего не нашлось.',
         },
         error: {
           title: 'Не удалось загрузить логи',

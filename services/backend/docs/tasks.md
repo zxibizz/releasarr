@@ -184,9 +184,15 @@ once per process rather than making each call site remember, and
 the scheduler — they run the same work the loops do, without the loop.
 
 A `task` filter already implies the scheduler, because only work done inside a
-task binds `task` and all of it runs in the worker. The logs page leans on that:
-it offers the task filter on the scheduler tab only, and drops it when the reader
-switches process rather than leaving a filter that could only match nothing.
+task binds `task` and all of it runs in the worker. The logs page shows the task
+in a record's expandable context rather than as a filter of its own; the process
+is a dropdown, not a tab, so the page is one merged stream.
+
+Every record also names the part of the codebase that wrote it. `get_logger`
+requires a `LogComponent`, so a module cannot log without one, and
+`GET /logs?component=…` filters on it. The values are namespaced by the layer
+(`api.*`, `scheduler.*`, `task.*`, `usecase.*`, `integration.*`), which is what
+the page groups its component filter by.
 
 Records written before the processes tagged themselves carry no `service` at all.
 The reader falls back to the presence of `task` for those, so upgrading does not
@@ -201,7 +207,7 @@ orders them — the names alone would not say that `CRITICAL` outranks `WARNING`
 
 The logs page keeps the chosen floor in `localStorage` rather than in the URL,
 because it is a preference about the reader rather than part of one view: someone
-who only wants errors wants them on both tabs, and after a reload.
+who only wants errors wants them whatever the process, and after a reload.
 
 ### The API's own request lines
 
@@ -216,7 +222,7 @@ the message and not the metadata, and this file is served to the browser by the
 endpoint itself.
 
 One consequence of logging every request: the logs page's own polling shows up
-in it, on the tab that is doing the polling.
+in it, attributed to `api.http`.
 
 ### How far back the logs view reaches
 

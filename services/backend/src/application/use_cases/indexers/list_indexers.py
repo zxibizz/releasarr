@@ -9,9 +9,9 @@ from src.application.interfaces.indexers import IndexerDirectory, IndexerRecord
 from src.application.use_cases.indexers.dto import IndexerDTO
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.core.logging import get_logger
-from src.domain.enums import IndexerHealth
+from src.domain.enums import IndexerHealth, LogComponent
 
-logger = get_logger(component="indexers")
+logger = get_logger(LogComponent.USECASE_INDEXERS)
 
 
 def derive_health(record: IndexerRecord, now: datetime) -> IndexerHealth:

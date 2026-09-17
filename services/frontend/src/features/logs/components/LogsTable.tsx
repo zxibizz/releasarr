@@ -15,21 +15,19 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { formatLogContext } from '@/features/logs/context';
-import { isTaskKind } from '@/features/tasks/formatting';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { RequestLogEntry } from '@/types';
 import { formatDateTime } from '@/utils/formatters';
 import { LOG_LEVEL_COLOR } from '@/utils/status';
 
-/** The tab already answers `service`, and the task has its own column. */
-const HIDDEN_METADATA_KEYS = ['task', 'service'];
+/** The component has its own column, so it is not repeated in the details. */
+const HIDDEN_METADATA_KEYS = ['component'];
 
 const COLUMN_COUNT = 5;
 
 interface EntryView {
   context: string | null;
   hasDetails: boolean;
-  task: unknown;
 }
 
 const describe = (entry: RequestLogEntry): EntryView => {
@@ -38,7 +36,6 @@ const describe = (entry: RequestLogEntry): EntryView => {
   return {
     context,
     hasDetails: Boolean(context || entry.stackTrace || entry.source),
-    task: entry.metadata?.task,
   };
 };
 
@@ -60,16 +57,16 @@ function LogsGrid({ entries }: { entries: RequestLogEntry[] }) {
         <Table.Thead>
           <Table.Tr>
             <Table.Th w={44} />
-            <Table.Th w={180}>{t('taskLogs.columns.time')}</Table.Th>
-            <Table.Th w={100}>{t('taskLogs.columns.level')}</Table.Th>
-            <Table.Th w={170}>{t('taskLogs.columns.task')}</Table.Th>
-            <Table.Th>{t('taskLogs.columns.message')}</Table.Th>
+            <Table.Th w={180}>{t('logs.columns.time')}</Table.Th>
+            <Table.Th w={100}>{t('logs.columns.level')}</Table.Th>
+            <Table.Th w={200}>{t('logs.columns.component')}</Table.Th>
+            <Table.Th>{t('logs.columns.message')}</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {entries.map((entry) => {
             const open = expanded === entry.id;
-            const { context, hasDetails, task } = describe(entry);
+            const { context, hasDetails } = describe(entry);
 
             return [
               <Table.Tr
@@ -89,13 +86,7 @@ function LogsGrid({ entries }: { entries: RequestLogEntry[] }) {
                   <LevelBadge entry={entry} />
                 </Table.Td>
                 <Table.Td>
-                  {isTaskKind(task) ? (
-                    <Text size="sm">{t(`tasks.kinds.${task}.name`)}</Text>
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      —
-                    </Text>
-                  )}
+                  <ComponentCell entry={entry} />
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm" className="break-anywhere">
@@ -122,7 +113,6 @@ function LogsGrid({ entries }: { entries: RequestLogEntry[] }) {
 }
 
 function LogsCards({ entries }: { entries: RequestLogEntry[] }) {
-  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const toggle = (id: string) => setExpanded((current) => (current === id ? null : id));
@@ -131,7 +121,7 @@ function LogsCards({ entries }: { entries: RequestLogEntry[] }) {
     <Stack gap="xs" p="xs">
       {entries.map((entry) => {
         const open = expanded === entry.id;
-        const { context, hasDetails, task } = describe(entry);
+        const { context, hasDetails } = describe(entry);
 
         return (
           <Card key={entry.id} withBorder radius="md" padding="sm">
@@ -139,16 +129,16 @@ function LogsCards({ entries }: { entries: RequestLogEntry[] }) {
               <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
                 <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                   <LevelBadge entry={entry} />
-                  <Text size="xs" c="dimmed" ff="monospace" style={{ minWidth: 0 }}>
+                  <Text size="xs" c="dimmed" ff="monospace" style={{ minWidth: 0 }} truncate>
                     {formatDateTime(entry.occurredAt)}
                   </Text>
                 </Group>
                 {hasDetails && <ExpandToggle open={open} onToggle={() => toggle(entry.id)} />}
               </Group>
 
-              {isTaskKind(task) && (
-                <Text size="xs" c="dimmed">
-                  {t('taskLogs.columns.task')}: {t(`tasks.kinds.${task}.name`)}
+              {entry.component && (
+                <Text size="xs" c="dimmed" ff="monospace">
+                  {entry.component}
                 </Text>
               )}
 
@@ -179,6 +169,18 @@ function LevelBadge({ entry }: { entry: RequestLogEntry }) {
   );
 }
 
+function ComponentCell({ entry }: { entry: RequestLogEntry }) {
+  return entry.component ? (
+    <Text size="xs" ff="monospace">
+      {entry.component}
+    </Text>
+  ) : (
+    <Text size="sm" c="dimmed">
+      —
+    </Text>
+  );
+}
+
 function ExpandToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useTranslation();
 
@@ -187,7 +189,7 @@ function ExpandToggle({ open, onToggle }: { open: boolean; onToggle: () => void 
       variant="subtle"
       color="gray"
       aria-expanded={open}
-      aria-label={t('taskLogs.toggleDetails')}
+      aria-label={t('logs.toggleDetails')}
       onClick={(event) => {
         event.stopPropagation();
         onToggle();
@@ -206,7 +208,7 @@ function EntryDetails({ entry, context }: { entry: RequestLogEntry; context: str
       {entry.source && (
         <Group gap={6} wrap="wrap">
           <Text size="xs" c="dimmed">
-            {t('taskLogs.source')}:
+            {t('logs.source')}:
           </Text>
           <Text size="xs" ff="monospace" className="break-anywhere">
             {entry.source}
@@ -215,7 +217,7 @@ function EntryDetails({ entry, context }: { entry: RequestLogEntry; context: str
       )}
       {context && (
         <Text size="xs" c="dimmed" className="break-anywhere">
-          {t('taskLogs.context')}: {context}
+          {t('logs.context')}: {context}
         </Text>
       )}
       {entry.stackTrace && (
