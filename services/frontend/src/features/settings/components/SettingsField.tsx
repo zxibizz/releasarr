@@ -1,14 +1,34 @@
-import { Badge, Group, NumberInput, Switch, TagsInput, Text, TextInput, Tooltip } from '@mantine/core';
+import {
+  Badge,
+  Group,
+  MultiSelect,
+  NumberInput,
+  Select,
+  Switch,
+  TagsInput,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { SettingFieldInfo } from '@/types';
 
+/** Values the owning service can enumerate, so the field becomes a picker. */
+export interface FieldOptions {
+  items: { value: string; label: string }[];
+  loading: boolean;
+  /** Why the list could not be read; the picker is disabled and says so. */
+  error: string | null;
+}
+
 interface SettingsFieldProps {
   field: SettingFieldInfo;
   value: unknown;
   onChange: (value: unknown) => void;
+  options?: FieldOptions;
 }
 
 /**
@@ -16,7 +36,7 @@ interface SettingsFieldProps {
  * lock badge when the environment pins it (making it read-only) and a restart
  * note when a change only takes effect on the next boot.
  */
-export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
+export function SettingsField({ field, value, onChange, options }: SettingsFieldProps) {
   const { t } = useTranslation();
   const label = t(`settings.fields.${field.key}.label`, { defaultValue: field.key });
   const description = t(`settings.fields.${field.key}.description`, { defaultValue: '' });
@@ -62,6 +82,41 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
     description: descriptionProp,
     disabled: field.locked,
   };
+
+  if (options) {
+    const picker = {
+      ...common,
+      // An unreadable list leaves nothing to pick from, so the control is inert
+      // rather than empty and apparently broken.
+      disabled: field.locked || options.error !== null,
+      error: options.error,
+      data: options.items,
+      searchable: true,
+      nothingFoundMessage: t('settings.options.empty'),
+      placeholder: options.loading ? t('settings.options.loading') : undefined,
+    };
+
+    if (field.kind === 'str_list') {
+      return (
+        <MultiSelect
+          {...picker}
+          value={Array.isArray(value) ? (value as unknown[]).map(String) : []}
+          onChange={(next) => onChange(next)}
+        />
+      );
+    }
+
+    return (
+      <Select
+        {...picker}
+        clearable
+        value={value == null || value === '' ? null : String(value)}
+        onChange={(next) =>
+          onChange(next == null ? null : field.kind.startsWith('int') ? Number(next) : next)
+        }
+      />
+    );
+  }
 
   switch (field.kind) {
     case 'bool':

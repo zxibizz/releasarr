@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from src.application.interfaces.indexers import (
+    IndexerCategoryRecord,
     IndexerDirectory,
     IndexerEventPage,
     IndexerEventRecord,
@@ -117,6 +118,39 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
 
         records.sort(key=lambda record: record.name.lower())
         return records
+
+    async def list_categories(self) -> list[IndexerCategoryRecord]:
+        """Merge the category trees the configured indexers advertise.
+
+        Prowlarr has no endpoint of its own for this: categories are reported
+        per indexer, as a two-level tree, and a search filter accepts an id from
+        either level — so both levels are flattened into one list.
+        """
+
+        names_by_id: dict[int, str] = {}
+        for item in safe_json_list(await self._get("/indexer")):
+            if not isinstance(item, dict):
+                continue
+            capabilities = item.get("capabilities")
+            if isinstance(capabilities, dict):
+                self._collect_categories(capabilities.get("categories"), names_by_id)
+
+        return [
+            IndexerCategoryRecord(category_id=category_id, name=names_by_id[category_id])
+            for category_id in sorted(names_by_id)
+        ]
+
+    def _collect_categories(self, value: object, found: dict[int, str]) -> None:
+        if not isinstance(value, list):
+            return
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            category_id = safe_int(entry.get("id"))
+            name = safe_str(entry.get("name"))
+            if category_id is not None and name:
+                found.setdefault(category_id, name)
+            self._collect_categories(entry.get("subCategories"), found)
 
     async def list_history(
         self,

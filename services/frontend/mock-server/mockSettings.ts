@@ -1,5 +1,8 @@
 import type {
   ConnectionTestResult,
+  DownloadCategoriesResponse,
+  IndexerCategoriesResponse,
+  QualityProfilesResponse,
   SettingFieldInfo,
   SettingsResponse,
   SettingsSection,
@@ -151,4 +154,36 @@ export function testConnection(integration: string): ConnectionTestResult {
     success,
     detail: success ? null : 'Could not reach the configured URL',
   };
+}
+
+export function getQualityProfiles(integration: string): QualityProfilesResponse {
+  const profiles =
+    integration === 'sonarr'
+      ? [
+          { id: 1, name: 'Any' },
+          { id: 4, name: 'HD-1080p' },
+          { id: 6, name: 'Ultra-HD' },
+        ]
+      : [
+          { id: 2, name: 'Any' },
+          { id: 5, name: 'HD Bluray + WEB' },
+        ];
+  return { profiles };
+}
+
+export function getIndexerCategories(): IndexerCategoriesResponse {
+  return {
+    categories: [
+      { id: 2000, name: 'Movies' },
+      { id: 2040, name: 'Movies/HD' },
+      { id: 2045, name: 'Movies/UHD' },
+      { id: 5000, name: 'TV' },
+      { id: 5040, name: 'TV/HD' },
+      { id: 5045, name: 'TV/UHD' },
+    ],
+  };
+}
+
+export function getDownloadCategories(): DownloadCategoriesResponse {
+  return { categories: ['movies', 'releasarr', 'tv'] };
 }

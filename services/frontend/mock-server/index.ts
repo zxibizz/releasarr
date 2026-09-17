@@ -6,7 +6,14 @@ import express from 'express';
 import morgan from 'morgan';
 
 import { MockAuthError, mockAuth } from './mockAuth';
-import { getSettings, testConnection, updateSettingsSection } from './mockSettings';
+import {
+  getDownloadCategories,
+  getIndexerCategories,
+  getQualityProfiles,
+  getSettings,
+  testConnection,
+  updateSettingsSection,
+} from './mockSettings';
 import { mockStore } from './store';
 import type { IndexerEventType, MediaRequest, MediaType, Release } from '../src/types';
 
@@ -261,6 +268,20 @@ api.post('/service-key/regenerate', requireAdmin, (_req, res) => {
 
 api.get('/settings', requireAdmin, (_req, res) => {
   res.json(getSettings());
+});
+
+// Registered before '/settings/:section' has any GET of its own, and kept above
+// it so a future one cannot swallow these.
+api.get('/settings/options/quality-profiles/:integration', requireAdmin, (req, res) => {
+  res.json(getQualityProfiles(String(req.params.integration)));
+});
+
+api.get('/settings/options/indexer-categories', requireAdmin, (_req, res) => {
+  res.json(getIndexerCategories());
+});
+
+api.get('/settings/options/download-categories', requireAdmin, (_req, res) => {
+  res.json(getDownloadCategories());
 });
 
 api.patch('/settings/:section', requireAdmin, (req, res) => {

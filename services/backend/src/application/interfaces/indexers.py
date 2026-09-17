@@ -97,6 +97,30 @@ class IndexerLogPage:
     total: int
 
 
+@dataclass(slots=True)
+class IndexerCategoryRecord:
+    """One newznab category the configured indexers accept as a search filter."""
+
+    category_id: int
+    name: str
+
+
+class IndexerCategoryDirectory(Protocol):
+    """Read the categories a search provider's indexers advertise.
+
+    Separate from :class:`IndexerDirectory` because only the settings form asks
+    for this, and widening that protocol would oblige every implementation of it
+    to answer a question it has no use for.
+    """
+
+    @property
+    def is_configured(self) -> bool:
+        """Whether a provider backs this directory and can be reached."""
+
+    async def list_categories(self) -> Sequence[IndexerCategoryRecord]:
+        """Return every category the configured indexers accept, deduplicated."""
+
+
 class IndexerDirectory(Protocol):
     """Read and test the indexers a search provider is configured with.
 
@@ -148,6 +172,8 @@ class IndexerDirectory(Protocol):
 
 
 __all__ = [
+    "IndexerCategoryDirectory",
+    "IndexerCategoryRecord",
     "IndexerDirectory",
     "IndexerEventPage",
     "IndexerEventRecord",

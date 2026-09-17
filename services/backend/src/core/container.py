@@ -83,6 +83,9 @@ from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaReques
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
 from src.application.use_cases.settings import (
     GetSettingsUseCase,
+    ListDownloadCategoriesUseCase,
+    ListIndexerCategoriesUseCase,
+    ListQualityProfilesUseCase,
     TestIntegrationConnectionUseCase,
     UpdateSettingsSectionUseCase,
 )
@@ -860,6 +863,25 @@ class SettingsUseCases:
     @cached_property
     def test_connection(self) -> TestIntegrationConnectionUseCase:
         return TestIntegrationConnectionUseCase(settings=self._container.settings)
+
+    @cached_property
+    def list_quality_profiles(self) -> ListQualityProfilesUseCase:
+        return ListQualityProfilesUseCase(
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+        )
+
+    @cached_property
+    def list_indexer_categories(self) -> ListIndexerCategoriesUseCase:
+        return ListIndexerCategoriesUseCase(
+            directory=self._container.services.indexer_directory
+        )
+
+    @cached_property
+    def list_download_categories(self) -> ListDownloadCategoriesUseCase:
+        return ListDownloadCategoriesUseCase(
+            client=self._container.services.qbittorrent_client
+        )
 
 
 @dataclass

@@ -10,6 +10,8 @@ interface SettingsSectionFormProps {
   section: SettingsSection;
   titleKey: string;
   descriptionKey?: string;
+  /** Drops to 3 where the page already owns the H2. */
+  titleOrder?: 2 | 3;
   /** Narrows the section to the fields this form owns; the rest are edited elsewhere. */
   includeField?: (field: SettingFieldInfo) => boolean;
   /** Render extra controls (e.g. connection-test buttons) inside the form. */
@@ -26,6 +28,7 @@ export function SettingsSectionForm({
   section,
   titleKey,
   descriptionKey,
+  titleOrder = 2,
   includeField,
   children,
 }: SettingsSectionFormProps) {
@@ -52,6 +55,7 @@ export function SettingsSectionForm({
       section={section}
       titleKey={titleKey}
       descriptionKey={descriptionKey}
+      titleOrder={titleOrder}
       values={settings.data.values[section] ?? {}}
       fields={(settings.data.fields ?? []).filter(
         (f: SettingFieldInfo) => f.section === section && (includeField?.(f) ?? true),
@@ -66,6 +70,7 @@ interface SectionFormBodyProps {
   section: SettingsSection;
   titleKey: string;
   descriptionKey?: string;
+  titleOrder: 2 | 3;
   values: Record<string, unknown>;
   fields: SettingFieldInfo[];
   children?: ReactNode;
@@ -75,6 +80,7 @@ function SectionFormBody({
   section,
   titleKey,
   descriptionKey,
+  titleOrder,
   values,
   fields,
   children,
@@ -96,7 +102,7 @@ function SectionFormBody({
   return (
     <Stack gap="lg">
       <div>
-        <Title order={2}>{t(titleKey)}</Title>
+        <Title order={titleOrder}>{t(titleKey)}</Title>
         {descriptionKey && (
           <Text c="dimmed" size="sm" mt={4}>
             {t(descriptionKey)}

@@ -10,7 +10,7 @@ import httpx
 
 from src.core.logging import get_logger
 from src.domain.enums import LogComponent
-from src.infrastructure.http import build_async_client
+from src.infrastructure.http import HttpClientError, build_async_client
 
 _logger = get_logger(LogComponent.INTEGRATION_QBITTORRENT)
 
@@ -187,6 +187,31 @@ class QbittorrentClient:
             return None
         except httpx.HTTPError:
             return None
+
+    async def list_categories(self) -> list[str]:
+        """Return the category names qBittorrent already knows, sorted.
+
+        Raises :class:`HttpClientError` rather than returning nothing, because
+        "no categories" and "could not ask" mean different things to the caller.
+        """
+
+        await self._ensure_login()
+        try:
+            response = await self._client.get("/torrents/categories")
+            if response.status_code == httpx.codes.FORBIDDEN:
+                self._logged_in = False
+                await self._ensure_login()
+                response = await self._client.get("/torrents/categories")
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPError as exc:
+            raise HttpClientError(f"qBittorrent request failed: {exc!s}") from exc
+        except ValueError as exc:
+            raise HttpClientError("qBittorrent returned an unreadable category list") from exc
+
+        if not isinstance(payload, dict):
+            return []
+        return sorted(str(name) for name in payload)
 
     async def list_torrents(
         self,

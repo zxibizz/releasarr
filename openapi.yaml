@@ -2093,6 +2093,147 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /settings/options/quality-profiles/{integration}:
+    get:
+      tags: [Settings]
+      summary: List an *arr's quality profiles
+      description: >-
+        The quality profiles Sonarr or Radarr has configured, so the profile
+        setting can be picked from a list rather than typed as a bare id.
+      operationId: listQualityProfileOptions
+      parameters:
+        - name: integration
+          in: path
+          required: true
+          description: Which *arr to read the profiles from.
+          schema:
+            type: string
+            enum: [sonarr, radarr]
+      responses:
+        '200':
+          description: The quality profiles the service reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualityProfilesResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: The service refused or could not answer the lookup.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The service is not configured yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /settings/options/indexer-categories:
+    get:
+      tags: [Settings]
+      summary: List the categories the indexers accept
+      description: >-
+        Prowlarr reports categories per indexer as a two-level tree; this merges
+        both levels across every indexer and deduplicates by id.
+      operationId: listIndexerCategoryOptions
+      responses:
+        '200':
+          description: The categories available as search filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexerCategoriesResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: The service refused or could not answer the lookup.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The service is not configured yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /settings/options/download-categories:
+    get:
+      tags: [Settings]
+      summary: List the download client's categories
+      description: The category names qBittorrent already has.
+      operationId: listDownloadCategoryOptions
+      responses:
+        '200':
+          description: The categories the download client reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadCategoriesResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: The service refused or could not answer the lookup.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The service is not configured yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     BearerAuth:
@@ -3872,6 +4013,47 @@ components:
           type: string
           nullable: true
           description: Failure reason, or a short OK summary.
+    QualityProfileOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    QualityProfilesResponse:
+      type: object
+      required: [profiles]
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/QualityProfileOption'
+    IndexerCategoryOption:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          description: The newznab category id a search filter takes.
+        name:
+          type: string
+    IndexerCategoriesResponse:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexerCategoryOption'
+    DownloadCategoriesResponse:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
     SetupStatus:
       type: object
       required: [required]

@@ -519,3 +519,75 @@ async def test_test_all_indexers_maps_a_clean_run() -> None:
     assert len(results) == 1
     assert results[0].success is True
     assert results[0].errors == ()
+
+
+CATEGORY_INDEXERS = [
+    {
+        "id": 1,
+        "name": "Alpha",
+        "capabilities": {
+            "categories": [
+                {
+                    "id": 5000,
+                    "name": "TV",
+                    "subCategories": [{"id": 5030, "name": "TV/SD"}],
+                }
+            ]
+        },
+    },
+    {
+        "id": 2,
+        "name": "Zeta",
+        "capabilities": {
+            "categories": [
+                {"id": 2000, "name": "Movies", "subCategories": []},
+                {"id": 5000, "name": "TV", "subCategories": []},
+            ]
+        },
+    },
+]
+
+
+@pytest.mark.asyncio
+async def test_list_categories_flattens_both_levels_across_every_indexer() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/indexer")
+        return httpx.Response(200, json=CATEGORY_INDEXERS)
+
+    directory = _directory(httpx.MockTransport(handler))
+    categories = await directory.list_categories()
+
+    # Deduplicated across indexers, sorted by id, subcategories included.
+    assert [(category.category_id, category.name) for category in categories] == [
+        (2000, "Movies"),
+        (5000, "TV"),
+        (5030, "TV/SD"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_categories_ignores_an_indexer_that_advertises_none() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {"id": 1, "name": "No capabilities"},
+                {"id": 2, "name": "Empty", "capabilities": {}},
+                {"id": 3, "name": "Nameless", "capabilities": {"categories": [{"id": 9}]}},
+            ],
+        )
+
+    directory = _directory(httpx.MockTransport(handler))
+
+    assert await directory.list_categories() == []
+
+
+@pytest.mark.asyncio
+async def test_list_categories_reports_an_upstream_refusal_as_a_client_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"message": "Unauthorized"})
+
+    directory = _directory(httpx.MockTransport(handler))
+
+    with pytest.raises(HttpClientError):
+        await directory.list_categories()

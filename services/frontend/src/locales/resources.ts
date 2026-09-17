@@ -64,9 +64,14 @@ export const resources = {
         metadata: {
           title: 'Metadata providers',
           description: 'TVDB and TMDB, which supply titles and posters.',
-          formTitle: 'Provider settings',
+          shared: 'Shared',
           tvdb: 'TVDB',
           tmdb: 'TMDB',
+        },
+        options: {
+          loading: 'Loading…',
+          empty: 'Nothing to choose from',
+          failed: 'Could not read the list from the service',
         },
         network: {
           title: 'Network',
@@ -1184,9 +1189,14 @@ export const resources = {
         metadata: {
           title: 'Провайдеры метаданных',
           description: 'TVDB и TMDB — источники названий и постеров.',
-          formTitle: 'Параметры провайдеров',
+          shared: 'Общее',
           tvdb: 'TVDB',
           tmdb: 'TMDB',
+        },
+        options: {
+          loading: 'Загрузка…',
+          empty: 'Нечего выбрать',
+          failed: 'Не удалось получить список от сервиса',
         },
         network: {
           title: 'Сеть',
