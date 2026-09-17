@@ -29,7 +29,7 @@ interface LogsModalProps {
 }
 
 /** The request is already named in the title, so repeating its id adds nothing. */
-const HIDDEN_METADATA_KEYS = ['request_id'];
+const HIDDEN_METADATA_KEYS = ['request_id', 'component'];
 
 function LogRow({ entry }: { entry: RequestLogEntry }) {
   const { t } = useTranslation();
@@ -47,6 +47,11 @@ function LogRow({ entry }: { entry: RequestLogEntry }) {
           <Text size="sm" c="dimmed">
             {entry.timestamp}
           </Text>
+          {entry.component ? (
+            <Text size="sm" c="dimmed" ff="monospace">
+              {entry.component}
+            </Text>
+          ) : null}
           {entry.source ? (
             <Text size="sm" c="dimmed" className="break-anywhere">
               {entry.source}
