@@ -130,8 +130,14 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission permission="manage_users" />,
             children: [
-              // The users page moved under /settings; keep the old path working.
-              { path: 'system/users', element: <Navigate to="/settings/users" replace /> },
+              {
+                path: 'system/users',
+                lazy: async () => {
+                  const { UsersPage } = await import('@/features/users/pages/UsersPage');
+                  return { Component: UsersPage };
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
             ],
           },
           {
@@ -144,6 +150,8 @@ export const router = createBrowserRouter([
             errorElement: <RouteErrorBoundary />,
             children: [
               { index: true, element: <Navigate to="/settings/general" replace /> },
+              // Users moved to /system/users; keep the old path working.
+              { path: 'users', element: <Navigate to="/system/users" replace /> },
               {
                 path: 'general',
                 lazy: async () => {
@@ -151,18 +159,6 @@ export const router = createBrowserRouter([
                     await import('@/features/settings/pages/GeneralSettingsPage');
                   return { Component: GeneralSettingsPage };
                 },
-              },
-              {
-                element: <RequirePermission permission="manage_users" />,
-                children: [
-                  {
-                    path: 'users',
-                    lazy: async () => {
-                      const { UsersPage } = await import('@/features/users/pages/UsersPage');
-                      return { Component: UsersPage };
-                    },
-                  },
-                ],
               },
               {
                 path: 'services',

@@ -18,7 +18,9 @@ interface SettingsFieldProps {
  */
 export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
   const { t } = useTranslation();
-  const label = t(`settings.fields.${field.key}`, { defaultValue: field.key });
+  const label = t(`settings.fields.${field.key}.label`, { defaultValue: field.key });
+  const description = t(`settings.fields.${field.key}.description`, { defaultValue: '' });
+  const descriptionProp = description === '' ? undefined : description;
 
   const suffix = (
     <Group gap={6} wrap="nowrap">
@@ -46,7 +48,7 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
 
   const common = {
     label: label as ReactNode,
-    description: undefined,
+    description: descriptionProp,
     disabled: field.locked,
     rightSection: suffix,
   };
@@ -59,6 +61,11 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
             <Text size="sm" fw={500}>
               {label}
             </Text>
+            {descriptionProp && (
+              <Text size="xs" c="dimmed">
+                {descriptionProp}
+              </Text>
+            )}
           </div>
           <Group gap="xs" wrap="nowrap">
             {suffix}
@@ -94,6 +101,7 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
       return (
         <TagsInput
           label={label}
+          description={descriptionProp}
           disabled={field.locked}
           value={Array.isArray(value) ? (value as string[]) : []}
           onChange={(v) => onChange(v)}
