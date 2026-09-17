@@ -302,7 +302,7 @@ Stored as their string values, not member names, via `build_enum()` in `models.p
 | `SyncJobKind` | `sonarr_sync`, `radarr_sync`, `release_sync`, `export`, `regrab` |
 | `SyncJobStatus` | `queued`, `running`, `completed`, `failed` |
 | `SyncJobTrigger` | `api`, `download_client`, `schedule` |
-| `RequestLogLevel` | `info`, `warning`, `error` |
+| `RequestLogLevel` | `debug`, `info`, `warning`, `error` |
 | `UserRole` | `admin`, `user` |
 
 `EpisodeStatus.MISSING` is the only one of its three that is actionable: it has aired and Sonarr

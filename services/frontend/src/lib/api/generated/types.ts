@@ -893,7 +893,7 @@ export interface components {
         /** @enum {string} */
         ReleaseStatus: "pending" | "downloading" | "completed" | "failed";
         /** @enum {string} */
-        RequestLogLevel: "info" | "warning" | "error";
+        RequestLogLevel: "debug" | "info" | "warning" | "error";
         /**
          * @description The process that wrote a record. The API and the scheduler run as
          *     separate processes, each writing its own log file.
@@ -1717,7 +1717,7 @@ export interface components {
         ComponentFilter: components["schemas"]["LogComponent"];
         /**
          * @description Least severe level to return, along with everything worse. Records are
-         *     mapped onto three levels, so this is a threshold rather than an exact
+         *     mapped onto four levels, so this is a threshold rather than an exact
          *     match: `warning` also returns errors.
          */
         LogLevelFilter: components["schemas"]["RequestLogLevel"];
@@ -3175,7 +3175,7 @@ export interface operations {
                 component?: components["parameters"]["ComponentFilter"];
                 /**
                  * @description Least severe level to return, along with everything worse. Records are
-                 *     mapped onto three levels, so this is a threshold rather than an exact
+                 *     mapped onto four levels, so this is a threshold rather than an exact
                  *     match: `warning` also returns errors.
                  */
                 min_level?: components["parameters"]["LogLevelFilter"];

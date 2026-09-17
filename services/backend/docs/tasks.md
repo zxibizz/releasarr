@@ -200,10 +200,12 @@ blank out the history already on disk.
 
 ### Filtering by severity
 
-`GET /logs?min_level={info|warning|error}` is a floor rather than an exact match:
-`warning` returns warnings and errors. Loguru's seven levels are collapsed onto
-these three while the file is parsed, so `_LEVEL_SEVERITY` in the reader is what
-orders them — the names alone would not say that `CRITICAL` outranks `WARNING`.
+`GET /logs?min_level={debug|info|warning|error}` is a floor rather than an exact
+match: `warning` returns warnings and errors. Loguru's seven levels are collapsed
+onto these four while the file is parsed, so `_LEVEL_SEVERITY` in the reader is
+what orders them — the names alone would not say that `CRITICAL` outranks
+`WARNING`. `debug` is the floor everything clears, so asking for `info` is how the
+request lines below are kept out of the view.
 
 The logs page keeps the chosen floor in `localStorage` rather than in the URL,
 because it is a preference about the reader rather than part of one view: someone
