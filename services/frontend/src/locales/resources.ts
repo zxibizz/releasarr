@@ -21,6 +21,11 @@ export const resources = {
           ru: 'Русский',
         },
       },
+      system: {
+        nav: {
+          label: 'System sections',
+        },
+      },
       settings: {
         saved: 'Settings saved',
         saveFailed: 'Could not save settings',
@@ -1131,6 +1136,11 @@ export const resources = {
         languages: {
           en: 'Английский',
           ru: 'Русский',
+        },
+      },
+      system: {
+        nav: {
+          label: 'Разделы системы',
         },
       },
       settings: {
