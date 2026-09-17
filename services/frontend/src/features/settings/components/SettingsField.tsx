@@ -22,13 +22,14 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
   const description = t(`settings.fields.${field.key}.description`, { defaultValue: '' });
   const descriptionProp = description === '' ? undefined : description;
 
-  const suffix = (
-    <Group gap={6} wrap="nowrap">
+  const badges = (
+    <>
       {field.locked && (
         <Tooltip label={t('settings.lockedTooltip')}>
           <Badge
             color="gray"
             variant="light"
+            size="sm"
             leftSection={<IconLock size={12} />}
             aria-label={t('settings.locked')}
           >
@@ -38,19 +39,28 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
       )}
       {field.requires_restart && !field.locked && (
         <Tooltip label={t('settings.restartTooltip')}>
-          <Badge color="yellow" variant="light">
+          <Badge color="yellow" variant="light" size="sm">
             {t('settings.restart')}
           </Badge>
         </Tooltip>
       )}
-    </Group>
+    </>
   );
 
+  // The badges sit in the label rather than in the input's rightSection: that
+  // section is a fixed, input-height square, so a badge rendered there is
+  // clipped to its icon and overlaps the value.
+  const labelWithBadges = (
+    <Group component="span" display="inline-flex" gap={6} wrap="nowrap" align="center">
+      <span>{label}</span>
+      {badges}
+    </Group>
+  ) as ReactNode;
+
   const common = {
-    label: label as ReactNode,
+    label: labelWithBadges,
     description: descriptionProp,
     disabled: field.locked,
-    rightSection: suffix,
   };
 
   switch (field.kind) {
@@ -68,7 +78,7 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
             )}
           </div>
           <Group gap="xs" wrap="nowrap">
-            {suffix}
+            {badges}
             <Switch
               aria-label={label}
               checked={Boolean(value)}
@@ -100,12 +110,11 @@ export function SettingsField({ field, value, onChange }: SettingsFieldProps) {
     case 'str_list':
       return (
         <TagsInput
-          label={label}
+          label={labelWithBadges}
           description={descriptionProp}
           disabled={field.locked}
           value={Array.isArray(value) ? (value as string[]) : []}
           onChange={(v) => onChange(v)}
-          rightSection={suffix}
         />
       );
     case 'str':
