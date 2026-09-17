@@ -20,6 +20,8 @@ from src.application.interfaces.sonarr import (
     SonarrEpisode,
     SonarrService,
 )
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 from src.infrastructure.arr.base import (
     COMMAND_POLL_INTERVAL_SECONDS,
     COMMAND_SUCCESS_STATUS,
@@ -29,6 +31,8 @@ from src.infrastructure.arr.base import (
     ArrHttpClient,
 )
 from src.infrastructure.http import BaseHttpClient, HttpClientError
+
+_logger = get_logger(LogComponent.INTEGRATION_SONARR)
 
 # How Sonarr spells "monitor seasons added after this series was", on the series
 # itself rather than in the one-off add options.
@@ -219,6 +223,12 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         series_id = self._safe_int(created.get("id")) if isinstance(created, dict) else None
         if series_id is None:
             raise HttpClientError(f"Sonarr did not return an id for the added series {tvdb_id}")
+        _logger.info(
+            "Series added to Sonarr",
+            tvdb_id=tvdb_id,
+            series_id=series_id,
+            monitored_seasons=sorted(monitored_seasons),
+        )
         return series_id
 
     async def apply_season_monitoring(
@@ -372,7 +382,12 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
             resolved = await self._reprocess(files)
             command_id = await self._run_import_command(files, resolved)
             return await self._await_command(command_id)
-        except (HttpClientError, httpx.HTTPError):
+        except (HttpClientError, httpx.HTTPError) as exc:
+            _logger.warning(
+                "Sonarr manual import failed",
+                file_count=len(files),
+                error=str(exc),
+            )
             return False
 
     async def _reprocess(self, files: list[ManualImportFile]) -> dict[str, dict[str, Any]]:

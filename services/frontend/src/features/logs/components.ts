@@ -15,7 +15,6 @@ export const LOG_COMPONENTS: LogComponent[] = [
   'scheduler',
   'scheduler.jobs',
   'task.release_sync',
-  'task.release_summary',
   'usecase.add_request',
   'usecase.auto_mapping',
   'usecase.auth',

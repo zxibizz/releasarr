@@ -28,7 +28,10 @@ from src.application.use_cases.users.exceptions import (
     UserNotFoundError,
 )
 from src.application.utility.sentinels import UNSET
-from src.domain.enums import UserRole
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent, UserRole
+
+_logger = get_logger(LogComponent.USECASE_USERS)
 
 
 async def _remaining_active_admins(
@@ -84,7 +87,7 @@ class CreateUserUseCase:
         if await self._users.get_by_username(command.username) is not None:
             raise UsernameTakenError(command.username)
 
-        return await self._users.create_user(
+        user = await self._users.create_user(
             CreateUserData(
                 id=uuid4().hex,
                 username=command.username,
@@ -99,6 +102,8 @@ class CreateUserUseCase:
                 allowed_root_folders=list(command.allowed_root_folders),
             )
         )
+        _logger.info("User created", username=user.username, role=user.role.value)
+        return user
 
 
 class UpdateUserUseCase:
@@ -146,6 +151,7 @@ class DeleteUserUseCase:
             raise LastAdminError()
 
         await self._users.delete_user(user_id)
+        _logger.info("User deleted", username=target.username)
 
 
 class ChangePasswordUseCase:

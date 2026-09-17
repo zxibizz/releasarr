@@ -257,12 +257,6 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
         self.release_updates.update(kwargs)
         return True
 
-    async def count_by_status(self) -> dict[ReleaseStatus, int]:
-        counts: dict[ReleaseStatus, int] = {}
-        for record in self.releases.values():
-            counts[record.status] = counts.get(record.status, 0) + 1
-        return counts
-
 
 class FakeLifecycleService:
     is_configured = True

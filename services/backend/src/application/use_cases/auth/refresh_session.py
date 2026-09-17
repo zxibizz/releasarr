@@ -10,6 +10,10 @@ from src.application.use_cases.auth.dto import IssuedSessionDTO
 from src.application.use_cases.auth.exceptions import InvalidRefreshTokenError
 from src.application.use_cases.auth.session_issuer import SessionIssuer
 from src.application.utility.secret_tokens import hash_token
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_AUTH)
 
 
 class RefreshSessionUseCase:
@@ -40,6 +44,10 @@ class RefreshSessionUseCase:
             # grace window below that means the chain may be compromised, so the
             # whole family is burned.
             await self._refresh_tokens.revoke_family(record.family_id)
+            _logger.warning(
+                "Revoked refresh token reused; family revoked",
+                user_id=record.user_id,
+            )
             raise InvalidRefreshTokenError()
 
         if record.expires_at <= now:

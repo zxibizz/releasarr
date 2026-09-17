@@ -17,7 +17,8 @@ from src.application.interfaces.indexers import (
     IndexerRecord,
     IndexerTestResultRecord,
 )
-from src.domain.enums import IndexerEventType, IndexerLogLevel
+from src.core.logging import get_logger
+from src.domain.enums import IndexerEventType, IndexerLogLevel, LogComponent
 from src.infrastructure.http import BaseHttpClient, HttpClientError
 from src.infrastructure.prowlarr.parsing import (
     safe_bool,
@@ -41,6 +42,8 @@ _EVENT_TYPES: dict[str, IndexerEventType] = {
 }
 
 _PROWLARR_EVENT_NAMES = {event: name for name, event in _EVENT_TYPES.items()}
+
+_logger = get_logger(LogComponent.INTEGRATION_PROWLARR)
 
 # Keys read onto the record itself, so the leftover data does not repeat them.
 _LIFTED_DATA_KEYS = frozenset(
@@ -240,6 +243,10 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
                     errors=errors,
                 )
             )
+
+        failed = [result.name or str(result.indexer_id) for result in results if not result.success]
+        if failed:
+            _logger.warning("Indexer tests failed", failed=failed)
         return results
 
     async def _get(self, path: str) -> httpx.Response:

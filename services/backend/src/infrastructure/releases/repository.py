@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -337,14 +337,6 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                     setattr(release, key, value)
 
             return True
-
-    async def count_by_status(self) -> dict[ReleaseStatus, int]:
-        async with self.db.session() as session:
-            stmt = select(models.Release.status, func.count(models.Release.id)).group_by(
-                models.Release.status
-            )
-            result = await session.execute(stmt)
-            return {status: int(count) for status, count in result.all()}
 
     async def _load_requests(
         self,

@@ -8,7 +8,11 @@ from typing import Any
 
 import httpx
 
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 from src.infrastructure.http import build_async_client
+
+_logger = get_logger(LogComponent.INTEGRATION_QBITTORRENT)
 
 
 @dataclass(slots=True)
@@ -51,6 +55,11 @@ class QbittorrentClient:
         data = self._build_payload(save_path, category, tags, paused)
         data["urls"] = magnet_link
         await self._post("/torrents/add", data=data)
+        _logger.info(
+            "Torrent added",
+            category=category,
+            paused=paused,
+        )
 
     async def add_torrent(
         self,
@@ -104,8 +113,10 @@ class QbittorrentClient:
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:  # pragma: no cover - authentication failures
+            _logger.warning("qBittorrent authentication rejected", base_url=self.base_url)
             raise RuntimeError("qBittorrent authentication failed") from exc
         except httpx.HTTPError as exc:  # pragma: no cover - connection issues
+            _logger.warning("qBittorrent unreachable", base_url=self.base_url, error=str(exc))
             raise RuntimeError(f"qBittorrent authentication failed: {exc!s}") from exc
         self._logged_in = True
 

@@ -15,6 +15,8 @@ from src.application.interfaces.radarr import (
     MovieLookup,
     RadarrService,
 )
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 from src.infrastructure.arr.base import (
     COMMAND_POLL_INTERVAL_SECONDS,
     COMMAND_SUCCESS_STATUS,
@@ -24,6 +26,8 @@ from src.infrastructure.arr.base import (
     ArrHttpClient,
 )
 from src.infrastructure.http import BaseHttpClient, HttpClientError
+
+_logger = get_logger(LogComponent.INTEGRATION_RADARR)
 
 # Radarr only reports a movie as wanted once it reaches this availability, and
 # anything stricter would hide a request from our own sync until release day.
@@ -95,7 +99,12 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             resolved = await self._reprocess(files)
             command_id = await self._run_import_command(files, resolved)
             return await self._await_command(command_id)
-        except (HttpClientError, httpx.HTTPError):
+        except (HttpClientError, httpx.HTTPError) as exc:
+            _logger.warning(
+                "Radarr manual import failed",
+                file_count=len(files),
+                error=str(exc),
+            )
             return False
 
     async def get_root_folders(self) -> list[ArrRootFolder]:
@@ -176,6 +185,7 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         movie_id = self._safe_int(created.get("id")) if isinstance(created, dict) else None
         if movie_id is None:
             raise HttpClientError(f"Radarr did not return an id for the added movie {tmdb_id}")
+        _logger.info("Movie added to Radarr", tmdb_id=tmdb_id, movie_id=movie_id)
         return movie_id
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
