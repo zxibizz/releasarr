@@ -12,55 +12,18 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { type ReactNode, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import type { Permission } from '@/features/auth/permissions';
 import { useAuth } from '@/features/auth/useAuth';
-import { IndexerAlertBadge } from '@/features/indexers/components/IndexerAlertBadge';
 import { useSyncWatcher } from '@/features/tasks/queries';
-
-interface NavItem {
-  to: string;
-  labelKey: string;
-  isActive: (pathname: string) => boolean;
-  /** Hidden unless the signed-in user has this permission (admins always see it). */
-  permission?: Permission;
-  /** Rendered beside the label, for items that can demand attention. */
-  badge?: () => ReactNode;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    to: '/',
-    labelKey: 'nav.requests',
-    isActive: (pathname) => pathname === '/' || pathname.startsWith('/request'),
-  },
-  {
-    to: '/add',
-    labelKey: 'nav.add',
-    isActive: (pathname) => pathname.startsWith('/add'),
-  },
-];
-
-// Settings is configuration (admin-only); System is operational views, in the
-// priority order a caller lands on first when neither has its own sub-nav.
-const SETTINGS_ITEMS: NavItem[] = [
-  { to: '/settings/general', labelKey: 'settings.nav.general', isActive: (p) => p.startsWith('/settings/general') },
-  { to: '/settings/services', labelKey: 'settings.nav.services', isActive: (p) => p.startsWith('/settings/services') },
-  { to: '/settings/metadata', labelKey: 'settings.nav.metadata', isActive: (p) => p.startsWith('/settings/metadata') },
-  { to: '/settings/network', labelKey: 'settings.nav.network', isActive: (p) => p.startsWith('/settings/network') },
-  { to: '/settings/tasks', labelKey: 'settings.nav.tasks', isActive: (p) => p.startsWith('/settings/tasks') },
-  { to: '/settings/logging', labelKey: 'settings.nav.logging', isActive: (p) => p.startsWith('/settings/logging') },
-];
-
-const SYSTEM_ITEMS: NavItem[] = [
-  { to: '/system/tasks', labelKey: 'nav.tasks', isActive: (p) => p.startsWith('/system/tasks'), permission: 'tasks' },
-  { to: '/system/indexers', labelKey: 'nav.indexers', isActive: (p) => p.startsWith('/system/indexers'), permission: 'indexers', badge: () => <IndexerAlertBadge /> },
-  { to: '/system/logs', labelKey: 'nav.logs', isActive: (p) => p.startsWith('/system/logs'), permission: 'logs' },
-  { to: '/system/users', labelKey: 'nav.users', isActive: (p) => p.startsWith('/system/users'), permission: 'manage_users' },
-];
+import {
+  accessibleSystemItems,
+  type NavItem,
+  PRIMARY_ITEMS,
+  SETTINGS_ITEMS,
+} from '@/navigation';
 
 function Logo() {
   return (
@@ -74,7 +37,7 @@ function Logo() {
 
 function useVisibleNavItems(): NavItem[] {
   const { hasPermission } = useAuth();
-  return NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+  return PRIMARY_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
 }
 
 /** The Settings top-nav link: a direct jump to the first section, admin-only. */
@@ -88,7 +51,7 @@ function useSettingsNavItem(): NavItem | null {
 /** The System top-nav link: a direct jump to the first page this caller can reach. */
 function useSystemNavItem(): NavItem | null {
   const { hasPermission } = useAuth();
-  const first = SYSTEM_ITEMS.find((item) => !item.permission || hasPermission(item.permission));
+  const first = accessibleSystemItems(hasPermission)[0];
   if (!first) return null;
   return { ...first, labelKey: 'nav.system', isActive: (p) => p.startsWith('/system') };
 }
@@ -181,12 +144,73 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
   );
 }
 
-function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void }) {
+function MobileNavLink({
+  item,
+  onClose,
+  indented = false,
+}: {
+  item: NavItem;
+  onClose: () => void;
+  indented?: boolean;
+}) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
-  const { user, logout } = useAuth();
+  const active = item.isActive(pathname);
+
+  return (
+    <UnstyledButton
+      component={Link}
+      to={item.to}
+      onClick={onClose}
+      aria-current={active ? 'page' : undefined}
+      pl={indented ? 'xl' : 'md'}
+      pr="md"
+      py="sm"
+      style={{
+        borderRadius: 'var(--mantine-radius-md)',
+        backgroundColor: active ? 'var(--mantine-color-dark-6)' : undefined,
+      }}
+    >
+      <Group gap={8} wrap="nowrap">
+        <Text fw={600} c={active ? 'blue.4' : undefined}>
+          {t(item.labelKey)}
+        </Text>
+        {item.badge?.()}
+      </Group>
+    </UnstyledButton>
+  );
+}
+
+function MobileNavSection({
+  labelKey,
+  items,
+  onClose,
+}: {
+  labelKey: string;
+  items: NavItem[];
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <Divider mt="sm" />
+      <Text px="md" size="xs" fw={700} c="dimmed" tt="uppercase">
+        {t(labelKey)}
+      </Text>
+      {items.map((item) => (
+        <MobileNavLink key={item.to} item={item} onClose={onClose} indented />
+      ))}
+    </>
+  );
+}
+
+function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { user, logout, isAdmin, hasPermission } = useAuth();
   const navigate = useNavigate();
-  const visibleItems = useCombinedNavItems();
+  const primaryItems = useVisibleNavItems();
+  const systemItems = accessibleSystemItems(hasPermission);
 
   const handleLogout = async () => {
     onClose();
@@ -209,32 +233,20 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
       hiddenFrom="sm"
       zIndex={300}
     >
+      {/* Settings and System collapse to one link in the header, but a phone has
+          no in-page tab strip to drill down with, so they expand here. */}
       <Stack gap="xs" component="nav">
-        {visibleItems.map((item) => {
-          const active = item.isActive(pathname);
-          return (
-            <UnstyledButton
-              key={item.to}
-              component={Link}
-              to={item.to}
-              onClick={onClose}
-              aria-current={active ? 'page' : undefined}
-              px="md"
-              py="sm"
-              style={{
-                borderRadius: 'var(--mantine-radius-md)',
-                backgroundColor: active ? 'var(--mantine-color-dark-6)' : undefined,
-              }}
-            >
-              <Group gap={8} wrap="nowrap">
-                <Text fw={600} c={active ? 'blue.4' : undefined}>
-                  {t(item.labelKey)}
-                </Text>
-                {item.badge?.()}
-              </Group>
-            </UnstyledButton>
-          );
-        })}
+        {primaryItems.map((item) => (
+          <MobileNavLink key={item.to} item={item} onClose={onClose} />
+        ))}
+
+        {isAdmin ? (
+          <MobileNavSection labelKey="nav.settings" items={SETTINGS_ITEMS} onClose={onClose} />
+        ) : null}
+
+        {systemItems.length > 0 ? (
+          <MobileNavSection labelKey="nav.system" items={systemItems} onClose={onClose} />
+        ) : null}
 
         {user ? (
           <>

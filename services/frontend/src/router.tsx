@@ -89,54 +89,73 @@ export const router = createBrowserRouter([
             errorElement: <RouteErrorBoundary />,
           },
           {
-            element: <RequirePermission permission="tasks" />,
+            path: 'system',
+            lazy: async () => {
+              const { SystemLayout } = await import('@/features/system/components/SystemLayout');
+              return { Component: SystemLayout };
+            },
+            errorElement: <RouteErrorBoundary />,
             children: [
               {
-                path: 'system/tasks',
+                index: true,
                 lazy: async () => {
-                  const { TasksPage } = await import('@/features/tasks/pages/TasksPage');
-                  return { Component: TasksPage };
+                  const { SystemIndexRedirect } =
+                    await import('@/features/system/components/SystemLayout');
+                  return { Component: SystemIndexRedirect };
                 },
-                errorElement: <RouteErrorBoundary />,
               },
-            ],
-          },
-          {
-            element: <RequirePermission permission="indexers" />,
-            children: [
               {
-                path: 'system/indexers',
-                lazy: async () => {
-                  const { IndexersPage } = await import('@/features/indexers/pages/IndexersPage');
-                  return { Component: IndexersPage };
-                },
-                errorElement: <RouteErrorBoundary />,
+                element: <RequirePermission permission="tasks" />,
+                children: [
+                  {
+                    path: 'tasks',
+                    lazy: async () => {
+                      const { TasksPage } = await import('@/features/tasks/pages/TasksPage');
+                      return { Component: TasksPage };
+                    },
+                    errorElement: <RouteErrorBoundary />,
+                  },
+                ],
               },
-            ],
-          },
-          {
-            element: <RequirePermission permission="logs" />,
-            children: [
               {
-                path: 'system/logs',
-                lazy: async () => {
-                  const { LogsPage } = await import('@/features/logs/pages/LogsPage');
-                  return { Component: LogsPage };
-                },
-                errorElement: <RouteErrorBoundary />,
+                element: <RequirePermission permission="indexers" />,
+                children: [
+                  {
+                    path: 'indexers',
+                    lazy: async () => {
+                      const { IndexersPage } =
+                        await import('@/features/indexers/pages/IndexersPage');
+                      return { Component: IndexersPage };
+                    },
+                    errorElement: <RouteErrorBoundary />,
+                  },
+                ],
               },
-            ],
-          },
-          {
-            element: <RequirePermission permission="manage_users" />,
-            children: [
               {
-                path: 'system/users',
-                lazy: async () => {
-                  const { UsersPage } = await import('@/features/users/pages/UsersPage');
-                  return { Component: UsersPage };
-                },
-                errorElement: <RouteErrorBoundary />,
+                element: <RequirePermission permission="logs" />,
+                children: [
+                  {
+                    path: 'logs',
+                    lazy: async () => {
+                      const { LogsPage } = await import('@/features/logs/pages/LogsPage');
+                      return { Component: LogsPage };
+                    },
+                    errorElement: <RouteErrorBoundary />,
+                  },
+                ],
+              },
+              {
+                element: <RequirePermission permission="manage_users" />,
+                children: [
+                  {
+                    path: 'users',
+                    lazy: async () => {
+                      const { UsersPage } = await import('@/features/users/pages/UsersPage');
+                      return { Component: UsersPage };
+                    },
+                    errorElement: <RouteErrorBoundary />,
+                  },
+                ],
               },
             ],
           },
