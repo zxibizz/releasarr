@@ -171,8 +171,8 @@ async def test_moving_torrent_is_written_again(db_manager: DBManager) -> None:
     assert (await release_record(db_manager)).progress == 75.0
 
 
-async def test_completion_time_survives_later_cycles(db_manager: DBManager) -> None:
-    """The stamp records when the download finished, not when we last looked."""
+async def test_a_completed_release_is_not_written_again(db_manager: DBManager) -> None:
+    """Seeding stats move every cycle; a finished release is settled at completion."""
 
     await seed(db_manager)
     task = make_task(db_manager, [finished_torrent("uploading")])
@@ -182,8 +182,27 @@ async def test_completion_time_survives_later_cycles(db_manager: DBManager) -> N
     later = finished_torrent("uploading") | {"completion_on": 1_800_000_000, "upspeed": 99}
     result = await make_task(db_manager, [later]).execute()
 
+    release = await release_record(db_manager)
+    assert (result.synced, result.unchanged) == (0, 1)
+    assert release.completed_at == stamped
+    assert release.upload_speed == 10
+
+
+async def test_a_completed_release_whose_torrent_returns_clears_the_stamp(
+    db_manager: DBManager,
+) -> None:
+    """The skip must not strand the missing stamp, or the next absence fails it at once."""
+
+    await seed(
+        db_manager,
+        release_status=ReleaseStatus.COMPLETED,
+        missing_since=NOW - timedelta(seconds=60),
+    )
+
+    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert (await release_record(db_manager)).missing_since is None
     assert result.synced == 1
-    assert (await release_record(db_manager)).completed_at == stamped
 
 
 async def test_a_missing_torrent_is_stamped_first_and_left_alone(
