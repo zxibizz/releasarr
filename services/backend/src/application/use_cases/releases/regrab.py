@@ -150,6 +150,18 @@ class ReleaseRegrapper:
             indexers_by_name.get(release.torrent_source.lower()) if release.torrent_source else None
         )
 
+        # The check itself, not just its outcome: a request's activity view
+        # should show that someone went looking for other options even when the
+        # answer comes back "nothing newer".
+        self._log_for_requests(
+            self._logger.info,
+            "Checking release for updates",
+            release,
+            release_name=release.name,
+            indexer=release.torrent_source,
+            query=query,
+        )
+
         unusable = self._unusable_reason(indexer)
         if unusable is not None:
             # Prowlarr will refuse the query either way, so spending the timeout

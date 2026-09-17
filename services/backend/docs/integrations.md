@@ -216,6 +216,12 @@ When Prowlarr is not configured, the use case raises `ProwlarrNotConfiguredError
 no stand-in search service to answer instead, and an empty result set would read as "no results"
 rather than "no Prowlarr".
 
+A completed search logs `Release search completed` with the query, the result count, and how many
+indexers were searched and failed, bound with `request_id=` when the search was run from a
+request — that binding is what puts the line on the request's `/logs` activity view. The
+per-indexer lines (`Skipping indexer blocked by Prowlarr`, `Indexer search failed`) carry the same
+binding, so a partial failure is visible there too.
+
 `ReleaseRegrapper` (`application/use_cases/releases/regrab.py`, driven by both
 `RegrabOutdatedReleasesUseCase` and the on-demand refresh) scopes the same way: it maps a
 release's stored `torrent_source` (the indexer name Prowlarr reported at grab time) back to an
@@ -255,10 +261,11 @@ hourly.
 this table, written by `RequestWarningSynchronizer` instead — that one clears per-request rather
 than per-release, since it is recomputed over a request's whole release set at once.
 
-Every outcome of that check is logged against each request holding the release, not just the
-two failures: `ReleaseRegrapper._log_for_requests` emits the record per `request_id`, so a sweep
-nobody watched still leaves `Release is up to date on its indexer` (or `Release is no longer
-listed by its indexer`, or the re-grab itself) on the request's activity view. The check writes
+Every step of that check is logged against each request holding the release, not just the two
+failures: `ReleaseRegrapper._log_for_requests` emits the record per `request_id`, so a sweep
+nobody watched still leaves `Checking release for updates` (naming the indexer and the replayed
+query) followed by its outcome — `Release is up to date on its indexer`, `Release is no longer
+listed by its indexer`, or the re-grab itself — on the request's activity view. The check writes
 no summary line — the per-release record is the summary — and `SyncSteps.regrab` only reports
 itself when there was no candidate release to check at all.
 

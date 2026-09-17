@@ -422,9 +422,12 @@ async def test_regrab_warns_the_request_when_the_indexer_is_unavailable(
     use_case = build_use_case(repository, search_service, download_service)
     await use_case.execute()
 
-    warnings = [record for record in captured_records if record.get("request_id") == "req-1"]
+    warnings = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1" and record["level"] == "WARNING"
+    ]
     assert warnings, "an unavailable indexer produced no log entry bound to the request"
-    assert warnings[0]["level"] == "WARNING"
     assert "indexer banned" in warnings[0]["error"]
     assert repository.updates == {}
     assert download_service.calls == []
@@ -453,6 +456,9 @@ class _CollectingLogger:
 
     def __init__(self, sink: list[str]) -> None:
         self._sink = sink
+
+    def info(self, message: str, **kwargs: Any) -> None:
+        """The check's opening line is info-level; only the warning is under test."""
 
     def warning(self, message: str, **kwargs: Any) -> None:
         self._sink.append(kwargs["request_id"])

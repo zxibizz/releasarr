@@ -73,6 +73,7 @@ class SearchReleaseSourcesUseCase:
         ]
         if not candidates:
             empty = ReleaseSearchResults(results=[], query=command.query, total_results=0)
+            self._log_completed(command, results=0, searched=0, failed=0)
             return search_results_to_dto(empty)
 
         # Prowlarr's own back-off (BLOCKED) means it has already given up on an
@@ -84,7 +85,7 @@ class SearchReleaseSourcesUseCase:
         queryable: list[IndexerRecord] = []
         for indexer in candidates:
             if derive_health(indexer, now) is IndexerHealth.BLOCKED:
-                blocked.append(self._blocked_failure(indexer))
+                blocked.append(self._blocked_failure(indexer, command))
             else:
                 queryable.append(indexer)
 
@@ -107,13 +108,44 @@ class SearchReleaseSourcesUseCase:
         combined = ReleaseSearchResults(
             results=merged, query=command.query, total_results=len(merged)
         )
+        self._log_completed(
+            command,
+            results=len(merged),
+            searched=len(candidates),
+            failed=len(failures),
+        )
         return search_results_to_dto(
             combined, failed_indexers=failures, searched_indexers=len(candidates)
         )
 
-    def _blocked_failure(self, indexer: IndexerRecord) -> IndexerSearchFailureDTO:
+    def _log_completed(
+        self,
+        command: SearchReleaseSourcesCommand,
+        *,
+        results: int,
+        searched: int,
+        failed: int,
+    ) -> None:
+        """Record a finished search against the request it was run from.
+
+        A request's activity view filters the log file on ``request_id``, so a
+        manual search only shows up there when the line carries it.
+        """
+        self._logger.info(
+            "Release search completed",
+            request_id=command.request_id,
+            query=command.query,
+            results=results,
+            searched_indexers=searched,
+            failed_indexers=failed,
+        )
+
+    def _blocked_failure(
+        self, indexer: IndexerRecord, command: SearchReleaseSourcesCommand
+    ) -> IndexerSearchFailureDTO:
         self._logger.info(
             "Skipping indexer blocked by Prowlarr",
+            request_id=command.request_id,
             indexer_id=indexer.indexer_id,
             indexer=indexer.name,
             disabled_till=indexer.disabled_till,
@@ -149,6 +181,7 @@ class SearchReleaseSourcesUseCase:
 
         self._logger.warning(
             "Indexer search failed",
+            request_id=command.request_id,
             indexer_id=indexer.indexer_id,
             indexer=indexer.name,
             reason=last_reason,
