@@ -51,8 +51,11 @@ export const resources = {
         services: {
           title: 'External services',
           description: 'Connections to Sonarr, Radarr, Prowlarr, and qBittorrent.',
-          formTitle: 'Connection settings',
-          testHeading: 'Test a connection',
+          configured: 'Configured',
+          notConfigured: 'Not configured',
+          noUrl: 'No address set',
+          editService: 'Edit {{name}}',
+          advanced: 'Advanced',
           sonarr: 'Sonarr',
           radarr: 'Radarr',
           prowlarr: 'Prowlarr',
@@ -67,7 +70,7 @@ export const resources = {
         },
         network: {
           title: 'Network',
-          description: 'Session, timeout, and pagination behaviour.',
+          description: 'Session, sign-in, and pagination behaviour.',
         },
         logging: {
           title: 'Logging',
@@ -1168,8 +1171,11 @@ export const resources = {
         services: {
           title: 'Внешние сервисы',
           description: 'Подключения к Sonarr, Radarr, Prowlarr и qBittorrent.',
-          formTitle: 'Параметры подключения',
-          testHeading: 'Проверить подключение',
+          configured: 'Настроен',
+          notConfigured: 'Не настроен',
+          noUrl: 'Адрес не задан',
+          editService: 'Изменить {{name}}',
+          advanced: 'Дополнительно',
           sonarr: 'Sonarr',
           radarr: 'Radarr',
           prowlarr: 'Prowlarr',
@@ -1184,7 +1190,7 @@ export const resources = {
         },
         network: {
           title: 'Сеть',
-          description: 'Сессии, таймауты и постраничная выдача.',
+          description: 'Сессии, вход и постраничная выдача.',
         },
         logging: {
           title: 'Логирование',
