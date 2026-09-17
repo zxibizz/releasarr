@@ -10,6 +10,8 @@ interface SettingsSectionFormProps {
   section: SettingsSection;
   titleKey: string;
   descriptionKey?: string;
+  /** Narrows the section to the fields this form owns; the rest are edited elsewhere. */
+  includeField?: (field: SettingFieldInfo) => boolean;
   /** Render extra controls (e.g. connection-test buttons) inside the form. */
   children?: ReactNode;
 }
@@ -24,6 +26,7 @@ export function SettingsSectionForm({
   section,
   titleKey,
   descriptionKey,
+  includeField,
   children,
 }: SettingsSectionFormProps) {
   const { t } = useTranslation();
@@ -50,7 +53,9 @@ export function SettingsSectionForm({
       titleKey={titleKey}
       descriptionKey={descriptionKey}
       values={settings.data.values[section] ?? {}}
-      fields={(settings.data.fields ?? []).filter((f: SettingFieldInfo) => f.section === section)}
+      fields={(settings.data.fields ?? []).filter(
+        (f: SettingFieldInfo) => f.section === section && (includeField?.(f) ?? true),
+      )}
     >
       {children}
     </SectionFormBody>

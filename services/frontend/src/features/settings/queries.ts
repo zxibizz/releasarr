@@ -45,6 +45,41 @@ export function useUpdateSettingsSection() {
   });
 }
 
+/**
+ * Saves keys that belong to one subject but live in different sections, as a
+ * service's credentials and its timeouts do.
+ *
+ * Sequential, not parallel: every PATCH answers with the whole settings
+ * document, so concurrent writes would race and the slower reply would
+ * overwrite the cache with pre-update values.
+ */
+export function useUpdateSettingsSections() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: async (changes: Partial<Record<SettingsSection, Record<string, unknown>>>) => {
+      let latest: SettingsResponse | undefined;
+      for (const [section, values] of Object.entries(changes)) {
+        latest = await settingsApi.updateSection(section as SettingsSection, values);
+      }
+      return latest;
+    },
+    onSuccess: (updated: SettingsResponse | undefined) => {
+      if (updated) {
+        queryClient.setQueryData(settingsKeys.detail(), updated);
+      }
+      notifications.show({ message: t('settings.saved'), color: 'teal' });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('settings.saveFailed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}
+
 export function useTestConnection() {
   const { t } = useTranslation();
   return useMutation({
