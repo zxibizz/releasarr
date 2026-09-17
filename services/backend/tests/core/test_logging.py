@@ -191,3 +191,41 @@ def test_intercepted_records_are_attributed_to_their_caller(tmp_path: Path) -> N
     assert record["name"] != "src.core.logging"
     # The old handler leaked its own bookkeeping into the UI's metadata line.
     assert "logger_name" not in record["extra"]
+
+
+def test_every_module_binds_a_component() -> None:
+    """A module logging through bare loguru has no component, so the logs view
+    could neither group it nor filter it. ``get_logger`` requires one, so the
+    only way to log without one is to import loguru's logger directly - which
+    is what this test forbids outside the one module that wraps it.
+
+    The task modules in the allowlist keep the import for `logger.__class__`
+    typing or `logger.contextualize()`, not for emitting records; the class
+    they run is bound separately.
+    """
+
+    import ast
+
+    src_root = Path(__file__).resolve().parents[2] / "src"
+    allowlist = {
+        "core/logging.py",
+        "tasks/scheduler_service.py",
+        "tasks/sync_jobs.py",
+        "tasks/sync_releases.py",
+        "tasks/sync_steps.py",
+    }
+    offenders: list[str] = []
+    for path in sorted(src_root.rglob("*.py")):
+        rel = str(path.relative_to(src_root))
+        if rel in allowlist:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "loguru"
+                and any(alias.name == "logger" for alias in node.names)
+            ):
+                offenders.append(rel)
+
+    assert offenders == []

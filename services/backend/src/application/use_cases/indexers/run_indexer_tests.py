@@ -10,8 +10,9 @@ from src.application.interfaces.indexers import IndexerDirectory, IndexerTestRes
 from src.application.use_cases.indexers.dto import IndexerTestResultDTO
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
-logger = get_logger(component="indexers")
+logger = get_logger(LogComponent.USECASE_INDEXERS)
 
 
 def _to_dto(record: IndexerTestResultRecord) -> IndexerTestResultDTO:

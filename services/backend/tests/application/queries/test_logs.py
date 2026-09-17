@@ -18,6 +18,7 @@ class MockLogFileReader(LogFileReader):
         self.last_filter_request_id: str | None = None
         self.last_filter_task: str | None = None
         self.last_filter_service: str | None = None
+        self.last_filter_component: str | None = None
         self.last_filter_min_level: str | None = None
 
     def read_entries(
@@ -25,11 +26,13 @@ class MockLogFileReader(LogFileReader):
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        component: str | None = None,
         min_level: str | None = None,
     ) -> list[LogEntry]:
         self.last_filter_request_id = request_id
         self.last_filter_task = task
         self.last_filter_service = service
+        self.last_filter_component = component
         self.last_filter_min_level = min_level
 
         entries = self.entries

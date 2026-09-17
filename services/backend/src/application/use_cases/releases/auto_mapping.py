@@ -15,7 +15,7 @@ from src.application.interfaces.releases import (
 )
 from src.application.utility.file_matcher import ReleaseFileMatcher
 from src.core.logging import get_logger
-from src.domain.enums import MediaType
+from src.domain.enums import LogComponent, MediaType
 
 
 class ReleaseAutoMapper:
@@ -36,7 +36,7 @@ class ReleaseAutoMapper:
         self._repository = repository
         self._file_matcher = file_matcher
         self._request_repository = request_repository
-        self._logger = logger or get_logger(component="release_auto_mapping")
+        self._logger = logger or get_logger(LogComponent.USECASE_AUTO_MAPPING)
 
     async def apply(self, release: ReleaseRecord) -> list[ReleaseRequestSnapshot]:
         """Map what can be mapped and return the requests considered.

@@ -264,6 +264,8 @@ type TaskKind = (typeof TASK_KINDS)[number];
 const LOG_SERVICES = ['api', 'scheduler'] as const;
 type LogService = (typeof LOG_SERVICES)[number];
 
+type LogComponent = import('../src/types').LogComponent;
+
 const LOG_LEVELS = ['info', 'warning', 'error'] as const;
 type LogLevel = (typeof LOG_LEVELS)[number];
 
@@ -548,6 +550,7 @@ api.get('/logs', async (req, res) => {
   const task = (req.query.task as string | undefined)?.trim();
   const service = (req.query.service as string | undefined)?.trim();
   const minLevel = (req.query.min_level as string | undefined)?.trim();
+  const component = (req.query.component as string | undefined)?.trim();
   if (task && !TASK_KINDS.includes(task as TaskKind)) {
     return res.status(422).json({ message: `Unknown task: ${task}` });
   }
@@ -561,6 +564,7 @@ api.get('/logs', async (req, res) => {
     requestId: requestId || undefined,
     task: (task as TaskKind | undefined) || undefined,
     service: (service as LogService | undefined) || undefined,
+    component: (component as LogComponent | undefined) || undefined,
     minLevel: (minLevel as LogLevel | undefined) || undefined,
   });
   const total = logs.length;

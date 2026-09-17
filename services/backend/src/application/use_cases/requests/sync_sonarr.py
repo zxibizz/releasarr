@@ -27,7 +27,7 @@ from src.application.utility.localization import (
 from src.application.utility.metadata_cache import SupportsWarning, get_cached_metadata
 from src.application.utility.sentinels import UNSET, _Unset
 from src.core.logging import get_logger
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import LogComponent, MediaRequestStatus, MediaType
 
 
 @dataclass(slots=True)
@@ -58,7 +58,7 @@ class SyncSonarrMediaRequestsUseCase:
         self._recompute_state = recompute_state
         self._localization = LocalizationPicker(metadata_languages)
         self._metadata_languages = self._localization.languages
-        self._logger = logger or get_logger(component="sync_sonarr_requests")
+        self._logger = logger or get_logger(LogComponent.USECASE_SYNC_SONARR)
         self._metadata_cache: dict[int, TvdbSeriesMetadata | None] = {}
         self._series_cache: dict[int, SeriesDetails] = {}
 

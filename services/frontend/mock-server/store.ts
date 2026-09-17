@@ -18,6 +18,7 @@ import type {
   IndexerEventType,
   IndexerHistoryEntry,
   IndexerTestResult,
+  LogComponent,
   LogService,
   MediaSearchResult,
   MediaRequest,
@@ -469,14 +470,15 @@ export class MockStore {
       requestId?: string;
       task?: SyncJobKind;
       service?: LogService;
+      component?: LogComponent;
       minLevel?: RequestLogLevel;
     } = {},
   ): Promise<RequestLogEntry[]> {
-    const { requestId, task, service, minLevel } = filters;
+    const { requestId, task, service, component, minLevel } = filters;
 
     if (requestId) {
       const logs = await this.ensureRequestLogs(requestId);
-      return this.sortedCopy(this.select(logs, service, minLevel));
+      return this.sortedCopy(this.select(logs, service, component, minLevel));
     }
 
     if (!this.taskLogsCache) {
@@ -488,6 +490,7 @@ export class MockStore {
         this.select(
           this.taskLogsCache.filter((log) => log.metadata?.task === task),
           service,
+          component,
           minLevel,
         ),
       );
@@ -499,17 +502,21 @@ export class MockStore {
       aggregated.push(...(await this.ensureRequestLogs(req.id)));
     }
 
-    return this.sortedCopy(this.select(aggregated, service, minLevel));
+    return this.sortedCopy(this.select(aggregated, service, component, minLevel));
   }
 
   private select(
     logs: RequestLogEntry[],
     service: LogService | undefined,
+    component: LogComponent | undefined,
     minLevel: RequestLogLevel | undefined,
   ): RequestLogEntry[] {
     let selected = logs;
     if (service) {
       selected = selected.filter((log) => log.metadata?.service === service);
+    }
+    if (component) {
+      selected = selected.filter((log) => log.component === component);
     }
     if (minLevel) {
       // A threshold, matching the backend: warning also means error.

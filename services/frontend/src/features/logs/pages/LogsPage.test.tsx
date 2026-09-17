@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,7 +20,8 @@ const logEntry = (overrides: Partial<RequestLogEntry> = {}): RequestLogEntry => 
   level: 'info',
   message: 'Imported a release into Sonarr',
   source: 'src.application.use_cases.releases.export_finished',
-  metadata: { service: 'scheduler', task: 'export', component: 'export_finished_series' },
+  component: 'usecase.export',
+  metadata: { service: 'scheduler', task: 'export', component: 'usecase.export' },
   ...overrides,
 });
 
@@ -37,18 +38,6 @@ const respondWith = (logs: RequestLogEntry[], total = logs.length) => {
   );
 };
 
-const requestedServices = () => logRequests.map((query) => query.service);
-
-/**
- * Both tab panels are mounted, so text queries have to be scoped to the visible
- * one. `getByRole` already skips the hidden panel, which is display: none.
- */
-const visiblePanel = () => within(screen.getByRole('tabpanel'));
-
-const openSchedulerTab = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(await screen.findByRole('tab', { name: 'Scheduler' }));
-};
-
 describe('LogsPage', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
@@ -60,31 +49,18 @@ describe('LogsPage', () => {
     vi.useRealTimers();
   });
 
-  it('opens on the API process and labels both tabs', async () => {
-    respondWith([logEntry({ metadata: { service: 'api' } })]);
-
-    renderWithProviders(<LogsPage />);
-
-    expect(await screen.findByRole('tab', { name: 'Backend' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Scheduler' })).toBeInTheDocument();
-    expect(await visiblePanel().findByText('Imported a release into Sonarr')).toBeInTheDocument();
-    expect(requestedServices()).toEqual(['api']);
-  });
-
-  it('asks for the other process when its tab is opened', async () => {
-    const user = userEvent.setup();
+  it('shows one merged stream with no tabs and a component column', async () => {
     respondWith([logEntry()]);
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
 
-    expect(await screen.findByRole('tab', { name: 'Scheduler' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    await waitFor(() => expect(requestedServices()).toContain('scheduler'));
-    // Each tab asks for one process; nothing lists them together.
-    expect(requestedServices()).not.toContain(undefined);
+    expect(await screen.findByText('Imported a release into Sonarr')).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    // Component column header and the entry's component cell.
+    expect(screen.getByRole('columnheader', { name: 'Component' })).toBeInTheDocument();
+    expect(screen.getAllByText('usecase.export').length).toBeGreaterThan(0);
+    // No service filter on the request: all processes are listed together.
+    expect(logRequests[0]).not.toHaveProperty('service');
   });
 
   it('reveals the source and bound context of a log entry', async () => {
@@ -92,28 +68,40 @@ describe('LogsPage', () => {
     respondWith([logEntry()]);
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
-    await user.click(await visiblePanel().findByRole('button', { name: /show log details/i }));
+    await user.click(await screen.findByRole('button', { name: /show log details/i }));
 
     expect(
-      await visiblePanel().findByText('src.application.use_cases.releases.export_finished'),
+      await screen.findByText('src.application.use_cases.releases.export_finished'),
     ).toBeInTheDocument();
-    // The task has its own column and the tab carries the process.
-    expect(await visiblePanel().findByText(/component=export_finished_series/)).toBeInTheDocument();
-    expect(visiblePanel().queryByText(/service=/)).not.toBeInTheDocument();
+    // task and service stay in the context blob; component has its own column.
+    expect(await screen.findByText(/task=export/)).toBeInTheDocument();
+    expect(screen.getByText(/service=scheduler/)).toBeInTheDocument();
+    expect(screen.queryByText(/component=usecase\.export/)).not.toBeInTheDocument();
   });
 
-  it('narrows the scheduler log to one task', async () => {
+  it('narrows the log to one process', async () => {
     const user = userEvent.setup();
     respondWith([logEntry()]);
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
-    await user.click(await visiblePanel().findByRole('combobox', { name: /filter by task/i }));
-    await user.click(await screen.findByRole('option', { name: 'Refresh Downloads' }));
+    await user.click(await screen.findByRole('combobox', { name: /process/i }));
+    await user.click(await screen.findByRole('option', { name: 'Scheduler' }));
 
     await waitFor(() => {
-      expect(logRequests.some((query) => query.task === 'release_sync')).toBe(true);
+      expect(logRequests.some((query) => query.service === 'scheduler')).toBe(true);
+    });
+  });
+
+  it('narrows the log to one component', async () => {
+    const user = userEvent.setup();
+    respondWith([logEntry()]);
+
+    renderWithProviders(<LogsPage />);
+    await user.click(await screen.findByRole('combobox', { name: /component/i }));
+    await user.click(await screen.findByRole('option', { name: 'usecase.export' }));
+
+    await waitFor(() => {
+      expect(logRequests.some((query) => query.component === 'usecase.export')).toBe(true);
     });
   });
 
@@ -122,7 +110,7 @@ describe('LogsPage', () => {
     respondWith([logEntry({ level: 'error' })]);
 
     renderWithProviders(<LogsPage />);
-    await user.click(await visiblePanel().findByRole('combobox', { name: /minimum level/i }));
+    await user.click(await screen.findByRole('combobox', { name: /minimum level/i }));
     await user.click(await screen.findByRole('option', { name: 'Warning' }));
 
     await waitFor(() => {
@@ -137,55 +125,7 @@ describe('LogsPage', () => {
     renderWithProviders(<LogsPage />);
 
     await waitFor(() => expect(logRequests[0]?.min_level).toBe('error'));
-    expect(await visiblePanel().findByRole('combobox', { name: /minimum level/i })).toHaveValue(
-      'Error',
-    );
-  });
-
-  it('offers the level floor on both processes', async () => {
-    const user = userEvent.setup();
-    respondWith([logEntry()]);
-
-    renderWithProviders(<LogsPage />);
-    expect(
-      await visiblePanel().findByRole('combobox', { name: /minimum level/i }),
-    ).toBeInTheDocument();
-
-    await openSchedulerTab(user);
-
-    expect(
-      await visiblePanel().findByRole('combobox', { name: /minimum level/i }),
-    ).toBeInTheDocument();
-  });
-
-  it('offers no task filter for the API, which never binds a task', async () => {
-    respondWith([logEntry({ metadata: { service: 'api' } })]);
-
-    renderWithProviders(<LogsPage />);
-
-    expect(await visiblePanel().findByText('Imported a release into Sonarr')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: /filter by task/i })).not.toBeInTheDocument();
-  });
-
-  it('drops a task filter when the tab changes', async () => {
-    const user = userEvent.setup();
-    respondWith([logEntry()]);
-
-    renderWithProviders(<LogsPage />, { route: '/?service=scheduler' });
-    await user.click(await visiblePanel().findByRole('combobox', { name: /filter by task/i }));
-    await user.click(await screen.findByRole('option', { name: 'Refresh Downloads' }));
-    await waitFor(() =>
-      expect(logRequests.some((query) => query.task === 'release_sync')).toBe(true),
-    );
-
-    await user.click(await screen.findByRole('tab', { name: 'Backend' }));
-
-    await waitFor(() => {
-      const apiCall = logRequests.find((query) => query.service === 'api');
-      // A task's records belong to the process that ran it, so carrying the
-      // filter across could only ever match nothing.
-      expect(apiCall).not.toHaveProperty('task');
-    });
+    expect(await screen.findByRole('combobox', { name: /minimum level/i })).toHaveValue('Error');
   });
 
   it('pages through the log history', async () => {
@@ -193,12 +133,11 @@ describe('LogsPage', () => {
     respondWith([logEntry()], 60);
 
     renderWithProviders(<LogsPage />);
-    await openSchedulerTab(user);
 
-    expect(await visiblePanel().findByText(/page 1 of 3/i)).toBeInTheDocument();
-    expect(visiblePanel().getByRole('button', { name: /previous/i })).toBeDisabled();
+    expect(await screen.findByText(/page 1 of 3/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled();
 
-    await user.click(visiblePanel().getByRole('button', { name: /next/i }));
+    await user.click(screen.getByRole('button', { name: /next/i }));
 
     await waitFor(() => {
       expect(logRequests.some((query) => query.page === 2)).toBe(true);
@@ -210,7 +149,7 @@ describe('LogsPage', () => {
 
     renderWithProviders(<LogsPage />);
 
-    expect(await visiblePanel().findByText(/no log entries/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no log entries/i)).toBeInTheDocument();
   });
 
   it('refetches the newest page on an interval', async () => {
@@ -234,7 +173,7 @@ describe('LogsPage', () => {
 
     await waitFor(() => expect(logRequests).toHaveLength(1));
 
-    fireEvent.click(await visiblePanel().findByRole('button', { name: /next/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /next/i }));
     await waitFor(() => expect(logRequests.some((query) => query.page === 2)).toBe(true));
 
     const callsAfterPaging = logRequests.length;
@@ -243,20 +182,16 @@ describe('LogsPage', () => {
     expect(logRequests).toHaveLength(callsAfterPaging);
   });
 
-  it('shows the process named in the URL', async () => {
+  it('honours the filters named in the URL', async () => {
     respondWith([logEntry()]);
 
-    renderWithProviders(<LogsPage />, { route: '/system/logs?service=scheduler' });
+    renderWithProviders(<LogsPage />, {
+      route: '/system/logs?service=scheduler&component=usecase.export',
+    });
 
-    await waitFor(() => expect(requestedServices()).toEqual(['scheduler']));
-    expect(await screen.findByRole('tab', { name: 'Scheduler' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    // The task filter belongs to the scheduler's records alone.
-    expect(
-      await visiblePanel().findByRole('combobox', { name: /filter by task/i }),
-    ).toBeInTheDocument();
-    expect(within(screen.getByRole('tablist')).getAllByRole('tab')).toHaveLength(2);
+    await waitFor(() => {
+      const call = logRequests[0];
+      expect(call).toMatchObject({ service: 'scheduler', component: 'usecase.export' });
+    });
   });
 });

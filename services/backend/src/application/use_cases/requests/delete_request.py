@@ -16,6 +16,7 @@ from src.application.use_cases.requests.withdrawal import (
     drop_series_if_unwanted,
 )
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
 
 class DeleteMediaRequestUseCase:
@@ -43,7 +44,7 @@ class DeleteMediaRequestUseCase:
         self._repository = repository
         self._sonarr = sonarr_service
         self._radarr = radarr_service
-        self._logger = logger or get_logger(component="delete_media_request")
+        self._logger = logger or get_logger(LogComponent.USECASE_DELETE_REQUEST)
 
     async def execute(self, request_id: str) -> None:
         record = await self._repository.get_request(request_id)

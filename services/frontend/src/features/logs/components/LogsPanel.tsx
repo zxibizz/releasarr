@@ -6,90 +6,103 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { LogsTable } from '@/features/logs/components/LogsTable';
+import { componentsByGroup, isLogComponent } from '@/features/logs/components';
 import { LOG_LEVELS, isLogLevel } from '@/features/logs/levels';
 import { LOGS_PAGE_SIZE, useLogs } from '@/features/logs/queries';
-import { TASK_KINDS, isTaskKind } from '@/features/tasks/formatting';
-import type { LogService, RequestLogLevel, SyncJobKind } from '@/types';
+import { LOG_SERVICES, isLogService } from '@/features/logs/services';
+import type { LogComponent, LogService, RequestLogLevel } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
-const ALL_TASKS = 'all';
-const ALL_LEVELS = 'all';
+const ALL = 'all';
 
 interface LogsPanelProps {
-  service: LogService;
   level: RequestLogLevel | undefined;
-  task: SyncJobKind | undefined;
+  service: LogService | undefined;
+  component: LogComponent | undefined;
   onLevelChange: (level: RequestLogLevel | undefined) => void;
-  onTaskChange: (task: SyncJobKind | undefined) => void;
-  /** False while the other process's tab is the one being shown. */
-  active: boolean;
+  onServiceChange: (service: LogService | undefined) => void;
+  onComponentChange: (component: LogComponent | undefined) => void;
 }
 
-/** One process's log: its own page, its own filters, its own refresh. */
+/** The one log: every process's records, with whatever filters are set. */
 export function LogsPanel({
-  service,
   level,
-  task,
+  service,
+  component,
   onLevelChange,
-  onTaskChange,
-  active,
+  onServiceChange,
+  onComponentChange,
 }: LogsPanelProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
-  const logs = useLogs({ page, service, task, minLevel: level, active });
+  const logs = useLogs({ page, service, component, minLevel: level });
 
   const entries = logs.data?.logs ?? [];
   const total = logs.data?.total ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / LOGS_PAGE_SIZE));
-
-  // Only work done inside a background task is logged with `task` bound onto it,
-  // and that work runs in the scheduler, so the filter would find nothing here.
-  const hasTaskFilter = service === 'scheduler';
 
   const changeLevel = (value: string | null) => {
     onLevelChange(isLogLevel(value) ? value : undefined);
     // A page number from the previous filter rarely exists in the new result.
     setPage(1);
   };
-
-  const changeTask = (value: string | null) => {
-    onTaskChange(isTaskKind(value) ? value : undefined);
+  const changeService = (value: string | null) => {
+    onServiceChange(isLogService(value) ? value : undefined);
     setPage(1);
   };
+  const changeComponent = (value: string | null) => {
+    onComponentChange(isLogComponent(value) ? value : undefined);
+    setPage(1);
+  };
+
+  const componentGroups = componentsByGroup();
 
   return (
     <Stack gap="sm">
       <Group gap="sm" align="flex-end" wrap="wrap">
         <Select
-          label={t('taskLogs.levelFilterLabel')}
-          value={level ?? ALL_LEVELS}
+          label={t('logs.levelFilterLabel')}
+          value={level ?? ALL}
           onChange={changeLevel}
           allowDeselect={false}
-          w={{ base: '100%', sm: 200 }}
+          w={{ base: '100%', sm: 180 }}
           data={[
-            { value: ALL_LEVELS, label: t('taskLogs.allLevels') },
+            { value: ALL, label: t('logs.allLevels') },
             ...LOG_LEVELS.map((value) => ({
               value,
               label: t(`logLevels.${value}`),
             })),
           ]}
         />
-        {hasTaskFilter && (
-          <Select
-            label={t('taskLogs.filterLabel')}
-            value={task ?? ALL_TASKS}
-            onChange={changeTask}
-            allowDeselect={false}
-            w={{ base: '100%', sm: 220 }}
-            data={[
-              { value: ALL_TASKS, label: t('taskLogs.allTasks') },
-              ...TASK_KINDS.map((kind) => ({
-                value: kind,
-                label: t(`tasks.kinds.${kind}.name`),
-              })),
-            ]}
-          />
-        )}
+        <Select
+          label={t('logs.serviceFilterLabel')}
+          value={service ?? ALL}
+          onChange={changeService}
+          allowDeselect={false}
+          w={{ base: '100%', sm: 180 }}
+          data={[
+            { value: ALL, label: t('logs.allServices') },
+            ...LOG_SERVICES.map((value) => ({
+              value,
+              label: t(`logs.services.${value}`),
+            })),
+          ]}
+        />
+        <Select
+          label={t('logs.componentFilterLabel')}
+          value={component ?? ALL}
+          onChange={changeComponent}
+          allowDeselect={false}
+          searchable
+          w={{ base: '100%', sm: 240 }}
+          data={[
+            { value: ALL, label: t('logs.allComponents') },
+            ...Object.entries(componentGroups).map(([group, components]) => ({
+              group: t(`logs.componentGroups.${group}`),
+              items: components.map((value) => ({ value, label: value })),
+            })),
+          ]}
+        />
         <Group gap="sm" align="center">
           {logs.isFetching && <Loader size="xs" />}
           <Button
@@ -104,9 +117,9 @@ export function LogsPanel({
       </Group>
 
       {logs.error && (
-        <Alert color="red" radius="lg" title={t('taskLogs.error.title')}>
+        <Alert color="red" radius="lg" title={t('logs.error.title')}>
           <Stack align="flex-start" gap="sm">
-            <Text>{getErrorMessage(logs.error, t('taskLogs.error.description'))}</Text>
+            <Text>{getErrorMessage(logs.error, t('logs.error.description'))}</Text>
             <Button variant="light" size="xs" onClick={() => void logs.refetch()}>
               {t('common.tryAgain')}
             </Button>
@@ -124,11 +137,11 @@ export function LogsPanel({
         ) : entries.length === 0 ? (
           <EmptyState
             icon="📋"
-            title={t('taskLogs.empty.title')}
+            title={t('logs.empty.title')}
             description={
-              task
-                ? t('taskLogs.empty.filtered', { name: t(`tasks.kinds.${task}.name`) })
-                : t('taskLogs.empty.description')
+              service || component || level
+                ? t('logs.empty.filtered')
+                : t('logs.empty.description')
             }
           />
         ) : (
@@ -139,7 +152,7 @@ export function LogsPanel({
       {total > 0 && (
         <Group justify="space-between" align="center">
           <Text size="sm" c="dimmed">
-            {t('taskLogs.pageStatus', { page, lastPage, total })}
+            {t('logs.pageStatus', { page, lastPage, total })}
           </Text>
           <Group gap="xs">
             <Button
@@ -148,7 +161,7 @@ export function LogsPanel({
               disabled={page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
             >
-              {t('taskLogs.previous')}
+              {t('logs.previous')}
             </Button>
             <Button
               size="xs"
@@ -156,7 +169,7 @@ export function LogsPanel({
               disabled={page >= lastPage}
               onClick={() => setPage((current) => current + 1)}
             >
-              {t('taskLogs.next')}
+              {t('logs.next')}
             </Button>
           </Group>
         </Group>

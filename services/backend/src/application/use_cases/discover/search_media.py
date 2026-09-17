@@ -25,7 +25,7 @@ from src.application.use_cases.discover.request_state import (
 )
 from src.application.utility.languages import to_three_letter
 from src.core.logging import get_logger
-from src.domain.enums import MediaType
+from src.domain.enums import LogComponent, MediaType
 
 
 @dataclass(slots=True)
@@ -77,7 +77,7 @@ class SearchMediaUseCase:
         self._tvdb = tvdb_service
         self._tmdb = tmdb_service
         self._metadata_languages = tuple(metadata_languages or ())
-        self._logger = logger or get_logger(component="search_media")
+        self._logger = logger or get_logger(LogComponent.USECASE_SEARCH_MEDIA)
 
     async def execute(
         self,

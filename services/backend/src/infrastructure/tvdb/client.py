@@ -14,6 +14,7 @@ from src.application.interfaces.tvdb import (
     TvdbTranslation,
 )
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 from src.infrastructure.http import build_async_client
 
 # TVDB models a season three times over - by broadcast order, by DVD order and
@@ -107,7 +108,7 @@ class TvdbHttpClient(TvdbService):
             query=None,
             fragment=None,
         )
-        self._logger = get_logger(component="tvdb")
+        self._logger = get_logger(LogComponent.INTEGRATION_TVDB)
 
     @property
     def is_configured(self) -> bool:

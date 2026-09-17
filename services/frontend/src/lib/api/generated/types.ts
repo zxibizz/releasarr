@@ -901,6 +901,14 @@ export interface components {
          */
         LogService: "api" | "scheduler";
         /**
+         * @description Which part of the codebase wrote a record. The dotted prefix groups
+         *     related components: `api.*` is the web layer, `scheduler.*` the
+         *     scheduler process itself, `task.*` a background task, `usecase.*` an
+         *     application use case, `integration.*` an external service adapter.
+         * @enum {string}
+         */
+        LogComponent: "api.http" | "api.error" | "api.auth" | "scheduler" | "scheduler.jobs" | "task.release_sync" | "task.release_summary" | "usecase.add_request" | "usecase.auto_mapping" | "usecase.auth" | "usecase.create_release" | "usecase.delete_release" | "usecase.delete_request" | "usecase.enqueue_job" | "usecase.export" | "usecase.file_mappings" | "usecase.grab" | "usecase.indexers" | "usecase.queue_download" | "usecase.queue_manual" | "usecase.recompute_state" | "usecase.refresh_releases" | "usecase.regrab" | "usecase.regrab_outdated" | "usecase.release_search" | "usecase.replace_existing" | "usecase.search_media" | "usecase.sync_radarr" | "usecase.sync_sonarr" | "usecase.update_seasons" | "usecase.users" | "integration.prowlarr" | "integration.qbittorrent" | "integration.radarr" | "integration.sonarr" | "integration.tmdb" | "integration.tvdb";
+        /**
          * @description How usable an indexer is right now. `disabled` was switched off by hand
          *     and stays that way; `blocked` is Prowlarr's own back-off after repeated
          *     failures and lifts on its own, or on a passing test.
@@ -993,6 +1001,7 @@ export interface components {
             timestamp: string;
             level: components["schemas"]["RequestLogLevel"];
             message: string;
+            component?: components["schemas"]["LogComponent"];
             /** @description Origin system or component. */
             source?: string;
             metadata?: components["schemas"]["RequestLogMetadata"];
@@ -1704,6 +1713,8 @@ export interface components {
         TaskFilter: components["schemas"]["SyncJobKind"];
         /** @description Optional process to filter results by. */
         ServiceFilter: components["schemas"]["LogService"];
+        /** @description Optional component to filter results by. */
+        ComponentFilter: components["schemas"]["LogComponent"];
         /**
          * @description Least severe level to return, along with everything worse. Records are
          *     mapped onto three levels, so this is a threshold rather than an exact
@@ -3160,6 +3171,8 @@ export interface operations {
                 task?: components["parameters"]["TaskFilter"];
                 /** @description Optional process to filter results by. */
                 service?: components["parameters"]["ServiceFilter"];
+                /** @description Optional component to filter results by. */
+                component?: components["parameters"]["ComponentFilter"];
                 /**
                  * @description Least severe level to return, along with everything worse. Records are
                  *     mapped onto three levels, so this is a threshold rather than an exact

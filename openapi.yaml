@@ -1117,6 +1117,7 @@ paths:
         - $ref: '#/components/parameters/RequestIdFilter'
         - $ref: '#/components/parameters/TaskFilter'
         - $ref: '#/components/parameters/ServiceFilter'
+        - $ref: '#/components/parameters/ComponentFilter'
         - $ref: '#/components/parameters/LogLevelFilter'
       responses:
         '200':
@@ -2022,6 +2023,12 @@ components:
       schema:
         $ref: '#/components/schemas/LogService'
       description: Optional process to filter results by.
+    ComponentFilter:
+      in: query
+      name: component
+      schema:
+        $ref: '#/components/schemas/LogComponent'
+      description: Optional component to filter results by.
     LogLevelFilter:
       in: query
       name: min_level
@@ -2070,6 +2077,51 @@ components:
       description: |
         The process that wrote a record. The API and the scheduler run as
         separate processes, each writing its own log file.
+    LogComponent:
+      type: string
+      enum:
+        - api.http
+        - api.error
+        - api.auth
+        - scheduler
+        - scheduler.jobs
+        - task.release_sync
+        - task.release_summary
+        - usecase.add_request
+        - usecase.auto_mapping
+        - usecase.auth
+        - usecase.create_release
+        - usecase.delete_release
+        - usecase.delete_request
+        - usecase.enqueue_job
+        - usecase.export
+        - usecase.file_mappings
+        - usecase.grab
+        - usecase.indexers
+        - usecase.queue_download
+        - usecase.queue_manual
+        - usecase.recompute_state
+        - usecase.refresh_releases
+        - usecase.regrab
+        - usecase.regrab_outdated
+        - usecase.release_search
+        - usecase.replace_existing
+        - usecase.search_media
+        - usecase.sync_radarr
+        - usecase.sync_sonarr
+        - usecase.update_seasons
+        - usecase.users
+        - integration.prowlarr
+        - integration.qbittorrent
+        - integration.radarr
+        - integration.sonarr
+        - integration.tmdb
+        - integration.tvdb
+      description: |
+        Which part of the codebase wrote a record. The dotted prefix groups
+        related components: `api.*` is the web layer, `scheduler.*` the
+        scheduler process itself, `task.*` a background task, `usecase.*` an
+        application use case, `integration.*` an external service adapter.
     IndexerHealth:
       type: string
       enum: [healthy, degraded, blocked, disabled]
@@ -2246,6 +2298,8 @@ components:
           $ref: '#/components/schemas/RequestLogLevel'
         message:
           type: string
+        component:
+          $ref: '#/components/schemas/LogComponent'
         source:
           type: string
           description: Origin system or component.

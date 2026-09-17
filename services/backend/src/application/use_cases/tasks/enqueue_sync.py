@@ -8,7 +8,7 @@ from loguru._logger import Logger
 
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRepository
 from src.core.logging import get_logger
-from src.domain.enums import SyncJobKind, SyncJobTrigger
+from src.domain.enums import LogComponent, SyncJobKind, SyncJobTrigger
 
 
 class EnqueueSyncJobUseCase:
@@ -20,7 +20,7 @@ class EnqueueSyncJobUseCase:
         logger: Logger | None = None,
     ) -> None:
         self._repository = repository
-        self._logger = logger or get_logger(component="enqueue_sync_job")
+        self._logger = logger or get_logger(LogComponent.USECASE_ENQUEUE_JOB)
 
     async def execute(
         self,

@@ -162,7 +162,7 @@ src/
     discover/    api.ts, queries.ts, keys.ts, pages/, components/
     tasks/       api.ts, queries.ts, pages/  (also hosts useSyncWatcher)
     logs/        api.ts, queries.ts, services.ts, useLogFilters.ts,
-                 pages/ (tabbed by process), components/, LogsModal.tsx
+                 pages/ (one merged stream), components/, LogsModal.tsx
   components/    Shared presentational pieces (StatusBadge, Panel, ResponsiveModal, …)
   lib/           api/client.ts (the only fetch wrapper), api/generated/, i18n.ts, queryClient.ts
   utils/         formatters, files, errors, status (the one place status colors live)

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from loguru import logger
-
 from src.application.interfaces.releases import CreateReleaseData, ReleaseRepository
 from src.application.use_cases.releases.commands import CreateReleaseCommand
 from src.application.use_cases.releases.dto import ReleaseDTO
@@ -13,6 +11,10 @@ from src.application.use_cases.releases.exceptions import ReleaseConflictError
 from src.application.use_cases.releases.mappers import record_to_dto
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.utility.magnet import parse_magnet
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_CREATE_RELEASE)
 
 
 class CreateReleaseUseCase:
@@ -50,7 +52,7 @@ class CreateReleaseUseCase:
         try:
             await self._recompute_state.execute(request_ids)
         except Exception as exc:  # pragma: no cover - defensive
-            logger.warning(
+            _logger.warning(
                 "Failed to settle requests for a created release",
                 release_id=record.id,
                 error=str(exc),

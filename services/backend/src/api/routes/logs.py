@@ -10,7 +10,7 @@ from src.api.responses import error_responses
 from src.application.queries.logs import LogsPageResult
 from src.application.use_cases.auth import Permission
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
-from src.schemas.enums import LogService, RequestLogLevel, SyncJobKind
+from src.schemas.enums import LogComponent, LogService, RequestLogLevel, SyncJobKind
 from src.schemas.logs import LogsResponse, RequestLogEntry
 
 router = APIRouter(
@@ -27,6 +27,7 @@ def _to_response(result: LogsPageResult) -> LogsResponse:
                 timestamp=entry.timestamp,
                 level=RequestLogLevel(entry.level),
                 message=entry.message,
+                component=LogComponent(entry.component) if entry.component is not None else None,
                 source=entry.source,
                 metadata=entry.metadata,
                 stack_trace=entry.stack_trace,
@@ -67,6 +68,10 @@ async def list_logs(
         default=None,
         description="Only entries written by this process.",
     ),
+    component: LogComponent | None = Query(
+        default=None,
+        description="Only entries written by this component.",
+    ),
     min_level: RequestLogLevel | None = Query(
         default=None,
         alias="min_level",
@@ -81,6 +86,7 @@ async def list_logs(
             request_id=request_id,
             task=task.value if task else None,
             service=service.value if service else None,
+            component=component.value if component else None,
             min_level=min_level.value if min_level else None,
         )
     except ValueError as exc:  # pragma: no cover - defensive whilst query validates internally

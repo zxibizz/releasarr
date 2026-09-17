@@ -93,6 +93,58 @@ class LogService(StrEnum):
     SCHEDULER = "scheduler"
 
 
+class LogComponent(StrEnum):
+    """Which part of the codebase wrote a log record.
+
+    Closed rather than free-form so the logs page can enumerate the values and
+    a mistyped one fails a type check instead of silently fragmenting the
+    filter. The dotted prefix is a stable grouping the UI leans on: everything
+    under one prefix shares one colour and one filter group.
+    """
+
+    API_HTTP = "api.http"
+    API_ERROR = "api.error"
+    API_AUTH = "api.auth"
+
+    SCHEDULER = "scheduler"
+    SCHEDULER_JOBS = "scheduler.jobs"
+
+    TASK_RELEASE_SYNC = "task.release_sync"
+    TASK_RELEASE_SUMMARY = "task.release_summary"
+
+    USECASE_ADD_REQUEST = "usecase.add_request"
+    USECASE_AUTO_MAPPING = "usecase.auto_mapping"
+    USECASE_AUTH = "usecase.auth"
+    USECASE_CREATE_RELEASE = "usecase.create_release"
+    USECASE_DELETE_RELEASE = "usecase.delete_release"
+    USECASE_DELETE_REQUEST = "usecase.delete_request"
+    USECASE_ENQUEUE_JOB = "usecase.enqueue_job"
+    USECASE_EXPORT = "usecase.export"
+    USECASE_FILE_MAPPINGS = "usecase.file_mappings"
+    USECASE_GRAB = "usecase.grab"
+    USECASE_INDEXERS = "usecase.indexers"
+    USECASE_QUEUE_DOWNLOAD = "usecase.queue_download"
+    USECASE_QUEUE_MANUAL = "usecase.queue_manual"
+    USECASE_RECOMPUTE_STATE = "usecase.recompute_state"
+    USECASE_REFRESH_RELEASES = "usecase.refresh_releases"
+    USECASE_REGRAB = "usecase.regrab"
+    USECASE_REGRAB_OUTDATED = "usecase.regrab_outdated"
+    USECASE_RELEASE_SEARCH = "usecase.release_search"
+    USECASE_REPLACE_EXISTING = "usecase.replace_existing"
+    USECASE_SEARCH_MEDIA = "usecase.search_media"
+    USECASE_SYNC_RADARR = "usecase.sync_radarr"
+    USECASE_SYNC_SONARR = "usecase.sync_sonarr"
+    USECASE_UPDATE_SEASONS = "usecase.update_seasons"
+    USECASE_USERS = "usecase.users"
+
+    INTEGRATION_PROWLARR = "integration.prowlarr"
+    INTEGRATION_QBITTORRENT = "integration.qbittorrent"
+    INTEGRATION_RADARR = "integration.radarr"
+    INTEGRATION_SONARR = "integration.sonarr"
+    INTEGRATION_TMDB = "integration.tmdb"
+    INTEGRATION_TVDB = "integration.tvdb"
+
+
 class IndexerHealth(StrEnum):
     """How usable an indexer is right now.
 

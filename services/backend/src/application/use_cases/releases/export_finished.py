@@ -26,7 +26,7 @@ from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.use_cases.requests.state import ArrCompletion, season_completion
 from src.core.logging import get_logger
-from src.domain.enums import MediaType, ReleaseStatus
+from src.domain.enums import LogComponent, MediaType, ReleaseStatus
 
 
 @dataclass(slots=True)
@@ -69,7 +69,7 @@ class ExportFinishedReleasesUseCase:
         self._download_service = download_service
         self._request_repository = request_repository
         self._recompute_state = recompute_state
-        self._logger = logger or get_logger(component="export_finished_releases")
+        self._logger = logger or get_logger(LogComponent.USECASE_EXPORT)
 
     async def execute(self) -> ExportFinishedResult:
         """Process all finished but not yet exported releases."""

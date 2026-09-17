@@ -16,6 +16,7 @@ from src.application.use_cases.releases.warnings import RequestWarningSynchroniz
 from src.application.use_cases.requests.state import ArrCompletion, RequestStateDeriver
 from src.application.utility.sentinels import UNSET
 from src.core.logging import get_logger
+from src.domain.enums import LogComponent
 
 
 @dataclass(slots=True)
@@ -48,7 +49,7 @@ class RecomputeRequestStateUseCase:
         self._release_repository = release_repository
         self._warning_synchronizer = warning_synchronizer
         self._deriver = deriver
-        self._logger = logger or get_logger(component="recompute_request_state")
+        self._logger = logger or get_logger(LogComponent.USECASE_RECOMPUTE_STATE)
 
     async def execute(
         self,

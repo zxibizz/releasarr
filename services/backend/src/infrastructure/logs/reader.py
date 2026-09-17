@@ -36,6 +36,7 @@ class LogEntry:
     timestamp: str
     level: str
     message: str
+    component: str | None = None
     source: str | None = None
     metadata: dict[str, Any] | None = field(default=None)
     stack_trace: str | None = None
@@ -64,11 +65,12 @@ class LogFileReader:
         request_id: str | None = None,
         task: str | None = None,
         service: str | None = None,
+        component: str | None = None,
         min_level: str | None = None,
     ) -> list[LogEntry]:
         """Return log entries in chronological order, optionally filtered.
 
-        Filters are combined. The first three match on fields the producer bound
+        Filters are combined. The first four match on fields the producer bound
         onto the record rather than on the message text; ``min_level`` is the odd
         one out, matching on severity once the record has been parsed.
         """
@@ -94,6 +96,8 @@ class LogFileReader:
                             service is not None
                             and self._service_of(entry, source) != service.lower()
                         ):
+                            continue
+                        if component is not None and entry.component != component:
                             continue
                         if min_level is not None and not self._at_least(entry, min_level):
                             continue
@@ -179,6 +183,7 @@ class LogFileReader:
         extra = record.get("extra")
         metadata = dict(extra) if isinstance(extra, dict) else None
         source = record.get("name") or record.get("module")
+        component = str(metadata["component"]) if metadata and "component" in metadata else None
 
         stack_trace: str | None = None
         if record.get("exception"):
@@ -190,6 +195,7 @@ class LogFileReader:
             timestamp=timestamp_repr,
             level=level,
             message=message,
+            component=component,
             source=str(source) if source is not None else None,
             metadata=metadata,
             stack_trace=stack_trace,

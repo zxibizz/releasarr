@@ -24,6 +24,7 @@ def serialized_record(
     request_id: str | None = None,
     task: str | None = None,
     service: str | None = None,
+    component: str | None = None,
     timestamp: float = 1_789_275_266.3,
     exception: dict[str, Any] | None = None,
     text: str | None = None,
@@ -35,6 +36,8 @@ def serialized_record(
         extra["task"] = task
     if service is not None:
         extra["service"] = service
+    if component is not None:
+        extra["component"] = component
     payload = {
         "text": text or f"2026-09-13 04:54:26.300 | {level} | mod:fn:1 - {message}\n",
         "record": {
@@ -70,13 +73,22 @@ def make_reader(
 
 def test_parses_a_serialized_record(tmp_path: Path) -> None:
     log = tmp_path / "backend.log"
-    write_log(log, serialized_record("Grabbed release", request_id="req-1", task="release_sync"))
+    write_log(
+        log,
+        serialized_record(
+            "Grabbed release",
+            request_id="req-1",
+            task="release_sync",
+            component="usecase.grab",
+        ),
+    )
     entries = make_reader(log).read_entries()
 
     assert len(entries) == 1
     entry = entries[0]
     assert entry.message == "Grabbed release"
     assert entry.level == "info"
+    assert entry.component == "usecase.grab"
     assert entry.occurred_at == 1_789_275_266_300
     assert entry.source == "src.tasks.sync_releases"
     assert entry.metadata is not None
@@ -176,6 +188,23 @@ def test_filters_by_the_process_that_wrote_the_record(tmp_path: Path) -> None:
         "also the api",
     ]
     assert [e.message for e in reader.read_entries(service="scheduler")] == ["ran a task"]
+
+
+def test_filters_by_the_component_that_wrote_the_record(tmp_path: Path) -> None:
+    log = tmp_path / "backend.log"
+    write_log(
+        log,
+        serialized_record("served a request", component="api.http"),
+        serialized_record("grabbed a release", component="usecase.grab"),
+        serialized_record("no component set"),
+    )
+
+    reader = make_reader(log)
+
+    assert [e.message for e in reader.read_entries(component="usecase.grab")] == [
+        "grabbed a release"
+    ]
+    assert [e.message for e in reader.read_entries(component="api.http")] == ["served a request"]
 
 
 def test_min_level_returns_that_severity_and_worse(tmp_path: Path) -> None:
