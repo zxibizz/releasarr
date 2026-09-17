@@ -3,7 +3,12 @@ import { createContext } from 'react';
 import type { Permission } from '@/features/auth/permissions';
 import type { SessionUser } from '@/types';
 
-export type AuthStatus = 'loading' | 'setup-required' | 'anonymous' | 'authenticated';
+export type AuthStatus =
+  | 'loading'
+  | 'setup-required'
+  | 'anonymous'
+  | 'unavailable'
+  | 'authenticated';
 
 export interface AuthContextValue {
   status: AuthStatus;

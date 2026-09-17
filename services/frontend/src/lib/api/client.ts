@@ -53,6 +53,15 @@ export function isNetworkError(error: unknown): boolean {
   return error instanceof ApiError && error.cause instanceof TypeError;
 }
 
+/**
+ * True when the server answered but said it cannot serve (5xx). The auth
+ * bootstrap uses this to tell "backend down" apart from "no session", which
+ * the refresh call's `null` alone cannot express.
+ */
+export function isServerUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.status !== undefined && error.status >= 500;
+}
+
 type QueryValue = string | number | boolean | undefined | null;
 
 export interface RequestOptions {
@@ -127,6 +136,12 @@ export function refreshSession(): Promise<LoginResponse | null> {
           headers: { Accept: 'application/json' },
         });
         if (!response.ok) {
+          // A 5xx is the server failing, not the session being absent. Throwing
+          // lets the bootstrap say "unavailable" instead of redirecting to a
+          // login form that would fail the same way.
+          if (response.status >= 500) {
+            throw new ApiError(statusMessage(response.status), { status: response.status });
+          }
           return null;
         }
         const session = (await response.json()) as LoginResponse;
@@ -135,7 +150,12 @@ export function refreshSession(): Promise<LoginResponse | null> {
         }
         setAccessToken(session.access_token);
         return session;
-      } catch {
+      } catch (error) {
+        // The deliberate 5xx throw above must survive; only a fetch that never
+        // reached the server (TypeError) reads as "no session to restore".
+        if (error instanceof ApiError) {
+          throw error;
+        }
         return null;
       }
     })().finally(() => {

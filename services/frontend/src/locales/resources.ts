@@ -32,6 +32,11 @@ export const resources = {
         notice: 'Your connection dropped. Data may be out of date.',
         reload: 'Reload',
       },
+      serverUnavailable: {
+        title: 'Releasarr is unavailable',
+        description: 'The server is not responding. It may be restarting — try again shortly.',
+        reload: 'Refresh',
+      },
       auth: {
         logout: 'Sign out',
         login: {
@@ -998,6 +1003,11 @@ export const resources = {
         description: 'Не удалось связаться с сервером. Проверьте подключение и попробуйте снова.',
         notice: 'Соединение потеряно. Данные могли устареть.',
         reload: 'Перезагрузить',
+      },
+      serverUnavailable: {
+        title: 'Releasarr недоступен',
+        description: 'Сервер не отвечает. Возможно, он перезапускается — попробуйте чуть позже.',
+        reload: 'Обновить',
       },
       auth: {
         logout: 'Выйти',
