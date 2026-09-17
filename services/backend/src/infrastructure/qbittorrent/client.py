@@ -41,6 +41,13 @@ class QbittorrentClient:
     async def close(self) -> None:
         await self._client.aclose()
 
+    async def test_connection(self) -> None:
+        """Authenticate and read the Web API version, raising on failure."""
+
+        await self._ensure_login()
+        response = await self._client.get("/app/webapiVersion")
+        response.raise_for_status()
+
     async def add_magnet(
         self,
         magnet_link: str,

@@ -228,6 +228,15 @@ class TvdbHttpClient(TvdbService):
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    async def test_connection(self) -> None:
+        """Authenticate against TVDB, which a wrong key fails at login.
+
+        The cheapest authenticated read: the auth flow logs in on demand, so a
+        search request is enough to prove the token works.
+        """
+
+        await self.search_series("a", limit=1)
+
     def _to_search_result(
         self,
         entry: dict[str, object],

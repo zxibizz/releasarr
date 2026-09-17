@@ -99,6 +99,9 @@ class SeriesLookup:
 class SonarrService(Protocol):
     """Protocol describing the subset of Sonarr operations we rely on."""
 
+    async def test_connection(self) -> None:
+        """Verify the configured URL and API key reach Sonarr, raising on failure."""
+
     async def get_missing_series(self) -> list[MissingSeriesRecord]:
         """Return Sonarr series with missing monitored episodes grouped by season."""
 

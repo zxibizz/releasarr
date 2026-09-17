@@ -49,6 +49,12 @@ from src.application.use_cases.requests.exceptions import (
     EmptyUpdatePayloadError,
     MediaRequestNotFoundError,
 )
+from src.application.use_cases.settings.exceptions import (
+    EmptySettingsUpdateError,
+    InvalidSettingValueError,
+    SettingLockedError,
+    UnknownSettingKeyError,
+)
 from src.application.use_cases.tasks.exceptions import SyncJobNotFoundError
 from src.application.use_cases.users.exceptions import (
     LastAdminError,
@@ -108,6 +114,10 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     UserNotFoundError: (status.HTTP_404_NOT_FOUND, "user_not_found"),
     UsernameTakenError: (status.HTTP_409_CONFLICT, "username_taken"),
     LastAdminError: (status.HTTP_409_CONFLICT, "last_admin"),
+    EmptySettingsUpdateError: (status.HTTP_400_BAD_REQUEST, "empty_update"),
+    InvalidSettingValueError: (status.HTTP_400_BAD_REQUEST, "invalid_setting_value"),
+    UnknownSettingKeyError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown_setting"),
+    SettingLockedError: (status.HTTP_409_CONFLICT, "setting_locked"),
     # Sonarr, Radarr and the metadata providers all report through this one, so a
     # failure of theirs surfaces as a bad gateway rather than our own crash.
     HttpClientError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),

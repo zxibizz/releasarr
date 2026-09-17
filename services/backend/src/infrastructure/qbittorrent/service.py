@@ -21,6 +21,9 @@ class QbittorrentClientPort(Protocol):
     def is_configured(self) -> bool:
         """Whether the client has the URL and credentials it needs."""
 
+    async def test_connection(self) -> None:
+        """Verify the configured URL and credentials authenticate, raising on failure."""
+
     async def add_magnet(
         self,
         magnet_link: str,

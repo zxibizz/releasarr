@@ -56,6 +56,11 @@ class TmdbHttpClient(TmdbService):
     async def aclose(self) -> None:
         await self._http.aclose()
 
+    async def test_connection(self) -> None:
+        """Read TMDB's public configuration, which a bad key fails."""
+
+        await self._http.request_json("GET", "/configuration", params=self._auth_params)
+
     async def get_movie(
         self,
         tmdb_id: int,

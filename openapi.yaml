@@ -1899,6 +1899,157 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Get the effective runtime settings
+      description: >-
+        The effective configuration for every editable field, grouped by
+        section, after environment pins and stored overrides are composed. A
+        field whose key appears in ``locked_keys`` is set by the environment
+        and is read-only here; a change to a field in ``pending_restart_keys``
+        takes effect only after a restart.
+      operationId: getSettings
+      responses:
+        '200':
+          description: The effective settings and per-field behaviour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /settings/{section}:
+    patch:
+      tags: [Settings]
+      summary: Update one settings section
+      description: >-
+        Applies a partial update to a single section. Only the fields named in
+        ``values`` change; every key must belong to the named section. A field
+        the environment pins is rejected. The response is the full settings
+        view after the update.
+      operationId: updateSettingsSection
+      parameters:
+        - name: section
+          in: path
+          required: true
+          description: The settings section to update.
+          schema:
+            type: string
+            enum: [general, services, network, metadata, tasks, logging]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsPayload'
+      responses:
+        '200':
+          description: The effective settings after the update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          description: No fields supplied, or a value failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A field is set by the environment and cannot be changed here.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: An unknown setting key was supplied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /settings/test/{integration}:
+    post:
+      tags: [Settings]
+      summary: Test an integration's connection
+      description: >-
+        Probes one external service with either the saved configuration or, when
+        the optional body carries credentials, those candidate values, so a
+        change can be verified before it is saved.
+      operationId: testIntegrationConnection
+      parameters:
+        - name: integration
+          in: path
+          required: true
+          description: The integration to test.
+          schema:
+            type: string
+            enum: [sonarr, radarr, prowlarr, qbittorrent, tvdb, tmdb]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionTestPayload'
+      responses:
+        '200':
+          description: The outcome of the connection attempt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionTestResult'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     BearerAuth:
@@ -3588,6 +3739,87 @@ components:
         created_at:
           type: string
           format: date-time
+    SettingFieldInfo:
+      type: object
+      required: [key, section, kind, is_secret, requires_restart, locked, choices]
+      properties:
+        key:
+          type: string
+        section:
+          type: string
+          enum: [general, services, network, metadata, tasks, logging]
+        kind:
+          type: string
+          description: The value shape, e.g. str, int, bool, str_list.
+        is_secret:
+          type: boolean
+        requires_restart:
+          type: boolean
+        locked:
+          type: boolean
+          description: True when the environment pins the field, making it read-only.
+        choices:
+          type: array
+          items:
+            type: string
+    SettingsResponse:
+      type: object
+      required: [values, fields, locked_keys, pending_restart_keys]
+      properties:
+        values:
+          type: object
+          description: Effective values grouped by section, keyed by field name.
+          additionalProperties:
+            type: object
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingFieldInfo'
+        locked_keys:
+          type: array
+          items:
+            type: string
+          description: Field keys pinned by the environment; PATCH refuses these.
+        pending_restart_keys:
+          type: array
+          items:
+            type: string
+          description: Field keys whose stored change takes effect only after a restart.
+    UpdateSettingsPayload:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: object
+          description: Field key -> new value, a partial update to one section.
+          additionalProperties: true
+    ConnectionTestPayload:
+      type: object
+      properties:
+        url:
+          type: string
+          nullable: true
+        api_key:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+    ConnectionTestResult:
+      type: object
+      required: [integration, success]
+      properties:
+        integration:
+          type: string
+        success:
+          type: boolean
+        detail:
+          type: string
+          nullable: true
+          description: Failure reason, or a short OK summary.
     SetupStatus:
       type: object
       required: [required]
