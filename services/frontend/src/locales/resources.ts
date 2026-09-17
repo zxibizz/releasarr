@@ -368,6 +368,7 @@ export const resources = {
           title: 'No matching requests',
           description: 'Try adjusting your filters or search query to find more results.',
         },
+        loadMore: 'Load more',
         error: {
           title: 'Unable to load requests',
           description: 'We could not retrieve the latest requests from the server.',
@@ -1507,6 +1508,7 @@ export const resources = {
           title: 'Ничего не найдено',
           description: 'Измените фильтры или поисковый запрос, чтобы получить результаты.',
         },
+        loadMore: 'Показать ещё',
         error: {
           title: 'Не удалось загрузить запросы',
           description: 'Не удалось получить последние запросы с сервера.',

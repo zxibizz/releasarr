@@ -150,6 +150,48 @@ async def test_manual_import_reports_a_command_sonarr_could_not_run() -> None:
     assert await client.manual_import([IMPORT_FILE]) is False
 
 
+async def test_list_series_reads_the_whole_library() -> None:
+    """One call returns every series with its season counts and monitoring."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/series")
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 10,
+                    "title": "Example Show",
+                    "year": 2020,
+                    "tvdbId": 555,
+                    "seasons": [
+                        {
+                            "seasonNumber": 1,
+                            "monitored": True,
+                            "statistics": {
+                                "episodeCount": 10,
+                                "totalEpisodeCount": 12,
+                                "episodeFileCount": 10,
+                            },
+                        },
+                        {"seasonNumber": 2, "monitored": False},
+                    ],
+                }
+            ],
+        )
+
+    library = await build_client(handler).list_series()
+
+    assert len(library) == 1
+    series = library[0]
+    assert series.id == 10
+    assert series.tvdb_id == 555
+    season_one = series.seasons[1]
+    assert (season_one.episode_count, season_one.total_episode_count) == (10, 12)
+    assert season_one.episode_file_count == 10
+    assert season_one.monitored is True
+    assert series.seasons[2].monitored is False
+
+
 async def test_a_missing_api_key_is_reported_as_configuration_not_as_a_401() -> None:
     """Sonarr answers an empty key with a bare 401, which reads like a bad key."""
 
@@ -163,4 +205,4 @@ async def test_a_missing_api_key_is_reported_as_configuration_not_as_a_401() -> 
     )
 
     with pytest.raises(HttpClientError, match="RELEASARR_SONARR_API_KEY"):
-        await client.get_missing_series()
+        await client.list_series()

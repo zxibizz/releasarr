@@ -1032,6 +1032,11 @@ export interface components {
         MediaType: "movie" | "series";
         /** @enum {string} */
         MediaRequestStatus: "pending" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
+        /**
+         * @description `MediaRequestStatus` plus `active`, which matches every status except `completed`.
+         * @enum {string}
+         */
+        MediaRequestStatusFilter: "active" | "pending" | "searching" | "downloading" | "monitoring" | "importing" | "completed" | "failed";
         /** @enum {string} */
         ReleaseStatus: "pending" | "downloading" | "completed" | "failed";
         /** @enum {string} */
@@ -1902,14 +1907,18 @@ export interface components {
         Page: number;
         /** @description Number of items to return per page. */
         PerPage: number;
-        /** @description Filter requests by lifecycle status. */
-        RequestStatus: components["schemas"]["MediaRequestStatus"];
+        /** @description Filter requests by lifecycle status; `active` is every status but `completed`. */
+        RequestStatus: components["schemas"]["MediaRequestStatusFilter"];
         /** @description Filter requests by media type. */
         RequestType: components["schemas"]["MediaType"];
         /** @description Filter requests by owner user id. Only callers with view_all_requests (or an admin) may use this; others are restricted to their own. */
         RequestOwner: string;
         /** @description Filter to requests with (`true`) or without (`false`) at least one warning. */
         RequestHasWarnings: boolean;
+        /** @description Case-insensitive substring match against request and series titles. */
+        RequestSearch: string;
+        /** @description Order of the returned requests. */
+        RequestSort: "created_desc" | "created_asc" | "title_asc" | "title_desc";
         /** @description Unique identifier for a user account. */
         UserId: string;
         /** @description Filter releases by lifecycle status. */
@@ -1951,7 +1960,7 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /** @description Number of items to return per page. */
                 per_page?: components["parameters"]["PerPage"];
-                /** @description Filter requests by lifecycle status. */
+                /** @description Filter requests by lifecycle status; `active` is every status but `completed`. */
                 status?: components["parameters"]["RequestStatus"];
                 /** @description Filter requests by media type. */
                 type?: components["parameters"]["RequestType"];
@@ -1959,6 +1968,10 @@ export interface operations {
                 owner?: components["parameters"]["RequestOwner"];
                 /** @description Filter to requests with (`true`) or without (`false`) at least one warning. */
                 has_warnings?: components["parameters"]["RequestHasWarnings"];
+                /** @description Case-insensitive substring match against request and series titles. */
+                search?: components["parameters"]["RequestSearch"];
+                /** @description Order of the returned requests. */
+                sort?: components["parameters"]["RequestSort"];
             };
             header?: never;
             path?: never;

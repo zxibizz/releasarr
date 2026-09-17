@@ -11,17 +11,6 @@ from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
 
 
 @dataclass(slots=True)
-class MissingSeriesRecord:
-    """Minimal data describing missing Sonarr seasons."""
-
-    series_id: int
-    title: str
-    season_numbers: list[int]
-    tvdb_id: int | None
-    imdb_id: str | None
-
-
-@dataclass(slots=True)
 class SeriesSeasonDetails:
     """Detailed information about a Sonarr season."""
 
@@ -102,8 +91,8 @@ class SonarrService(Protocol):
     async def test_connection(self) -> None:
         """Verify the configured URL and API key reach Sonarr, raising on failure."""
 
-    async def get_missing_series(self) -> list[MissingSeriesRecord]:
-        """Return Sonarr series with missing monitored episodes grouped by season."""
+    async def list_series(self) -> list[SeriesDetails]:
+        """Return every series in the library, with per-season counts and monitoring."""
 
     async def get_series(self, series_id: int) -> SeriesDetails:
         """Return detailed information for a single Sonarr series."""
@@ -177,7 +166,6 @@ class SonarrService(Protocol):
 
 __all__ = [
     "ManualImportFile",
-    "MissingSeriesRecord",
     "SeriesDetails",
     "SeriesLookup",
     "SeriesSeasonDetails",

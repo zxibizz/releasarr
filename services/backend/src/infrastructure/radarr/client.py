@@ -56,27 +56,11 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def get_missing_movies(self) -> list[MovieDetails]:
-        """Return the movies Radarr is still waiting for.
-
-        Unlike Sonarr, whose wanted list is one row per missing episode, Radarr
-        returns the whole movie resource per row, so no per-item follow-up call
-        is needed to build the details.
-        """
-
-        payload = await self._request(
-            "GET",
-            "/wanted/missing",
-            params={
-                "page": 1,
-                "pageSize": 1000,
-                "sortDirection": "descending",
-            },
-        )
-
-        records = payload.get("records", []) if isinstance(payload, dict) else []
+    async def list_movies(self) -> list[MovieDetails]:
+        payload = await self._request("GET", "/movie")
+        entries = payload if isinstance(payload, list) else []
         movies: list[MovieDetails] = []
-        for entry in records:
+        for entry in entries:
             if not isinstance(entry, dict):
                 continue
             movie = self._to_movie(entry)
@@ -351,6 +335,7 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             genres=[str(genre) for genre in data.get("genres", []) if genre],
             runtime_minutes=self._safe_int(data.get("runtime")),
             has_file=bool(data.get("hasFile")),
+            monitored=bool(data.get("monitored")),
             file_size=self._movie_file_size(data),
         )
 

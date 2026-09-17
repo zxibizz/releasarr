@@ -1,4 +1,4 @@
-"""Tests for syncing Sonarr missing seasons into media requests."""
+"""Tests for reconciling media requests with the seasons Sonarr monitors."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import pytest
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
+    MediaLocalization,
     MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
@@ -18,7 +19,6 @@ from src.application.interfaces.media_requests import (
 from src.application.interfaces.releases import ReleaseRecord
 from src.application.interfaces.sonarr import (
     ManualImportFile,
-    MissingSeriesRecord,
     SeriesDetails,
     SeriesSeasonDetails,
     SonarrEpisode,
@@ -71,6 +71,7 @@ class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
             localizations=data.localizations,
+            owner_user_id=data.owner_user_id,
         )
         self.records[record.id] = record
         return record
@@ -117,21 +118,16 @@ class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository
 
 
 class FakeSonarrService(UnusedSonarrLibraryCalls):
-    def __init__(
-        self,
-        missing: list[MissingSeriesRecord],
-        catalogue: dict[int, SeriesDetails],
-    ) -> None:
-        self._missing = missing
-        self._catalogue = catalogue
+    def __init__(self, library: list[SeriesDetails]) -> None:
+        self._library = library
         self.series_calls: list[int] = []
 
-    async def get_missing_series(self) -> list[MissingSeriesRecord]:
-        return self._missing
+    async def list_series(self) -> list[SeriesDetails]:
+        return self._library
 
     async def get_series(self, series_id: int) -> SeriesDetails:
         self.series_calls.append(series_id)
-        return self._catalogue[series_id]
+        return next(details for details in self._library if details.id == series_id)
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return []
@@ -219,12 +215,14 @@ def make_series_details() -> SeriesDetails:
                 episode_count=10,
                 total_episode_count=10,
                 episode_file_count=5,
+                monitored=True,
             ),
             3: SeriesSeasonDetails(
                 season_number=3,
                 episode_count=8,
                 total_episode_count=8,
                 episode_file_count=0,
+                monitored=True,
             ),
         },
     )
@@ -305,18 +303,9 @@ class FakeTvdbService(UnusedTvdbSearch, TvdbService):
 
 
 @pytest.mark.asyncio
-async def test_sync_sonarr_creates_updates_and_completes() -> None:
+async def test_sync_sonarr_creates_updates_and_prunes() -> None:
     repository = FakeMediaRequestRepository(records=make_existing_records())
-    missing = [
-        MissingSeriesRecord(
-            series_id=10,
-            title="Example Show",
-            season_numbers=[1, 3],
-            tvdb_id=555,
-            imdb_id="tt1234567",
-        )
-    ]
-    sonarr = FakeSonarrService(missing=missing, catalogue={10: make_series_details()})
+    sonarr = FakeSonarrService([make_series_details()])
     tvdb_metadata = TvdbSeriesMetadata(
         tvdb_id=555,
         name="Example Show",
@@ -350,11 +339,10 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     )
     result = await use_case.execute()
 
-    assert result.created == 1
-    assert result.updated == 1
-    assert result.completed == 1
+    assert (result.created, result.updated, result.deleted) == (1, 1, 1)
 
-    # Season 1 should be updated to pending with refreshed metadata
+    # Season 1 is still monitored, so it is refreshed and reopened for the
+    # episodes Sonarr has no file for.
     season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
     assert season_one is not None
     assert season_one.status == MediaRequestStatus.PENDING
@@ -371,14 +359,10 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     # another round trip.
     assert (season_one.aired_episodes, season_one.downloaded_episodes) == (10, 5)
 
-    # Season 2 should now be marked as completed
-    season_two = await repository.find_by_sonarr(sonarr_series_id=10, season_number=2)
-    assert season_two is not None
-    assert season_two.status == MediaRequestStatus.COMPLETED
-    # A season Sonarr no longer reports as missing has nothing left pending.
-    assert season_two.downloaded_episodes == season_two.aired_episodes == 6
+    # Season 2 is no longer monitored, so its request goes with the monitoring.
+    assert await repository.find_by_sonarr(sonarr_series_id=10, season_number=2) is None
 
-    # Season 3 should exist as a new request
+    # Season 3 is newly monitored, so it gets a request.
     season_three = await repository.find_by_sonarr(sonarr_series_id=10, season_number=3)
     assert season_three is not None
     assert season_three.status == MediaRequestStatus.PENDING
@@ -389,18 +373,16 @@ async def test_sync_sonarr_creates_updates_and_completes() -> None:
     assert season_three.poster_url == "http://poster"
     assert season_three.localizations["eng"].overview == "English season three"
     assert season_three.localizations["rus"].overview == "Русский сезон три"
-    assert season_three.localizations["eng"].overview == "English season three"
-    assert season_three.localizations["rus"].overview == "Русский сезон три"
 
-    # TVDB client should be invoked once per series
+    # The created row and the refreshed row share one TVDB read per run.
     assert tvdb.calls == [(555, ("rus", "eng"))]
 
 
 @pytest.mark.asyncio
-async def test_sync_sonarr_logs_a_completion_against_the_request(
+async def test_sync_sonarr_logs_a_pruning_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
-    """Completing a season is activity a user should see on the request.
+    """Pruning a season is activity a user should see on the request.
 
     The /logs endpoint filters on request_id and the log file records at INFO, so
     a debug-level entry here would never reach the request's activity view.
@@ -411,16 +393,17 @@ async def test_sync_sonarr_logs_a_completion_against_the_request(
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
-        sonarr_service=FakeSonarrService([], {}),
+        sonarr_service=FakeSonarrService([make_series_details()]),
         tvdb_service=FakeTvdbService(is_configured=False),
         recompute_state=make_recompute(repository),
     )
     await use_case.execute()
 
-    completed = [record for record in captured_records if record.get("request_id") == "req-2"]
-    assert completed, "completing a season produced no log entry bound to the request"
-    assert completed[0]["level"] == "INFO"
-    assert completed[0]["season_number"] == 2
+    assert await repository.find_by_sonarr(sonarr_series_id=10, season_number=2) is None
+    pruned = [record for record in captured_records if record.get("request_id") == "req-2"]
+    assert pruned, "pruning a season produced no log entry bound to the request"
+    assert pruned[0]["level"] == "INFO"
+    assert pruned[0]["season_number"] == 2
 
 
 @pytest.mark.asyncio
@@ -434,16 +417,7 @@ async def test_sync_sonarr_preserves_in_flight_status() -> None:
     records = make_existing_records()
     records["req-1"].status = MediaRequestStatus.DOWNLOADING
     repository = FakeMediaRequestRepository(records=records)
-    missing = [
-        MissingSeriesRecord(
-            series_id=10,
-            title="Example Show",
-            season_numbers=[1],
-            tvdb_id=555,
-            imdb_id="tt1234567",
-        )
-    ]
-    sonarr = FakeSonarrService(missing=missing, catalogue={10: make_series_details()})
+    sonarr = FakeSonarrService([make_series_details()])
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
@@ -481,6 +455,7 @@ def make_airing_details() -> SeriesDetails:
                 episode_count=4,
                 total_episode_count=10,
                 episode_file_count=4,
+                monitored=True,
             )
         },
     )
@@ -516,18 +491,19 @@ def make_airing_records(status: MediaRequestStatus) -> dict[str, MediaRequestRec
 
 @pytest.mark.asyncio
 async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
-    """Sonarr wanting nothing is not the same as the season being over.
+    """Every aired episode having a file is not the same as the season being over.
 
-    A season leaves the missing list once its aired episodes have files and comes
-    back when the next one is wanted, so closing the request there only produces
-    one that flips back and forth. A release grabbed by hand is the case that
-    cannot absorb that: nothing will re-grab it for the episodes that follow.
+    Sonarr counts only aired episodes, so a running season reads as complete every
+    week between airings; the verdict's has_unaired is what keeps the request open
+    instead of closing and reopening it per episode. A release grabbed by hand is
+    the case that cannot absorb that: nothing will re-grab it for the episodes
+    that follow.
     """
 
     repository = FakeMediaRequestRepository(
         records=make_airing_records(MediaRequestStatus.COMPLETED)
     )
-    sonarr = FakeSonarrService(missing=[], catalogue={10: make_airing_details()})
+    sonarr = FakeSonarrService([make_airing_details()])
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
@@ -540,8 +516,7 @@ async def test_sync_sonarr_reopens_a_season_that_is_still_airing() -> None:
     season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
     assert season_one is not None
     assert season_one.status == MediaRequestStatus.PENDING
-    # Reopening is not a completion, and the summary counts completions.
-    assert result.completed == 0
+    assert result.deleted == 0
 
 
 def make_season_details(*, aired: int, total: int, files: int) -> SeriesDetails:
@@ -562,6 +537,7 @@ def make_season_details(*, aired: int, total: int, files: int) -> SeriesDetails:
                 episode_count=aired,
                 total_episode_count=total,
                 episode_file_count=files,
+                monitored=True,
             )
         },
     )
@@ -600,13 +576,8 @@ def make_counted_record(
 
 
 @pytest.mark.asyncio
-async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> None:
-    """Leaving the missing list freezes the counts, and the card derives from them.
-
-    Sonarr files the last aired episode and drops the season, which is the point
-    at which nothing writes the request's counts again -- so it goes on claiming
-    an episode is pending while Sonarr holds every episode that has aired.
-    """
+async def test_sync_sonarr_refreshes_counts_on_every_run() -> None:
+    """A monitored season's counts track Sonarr's own numbers, run over run."""
 
     record = make_counted_record(
         status=MediaRequestStatus.MONITORING,
@@ -615,9 +586,8 @@ async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> No
         downloaded_episodes=6,
     )
     repository = FakeMediaRequestRepository(records={"req-1": record})
-    sonarr = FakeSonarrService(
-        missing=[], catalogue={10: make_season_details(aired=7, total=8, files=7)}
-    )
+    details = make_season_details(aired=7, total=8, files=7)
+    sonarr = FakeSonarrService([details])
     # An already-imported release the indexer could still improve on is what a
     # monitoring status rests on; without one there is nothing to monitor.
     exported = make_release(
@@ -642,11 +612,15 @@ async def test_sync_sonarr_corrects_counts_a_departed_season_left_behind() -> No
     _, update = repository.updated[0]
     assert update.status is UNSET
 
-    # The corrected counts settle the question, so the next sync asks again
-    # nowhere and writes nothing.
-    repository.updated.clear()
+    # Sonarr airs and files the last episode; the next run adopts the numbers
+    # and completes the request.
+    details.seasons[1].episode_count = 8
+    details.seasons[1].episode_file_count = 8
+    details.seasons[1].total_episode_count = 8
     await use_case.execute()
-    assert repository.updated == []
+
+    assert (record.aired_episodes, record.downloaded_episodes) == (8, 8)
+    assert record.status == MediaRequestStatus.COMPLETED
 
 
 @pytest.mark.asyncio
@@ -660,9 +634,7 @@ async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
         downloaded_episodes=6,
     )
     repository = FakeMediaRequestRepository(records={"req-1": record})
-    sonarr = FakeSonarrService(
-        missing=[], catalogue={10: make_season_details(aired=8, total=8, files=8)}
-    )
+    sonarr = FakeSonarrService([make_season_details(aired=8, total=8, files=8)])
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
@@ -670,11 +642,10 @@ async def test_sync_sonarr_completes_with_sonarrs_own_counts() -> None:
         tvdb_service=FakeTvdbService(is_configured=False),
         recompute_state=make_recompute(repository),
     )
-    result = await use_case.execute()
+    await use_case.execute()
 
     assert record.status == MediaRequestStatus.COMPLETED
     assert record.downloaded_episodes == 8
-    assert result.completed == 1
 
 
 @pytest.mark.asyncio
@@ -684,7 +655,7 @@ async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
     repository = FakeMediaRequestRepository(
         records=make_airing_records(MediaRequestStatus.DOWNLOADING)
     )
-    sonarr = FakeSonarrService(missing=[], catalogue={10: make_airing_details()})
+    sonarr = FakeSonarrService([make_airing_details()])
 
     use_case = SyncSonarrMediaRequestsUseCase(
         repository=repository,
@@ -699,4 +670,154 @@ async def test_sync_sonarr_leaves_an_in_flight_airing_season_alone() -> None:
     season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
     assert season_one is not None
     assert season_one.status == MediaRequestStatus.DOWNLOADING
-    assert repository.updated == []
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_adopts_a_downloaded_season_as_completed() -> None:
+    """A season with every aired episode filed never sat on the missing list.
+
+    That used to mean no request at all; under the library sweep it is adopted
+    and immediately reads as completed.
+    """
+
+    repository = FakeMediaRequestRepository()
+    sonarr = FakeSonarrService([make_season_details(aired=10, total=10, files=10)])
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert result.created == 1
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.status == MediaRequestStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_keeps_an_airing_season_pending() -> None:
+    """Nothing aired missing today is not the same as nothing left to come."""
+
+    repository = FakeMediaRequestRepository()
+    sonarr = FakeSonarrService([make_airing_details()])
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=sonarr,
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    await use_case.execute()
+
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.status == MediaRequestStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_prunes_nothing_when_the_library_answers_empty(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """An empty answer from Sonarr reads as a restart, not as a wiped library."""
+
+    repository = FakeMediaRequestRepository(records=make_existing_records())
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([]),
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert result.deleted == 0
+    assert await repository.list_sonarr_requests() != []
+    assert any(record.get("level") == "WARNING" for record in captured_records)
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_leaves_an_unsettled_series_alone() -> None:
+    """A series mid-add has season flags Sonarr is about to rewrite."""
+
+    details = make_series_details()
+    details.has_add_options = True
+    repository = FakeMediaRequestRepository(records=make_existing_records())
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([details]),
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert (result.created, result.updated, result.deleted) == (0, 0, 0)
+    assert await repository.find_by_sonarr(sonarr_series_id=10, season_number=2) is not None
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_ignores_unmonitored_seasons() -> None:
+    details = make_series_details()
+    for season in details.seasons.values():
+        season.monitored = False
+    repository = FakeMediaRequestRepository()
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([details]),
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert (result.created, result.updated, result.deleted) == (0, 0, 0)
+    assert await repository.list_sonarr_requests() == []
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_assigns_a_new_season_to_the_series_owner() -> None:
+    records = make_existing_records()
+    records["req-1"].owner_user_id = "user-1"
+    repository = FakeMediaRequestRepository(records={"req-1": records["req-1"]})
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([make_series_details()]),
+        tvdb_service=FakeTvdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    await use_case.execute()
+
+    season_three = await repository.find_by_sonarr(sonarr_series_id=10, season_number=3)
+    assert season_three is not None
+    assert season_three.owner_user_id == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_sync_sonarr_reuses_stored_localizations() -> None:
+    """TVDB is asked only for rows with nothing stored, not on every sweep."""
+
+    records = make_existing_records()
+    records["req-1"].localizations = {
+        "eng": MediaLocalization(title="Example Show", overview="Stored overview")
+    }
+    repository = FakeMediaRequestRepository(records={"req-1": records["req-1"]})
+    details = make_series_details()
+    details.seasons = {1: details.seasons[1]}
+    tvdb = FakeTvdbService()
+
+    use_case = SyncSonarrMediaRequestsUseCase(
+        repository=repository,
+        sonarr_service=FakeSonarrService([details]),
+        tvdb_service=tvdb,
+        recompute_state=make_recompute(repository),
+    )
+    await use_case.execute()
+
+    assert tvdb.calls == []
+    season_one = await repository.find_by_sonarr(sonarr_series_id=10, season_number=1)
+    assert season_one is not None
+    assert season_one.localizations["eng"].overview == "Stored overview"

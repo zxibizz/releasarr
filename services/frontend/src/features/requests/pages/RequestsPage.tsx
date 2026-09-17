@@ -15,13 +15,16 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { useDebouncedValue } from '@mantine/hooks';
+
 import { EmptyState } from '@/components/EmptyState';
 import { useAuth } from '@/features/auth/useAuth';
 import { RequestCard } from '@/features/requests/components/RequestCard';
 import { RequestFilters } from '@/features/requests/components/RequestFilters';
 import { RequestsSkeleton } from '@/features/requests/components/RequestsSkeleton';
 import {
-  filterAndSortRequests,
+  DEFAULT_STATUS,
+  DEFAULT_TYPE,
   type StatusFilter,
   type TypeFilter,
 } from '@/features/requests/filtering';
@@ -68,7 +71,30 @@ export function RequestsPage() {
     setOwner,
     setHasWarnings,
   } = useRequestFilters();
-  const { requests, isLoading, isFetching, error, refetch } = useRequestsList();
+  // The URL tracks the keystroke; the API only hears the settled value.
+  const [debouncedSearch] = useDebouncedValue(search.trim(), 300);
+  const filters = useMemo(
+    () => ({
+      type: type === 'all' ? undefined : type,
+      status: status === 'all' ? undefined : status,
+      sort,
+      search: debouncedSearch || undefined,
+      owner: canFilterByOwner && owner ? owner : undefined,
+      hasWarnings: hasWarnings || undefined,
+    }),
+    [type, status, sort, debouncedSearch, owner, hasWarnings, canFilterByOwner],
+  );
+  const {
+    requests,
+    total,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useRequestsList(filters);
   const { users } = useUsersList({ enabled: canFilterByOwner });
   const metadataLanguage = useMetadataLanguage();
 
@@ -77,18 +103,12 @@ export function RequestsPage() {
     [requests, metadataLanguage],
   );
 
-  const visibleRequests = useMemo(
-    () =>
-      filterAndSortRequests(localizedRequests, {
-        type,
-        status,
-        sort,
-        search,
-        owner: canFilterByOwner ? owner : null,
-        hasWarnings,
-      }),
-    [localizedRequests, type, status, sort, search, owner, canFilterByOwner, hasWarnings],
-  );
+  const isDefaultView =
+    type === DEFAULT_TYPE &&
+    status === DEFAULT_STATUS &&
+    !debouncedSearch &&
+    !owner &&
+    !hasWarnings;
 
   const typeLabel = (key: TypeFilter) => t(TYPE_LABEL_KEYS[key]);
   const statusLabel = (key: StatusFilter) => {
@@ -194,28 +214,37 @@ export function RequestsPage() {
       <Group justify="space-between" align="center">
         <Title order={3}>{heading}</Title>
         <Text c="dimmed" size="sm">
-          {t('requestsList.resultsCount', { count: visibleRequests.length })}
+          {t('requestsList.resultsCount', { count: total })}
         </Text>
       </Group>
 
       {requests.length === 0 ? (
         <EmptyState
-          icon="📺"
-          title={t('requestsList.empty.title')}
-          description={t('requestsList.empty.description')}
-        />
-      ) : visibleRequests.length === 0 ? (
-        <EmptyState
-          icon="🧭"
-          title={t('requestsList.emptyFiltered.title')}
-          description={t('requestsList.emptyFiltered.description')}
+          icon={isDefaultView ? '📺' : '🧭'}
+          title={t(isDefaultView ? 'requestsList.empty.title' : 'requestsList.emptyFiltered.title')}
+          description={t(
+            isDefaultView
+              ? 'requestsList.empty.description'
+              : 'requestsList.emptyFiltered.description',
+          )}
         />
       ) : (
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-          {visibleRequests.map((request) => (
-            <RequestCard key={request.id} request={request} />
-          ))}
-        </SimpleGrid>
+        <>
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+            {localizedRequests.map((request) => (
+              <RequestCard key={request.id} request={request} />
+            ))}
+          </SimpleGrid>
+          {hasNextPage && (
+            <Button
+              variant="default"
+              loading={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+            >
+              {t('requestsList.loadMore')}
+            </Button>
+          )}
+        </>
       )}
     </Stack>
   );

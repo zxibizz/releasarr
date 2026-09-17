@@ -22,6 +22,7 @@ class MovieDetails:
     genres: list[str] = field(default_factory=list)
     runtime_minutes: int | None = None
     has_file: bool = False
+    monitored: bool = False
     # Bytes on disk, for a movie Radarr holds a file for.
     file_size: int | None = None
 
@@ -56,8 +57,8 @@ class RadarrService(Protocol):
     async def test_connection(self) -> None:
         """Verify the configured URL and API key reach Radarr, raising on failure."""
 
-    async def get_missing_movies(self) -> list[MovieDetails]:
-        """Return monitored Radarr movies that are still missing a file."""
+    async def list_movies(self) -> list[MovieDetails]:
+        """Return every movie in the library, with file and monitoring state."""
 
     async def get_movie(self, movie_id: int) -> MovieDetails:
         """Return detailed information for a single Radarr movie."""

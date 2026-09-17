@@ -1,9 +1,10 @@
-import type { MediaRequest } from '@/types';
-
 /**
  * Media type and progress are independent questions — "which series are still
  * downloading?" needs both — so they are separate filters rather than one list
  * of pills where picking a type threw away the status.
+ *
+ * The keys below are the vocabulary the list page, the URL and the API share;
+ * the filtering itself happens server-side.
  */
 export const TYPE_KEYS = ['all', 'movie', 'series'] as const;
 
@@ -42,63 +43,3 @@ export const isStatusFilter = (value: string | null): value is StatusFilter =>
 
 export const isSortKey = (value: string | null): value is SortKey =>
   Boolean(value) && SORT_KEYS.includes(value as SortKey);
-
-const SORTERS: Record<SortKey, (a: MediaRequest, b: MediaRequest) => number> = {
-  created_desc: (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  created_asc: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-  title_asc: (a, b) => a.title.localeCompare(b.title),
-  title_desc: (a, b) => b.title.localeCompare(a.title),
-};
-
-const matchesType = (request: MediaRequest, type: TypeFilter): boolean =>
-  type === 'all' || request.type === type;
-
-const matchesStatus = (request: MediaRequest, status: StatusFilter): boolean => {
-  if (status === 'all') return true;
-  if (status === 'active') return request.status !== 'completed';
-  return request.status === status;
-};
-
-const matchesSearch = (request: MediaRequest, search: string): boolean => {
-  if (!search) return true;
-  const haystack = [request.title, request.type === 'series' ? request.series_title : undefined];
-  return haystack.some((value) => value?.toLowerCase().includes(search));
-};
-
-const matchesOwner = (request: MediaRequest, owner: string | null): boolean =>
-  !owner || request.owner_user_id === owner;
-
-const matchesWarnings = (request: MediaRequest, hasWarnings: boolean): boolean =>
-  !hasWarnings || (request.warnings?.length ?? 0) > 0;
-
-export const filterAndSortRequests = (
-  requests: MediaRequest[],
-  {
-    type,
-    status,
-    sort,
-    search,
-    owner = null,
-    hasWarnings = false,
-  }: {
-    type: TypeFilter;
-    status: StatusFilter;
-    sort: SortKey;
-    search: string;
-    owner?: string | null;
-    hasWarnings?: boolean;
-  },
-): MediaRequest[] => {
-  const normalizedSearch = search.trim().toLowerCase();
-
-  return requests
-    .filter(
-      (request) =>
-        matchesType(request, type) &&
-        matchesStatus(request, status) &&
-        matchesSearch(request, normalizedSearch) &&
-        matchesOwner(request, owner) &&
-        matchesWarnings(request, hasWarnings),
-    )
-    .sort(SORTERS[sort]);
-};

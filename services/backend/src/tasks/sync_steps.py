@@ -57,23 +57,23 @@ class SyncSteps:
         return run
 
     async def sonarr_sync(self) -> StepSummary:
-        """Import Sonarr's missing seasons into media requests."""
+        """Reconcile media requests with the seasons Sonarr monitors."""
 
         result = await self.container.use_cases.media_requests.sync_sonarr.execute()
         return {
             "created": result.created,
             "updated": result.updated,
-            "completed": result.completed,
+            "deleted": result.deleted,
         }
 
     async def radarr_sync(self) -> StepSummary:
-        """Import Radarr's missing movies into media requests."""
+        """Reconcile media requests with the movies Radarr monitors."""
 
         result = await self.container.use_cases.media_requests.sync_radarr.execute()
         return {
             "created": result.created,
             "updated": result.updated,
-            "completed": result.completed,
+            "deleted": result.deleted,
         }
 
     async def release_sync(self) -> StepSummary:

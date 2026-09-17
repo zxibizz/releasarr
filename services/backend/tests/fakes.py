@@ -54,7 +54,6 @@ from src.application.interfaces.releases import (
 from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sonarr import (
     ManualImportFile,
-    MissingSeriesRecord,
     SeriesDetails,
     SeriesLookup,
     SeriesSeasonDetails,
@@ -594,8 +593,8 @@ class FakeSonarrService:
         self.waited: list[tuple[int, list[int]]] = []
         self.deleted: list[int] = []
 
-    async def get_missing_series(self) -> list[MissingSeriesRecord]:
-        return []
+    async def list_series(self) -> list[SeriesDetails]:
+        return list(self._catalogue.values())
 
     async def get_series(self, series_id: int) -> SeriesDetails:
         return self._catalogue[series_id]
@@ -718,8 +717,8 @@ class FakeRadarrService:
         self.monitored: list[tuple[int, bool]] = []
         self.deleted: list[int] = []
 
-    async def get_missing_movies(self) -> list[MovieDetails]:
-        return []
+    async def list_movies(self) -> list[MovieDetails]:
+        return list(self._catalogue.values())
 
     async def get_movie(self, movie_id: int) -> MovieDetails:
         return self._catalogue[movie_id]

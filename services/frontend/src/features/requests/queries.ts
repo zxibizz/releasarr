@@ -1,10 +1,10 @@
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { discoverKeys } from '@/features/discover/keys';
 import { requestsApi, type RequestListFilters } from '@/features/requests/api';
-import type { UpdateSeasonsPayload } from '@/types';
+import type { RequestsResponse, UpdateSeasonsPayload } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 
 const serializeFilters = (filters?: RequestListFilters) =>
@@ -26,9 +26,27 @@ export const requestKeys = {
   seasons: (id: string) => [...requestKeys.all, 'seasons', id] as const,
 };
 
-export const requestsListQuery = (filters?: RequestListFilters) => ({
+type RequestsListQueryFilters = Omit<RequestListFilters, 'page' | 'perPage'>;
+
+/**
+ * The API does the filtering now, so the page size is the contract's maximum:
+ * a filter change is one request, not one per page of twenty.
+ */
+export const REQUESTS_PAGE_SIZE = 100;
+
+/** The URL defaults made explicit; the list route loader prefetches this key. */
+export const DEFAULT_REQUESTS_LIST_FILTERS: RequestsListQueryFilters = {
+  status: 'active',
+  sort: 'created_desc',
+};
+
+export const requestsListQuery = (filters: RequestsListQueryFilters = {}) => ({
   queryKey: requestKeys.list(filters),
-  queryFn: ({ signal }: { signal: AbortSignal }) => requestsApi.list(filters, signal),
+  queryFn: ({ pageParam, signal }: { pageParam: number; signal: AbortSignal }) =>
+    requestsApi.list({ ...filters, page: pageParam, perPage: REQUESTS_PAGE_SIZE }, signal),
+  initialPageParam: 1,
+  getNextPageParam: (lastPage: RequestsResponse) =>
+    lastPage.page * lastPage.per_page < lastPage.total ? lastPage.page + 1 : undefined,
 });
 
 export const requestDetailQuery = (id: string) => ({
@@ -36,13 +54,13 @@ export const requestDetailQuery = (id: string) => ({
   queryFn: ({ signal }: { signal: AbortSignal }) => requestsApi.detail(id, signal),
 });
 
-export function useRequestsList(filters?: RequestListFilters) {
-  const query = useQuery(requestsListQuery(filters));
+export function useRequestsList(filters: RequestsListQueryFilters = {}) {
+  const query = useInfiniteQuery(requestsListQuery(filters));
 
   return {
     ...query,
-    requests: query.data?.requests ?? [],
-    total: query.data?.total ?? 0,
+    requests: query.data?.pages.flatMap((page) => page.requests) ?? [],
+    total: query.data?.pages[0]?.total ?? 0,
   };
 }
 

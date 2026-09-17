@@ -42,6 +42,15 @@ import type {
 
 type RequestStatus = MediaRequest['status'];
 type RequestType = MediaRequest['type'];
+type RequestSortKey = 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc';
+
+// ISO timestamps compare lexicographically; the title sorts mirror the API's.
+const REQUEST_SORTERS: Record<RequestSortKey, (a: MediaRequest, b: MediaRequest) => number> = {
+  created_desc: (a, b) => b.created_at.localeCompare(a.created_at),
+  created_asc: (a, b) => a.created_at.localeCompare(b.created_at),
+  title_asc: (a, b) => a.title.localeCompare(b.title),
+  title_desc: (a, b) => b.title.localeCompare(a.title),
+};
 type ReleaseStatus = Release['status'];
 
 /** The same threshold the backend applies after collapsing Loguru's levels. */
@@ -283,14 +292,20 @@ export class MockStore {
       status?: RequestStatus;
       type?: RequestType;
       hasWarnings?: boolean;
+      activeOnly?: boolean;
+      search?: string;
+      sort?: RequestSortKey;
     } = {},
   ): Promise<MediaRequest[]> {
-    const { status, type, hasWarnings } = filters;
+    const { status, type, hasWarnings, activeOnly, search, sort = 'created_desc' } = filters;
     const requests = await this.ensureRequests();
 
     let result = requests;
     if (status) {
       result = result.filter((request) => request.status === status);
+    }
+    if (activeOnly) {
+      result = result.filter((request) => request.status !== 'completed');
     }
     if (type) {
       result = result.filter((request) => request.type === type);
@@ -298,6 +313,15 @@ export class MockStore {
     if (hasWarnings !== undefined) {
       result = result.filter((request) => (request.warnings?.length ?? 0) > 0 === hasWarnings);
     }
+    if (search) {
+      const needle = search.toLowerCase();
+      result = result.filter(
+        (request) =>
+          request.title.toLowerCase().includes(needle) ||
+          (request.type === 'series' && request.series_title.toLowerCase().includes(needle)),
+      );
+    }
+    result = [...result].sort(REQUEST_SORTERS[sort]);
 
     return Promise.all(result.map((request) => this.cloneWithReleaseAge(request)));
   }

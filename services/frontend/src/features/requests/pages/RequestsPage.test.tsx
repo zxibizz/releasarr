@@ -58,10 +58,49 @@ const countLabels = (card: HTMLElement): string[] =>
     .queryAllByLabelText(/^(Downloaded|Pending|Unaired) \d+$/)
     .map((element) => element.getAttribute('aria-label') ?? '');
 
+/** The query params the page sends; the API, not the page, applies them. */
+type ListQuery = {
+  query?: {
+    status?: string;
+    type?: string;
+    has_warnings?: boolean;
+    search?: string;
+    page?: number;
+  };
+};
+
+const mockList = (fixtures: MediaRequest[]) => {
+  vi.mocked(apiRequest).mockImplementation((_path, options) => {
+    const query = (options as ListQuery | undefined)?.query ?? {};
+    let result = fixtures;
+    if (query.status === 'active') {
+      result = result.filter((request) => request.status !== 'completed');
+    } else if (query.status) {
+      result = result.filter((request) => request.status === query.status);
+    }
+    if (query.type) {
+      result = result.filter((request) => request.type === query.type);
+    }
+    if (query.has_warnings) {
+      result = result.filter((request) => (request.warnings?.length ?? 0) > 0);
+    }
+    if (query.search) {
+      const needle = query.search.toLowerCase();
+      result = result.filter((request) => request.title.toLowerCase().includes(needle));
+    }
+    return Promise.resolve({
+      requests: result,
+      total: result.length,
+      page: query.page ?? 1,
+      per_page: 100,
+    });
+  });
+};
+
 describe('RequestsPage', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
-    vi.mocked(apiRequest).mockResolvedValue({ requests: [movie, series], total: 2 });
+    mockList([movie, series]);
   });
 
   it('renders requests returned by the API', async () => {
@@ -71,19 +110,20 @@ describe('RequestsPage', () => {
     expect(screen.getByText('Severance')).toBeInTheDocument();
   });
 
-  it('hides requests that have already completed by default', async () => {
+  it('asks the API for the active requests by default', async () => {
     renderWithProviders(<RequestsPage />);
 
-    // `movie` is completed; `series` is still downloading.
+    // `movie` is completed, so `status=active` answers without it.
     expect(await screen.findByText('Severance')).toBeInTheDocument();
     expect(screen.queryByText('The Dark Knight')).not.toBeInTheDocument();
+    expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
+      '/requests',
+      expect.objectContaining({ query: expect.objectContaining({ status: 'active' }) }),
+    );
   });
 
   it('counts a failed request as still unfinished', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [{ ...movie, id: '3', title: 'Tenet', status: 'failed' }],
-      total: 1,
-    });
+    mockList([{ ...movie, id: '3', title: 'Tenet', status: 'failed' }]);
 
     renderWithProviders(<RequestsPage />);
 
@@ -137,7 +177,7 @@ describe('RequestsPage', () => {
   });
 
   it('shows an empty state when the API returns no requests', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({ requests: [], total: 0 });
+    mockList([]);
 
     renderWithProviders(<RequestsPage />);
 
@@ -160,10 +200,7 @@ describe('RequestsPage', () => {
   });
 
   it('leaves out the buckets that are empty rather than showing a zero', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [{ ...series, episode_counts: { downloaded: 10, pending: 0, unaired: 0 } }],
-      total: 1,
-    });
+    mockList([{ ...series, episode_counts: { downloaded: 10, pending: 0, unaired: 0 } }]);
 
     renderWithProviders(<RequestsPage />);
 
@@ -175,10 +212,8 @@ describe('RequestsPage', () => {
 
   it('says nothing about a season the sync has not counted yet', async () => {
     // Null means "not synchronised", which must not read as "nothing downloaded".
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [{ ...series, episode_counts: null }],
-      total: 1,
-    });
+    // The generated type omits the null the contract declares, so say it here.
+    mockList([{ ...series, episode_counts: null } as unknown as MediaRequest]);
 
     renderWithProviders(<RequestsPage />);
 
@@ -204,10 +239,7 @@ describe('RequestsPage', () => {
     expect(screen.getByLabelText(ageLabel('3 days'))).toBeInTheDocument();
 
     // Anything younger than a day reads as "Today" rather than "0 days".
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [{ ...movie, newest_release_published_at: daysAgo(0) }],
-      total: 1,
-    });
+    mockList([{ ...movie, newest_release_published_at: daysAgo(0) }]);
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
     expect(await screen.findByLabelText(ageLabel('Today'))).toBeInTheDocument();
@@ -232,23 +264,20 @@ describe('RequestsPage', () => {
   });
 
   it('shows a warning badge only on a request that has one', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [
-        {
-          ...movie,
-          warnings: [
-            {
-              code: 'regrab_indexer_unavailable',
-              release_id: 'rel-1',
-              details: { reason: 'indexer banned' },
-              created_at: '2026-03-01T00:00:00.000Z',
-            },
-          ],
-        },
-        series,
-      ],
-      total: 2,
-    });
+    mockList([
+      {
+        ...movie,
+        warnings: [
+          {
+            code: 'regrab_indexer_unavailable',
+            release_id: 'rel-1',
+            details: { reason: 'indexer banned' },
+            created_at: '2026-03-01T00:00:00.000Z',
+          },
+        ],
+      },
+      series,
+    ]);
 
     renderWithProviders(<RequestsPage />, { route: '/?status=all' });
 
@@ -261,23 +290,20 @@ describe('RequestsPage', () => {
   });
 
   it('narrows the list to problematic requests only, from the URL and the toggle', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      requests: [
-        {
-          ...movie,
-          warnings: [
-            {
-              code: 'regrab_indexer_unavailable',
-              release_id: 'rel-1',
-              details: null,
-              created_at: '2026-03-01T00:00:00.000Z',
-            },
-          ],
-        },
-        series,
-      ],
-      total: 2,
-    });
+    mockList([
+      {
+        ...movie,
+        warnings: [
+          {
+            code: 'regrab_indexer_unavailable',
+            release_id: 'rel-1',
+            details: null,
+            created_at: '2026-03-01T00:00:00.000Z',
+          },
+        ],
+      },
+      series,
+    ]);
 
     renderWithProviders(<RequestsPage />, { route: '/?status=all&warnings=1' });
 
@@ -286,6 +312,47 @@ describe('RequestsPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
     await userEvent.click(await screen.findByRole('button', { name: /problematic only/i }));
+
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+    expect(screen.getByText('The Dark Knight')).toBeInTheDocument();
+  });
+
+  it('sends the settled search text to the API', async () => {
+    // `movie` is completed, which the default active filter excludes — searching
+    // within "all" is what lets it match.
+    renderWithProviders(<RequestsPage />, { route: '/?status=all' });
+
+    // The search input arrives with the list; while loading there is a skeleton.
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('searchbox', { name: /search requests/i }), 'dark');
+
+    await waitFor(() =>
+      expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
+        '/requests',
+        expect.objectContaining({ query: expect.objectContaining({ search: 'dark' }) }),
+      ),
+    );
+    expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
+    expect(screen.queryByText('Severance')).not.toBeInTheDocument();
+  });
+
+  it('offers another page when the API says there is one', async () => {
+    vi.mocked(apiRequest).mockImplementation((_path, options) => {
+      const query = (options as ListQuery | undefined)?.query ?? {};
+      return Promise.resolve(
+        query.page === 2
+          ? { requests: [series], total: 2, page: 2, per_page: 1 }
+          : { requests: [movie], total: 2, page: 1, per_page: 1 },
+      );
+    });
+
+    renderWithProviders(<RequestsPage />, { route: '/?status=all' });
+
+    expect(await screen.findByText('The Dark Knight')).toBeInTheDocument();
+    expect(screen.queryByText('Severance')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /load more/i }));
 
     expect(await screen.findByText('Severance')).toBeInTheDocument();
     expect(screen.getByText('The Dark Knight')).toBeInTheDocument();

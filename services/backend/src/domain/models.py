@@ -97,6 +97,8 @@ class MediaRequest(Base):
             "radarr_movie_id",
             name="uq_media_requests_radarr_movie",
         ),
+        Index("ix_media_requests_status_created_at", "status", "created_at"),
+        Index("ix_media_requests_title", "title"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

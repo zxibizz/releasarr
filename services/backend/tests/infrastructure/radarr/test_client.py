@@ -34,42 +34,39 @@ def build_client(handler: Handler) -> RadarrHttpClient:
     )
 
 
-async def test_missing_movies_are_read_straight_off_the_wanted_list() -> None:
-    """Radarr returns whole movie records, so no follow-up lookup is needed."""
+async def test_list_movies_reads_the_whole_library() -> None:
+    """The library listing returns whole movie records, so no follow-up lookup is needed."""
 
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path.endswith("/wanted/missing")
+        assert request.url.path.endswith("/movie")
         return httpx.Response(
             200,
-            json={
-                "page": 1,
-                "totalRecords": 2,
-                "records": [
-                    {
-                        "id": 156,
-                        "title": "Arrival",
-                        "year": 2016,
-                        "overview": "Linguist meets heptapods.",
-                        "runtime": 116,
-                        "imdbId": "tt2543164",
-                        "tmdbId": 329865,
-                        "genres": ["Drama", "Science Fiction"],
-                        "hasFile": False,
-                        "images": [
-                            {
-                                "coverType": "poster",
-                                "url": "/MediaCover/156/poster.jpg",
-                                "remoteUrl": "https://image.tmdb.org/poster.jpg",
-                            }
-                        ],
-                    },
-                    # Radarr always sends an id; a record without one is unusable.
-                    {"title": "Broken"},
-                ],
-            },
+            json=[
+                {
+                    "id": 156,
+                    "title": "Arrival",
+                    "year": 2016,
+                    "overview": "Linguist meets heptapods.",
+                    "runtime": 116,
+                    "imdbId": "tt2543164",
+                    "tmdbId": 329865,
+                    "genres": ["Drama", "Science Fiction"],
+                    "hasFile": False,
+                    "monitored": True,
+                    "images": [
+                        {
+                            "coverType": "poster",
+                            "url": "/MediaCover/156/poster.jpg",
+                            "remoteUrl": "https://image.tmdb.org/poster.jpg",
+                        }
+                    ],
+                },
+                # Radarr always sends an id; a record without one is unusable.
+                {"title": "Broken"},
+            ],
         )
 
-    movies = await build_client(handler).get_missing_movies()
+    movies = await build_client(handler).list_movies()
 
     assert len(movies) == 1
     movie = movies[0]
@@ -81,6 +78,7 @@ async def test_missing_movies_are_read_straight_off_the_wanted_list() -> None:
     assert movie.tmdb_id == 329865
     assert movie.genres == ["Drama", "Science Fiction"]
     assert movie.has_file is False
+    assert movie.monitored is True
     # The remote URL is preferred so the poster resolves without a Radarr session.
     assert movie.poster_url == "https://image.tmdb.org/poster.jpg"
 
@@ -224,4 +222,4 @@ async def test_a_missing_api_key_is_reported_as_configuration_not_as_a_401() -> 
     )
 
     with pytest.raises(HttpClientError, match="RELEASARR_RADARR_API_KEY"):
-        await client.get_missing_movies()
+        await client.list_movies()

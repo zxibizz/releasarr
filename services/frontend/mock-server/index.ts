@@ -42,6 +42,15 @@ const parseRequestStatus = (
     : undefined;
 };
 
+const parseRequestSort = (
+  value: string | undefined | null,
+): 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc' => {
+  const allowed = ['created_desc', 'created_asc', 'title_asc', 'title_desc'] as const;
+  return allowed.includes(value as (typeof allowed)[number])
+    ? (value as 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc')
+    : 'created_desc';
+};
+
 const parseReleaseStatus = (value: string | undefined | null): Release['status'] | undefined => {
   if (!value) return undefined;
   const allowed: Release['status'][] = ['pending', 'downloading', 'completed', 'failed'];
@@ -315,9 +324,13 @@ const INDEXER_EVENT_TYPES = [
 api.get('/requests', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
   const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));
-  const status = parseRequestStatus(req.query.status as string | undefined);
+  const statusParam = req.query.status as string | undefined;
+  const activeOnly = statusParam === 'active';
+  const status = activeOnly ? undefined : parseRequestStatus(statusParam);
   const typeParam = req.query.type as string | undefined;
   const type = typeParam === 'movie' || typeParam === 'series' ? typeParam : undefined;
+  const search = ((req.query.search as string | undefined) ?? '').trim() || undefined;
+  const sort = parseRequestSort(req.query.sort as string | undefined);
 
   const user = res.locals.user as { id: string; can_view_all_requests: boolean };
   const requestedOwner = req.query.owner as string | undefined;
@@ -331,7 +344,9 @@ api.get('/requests', async (req, res) => {
   const hasWarningsParam = req.query.has_warnings as string | undefined;
   const hasWarnings = hasWarningsParam === undefined ? undefined : hasWarningsParam === 'true';
 
-  const filtered = (await mockStore.listRequests({ status, type, hasWarnings })).filter(
+  const filtered = (
+    await mockStore.listRequests({ status, type, hasWarnings, activeOnly, search, sort })
+  ).filter(
     (request) =>
       !ownerFilter || (request as { owner_user_id?: string }).owner_user_id === ownerFilter,
   );

@@ -36,6 +36,9 @@ class ListMediaRequestsUseCase:
             media_type=opts.media_type,
             owner_user_id=opts.owner_user_id,
             has_warnings=opts.has_warnings,
+            active_only=opts.active_only,
+            search=opts.search,
+            sort=opts.sort,
         )
 
         warnings_by_request = await self._warning_repository.list_for_requests(

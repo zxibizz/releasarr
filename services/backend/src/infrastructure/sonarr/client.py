@@ -13,7 +13,6 @@ import httpx
 from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.sonarr import (
     ManualImportFile,
-    MissingSeriesRecord,
     SeriesDetails,
     SeriesLookup,
     SeriesSeasonDetails,
@@ -68,45 +67,18 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def get_missing_series(self) -> list[MissingSeriesRecord]:
+    async def list_series(self) -> list[SeriesDetails]:
         payload = await self._request(
             "GET",
-            "/wanted/missing",
-            params={
-                "page": 1,
-                "pageSize": 1000,
-                "includeSeries": "true",
-                "includeImages": "false",
-                "sortDirection": "descending",
-            },
+            "/series",
+            params={"includeSeasonImages": "false"},
         )
-
-        records: dict[int, MissingSeriesRecord] = {}
-        for entry in payload.get("records", []):
-            series_info = entry.get("series") or {}
-            series_id = int(entry.get("seriesId") or series_info.get("id") or 0)
-            if series_id <= 0:
-                continue
-
-            record = records.get(series_id)
-            if record is None:
-                record = MissingSeriesRecord(
-                    series_id=series_id,
-                    title=str(series_info.get("title") or ""),
-                    season_numbers=[],
-                    tvdb_id=self._safe_int(series_info.get("tvdbId")),
-                    imdb_id=self._safe_str(series_info.get("imdbId")),
-                )
-                records[series_id] = record
-
-            season_number = int(entry.get("seasonNumber") or 0)
-            if season_number not in record.season_numbers:
-                record.season_numbers.append(season_number)
-
-        for record in records.values():
-            record.season_numbers.sort()
-
-        return list(records.values())
+        entries = payload if isinstance(payload, list) else []
+        return [
+            self._to_series_details(entry, fallback_id=0)
+            for entry in entries
+            if isinstance(entry, dict)
+        ]
 
     async def get_series(self, series_id: int) -> SeriesDetails:
         data = await self._request(

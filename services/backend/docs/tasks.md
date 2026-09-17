@@ -13,8 +13,8 @@ and the API so the UI can never disagree with what actually runs.
 
 | Task | Default interval | What it does |
 | --- | --- | --- |
-| `sonarr_sync` | 60m | Import Sonarr's missing episodes as media requests |
-| `radarr_sync` | 60m | Import Radarr's missing movies as media requests |
+| `sonarr_sync` | 60m | Reconcile requests with the seasons Sonarr monitors |
+| `radarr_sync` | 60m | Reconcile requests with the movies Radarr monitors |
 | `release_sync` | 30s | Refresh download progress and state from qBittorrent |
 | `export` | 5m | Import finished releases into Sonarr and Radarr |
 | `regrab` | 60m | Re-download releases the indexer has since replaced |

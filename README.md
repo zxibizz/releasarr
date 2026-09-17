@@ -11,7 +11,7 @@ assumptions. A season pack numbered by absolute episode, a dual-audio rip from a
 its own naming, a file layout the import parser cannot read — and the automation quietly gives
 up, leaving you to shuffle files around by hand.
 
-Releasarr is the manual path, made pleasant. It takes what Sonarr and Radarr report as missing,
+Releasarr is the manual path, made pleasant. It takes what Sonarr and Radarr monitor,
 searches Prowlarr for it, downloads through qBittorrent, lets you say exactly which file is
 which episode, and then hands the result back through Sonarr and Radarr's own manual import.
 Your library managers stay the source of truth; Releasarr just handles the awkward middle.
@@ -94,7 +94,7 @@ with.
 
 | Feature | What it means |
 | --- | --- |
-| **Requests from your library** | Sonarr's missing seasons and Radarr's missing movies are pulled in automatically as requests, enriched with TVDB and TMDB metadata. |
+| **Requests from your library** | Every season Sonarr monitors and every movie Radarr monitors becomes a request — including the ones already complete — enriched with TVDB and TMDB metadata. |
 | **Indexer search on demand** | Search Prowlarr per request, or paste a magnet link or upload a `.torrent` yourself. |
 | **Indexer health** | Each indexer's health, protocol, priority, and last failure, testable from the UI. A search fans out per indexer, so one that is down costs you its results, not the search. |
 | **Download management** | Add, pause, resume, and remove torrents in qBittorrent without leaving the request. |
@@ -111,8 +111,8 @@ with.
 ```
     Sonarr / Radarr                  you                    Prowlarr
    ┌────────────────┐        ┌──────────────────┐        ┌──────────┐
-   │ missing season │───────▶│  media request   │───────▶│  search  │
-   │ missing movie  │  sync  │                  │  pick  └────┬─────┘
+   │   monitored    │───────▶│  media request   │───────▶│  search  │
+   │ season / movie │  sync  │                  │  pick  └────┬─────┘
    └────────────────┘        └──────────────────┘             │
            ▲                                                  ▼
            │                                          ┌───────────────┐
@@ -132,8 +132,8 @@ that is deliberately separate from the web server:
 
 | Task | Default interval | What it does |
 | --- | --- | --- |
-| `sonarr_sync` | 60m | Import Sonarr's missing seasons as media requests |
-| `radarr_sync` | 60m | Import Radarr's missing movies as media requests |
+| `sonarr_sync` | 60m | Reconcile requests with the seasons Sonarr monitors |
+| `radarr_sync` | 60m | Reconcile requests with the movies Radarr monitors |
 | `release_sync` | 30s | Refresh download progress and state from qBittorrent |
 | `export` | 5m | Import finished releases into Sonarr and Radarr |
 | `regrab` | 60m | Re-download releases the indexer has since replaced |

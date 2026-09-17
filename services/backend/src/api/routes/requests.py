@@ -36,7 +36,7 @@ from src.application.use_cases.requests import (
     UpdateMediaRequestUseCase,
 )
 from src.core.container import AppContainer, get_container
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import MediaRequestStatus, MediaType, RequestSort
 from src.schemas.discover import SeriesSeasonsResponse, UpdateSeasonsPayload
 from src.schemas.requests import (
     CreateMovieRequest,
@@ -237,13 +237,23 @@ async def list_requests(
     type_filter: str | None = Query(default=None, alias="type"),
     owner: str | None = Query(default=None),
     has_warnings: bool | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=255),
+    sort: str = Query(default="created_desc"),
 ) -> RequestsResponse:
     status_value: MediaRequestStatus | None = None
-    if status_filter:
+    active_only = False
+    if status_filter == "active":
+        active_only = True
+    elif status_filter:
         try:
             status_value = MediaRequestStatus(status_filter)
         except ValueError as exc:  # pragma: no cover - validated by FastAPI but kept defensive
             raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_status_filter", str(exc)) from exc
+
+    try:
+        sort_value = RequestSort(sort)
+    except ValueError as exc:
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_sort", str(exc)) from exc
 
     media_type: MediaType | None = None
     if type_filter:
@@ -266,6 +276,9 @@ async def list_requests(
         media_type=media_type,
         owner_user_id=owner_filter,
         has_warnings=has_warnings,
+        active_only=active_only,
+        search=search,
+        sort=sort_value,
     )
     result = await list_use_case.execute(options)
     return _page_to_response(result)

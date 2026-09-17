@@ -27,6 +27,13 @@ class MediaRequestStatus(StrEnum):
     FAILED = "failed"
 
 
+class RequestSort(StrEnum):
+    CREATED_DESC = "created_desc"
+    CREATED_ASC = "created_asc"
+    TITLE_ASC = "title_asc"
+    TITLE_DESC = "title_desc"
+
+
 class ReleaseStatus(StrEnum):
     PENDING = "pending"
     DOWNLOADING = "downloading"

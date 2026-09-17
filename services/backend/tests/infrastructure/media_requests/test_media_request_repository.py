@@ -20,7 +20,7 @@ from src.application.interfaces.media_requests import (
 from src.db import Base
 from src.db.session import DBManager
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, MediaType, RequestWarningCode
+from src.domain.enums import MediaRequestStatus, MediaType, RequestSort, RequestWarningCode
 from src.infrastructure.media_requests.repository import SqlAlchemyMediaRequestRepository
 
 
@@ -252,3 +252,108 @@ async def test_delete_request_removes_row(
 
     assert await repository.delete_request("req-1") is True
     assert await repository.get_request("req-1") is None
+
+
+async def _seed_titled(
+    db_manager: DBManager,
+    request_id: str,
+    *,
+    title: str,
+    series_title: str | None = None,
+    status: MediaRequestStatus = MediaRequestStatus.PENDING,
+) -> None:
+    async with db_manager.transaction() as session:
+        session.add(
+            models.MediaRequest(
+                id=request_id,
+                media_type=MediaType.SERIES if series_title else MediaType.MOVIE,
+                status=status,
+                title=title,
+                year=2024,
+                overview=None,
+                poster_url=None,
+                genres=[],
+                runtime_minutes=None,
+                imdb_id=None,
+                season_number=1 if series_title else None,
+                total_episodes=10 if series_title else None,
+                series_title=series_title,
+                series_year=None,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_requests_searches_both_titles_case_insensitively(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(db_manager, "req-1", title="Arrival")
+    await _seed_titled(
+        db_manager, "req-2", title="Example Show - Season 1", series_title="Example Show"
+    )
+    await _seed_titled(db_manager, "req-3", title="Dune")
+
+    records, total = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, search="example show"
+    )
+
+    assert total == 1
+    # The series title matched; the request's own title only carries it as a suffix.
+    assert [record.id for record in records] == ["req-2"]
+
+
+@pytest.mark.asyncio
+async def test_list_requests_search_treats_wildcards_as_literal_text(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(db_manager, "req-1", title="100% Complete")
+    await _seed_titled(db_manager, "req-2", title="1000 Ways")
+
+    records, total = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, search="100%"
+    )
+
+    assert total == 1
+    assert [record.id for record in records] == ["req-1"]
+
+
+@pytest.mark.asyncio
+async def test_list_requests_active_only_excludes_completed(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(db_manager, "req-1", title="One")
+    await _seed_titled(db_manager, "req-2", title="Two", status=MediaRequestStatus.COMPLETED)
+    await _seed_titled(db_manager, "req-3", title="Three", status=MediaRequestStatus.DOWNLOADING)
+
+    records, total = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, active_only=True
+    )
+
+    assert total == 2
+    assert {record.id for record in records} == {"req-1", "req-3"}
+
+
+@pytest.mark.asyncio
+async def test_list_requests_sorts_by_title(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(db_manager, "req-1", title="Beta")
+    await _seed_titled(db_manager, "req-2", title="alpha")
+    await _seed_titled(db_manager, "req-3", title="Gamma")
+
+    ascending, _ = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, sort=RequestSort.TITLE_ASC
+    )
+    descending, _ = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, sort=RequestSort.TITLE_DESC
+    )
+
+    # Both backends order by bytes: capitals before lowercase.
+    assert [record.title for record in ascending] == ["Beta", "Gamma", "alpha"]
+    assert [record.title for record in descending] == ["alpha", "Gamma", "Beta"]

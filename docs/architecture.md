@@ -180,11 +180,15 @@ import shows up in the UI without every page polling.
 
 ## How a request flows end to end
 
-1. **`sonarr_sync` / `radarr_sync`** read missing seasons and movies from the *arrs, enrich them
-   with TVDB/TMDB metadata, and upsert `media_requests` rows. Uniqueness is
-   `(sonarr_series_id, season_number)` for series and `radarr_movie_id` for movies. For series
-   they also own completion: a season Sonarr no longer reports missing is closed only once
-   nothing is left to air, and one that is still airing is put back on `pending` instead.
+1. **`sonarr_sync` / `radarr_sync`** reconcile `media_requests` with the *arr libraries
+   themselves: every monitored season of every series and every monitored movie is a request,
+   including the ones nothing is currently missing from. TVDB/TMDB metadata is fetched only for
+   rows with no localizations stored. Uniqueness is `(sonarr_series_id, season_number)` for
+   series and `radarr_movie_id` for movies. The sweep owns both ends of the lifecycle: a season
+   whose aired episodes all hold files reads as `completed`, one that is still airing stays on
+   `pending`, and a request whose season or movie the *arr no longer monitors — or no longer
+   has — is deleted. An empty library answer is distrusted and prunes nothing, because the
+   likelier reading is an *arr mid-restart.
 2. **A human picks a release.** `GET /releases/search` proxies Prowlarr;
    `POST /requests/{id}/releases/download` hands the magnet or `.torrent` to qBittorrent and
    writes a `releases` row plus a `release_request_links` row. `ReleaseGrabFinalizer` marks the
