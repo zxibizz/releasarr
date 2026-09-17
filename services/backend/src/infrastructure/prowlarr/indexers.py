@@ -90,6 +90,11 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
     async def aclose(self) -> None:
         await self._http.aclose()
 
+    async def test_connection(self) -> None:
+        """Verify the URL and key reach Prowlarr via its status probe."""
+
+        await self._get("/system/status")
+
     async def list_indexers(self) -> list[IndexerRecord]:
         """Merge the indexer list with the failure log Prowlarr keeps separately.
 

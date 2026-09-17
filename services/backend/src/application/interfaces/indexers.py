@@ -109,6 +109,9 @@ class IndexerDirectory(Protocol):
     def is_configured(self) -> bool:
         """Whether a provider backs this directory and can be reached."""
 
+    async def test_connection(self) -> None:
+        """Verify the configured URL and key reach the provider, raising on failure."""
+
     async def list_indexers(self) -> Sequence[IndexerRecord]:
         """Return every known indexer, including the ones switched off."""
 

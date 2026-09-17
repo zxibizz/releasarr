@@ -49,6 +49,9 @@ class TmdbService(Protocol):
     def is_configured(self) -> bool:
         """Whether an API token is set. The base URL always has a default."""
 
+    async def test_connection(self) -> None:
+        """Verify the configured base URL and token authenticate, raising on failure."""
+
     async def get_movie(
         self,
         tmdb_id: int,

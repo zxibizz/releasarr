@@ -505,8 +505,32 @@ class ServiceApiKey(Base):
     )
 
 
+class AppSettings(Base):
+    """The singleton row of runtime setting overrides.
+
+    Stores only the fields the environment does not set: the env/.env layer is
+    the base and stays authoritative for whatever it pins. Exactly one row ever
+    exists. ``revision`` is bumped on every write so the API and scheduler
+    processes, each holding their own resolved settings, can notice a change.
+    """
+
+    __tablename__ = "app_settings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    overrides: Mapped[dict] = mapped_column(JSONDict, nullable=False, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 __all__ = [
     "RELEASE_REQUEST_LINKS",
+    "AppSettings",
     "MediaRequest",
     "RefreshToken",
     "Release",

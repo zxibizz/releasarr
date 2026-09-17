@@ -81,6 +81,11 @@ from src.application.use_cases.requests.state import RequestStateDeriver
 from src.application.use_cases.requests.sync_radarr import SyncRadarrMediaRequestsUseCase
 from src.application.use_cases.requests.sync_sonarr import SyncSonarrMediaRequestsUseCase
 from src.application.use_cases.requests.update_request import UpdateMediaRequestUseCase
+from src.application.use_cases.settings import (
+    GetSettingsUseCase,
+    TestIntegrationConnectionUseCase,
+    UpdateSettingsSectionUseCase,
+)
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.use_cases.tasks.get_sync_job import (
     GetSyncJobUseCase,
@@ -115,6 +120,7 @@ from src.infrastructure.qbittorrent import (
 from src.infrastructure.radarr import RadarrHttpClient
 from src.infrastructure.releases import SqlAlchemyReleaseRepository
 from src.infrastructure.request_warnings import SqlAlchemyRequestWarningRepository
+from src.infrastructure.settings import LayeredSettingsProvider, SqlAlchemyAppSettingsRepository
 from src.infrastructure.sonarr import SonarrHttpClient
 from src.infrastructure.sync_jobs import (
     SqlAlchemyScheduledTaskRepository,
@@ -169,6 +175,10 @@ class RepositoryContainer:
     @cached_property
     def service_api_keys(self) -> SqlAlchemyServiceApiKeyRepository:
         return SqlAlchemyServiceApiKeyRepository(db=self._container.db_manager)
+
+    @cached_property
+    def app_settings(self) -> SqlAlchemyAppSettingsRepository:
+        return SqlAlchemyAppSettingsRepository(db=self._container.db_manager)
 
 
 @dataclass
@@ -321,6 +331,10 @@ class UseCaseContainer:
     @cached_property
     def tasks(self) -> TaskUseCases:
         return TaskUseCases(self._container)
+
+    @cached_property
+    def settings(self) -> SettingsUseCases:
+        return SettingsUseCases(self._container)
 
 
 @dataclass
@@ -824,6 +838,26 @@ class TaskUseCases:
 
 
 @dataclass
+class SettingsUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def get(self) -> GetSettingsUseCase:
+        return GetSettingsUseCase(provider=self._container.settings_provider)
+
+    @cached_property
+    def update_section(self) -> UpdateSettingsSectionUseCase:
+        return UpdateSettingsSectionUseCase(
+            repository=self._container.repositories.app_settings,
+            provider=self._container.settings_provider,
+        )
+
+    @cached_property
+    def test_connection(self) -> TestIntegrationConnectionUseCase:
+        return TestIntegrationConnectionUseCase(settings=self._container.settings)
+
+
+@dataclass
 class InfrastructureContainer:
     _container: AppContainer
 
@@ -839,19 +873,34 @@ class InfrastructureContainer:
         )
 
 
-@dataclass
+@dataclass(init=False)
 class AppContainer:
-    settings: AppSettings
+    # The env/.env layer. Stored overrides layer on top via ``settings_provider``;
+    # ``settings`` resolves to the effective composition of the two.
+    _env_settings: AppSettings
+
+    def __init__(self, settings: AppSettings) -> None:
+        self._env_settings = settings
+
+    @property
+    def settings(self) -> AppSettings:
+        return self.settings_provider.current()
+
+    @cached_property
+    def settings_provider(self) -> LayeredSettingsProvider:
+        return LayeredSettingsProvider(self.repositories.app_settings, self._env_settings)
 
     def startup(self, *, service: LogService) -> None:
         """Hook for initializing resources (e.g. db engine, http clients).
 
         ``service`` is passed through to logging, which stamps every record with
-        the process that wrote it.
+        the process that wrote it. Logging and the auth-secret check run against
+        the env layer: both are part of process identity, not something a stored
+        override can reach before the first DB read.
         """
 
-        configure_logging(self.settings, service=service)
-        if not self.settings.auth_secret.get_secret_value():
+        configure_logging(self._env_settings, service=service)
+        if not self._env_settings.auth_secret.get_secret_value():
             # A blank signing secret would mean any deployment's tokens are
             # forgeable from the (public) source, not merely misconfigured.
             raise RuntimeError("RELEASARR_AUTH_SECRET must be set to a non-empty value")

@@ -53,6 +53,9 @@ class MovieLookup:
 class RadarrService(Protocol):
     """Protocol describing the subset of Radarr operations we rely on."""
 
+    async def test_connection(self) -> None:
+        """Verify the configured URL and API key reach Radarr, raising on failure."""
+
     async def get_missing_movies(self) -> list[MovieDetails]:
         """Return monitored Radarr movies that are still missing a file."""
 

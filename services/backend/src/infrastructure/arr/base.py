@@ -83,6 +83,15 @@ class ArrHttpClient(BaseHttpClient):
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         raise NotImplementedError
 
+    async def test_connection(self) -> None:
+        """Verify the URL and API key reach the app via its cheapest status probe.
+
+        Implemented here once: both Sonarr and Radarr answer ``/system/status``
+        the same way, and a 401/403 is the auth failure a saved key should show.
+        """
+
+        await self._request("GET", "/system/status")
+
 
 __all__ = [
     "COMMAND_POLL_INTERVAL_SECONDS",
