@@ -17,7 +17,6 @@ from src.application.interfaces.releases import (
     ReleaseSearchService,
 )
 from src.application.queries.logs import ListLogsQuery
-from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.auth import (
     AuthenticatePrincipalUseCase,
     BootstrapAdminUseCase,
@@ -285,10 +284,6 @@ class QueryContainer:
         return ListLogsQuery(
             reader=self._container.infrastructure.log_reader, settings=self._container.settings
         )
-
-    @cached_property
-    def release_summary(self) -> ReleaseSummaryQuery:
-        return ReleaseSummaryQuery(repository=self._container.repositories.releases)
 
 
 @dataclass

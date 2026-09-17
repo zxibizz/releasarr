@@ -85,9 +85,7 @@ class LogService(StrEnum):
     """Which process wrote a log record.
 
     The API and the scheduler run as separate processes that share one log file,
-    so every record names the process that produced it. An ad-hoc CLI task run
-    counts as the scheduler: it executes the same work the loop does, without
-    the loop.
+    so every record names the process that produced it.
     """
 
     API = "api"
@@ -111,7 +109,6 @@ class LogComponent(StrEnum):
     SCHEDULER_JOBS = "scheduler.jobs"
 
     TASK_RELEASE_SYNC = "task.release_sync"
-    TASK_RELEASE_SUMMARY = "task.release_summary"
 
     USECASE_ADD_REQUEST = "usecase.add_request"
     USECASE_AUTO_MAPPING = "usecase.auto_mapping"

@@ -302,9 +302,6 @@ class UnusedReleaseRepositoryCalls:
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
         raise NotImplementedError
 
-    async def count_by_status(self) -> dict[ReleaseStatus, int]:
-        raise NotImplementedError
-
 
 class UnusedReleaseDownloadCalls:
     """Every ``ReleaseDownloadService`` call a test might not drive."""

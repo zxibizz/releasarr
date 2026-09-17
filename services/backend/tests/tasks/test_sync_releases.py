@@ -309,3 +309,59 @@ async def test_an_empty_listing_stamps_nothing(db_manager: DBManager) -> None:
     assert release.missing_since is None
     assert release.status == ReleaseStatus.COMPLETED
     assert (result.not_found, result.missing_new) == (1, 0)
+
+
+async def test_a_run_with_movement_logs_the_counters(
+    db_manager: DBManager,
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """The component filter is the logs view's entry point; a quiet run logs nothing."""
+
+    await seed(db_manager)
+
+    await make_task(db_manager, [torrent("downloading")]).execute()
+
+    summaries = [
+        record
+        for record in captured_records
+        if record["message"] == "Release sync complete"
+    ]
+    assert len(summaries) == 1
+    assert summaries[0]["component"] == "task.release_sync"
+    assert summaries[0]["synced"] == 1
+
+
+async def test_an_unchanged_run_logs_nothing(
+    db_manager: DBManager,
+    captured_records: list[dict[str, Any]],
+) -> None:
+    await seed(db_manager)
+    task = make_task(db_manager, [finished_torrent("uploading")])
+    await task.execute()
+
+    captured_records.clear()
+    await task.execute()
+
+    assert [
+        record
+        for record in captured_records
+        if record["message"] == "Release sync complete"
+    ] == []
+
+
+async def test_a_newly_missing_torrent_is_logged(
+    db_manager: DBManager,
+    captured_records: list[dict[str, Any]],
+) -> None:
+    await seed(db_manager, release_status=ReleaseStatus.COMPLETED)
+
+    await make_task(db_manager, [finished_torrent("uploading", info_hash="OTHER")]).execute()
+
+    stamped = [
+        record
+        for record in captured_records
+        if record["message"] == "Torrent missing from the download client"
+    ]
+    assert len(stamped) == 1
+    assert stamped[0]["component"] == "task.release_sync"
+    assert stamped[0]["release_id"] == "rel-1"

@@ -22,7 +22,7 @@ tests/
   api/             Route integration tests, plus the OpenAPI contract test
   application/     Use case, query, and utility tests
   infrastructure/  Client and repository tests
-  tasks/           CLI, scheduler, and sync task tests
+  tasks/           Scheduler and sync task tests
   core/            Container and logging tests
   conftest.py      Shared fixtures
   fakes.py         Protocol implementations for the use case tests

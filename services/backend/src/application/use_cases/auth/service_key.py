@@ -6,6 +6,10 @@ from uuid import uuid4
 
 from src.application.interfaces.auth import ServiceApiKeyRecord, ServiceApiKeyRepository
 from src.application.utility.secret_tokens import generate_service_key
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_AUTH)
 
 
 class GetOrCreateServiceApiKeyUseCase:
@@ -28,6 +32,7 @@ class RegenerateServiceApiKeyUseCase:
         self._service_api_keys = service_api_keys
 
     async def execute(self) -> ServiceApiKeyRecord:
+        _logger.info("Service API key regenerated")
         return await self._service_api_keys.replace(id=uuid4().hex, key=generate_service_key())
 
 

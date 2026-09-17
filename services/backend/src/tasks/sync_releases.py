@@ -132,7 +132,7 @@ class SyncReleasesTask:
                     error=str(exc),
                 )
 
-        return SyncResult(
+        summary = SyncResult(
             synced=synced,
             failed=failed,
             not_found=not_found,
@@ -141,6 +141,22 @@ class SyncReleasesTask:
             missing_pending=missing[_MissingOutcome.PENDING],
             missing_failed=missing[_MissingOutcome.FAILED],
         )
+        self._log_run_summary(summary)
+        return summary
+
+    def _log_run_summary(self, summary: SyncResult) -> None:
+        # Runs every 30s, so the counters only say something when one moved.
+        if summary.synced or summary.failed or summary.missing_new or summary.missing_failed:
+            _logger.info(
+                "Release sync complete",
+                synced=summary.synced,
+                unchanged=summary.unchanged,
+                failed=summary.failed,
+                not_found=summary.not_found,
+                missing_new=summary.missing_new,
+                missing_pending=summary.missing_pending,
+                missing_failed=summary.missing_failed,
+            )
 
     async def _reconcile_missing(self, release: models.Release, now: datetime) -> _MissingOutcome:
         """Track how long a torrent has been gone, failing the release past the grace.
@@ -160,6 +176,12 @@ class SyncReleasesTask:
                 stored = await session.get(models.Release, release.id)
                 if stored is not None:
                     stored.missing_since = now
+            _logger.info(
+                "Torrent missing from the download client",
+                release_id=release.id,
+                info_hash=release.info_hash,
+                status=release.status.value,
+            )
             return _MissingOutcome.STAMPED
 
         age = (now - as_utc(release.missing_since)).total_seconds()

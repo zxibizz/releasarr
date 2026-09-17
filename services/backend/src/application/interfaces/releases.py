@@ -274,9 +274,6 @@ class ReleaseRepository(Protocol):
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
         """Update arbitrary fields of a release."""
 
-    async def count_by_status(self) -> dict[ReleaseStatus, int]:
-        """Return the number of releases grouped by status."""
-
 
 class ReleaseLifecycleService(Protocol):
     """Control operations for pausing/resuming release downloads."""

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pydantic import SecretStr
 
 from src.application.queries.logs import ListLogsQuery
-from src.application.queries.releases import ReleaseSummaryQuery
 from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.requests.list_requests import ListMediaRequestsUseCase
@@ -45,7 +44,6 @@ def test_container_provides_singletons() -> None:
     logs_use_case = container.use_cases.logs.list
     media_request_list = container.use_cases.media_requests.list
     release_list = container.use_cases.releases.list
-    release_summary_query = container.queries.release_summary
 
     assert isinstance(media_repo, SqlAlchemyMediaRequestRepository)
     assert isinstance(release_repo, SqlAlchemyReleaseRepository)
@@ -57,7 +55,6 @@ def test_container_provides_singletons() -> None:
     assert isinstance(logs_use_case, ListLogsUseCase)
     assert isinstance(media_request_list, ListMediaRequestsUseCase)
     assert isinstance(release_list, ListReleasesUseCase)
-    assert isinstance(release_summary_query, ReleaseSummaryQuery)
 
     # Ensure the same singleton is returned on subsequent resolves.
     assert media_repo is container.repositories.media_requests
@@ -70,7 +67,6 @@ def test_container_provides_singletons() -> None:
     assert logs_use_case is container.use_cases.logs.list
     assert media_request_list is container.use_cases.media_requests.list
     assert release_list is container.use_cases.releases.list
-    assert release_summary_query is container.queries.release_summary
 
 
 def test_container_uses_prowlarr_search_when_configured() -> None:

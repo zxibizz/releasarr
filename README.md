@@ -366,17 +366,10 @@ uv run fastapi dev src/api/app.py
 The scheduler is a separate process, by design — nothing recurring runs inside the web server:
 
 ```bash
-uv run python -m src.tasks.cli scheduler
+uv run python -m src.tasks.scheduler_service
 ```
 
-Individual tasks can also be run once from the CLI, which is handy when debugging a sync:
-
-```bash
-uv run python -m src.tasks.cli sync-sonarr-requests
-uv run python -m src.tasks.cli sync-radarr-requests
-uv run python -m src.tasks.cli sync-releases
-uv run python -m src.tasks.cli release-summary --json
-```
+A one-off run of any task is queued over the API: `POST /tasks/run/{kind}`.
 
 | Command | Purpose |
 | --- | --- |

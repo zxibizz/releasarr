@@ -98,7 +98,7 @@ Backend, from `services/backend/`:
 ```bash
 uv sync                          # install
 uv run fastapi dev src/api/app.py    # API on :8001
-uv run python -m src.tasks.cli scheduler   # the worker, separately
+uv run python -m src.tasks.scheduler_service   # the worker, separately
 uv run pytest                    # tests
 uv run ruff check ./src          # lint (what CI runs)
 uv run ruff format ./src         # format

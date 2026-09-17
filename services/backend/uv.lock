@@ -1096,7 +1096,6 @@ dependencies = [
     { name = "python-json-logger" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "torrentool" },
-    { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1134,7 +1133,6 @@ requires-dist = [
     { name = "python-json-logger", specifier = ">=2.0.7" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.38" },
     { name = "torrentool", specifier = ">=1.1.0" },
-    { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
 ]
 

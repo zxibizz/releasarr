@@ -14,6 +14,10 @@ from src.application.use_cases.auth.exceptions import (
     InvalidCredentialsError,
 )
 from src.application.use_cases.auth.session_issuer import SessionIssuer
+from src.core.logging import get_logger
+from src.domain.enums import LogComponent
+
+_logger = get_logger(LogComponent.USECASE_AUTH)
 
 
 class LoginUseCase:
@@ -62,6 +66,7 @@ class LoginUseCase:
         updated = await self._users.update_user(user.id, update)
         assert updated is not None  # the row was just read inside this call
 
+        _logger.info("User logged in", username=user.username)
         return await self._session_issuer.issue(updated, remember_me=command.remember_me)
 
     async def _record_failed_login(self, user: UserRecord) -> None:
@@ -69,6 +74,11 @@ class LoginUseCase:
         update = UpdateUserData(failed_login_attempts=attempts)
         if attempts >= self._max_failed_logins:
             update.locked_until = datetime.now(UTC) + timedelta(seconds=self._lockout_seconds)
+            _logger.warning(
+                "Account locked after repeated failed logins",
+                username=user.username,
+                attempts=attempts,
+            )
         await self._users.update_user(user.id, update)
 
 

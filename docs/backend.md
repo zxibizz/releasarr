@@ -383,13 +383,13 @@ nothing. Migration `d3e9a17c5b42_repair_sync_job_kind_enum.py` exists solely to 
 mistake. When changing an enum's labels, branch on the dialect and write the Postgres path by
 hand: column to `text`, delete or rewrite invalid rows, drop and recreate the type, cast back.
 
-## Tasks and the CLI
+## Tasks
 
 Recurring work is defined once, in `src/application/use_cases/tasks/definitions.py`, and shared
 by the scheduler and the API so the UI cannot disagree with what runs. `src/tasks/sync_steps.py`
-holds the step implementations; `src/tasks/cli.py` is a Typer app for one-shot runs.
+holds the step implementations; a one-shot run is `POST /tasks/run/{kind}`, not a CLI.
 
 Adding a task means: a new `SyncJobKind` member (with a migration for the enum), a definition
-with its interval, a step in `SyncSteps`, and a CLI command if it is useful standalone. Read
+with its interval, and a step in `SyncSteps`. Read
 [`../services/backend/docs/tasks.md`](../services/backend/docs/tasks.md) — it covers job collapsing, ordering
 guarantees, and log binding in detail.

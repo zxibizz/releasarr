@@ -20,7 +20,7 @@ The scheduler is a **separate process** and is not started by the API. Run it in
 terminal when you need background work:
 
 ```bash
-uv run python -m src.tasks.cli scheduler
+uv run python -m src.tasks.scheduler_service
 ```
 
 Nothing here needs Sonarr, Radarr, Prowlarr, or qBittorrent to boot. An unconfigured integration
@@ -50,7 +50,7 @@ a full admin. See
 | Command | Purpose |
 | --- | --- |
 | `uv run fastapi dev src/api/app.py` | API with reload on `:8001` |
-| `uv run python -m src.tasks.cli scheduler` | The scheduler worker |
+| `uv run python -m src.tasks.scheduler_service` | The scheduler worker |
 | `uv run pytest` | Test suite |
 | `uv run pytest tests/api/test_openapi_contract.py` | After any contract change |
 | `uv run ruff check ./src` | Lint — what CI runs |
@@ -60,14 +60,8 @@ a full admin. See
 | `uv run alembic revision --autogenerate -m "…"` | Create a migration (then **review it**) |
 | `uv run alembic downgrade -1` | Roll back one migration |
 
-One-shot task runs, useful when debugging a sync:
-
-```bash
-uv run python -m src.tasks.cli sync-sonarr-requests
-uv run python -m src.tasks.cli sync-radarr-requests
-uv run python -m src.tasks.cli sync-releases
-uv run python -m src.tasks.cli release-summary --json
-```
+A one-off run of any task is queued over the API (`POST /tasks/run/{kind}`) and executed by
+the scheduler worker.
 
 ## Layout
 
