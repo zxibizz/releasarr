@@ -96,7 +96,7 @@ def test_parses_a_serialized_record(tmp_path: Path) -> None:
     assert entry.stack_trace is None
 
 
-def test_maps_loguru_levels_onto_the_three_exposed_levels(tmp_path: Path) -> None:
+def test_maps_loguru_levels_onto_the_four_exposed_levels(tmp_path: Path) -> None:
     log = tmp_path / "backend.log"
     write_log(
         log,
@@ -111,7 +111,7 @@ def test_maps_loguru_levels_onto_the_three_exposed_levels(tmp_path: Path) -> Non
 
     levels = [entry.level for entry in make_reader(log).read_entries()]
 
-    assert levels == ["info", "info", "info", "warning", "error", "error", "info"]
+    assert levels == ["debug", "debug", "info", "warning", "error", "error", "info"]
 
 
 def test_exposes_the_traceback_of_a_failure(tmp_path: Path) -> None:
@@ -231,8 +231,20 @@ def test_min_level_returns_that_severity_and_worse(tmp_path: Path) -> None:
         "broken",
         "also broken",
     ]
-    # Debug is folded into info, so a floor of info is a floor of everything.
-    assert len(reader.read_entries(min_level="info")) == 5
+    # Debug is a level of its own, so a floor of info leaves it out.
+    assert [e.message for e in reader.read_entries(min_level="info")] == [
+        "routine",
+        "worth a look",
+        "broken",
+        "also broken",
+    ]
+    assert [e.message for e in reader.read_entries(min_level="debug")] == [
+        "routine",
+        "quiet detail",
+        "worth a look",
+        "broken",
+        "also broken",
+    ]
     assert len(reader.read_entries()) == 5
 
 

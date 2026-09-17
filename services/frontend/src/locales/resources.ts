@@ -796,6 +796,7 @@ export const resources = {
         },
       },
       logLevels: {
+        debug: 'Debug',
         info: 'Info',
         warning: 'Warning',
         error: 'Error',
@@ -1819,6 +1820,7 @@ export const resources = {
         },
       },
       logLevels: {
+        debug: 'Отладка',
         info: 'Инфо',
         warning: 'Предупреждение',
         error: 'Ошибка',

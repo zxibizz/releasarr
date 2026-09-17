@@ -75,6 +75,7 @@ class EpisodeStatus(StrEnum):
 
 
 class RequestLogLevel(StrEnum):
+    DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"

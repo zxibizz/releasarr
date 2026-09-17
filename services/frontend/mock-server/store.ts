@@ -46,9 +46,10 @@ type ReleaseStatus = Release['status'];
 
 /** The same threshold the backend applies after collapsing Loguru's levels. */
 const LOG_LEVEL_SEVERITY: Record<RequestLogLevel, number> = {
-  info: 0,
-  warning: 1,
-  error: 2,
+  debug: 0,
+  info: 1,
+  warning: 2,
+  error: 3,
 };
 
 type EnqueueSyncJobPayload = {

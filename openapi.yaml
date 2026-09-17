@@ -2036,7 +2036,7 @@ components:
         $ref: '#/components/schemas/RequestLogLevel'
       description: |
         Least severe level to return, along with everything worse. Records are
-        mapped onto three levels, so this is a threshold rather than an exact
+        mapped onto four levels, so this is a threshold rather than an exact
         match: `warning` also returns errors.
     IndexerIdFilter:
       in: query
@@ -2070,7 +2070,7 @@ components:
       enum: [pending, downloading, completed, failed]
     RequestLogLevel:
       type: string
-      enum: [info, warning, error]
+      enum: [debug, info, warning, error]
     LogService:
       type: string
       enum: [api, scheduler]

@@ -37,6 +37,7 @@ export const getStatusPresentation = (
   STATUS_PRESENTATION[status as keyof typeof STATUS_PRESENTATION] ?? UNKNOWN_STATUS;
 
 export const LOG_LEVEL_COLOR: Record<RequestLogLevel, string> = {
+  debug: 'gray',
   info: 'blue',
   warning: 'yellow',
   error: 'red',

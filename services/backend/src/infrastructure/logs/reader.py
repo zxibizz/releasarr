@@ -12,8 +12,8 @@ from typing import Any
 from src.domain.enums import LogService
 
 _LEVEL_MAP = {
-    "TRACE": "info",
-    "DEBUG": "info",
+    "TRACE": "debug",
+    "DEBUG": "debug",
     "INFO": "info",
     "SUCCESS": "info",
     "WARNING": "warning",
@@ -21,10 +21,10 @@ _LEVEL_MAP = {
     "CRITICAL": "error",
 }
 
-# Loguru's seven levels collapse onto three, so severity has to be stated here
+# Loguru's seven levels collapse onto four, so severity has to be stated here
 # rather than read back off the names. The filter below is a threshold: warning
 # means warning and worse, which is what someone chasing a problem asks for.
-_LEVEL_SEVERITY = {"info": 0, "warning": 1, "error": 2}
+_LEVEL_SEVERITY = {"debug": 0, "info": 1, "warning": 2, "error": 3}
 
 
 @dataclass(slots=True)
