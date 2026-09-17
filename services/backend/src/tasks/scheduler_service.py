@@ -150,7 +150,7 @@ class SchedulerService:
         duration_ms = int((time.monotonic() - started) * 1000)
 
         if status is SyncJobStatus.COMPLETED:
-            task_logger.info(f"Task {kind.value} complete ({duration_ms}ms): {summary}")
+            task_logger.debug(f"Task {kind.value} complete ({duration_ms}ms): {summary}")
 
         try:
             await self.container.repositories.scheduled_tasks.record_run(
