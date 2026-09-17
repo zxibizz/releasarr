@@ -557,6 +557,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tasks/scheduled/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a recurring task's interval
+         * @description Changes how often the scheduler runs one task. The scheduler reads the
+         *     interval from its own state each cycle, so an edit takes effect without a
+         *     restart.
+         */
+        patch: operations["updateTaskInterval"];
+        trace?: never;
+    };
     "/tasks/jobs": {
         parameters: {
             query?: never;
@@ -876,6 +898,66 @@ export interface paths {
          * @description Replaces the service API key with a freshly generated one, invalidating the old one immediately.
          */
         post: operations["regenerateServiceKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the effective runtime settings
+         * @description The effective configuration for every editable field, grouped by section, after environment pins and stored overrides are composed. A field whose key appears in ``locked_keys`` is set by the environment and is read-only here; a change to a field in ``pending_restart_keys`` takes effect only after a restart.
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update one settings section
+         * @description Applies a partial update to a single section. Only the fields named in ``values`` change; every key must belong to the named section. A field the environment pins is rejected. The response is the full settings view after the update.
+         */
+        patch: operations["updateSettingsSection"];
+        trace?: never;
+    };
+    "/settings/test/{integration}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an integration's connection
+         * @description Probes one external service with either the saved configuration or, when the optional body carries credentials, those candidate values, so a change can be verified before it is saved.
+         */
+        post: operations["testIntegrationConnection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1343,6 +1425,10 @@ export interface components {
         ScheduledTasksResponse: {
             tasks: components["schemas"]["ScheduledTask"][];
         };
+        UpdateTaskIntervalPayload: {
+            /** @description How often the scheduler runs the task, in seconds. */
+            interval_seconds: number;
+        };
         Indexer: {
             /** @description Prowlarr's own identifier for the indexer. */
             id: number;
@@ -1658,6 +1744,49 @@ export interface components {
             last_used_at?: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        SettingFieldInfo: {
+            key: string;
+            /** @enum {string} */
+            section: "general" | "services" | "network" | "metadata" | "tasks" | "logging";
+            /** @description The value shape, e.g. str, int, bool, str_list. */
+            kind: string;
+            is_secret: boolean;
+            requires_restart: boolean;
+            /** @description True when the environment pins the field, making it read-only. */
+            locked: boolean;
+            choices: string[];
+        };
+        SettingsResponse: {
+            /** @description Effective values grouped by section, keyed by field name. */
+            values: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            fields: components["schemas"]["SettingFieldInfo"][];
+            /** @description Field keys pinned by the environment; PATCH refuses these. */
+            locked_keys: string[];
+            /** @description Field keys whose stored change takes effect only after a restart. */
+            pending_restart_keys: string[];
+        };
+        UpdateSettingsPayload: {
+            /** @description Field key -> new value, a partial update to one section. */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        ConnectionTestPayload: {
+            url?: string | null;
+            api_key?: string | null;
+            username?: string | null;
+            password?: string | null;
+        };
+        ConnectionTestResult: {
+            integration: string;
+            success: boolean;
+            /** @description Failure reason, or a short OK summary. */
+            detail?: string | null;
         };
         SetupStatus: {
             /** @description Whether first-run setup must run before anything else. */
@@ -3349,6 +3478,58 @@ export interface operations {
             };
         };
     };
+    updateTaskInterval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task whose interval to change. */
+                kind: components["schemas"]["SyncJobKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTaskIntervalPayload"];
+            };
+        };
+        responses: {
+            /** @description Interval updated. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown task. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The interval failed validation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listSyncJobs: {
         parameters: {
             query?: {
@@ -4279,6 +4460,188 @@ export interface operations {
             };
             /** @description Administrator privileges are required. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The effective settings and per-field behaviour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateSettingsSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The settings section to update. */
+                section: "general" | "services" | "network" | "metadata" | "tasks" | "logging";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsPayload"];
+            };
+        };
+        responses: {
+            /** @description The effective settings after the update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            /** @description No fields supplied, or a value failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A field is set by the environment and cannot be changed here. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description An unknown setting key was supplied. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    testIntegrationConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The integration to test. */
+                integration: "sonarr" | "radarr" | "prowlarr" | "qbittorrent" | "tvdb" | "tmdb";
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConnectionTestPayload"];
+            };
+        };
+        responses: {
+            /** @description The outcome of the connection attempt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestResult"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Administrator privileges are required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

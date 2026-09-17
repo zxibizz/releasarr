@@ -97,9 +97,17 @@ class SchedulerService:
             self.logger.warning(f"Failed {stale} job(s) interrupted by a restart")
 
     async def _run_scheduled_loop(self, kind: SyncJobKind) -> None:
-        interval = DEFAULT_INTERVALS[kind]
-
         while not self._shutdown:
+            # Reload settings and the interval from the row, so edits made through
+            # the settings API take effect without a restart.
+            try:
+                await self.container.apply_settings_updates()
+            except Exception as exc:
+                self.logger.exception(f"Failed to refresh settings: {exc}")
+
+            record = await self.container.repositories.scheduled_tasks.get(kind)
+            interval = record.interval_seconds if record is not None else DEFAULT_INTERVALS[kind]
+
             try:
                 delay = await self._seconds_until_due(kind, interval)
             except Exception as exc:
@@ -174,6 +182,10 @@ class SchedulerService:
         )
 
         while not self._shutdown:
+            try:
+                await self.container.apply_settings_updates()
+            except Exception as exc:
+                self.logger.exception(f"Failed to refresh settings: {exc}")
             try:
                 # Keep draining while work remains so a burst of queued jobs is
                 # not spread across poll intervals.

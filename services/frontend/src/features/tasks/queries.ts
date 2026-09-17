@@ -74,6 +74,26 @@ export function useScheduledTasks() {
   });
 }
 
+export function useUpdateTaskInterval() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: ({ kind, intervalSeconds }: { kind: SyncJobKind; intervalSeconds: number }) =>
+      tasksApi.updateInterval(kind, intervalSeconds),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.scheduled() });
+      notifications.show({ message: t('settings.tasks.saved'), color: 'teal' });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('settings.saveFailed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}
+
 /**
  * Refreshes request and release data once a sync finishes, since that is when
  * imported episodes and new download state become visible.

@@ -210,10 +210,15 @@ class SqlAlchemyScheduledTaskRepository(BaseSqlAlchemyRepository, ScheduledTaskR
             if task is None:
                 task = models.ScheduledTask(kind=kind, interval_seconds=interval_seconds)
                 session.add(task)
-            else:
-                task.interval_seconds = interval_seconds
-            await session.flush()
+                await session.flush()
             return self._to_record(task)
+
+    async def set_interval(self, kind: SyncJobKind, *, interval_seconds: int) -> None:
+        async with self.db.transaction() as session:
+            task = await session.get(models.ScheduledTask, kind)
+            if task is not None:
+                task.interval_seconds = interval_seconds
+                await session.flush()
 
     async def record_run(
         self,

@@ -18,6 +18,7 @@ from src.infrastructure.qbittorrent import (
     QbittorrentReleaseLifecycleService,
 )
 from src.infrastructure.releases.repository import SqlAlchemyReleaseRepository
+from src.infrastructure.settings import LayeredSettingsProvider
 from src.settings.config import AppSettings
 
 
@@ -153,3 +154,67 @@ def test_container_reports_a_configured_qbittorrent_client() -> None:
     assert container.services.release_download.is_configured is True
     assert container.services.release_lifecycle.is_configured is True
     assert container.services.release_search.is_configured is True
+
+
+class _InMemorySettingsRepository:
+    def __init__(self) -> None:
+        self._overrides: dict = {}
+        self._revision = 0
+
+    async def get(self):
+        if self._revision == 0:
+            return None
+        from src.application.interfaces.settings import AppSettingsRecord
+
+        return AppSettingsRecord(
+            id="app_settings", overrides=dict(self._overrides), revision=self._revision
+        )
+
+    async def save_overrides(self, *, overrides: dict):
+        from src.application.interfaces.settings import AppSettingsRecord
+
+        self._overrides = dict(overrides)
+        self._revision += 1
+        return AppSettingsRecord(
+            id="app_settings", overrides=dict(self._overrides), revision=self._revision
+        )
+
+    async def get_revision(self) -> int:
+        return self._revision
+
+
+async def test_apply_settings_updates_rebuilds_services_on_a_revision_change() -> None:
+    container = AppContainer(settings=AppSettings(prowlarr_url="", qbittorrent_url=""))
+    repository = _InMemorySettingsRepository()
+    container.__dict__["settings_provider"] = LayeredSettingsProvider(
+        repository, container._env_settings
+    )
+
+    await container.apply_settings_updates()  # initial load, revision 0
+    first = container.services.release_search
+    assert first is container.services.release_search
+
+    await repository.save_overrides(overrides={"prowlarr_search_concurrency": 12})
+    container.settings_provider._last_check = 0.0  # defeat the rate limiter
+
+    changed = await container.apply_settings_updates()
+
+    assert changed is True
+    assert container.settings.prowlarr_search_concurrency == 12
+    # The service container was dropped and re-resolves fresh.
+    assert container.services.release_search is not first
+
+
+async def test_apply_settings_updates_is_a_noop_without_a_revision_change() -> None:
+    container = AppContainer(settings=AppSettings(prowlarr_url=""))
+    container.__dict__["settings_provider"] = LayeredSettingsProvider(
+        _InMemorySettingsRepository(), container._env_settings
+    )
+
+    await container.apply_settings_updates()
+    first = container.services
+
+    changed = await container.apply_settings_updates()
+
+    assert changed is False
+    assert container.__dict__["services"] is first

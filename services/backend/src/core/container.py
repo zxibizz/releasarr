@@ -92,6 +92,7 @@ from src.application.use_cases.tasks.get_sync_job import (
     ListScheduledTasksUseCase,
     ListSyncJobsUseCase,
 )
+from src.application.use_cases.tasks.update_interval import UpdateTaskIntervalUseCase
 from src.application.use_cases.users import (
     ChangePasswordUseCase,
     CreateUserUseCase,
@@ -836,6 +837,10 @@ class TaskUseCases:
     def list_scheduled_tasks(self) -> ListScheduledTasksUseCase:
         return ListScheduledTasksUseCase(repository=self._container.repositories.scheduled_tasks)
 
+    @cached_property
+    def update_interval(self) -> UpdateTaskIntervalUseCase:
+        return UpdateTaskIntervalUseCase(repository=self._container.repositories.scheduled_tasks)
+
 
 @dataclass
 class SettingsUseCases:
@@ -881,6 +886,10 @@ class AppContainer:
 
     def __init__(self, settings: AppSettings) -> None:
         self._env_settings = settings
+        self._log_service: LogService = LogService.API
+        # Old service containers awaiting close, retired one refresh after a
+        # settings change so an in-flight request keeps its references.
+        self._retired_services: list[ServiceContainer] = []
 
     @property
     def settings(self) -> AppSettings:
@@ -899,6 +908,7 @@ class AppContainer:
         override can reach before the first DB read.
         """
 
+        self._log_service = service
         configure_logging(self._env_settings, service=service)
         if not self._env_settings.auth_secret.get_secret_value():
             # A blank signing secret would mean any deployment's tokens are
@@ -906,28 +916,62 @@ class AppContainer:
             raise RuntimeError("RELEASARR_AUTH_SECRET must be set to a non-empty value")
         return None
 
+    async def apply_settings_updates(self) -> bool:
+        """Reload stored overrides when their revision moved, rebuilding clients.
+
+        Cheap when nothing changed (one revision read per provider interval), so
+        the API middleware and the scheduler loops call it freely. On a change the
+        resolved settings swap, logging is re-applied for a new level, and the
+        service and use-case caches are dropped so the next resolve builds clients
+        from the new settings.
+        """
+
+        try:
+            changed = await self.settings_provider.refresh_if_stale()
+        except Exception as exc:
+            # A settings read failing must not 500 an otherwise-served request.
+            # A missing table before migrations is the common case; log it low.
+            logger.debug("Settings refresh skipped: {error}", error=str(exc))
+            changed = False
+
+        # Close containers retired by the previous change; by now nothing that
+        # was in flight then is still holding them.
+        retired, self._retired_services = self._retired_services, []
+        for old in retired:
+            await self._close_services(old)
+
+        if not changed:
+            return False
+
+        configure_logging(self.settings, service=self._log_service)
+
+        old_services = self.__dict__.pop("services", None)
+        if old_services is not None:
+            self._retired_services.append(old_services)
+        # Use cases captured service references at resolve time, so they are
+        # rebuilt from the fresh service container too.
+        self.__dict__.pop("use_cases", None)
+        return True
+
+    async def _close_services(self, services: ServiceContainer) -> None:
+        client = services.__dict__.get("qbittorrent_client")
+        if client is not None:
+            await client.close()
+        for key in ("tvdb", "tmdb", "sonarr", "radarr", "release_search", "indexer_directory"):
+            service = services.__dict__.get(key)
+            if service is not None and hasattr(service, "aclose"):
+                await service.aclose()
+
     async def shutdown(self) -> None:
         """Hook for disposing resources during application shutdown."""
 
+        for retired in self._retired_services:
+            await self._close_services(retired)
+        self._retired_services = []
+
         services = self.__dict__.get("services")
         if services is not None:
-            # A single shared qBittorrent client backs both lifecycle and download.
-            client = services.__dict__.get("qbittorrent_client")
-            if client is not None:
-                await client.close()
-
-            # Close any resolved HTTP-backed services exposing an async close hook.
-            for key in (
-                "tvdb",
-                "tmdb",
-                "sonarr",
-                "radarr",
-                "release_search",
-                "indexer_directory",
-            ):
-                service = services.__dict__.get(key)
-                if service is not None and hasattr(service, "aclose"):
-                    await service.aclose()
+            await self._close_services(services)
 
         # Both sinks are enqueued, so records still in the queue are lost unless
         # the writer thread is given the chance to drain. The scheduler reaches

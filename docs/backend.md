@@ -348,19 +348,33 @@ To add a dependency: implement it, export it from its package `__init__.py`, add
 
 ## Settings
 
-Add a typed field to `AppSettings` in `src/settings/config.py`. The env var is the field name
-upper-cased with the `RELEASARR_` prefix. Use `SecretStr` for anything credential-shaped.
+Settings come in two layers. The base is `AppSettings` in `src/settings/config.py`, read from
+environment variables (field name upper-cased, `RELEASARR_` prefix) once per process and cached by
+`get_settings()`. On top of it sits an override layer persisted in the `app_settings` table and
+edited through the `/settings` API.
+
+The registry in `src/settings/registry.py` is the single declaration of which fields are editable:
+each entry names its `AppSettings` field, the section it belongs to, its value shape, whether it is
+a secret, and whether a change needs a restart. Adding an editable setting is a new `SettingField`
+row there plus the `AppSettings` field; the read response, PATCH validation, and the UI form all
+derive from that one declaration.
 
 ```python
-prowlarr_timeout: float = Field(default=20.0)   # RELEASARR_PROWLARR_TIMEOUT
+SettingField("prowlarr_timeout", "network", "float"),
 ```
 
-Read them from `container.settings` when wiring, or take `settings: AppSettings | None = None`
-in a use case and default to `get_settings()`. Document new variables in the `README.md` tables.
+Resolution and hot-reload are the provider's job. `LayeredSettingsProvider`
+(`src/infrastructure/settings/provider.py`) composes the env base with the stored overrides, and
+`AppContainer.settings` resolves through it. A field the environment sets explicitly is locked:
+its key is in the env instance's `model_fields_set`, a stored override for it is ignored, and the
+API rejects a PATCH of it. Every edit bumps a `revision` on the row; both processes poll it
+(`AppContainer.apply_settings_updates()`, called from the request middleware and each scheduler
+loop) and, on a change, drop their cached service and use-case containers so the next resolve
+rebuilds clients from the new settings. A field marked `requires_restart` is read once at process
+startup (logging, auth wiring) and is not re-applied live.
 
-`auth_secret` has no usable default (an empty string), on purpose \u2014 see `AppContainer.startup`.
-`auth_cookie_path` must be the path the *browser* sends the cookie on, not the FastAPI route:
-nginx and the Vite dev proxy both strip a leading `/api`, so it is `/api/auth`.
+For an env-only setting that is never editable, add the `AppSettings` field and read it as before,
+but leave it out of the registry — and list it in `READONLY_KEYS` so the UI shows it as fixed.
 
 ## Migrations
 

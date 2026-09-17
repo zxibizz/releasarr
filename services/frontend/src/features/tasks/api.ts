@@ -23,6 +23,13 @@ export const tasksApi = {
     return response.tasks;
   },
 
+  /** Change how often the scheduler runs a task. Applies without a restart. */
+  updateInterval: (kind: SyncJobKind, intervalSeconds: number) =>
+    apiRequest<void>(`/tasks/scheduled/${encode(kind)}`, {
+      method: 'PATCH',
+      body: { interval_seconds: intervalSeconds },
+    }),
+
   recentJobs: async (limit = 20, signal?: AbortSignal): Promise<SyncJob[]> => {
     const response = await apiRequest<SyncJobsResponse>('/tasks/jobs', {
       signal,

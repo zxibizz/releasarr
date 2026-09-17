@@ -21,6 +21,7 @@ users ──┬── media_requests.owner_user_id      (SET NULL)
 
 sync_jobs         standalone: one row per on-demand task run
 scheduled_tasks   one row per task kind, holding its schedule state
+app_settings      at most one row: runtime setting overrides
 ```
 
 Logs are **not** in the database. `/logs` parses Loguru's JSON file sink through
@@ -281,6 +282,15 @@ to an account. It's generated automatically the first time it's needed
 (`GetOrCreateServiceApiKeyUseCase`, run at API startup) rather than created through the UI, and
 `RegenerateServiceApiKeyUseCase` replaces it outright — there is no per-key revoke, only rotation.
 
+### `app_settings`
+
+At most one row, like `service_api_keys`. `overrides` is a JSON object of field key to value for
+the runtime-editable settings declared in `src/settings/registry.py` — only the fields the
+environment does *not* pin; an env-set field is authoritative and its key never appears here.
+`revision` is bumped on every write so the API and scheduler processes, each holding their own
+resolved settings, can notice a change without a restart: both poll the revision
+(`AppContainer.apply_settings_updates()`) and rebuild their integration clients when it moves.
+
 ## Ownership and permissions
 
 `RequestScope` (`application/use_cases/auth/permissions.py`) is the one thing that decides which
@@ -330,6 +340,8 @@ one is a four-place change plus a migration.
 | `e5b3c7d9a1f2` | Add the `release_not_listed` label to the `request_warning_code` enum |
 | `d4b8c1f60a72` | Add the `regrab_files_unmapped` and `regrab_files_missing` labels to the `request_warning_code` enum |
 | `7a1f5c2e9d43` | Add `releases.search_query` |
+| `c3d4e5f6a7b8` | Add `releases.missing_since` |
+| `a1b2c3d4e5f6` | Create `app_settings` |
 
 ## The enum migration trap
 

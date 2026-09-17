@@ -262,14 +262,26 @@ async def test_prune_never_drops_pending_work(
     assert remaining == [waiting.job.id]
 
 
-async def test_register_is_idempotent_and_refreshes_the_interval(
+async def test_register_is_idempotent_and_keeps_a_stored_interval(
     scheduled: SqlAlchemyScheduledTaskRepository,
 ) -> None:
+    # Registration seeds the interval once; a re-register must not clobber an
+    # interval edited through the settings API.
     await scheduled.register(kind=RELEASE_SYNC, interval_seconds=30)
     updated = await scheduled.register(kind=RELEASE_SYNC, interval_seconds=45)
 
-    assert updated.interval_seconds == 45
+    assert updated.interval_seconds == 30
     assert len(await scheduled.list_tasks()) == 1
+
+
+async def test_set_interval_updates_a_registered_task(
+    scheduled: SqlAlchemyScheduledTaskRepository,
+) -> None:
+    await scheduled.register(kind=RELEASE_SYNC, interval_seconds=30)
+
+    await scheduled.set_interval(RELEASE_SYNC, interval_seconds=120)
+
+    assert (await scheduled.get(RELEASE_SYNC)).interval_seconds == 120
 
 
 async def test_record_run_stores_the_outcome(

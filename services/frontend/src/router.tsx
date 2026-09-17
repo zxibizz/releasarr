@@ -1,5 +1,5 @@
 import { Center, Loader } from '@mantine/core';
-import { createBrowserRouter, type LoaderFunctionArgs } from 'react-router-dom';
+import { createBrowserRouter, Navigate, type LoaderFunctionArgs } from 'react-router-dom';
 
 import AppLayout from '@/App';
 import { NotFound, RouteErrorBoundary } from '@/components/RouteErrorBoundary';
@@ -130,13 +130,79 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission permission="manage_users" />,
             children: [
+              // The users page moved under /settings; keep the old path working.
+              { path: 'system/users', element: <Navigate to="/settings/users" replace /> },
+            ],
+          },
+          {
+            path: 'settings',
+            lazy: async () => {
+              const { SettingsLayout } =
+                await import('@/features/settings/components/SettingsLayout');
+              return { Component: SettingsLayout };
+            },
+            errorElement: <RouteErrorBoundary />,
+            children: [
+              { index: true, element: <Navigate to="/settings/general" replace /> },
               {
-                path: 'system/users',
+                path: 'general',
                 lazy: async () => {
-                  const { UsersPage } = await import('@/features/users/pages/UsersPage');
-                  return { Component: UsersPage };
+                  const { GeneralSettingsPage } =
+                    await import('@/features/settings/pages/GeneralSettingsPage');
+                  return { Component: GeneralSettingsPage };
                 },
-                errorElement: <RouteErrorBoundary />,
+              },
+              {
+                element: <RequirePermission permission="manage_users" />,
+                children: [
+                  {
+                    path: 'users',
+                    lazy: async () => {
+                      const { UsersPage } = await import('@/features/users/pages/UsersPage');
+                      return { Component: UsersPage };
+                    },
+                  },
+                ],
+              },
+              {
+                path: 'services',
+                lazy: async () => {
+                  const { ServicesSettingsPage } =
+                    await import('@/features/settings/pages/ServicesSettingsPage');
+                  return { Component: ServicesSettingsPage };
+                },
+              },
+              {
+                path: 'metadata',
+                lazy: async () => {
+                  const { MetadataSettingsPage } =
+                    await import('@/features/settings/pages/MetadataSettingsPage');
+                  return { Component: MetadataSettingsPage };
+                },
+              },
+              {
+                path: 'network',
+                lazy: async () => {
+                  const { NetworkSettingsPage } =
+                    await import('@/features/settings/pages/NetworkSettingsPage');
+                  return { Component: NetworkSettingsPage };
+                },
+              },
+              {
+                path: 'tasks',
+                lazy: async () => {
+                  const { TasksSettingsPage } =
+                    await import('@/features/settings/pages/TasksSettingsPage');
+                  return { Component: TasksSettingsPage };
+                },
+              },
+              {
+                path: 'logging',
+                lazy: async () => {
+                  const { LoggingSettingsPage } =
+                    await import('@/features/settings/pages/LoggingSettingsPage');
+                  return { Component: LoggingSettingsPage };
+                },
               },
             ],
           },

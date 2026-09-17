@@ -158,11 +158,23 @@ for the admin-only sections:
 | `/` | `RequestsPage` | eager | `RequireAuth` |
 | `/request/:id` | `RequestDetailPage` | lazy | `RequireAuth` |
 | `/add` | `AddRequestPage` | lazy | `RequireAuth` |
+| `/settings` | `SettingsLayout` | lazy | `RequireAuth` (index → `/settings/general`) |
+| `/settings/users` | `UsersPage` | lazy | `RequireAuth` + `RequirePermission('manage_users')` |
 | `/system/tasks` | `TasksPage` | lazy | `RequireAuth` + `RequirePermission('tasks')` |
 | `/system/indexers` | `IndexersPage` | lazy | `RequireAuth` + `RequirePermission('indexers')` |
 | `/system/logs` | `LogsPage` | lazy | `RequireAuth` + `RequirePermission('logs')` |
-| `/system/users` | `UsersPage` | lazy | `RequireAuth` + `RequirePermission('manage_users')` |
 | `*` | `NotFound` | eager | `RequireAuth` |
+
+The nav splits configuration from operations the way the *arrs do. **Settings** (`/settings/*`)
+edits configuration through `features/settings/`: a layout with a section sidebar (a `Select` on
+mobile) wrapping an `<Outlet/>`, and one page per section. **System** (`/system/*`) holds the
+operational views — the task queue, indexer health, and the log viewer — which are read-only
+operations rather than configuration. Only the Users page lives under Settings while remaining
+reachable to a non-admin holding `manage_users`; the old `/system/users` path redirects there.
+Each config section page uses `SettingsSectionForm`, which renders every field the `/settings`
+registry declares for that section; a field the environment pins renders read-only with a lock
+badge, and a `requires_restart` field carries a note. External-services and metadata sections add
+per-integration connection-test buttons backed by `POST /settings/test/{integration}`.
 
 Loaders warm the cache with `ensureQueryData` so pages paint with data, and they run it through
 `prefetchWhenOnline`. That wrapper is not decoration: a loader that awaits a query React Query
@@ -180,8 +192,10 @@ const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
 };
 ```
 
-`src/App.tsx` holds the AppShell: fixed header, `NAV_ITEMS` with per-item `isActive` predicates,
-desktop links (`visibleFrom="sm"`) and a mobile `Drawer` (`hiddenFrom="sm"`). It also mounts
+`src/App.tsx` holds the AppShell: fixed header, flat `NAV_ITEMS` (requests, add) plus two grouped
+menus — Settings and System — rendered as `Menu` dropdowns on desktop (`visibleFrom="sm"`) and as
+labeled sections in the mobile `Drawer` (`hiddenFrom="sm"`). Group items are filtered by permission
+before rendering, so a group with nothing visible is dropped. It also mounts
 `useSyncWatcher()` exactly once — see [`architecture.md`](architecture.md).
 
 A nav item may carry a `badge`, rendered beside its label in both the header and the drawer.

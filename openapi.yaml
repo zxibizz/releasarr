@@ -1258,6 +1258,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /tasks/scheduled/{kind}:
+    patch:
+      tags: [Tasks]
+      summary: Set a recurring task's interval
+      description: |
+        Changes how often the scheduler runs one task. The scheduler reads the
+        interval from its own state each cycle, so an edit takes effect without a
+        restart.
+      operationId: updateTaskInterval
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          description: The task whose interval to change.
+          schema:
+            $ref: '#/components/schemas/SyncJobKind'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskIntervalPayload'
+      responses:
+        '204':
+          description: Interval updated.
+        '404':
+          description: Unknown task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: The interval failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /tasks/jobs:
     get:
       tags: [Tasks]
@@ -3108,6 +3151,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduledTask'
+    UpdateTaskIntervalPayload:
+      type: object
+      required: [interval_seconds]
+      properties:
+        interval_seconds:
+          type: integer
+          minimum: 5
+          description: How often the scheduler runs the task, in seconds.
     Indexer:
       type: object
       required: [id, name, health, enabled, supports_search, supports_rss, indexer_urls]
@@ -3771,6 +3822,7 @@ components:
           description: Effective values grouped by section, keyed by field name.
           additionalProperties:
             type: object
+            additionalProperties: true
         fields:
           type: array
           items:
