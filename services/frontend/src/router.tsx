@@ -9,11 +9,17 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { SetupPage } from '@/features/auth/pages/SetupPage';
 import { releasesByRequestQuery } from '@/features/releases/queries';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
-import { requestDetailQuery, requestsListQuery } from '@/features/requests/queries';
+import {
+  DEFAULT_REQUESTS_LIST_FILTERS,
+  requestDetailQuery,
+  requestsListQuery,
+} from '@/features/requests/queries';
 import { prefetchWhenOnline, queryClient } from '@/lib/queryClient';
 
 const requestsLoader = async () => {
-  await prefetchWhenOnline(() => queryClient.ensureQueryData(requestsListQuery()));
+  await prefetchWhenOnline(() =>
+    queryClient.ensureInfiniteQueryData(requestsListQuery(DEFAULT_REQUESTS_LIST_FILTERS)),
+  );
   return null;
 };
 

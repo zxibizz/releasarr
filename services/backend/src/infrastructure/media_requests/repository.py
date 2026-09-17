@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from typing import Any
 
-from sqlalchemy import Select, exists, select
+from sqlalchemy import ColumnElement, Select, exists, or_, select
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
@@ -17,7 +18,27 @@ from src.application.utility.sentinels import UNSET
 from src.db.datetimes import as_utc
 from src.db.repository import BaseSqlAlchemyRepository, Filter
 from src.domain import models
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import MediaRequestStatus, MediaType, RequestSort
+
+# Title sorts tiebreak on recency so a stable order survives equal titles.
+_SORT_ORDERS: dict[RequestSort, tuple[ColumnElement[Any], ...]] = {
+    RequestSort.CREATED_DESC: (models.MediaRequest.created_at.desc(),),
+    RequestSort.CREATED_ASC: (models.MediaRequest.created_at.asc(),),
+    RequestSort.TITLE_ASC: (
+        models.MediaRequest.title.asc(),
+        models.MediaRequest.created_at.desc(),
+    ),
+    RequestSort.TITLE_DESC: (
+        models.MediaRequest.title.desc(),
+        models.MediaRequest.created_at.desc(),
+    ),
+}
+
+
+def _escape_like(term: str) -> str:
+    """Make a search term literal inside a LIKE pattern."""
+
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @dataclass(slots=True)
@@ -33,11 +54,16 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
         media_type: MediaType | None,
         owner_user_id: str | None = None,
         has_warnings: bool | None = None,
+        active_only: bool = False,
+        search: str | None = None,
+        sort: RequestSort = RequestSort.CREATED_DESC,
     ) -> tuple[list[MediaRequestRecord], int]:
         async with self.db.session() as session:
             filters: list[Filter] = []
             if status is not None:
                 filters.append(models.MediaRequest.status == status)
+            if active_only:
+                filters.append(models.MediaRequest.status != MediaRequestStatus.COMPLETED)
             if media_type is not None:
                 filters.append(models.MediaRequest.media_type == media_type)
             if owner_user_id is not None:
@@ -47,13 +73,19 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                     models.RequestWarning.request_id == models.MediaRequest.id
                 )
                 filters.append(warning_exists if has_warnings else ~warning_exists)
+            if search and search.strip():
+                pattern = f"%{_escape_like(search.strip())}%"
+                filters.append(
+                    or_(
+                        models.MediaRequest.title.ilike(pattern, escape="\\"),
+                        models.MediaRequest.series_title.ilike(pattern, escape="\\"),
+                    )
+                )
 
             total = await self._count(session, models.MediaRequest.id, filters)
 
             stmt: Select[tuple[models.MediaRequest]] = self._paginate(
-                select(models.MediaRequest)
-                .where(*filters)
-                .order_by(models.MediaRequest.created_at.desc()),
+                select(models.MediaRequest).where(*filters).order_by(*_SORT_ORDERS[sort]),
                 page=page,
                 per_page=per_page,
             )

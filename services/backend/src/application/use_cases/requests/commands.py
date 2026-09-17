@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, fields
 
 from src.application.interfaces.media_requests import MediaLocalization
 from src.application.utility.sentinels import UNSET, _Unset
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import MediaRequestStatus, MediaType, RequestSort
 
 
 @dataclass(slots=True)
@@ -19,6 +19,10 @@ class ListRequestsOptions:
     # None means unrestricted, not "owned by nobody".
     owner_user_id: str | None = None
     has_warnings: bool | None = None
+    # The list page's "active" tab: every status except completed.
+    active_only: bool = False
+    search: str | None = None
+    sort: RequestSort = RequestSort.CREATED_DESC
 
 
 @dataclass(slots=True)

@@ -54,7 +54,7 @@ from src.application.use_cases.requests.dto import (
     SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
-from src.domain.enums import EpisodeStatus, MediaRequestStatus, RequestWarningCode
+from src.domain.enums import EpisodeStatus, MediaRequestStatus, RequestSort, RequestWarningCode
 
 API_KEY_HEADER: dict[str, str] = {}
 
@@ -278,6 +278,38 @@ async def test_list_requests_passes_has_warnings_through(api_client: AsyncClient
     assert response.status_code == status.HTTP_200_OK
     assert use_case.last_options is not None
     assert use_case.last_options.has_warnings is True
+
+
+@pytest.mark.asyncio
+async def test_list_requests_maps_the_active_filter_search_and_sort(
+    api_client: AsyncClient,
+) -> None:
+    page = MediaRequestsPageDTO(requests=[], total=0, page=1, per_page=20)
+    use_case = FakeListUseCase(page)
+    with override_dependency(_get_list_use_case, use_case):
+        response = await api_client.get(
+            "/requests",
+            params={"status": "active", "search": "dune", "sort": "title_asc"},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.last_options is not None
+    assert use_case.last_options.active_only is True
+    assert use_case.last_options.status is None
+    assert use_case.last_options.search == "dune"
+    assert use_case.last_options.sort is RequestSort.TITLE_ASC
+
+
+@pytest.mark.asyncio
+async def test_list_requests_rejects_an_unknown_sort(api_client: AsyncClient) -> None:
+    page = MediaRequestsPageDTO(requests=[], total=0, page=1, per_page=20)
+    with override_dependency(_get_list_use_case, FakeListUseCase(page)):
+        response = await api_client.get(
+            "/requests", params={"sort": "random"}, headers=API_KEY_HEADER
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.asyncio

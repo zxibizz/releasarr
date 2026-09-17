@@ -12,10 +12,12 @@ import type {
 export interface RequestListFilters {
   page?: number;
   perPage?: number;
-  status?: MediaRequestStatus;
+  status?: MediaRequestStatus | 'active';
   type?: MediaType;
   owner?: string;
   hasWarnings?: boolean;
+  search?: string;
+  sort?: 'created_desc' | 'created_asc' | 'title_asc' | 'title_desc';
 }
 
 export const requestsApi = {
@@ -29,6 +31,8 @@ export const requestsApi = {
         type: filters.type,
         owner: filters.owner,
         has_warnings: filters.hasWarnings,
+        search: filters.search,
+        sort: filters.sort,
       },
     }),
 

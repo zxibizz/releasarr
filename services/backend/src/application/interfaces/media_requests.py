@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Protocol
 
 from src.application.utility.sentinels import UNSET, _Unset
-from src.domain.enums import MediaRequestStatus, MediaType
+from src.domain.enums import MediaRequestStatus, MediaType, RequestSort
 
 
 @dataclass(slots=True)
@@ -118,6 +118,9 @@ class MediaRequestRepository(Protocol):
         media_type: MediaType | None,
         owner_user_id: str | None = None,
         has_warnings: bool | None = None,
+        active_only: bool = False,
+        search: str | None = None,
+        sort: RequestSort = RequestSort.CREATED_DESC,
     ) -> tuple[list[MediaRequestRecord], int]:
         """Return paginated media requests matching the provided filters.
 
@@ -125,6 +128,8 @@ class MediaRequestRepository(Protocol):
         requests; otherwise every request is eligible regardless of owner.
         ``has_warnings``, when set, restricts to requests with (``True``) or
         without (``False``) at least one row in `request_warnings`.
+        ``active_only`` excludes completed requests, and ``search`` matches
+        case-insensitively against the request and series titles.
         """
 
     async def create_request(self, data: CreateMediaRequestData) -> MediaRequestRecord:

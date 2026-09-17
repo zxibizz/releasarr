@@ -29,6 +29,8 @@ paths:
         - $ref: '#/components/parameters/RequestType'
         - $ref: '#/components/parameters/RequestOwner'
         - $ref: '#/components/parameters/RequestHasWarnings'
+        - $ref: '#/components/parameters/RequestSearch'
+        - $ref: '#/components/parameters/RequestSort'
       responses:
         '200':
           description: Paged list of media requests.
@@ -2305,8 +2307,8 @@ components:
       in: query
       name: status
       schema:
-        $ref: '#/components/schemas/MediaRequestStatus'
-      description: Filter requests by lifecycle status.
+        $ref: '#/components/schemas/MediaRequestStatusFilter'
+      description: Filter requests by lifecycle status; `active` is every status but `completed`.
     RequestType:
       in: query
       name: type
@@ -2327,6 +2329,21 @@ components:
       schema:
         type: boolean
       description: Filter to requests with (`true`) or without (`false`) at least one warning.
+    RequestSearch:
+      in: query
+      name: search
+      schema:
+        type: string
+        maxLength: 255
+      description: Case-insensitive substring match against request and series titles.
+    RequestSort:
+      in: query
+      name: sort
+      schema:
+        type: string
+        enum: [created_desc, created_asc, title_asc, title_desc]
+        default: created_desc
+      description: Order of the returned requests.
     UserId:
       in: path
       name: userId
@@ -2400,6 +2417,12 @@ components:
     MediaRequestStatus:
       type: string
       enum: [pending, searching, downloading, monitoring, importing, completed, failed]
+    MediaRequestStatusFilter:
+      type: string
+      enum: [active, pending, searching, downloading, monitoring, importing, completed, failed]
+      description: >-
+        `MediaRequestStatus` plus `active`, which matches every status except
+        `completed`.
     ReleaseStatus:
       type: string
       enum: [pending, downloading, completed, failed]

@@ -58,8 +58,8 @@ key raises `HttpClientError` at call time with the name of the env var to set.
 
 | Method | Path | Used for |
 | --- | --- | --- |
-| GET | `/wanted/missing` | Missing monitored episodes, grouped into seasons by `sonarr_sync` |
-| GET | `/series/{id}` | Series details, season episode/file counts |
+| GET | `/series` | The whole library, with per-season counts and monitoring, for `sonarr_sync` |
+| GET | `/series/{id}` | Series details for the add-request flow |
 | GET | `/series/lookup` | Search (`term=…`) and TVDB lookup (`term=tvdb:{id}`) |
 | POST | `/series` | Add a series |
 | PUT | `/series/{id}` | Apply season monitoring |
@@ -72,8 +72,12 @@ key raises `HttpClientError` at call time with the name of the env var to set.
 
 Things that will surprise you:
 
-- **`/wanted/missing` is fetched as one page** of `pageSize=1000`. There is no pagination
-  follow-up; a library with more missing episodes than that would be silently truncated.
+- **`/series` is the sync's only read**, and it is not paginated. The wanted list is not
+  consulted at all: a season with every aired episode filed is absent from it, and releasarr
+  still wants a request for it. The sweep adopts every monitored season, refreshes the rows it
+  already has, and deletes the rows whose season or series is no longer monitored or no longer
+  there. An empty answer prunes nothing — that reading is a restarting Sonarr, not a wiped
+  library.
 - **`wait_for_series_episodes`** polls `/series/{id}` every second for up to 30s after an add,
   because Sonarr both populates episodes and settles monitoring asynchronously. It returns once
   the requested seasons report episodes *and* `addOptions` has gone from the payload — Sonarr
@@ -121,8 +125,8 @@ polling, and error-swallowing behaviour as Sonarr.
 
 | Method | Path | Used for |
 | --- | --- | --- |
-| GET | `/wanted/missing` | Missing movies for `radarr_sync` |
-| GET | `/movie/{id}` | Movie details, including `hasFile` |
+| GET | `/movie` | The whole library, with `hasFile` and `monitored`, for `radarr_sync` |
+| GET | `/movie/{id}` | Movie details for the add-request flow |
 | GET | `/movie/lookup` | Search and TMDB lookup (`term=tmdb:{id}`) |
 | POST | `/movie` | Add a movie |
 | PUT | `/movie/{id}` | Set `monitored` |
@@ -132,8 +136,9 @@ polling, and error-swallowing behaviour as Sonarr.
 
 Radarr-specific:
 
-- **`minimumAvailability: "released"`** on add. Anything stricter would hide the movie from
-  `/wanted/missing`, so it would never become a request.
+- **`minimumAvailability: "released"`** on add. The sync no longer reads the wanted list, so
+  this only governs when Radarr itself starts searching; anything stricter would leave a movie
+  Radarr monitors — and releasarr tracks — out of Radarr's own queue.
 - `addOptions.searchForMovie: false`, for the same reason as Sonarr.
 - `set_movie_monitored` no-ops when the flag already matches.
 - **`delete_movie`** is the counterpart of Sonarr's `delete_series`, asked for on the same

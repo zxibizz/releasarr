@@ -100,7 +100,14 @@ describe('RequestsPage on a phone', () => {
   });
 
   it('says on the toggle when a hidden filter is narrowing the list', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({ requests: [movie, series], total: 2 });
+    // The API does the filtering now, so the mock answers `type` like it would.
+    vi.mocked(apiRequest).mockImplementation((_path, options) => {
+      const query = (options as { query?: { type?: string } } | undefined)?.query ?? {};
+      const requests = query.type
+        ? [movie, series].filter((request) => request.type === query.type)
+        : [movie, series];
+      return Promise.resolve({ requests, total: requests.length, page: 1, per_page: 100 });
+    });
 
     renderWithProviders(<RequestsPage />, { route: '/?type=series' });
 

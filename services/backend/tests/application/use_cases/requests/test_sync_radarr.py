@@ -1,4 +1,4 @@
-"""Tests for syncing Radarr missing movies into media requests."""
+"""Tests for reconciling media requests with the movies Radarr monitors."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import pytest
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
+    MediaLocalization,
     MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
@@ -64,6 +65,7 @@ class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
             localizations=data.localizations,
+            owner_user_id=data.owner_user_id,
         )
         self.records[record.id] = record
         return record
@@ -102,14 +104,14 @@ class FakeMediaRequestRepository(UnusedMediaRequestCalls, MediaRequestRepository
 
 
 class FakeRadarrService(UnusedRadarrLibraryCalls):
-    def __init__(self, missing: list[MovieDetails]) -> None:
-        self._missing = missing
+    def __init__(self, library: list[MovieDetails]) -> None:
+        self._library = library
 
-    async def get_missing_movies(self) -> list[MovieDetails]:
-        return self._missing
+    async def list_movies(self) -> list[MovieDetails]:
+        return self._library
 
     async def get_movie(self, movie_id: int) -> MovieDetails:
-        return next(movie for movie in self._missing if movie.id == movie_id)
+        return next(movie for movie in self._library if movie.id == movie_id)
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         return True
@@ -203,7 +205,13 @@ class FakeTmdbService(UnusedTmdbSearch, TmdbService):
         return self._metadata[tmdb_id]
 
 
-def make_movie(movie_id: int = 156, title: str = "Arrival") -> MovieDetails:
+def make_movie(
+    movie_id: int = 156,
+    title: str = "Arrival",
+    *,
+    monitored: bool = True,
+    has_file: bool = False,
+) -> MovieDetails:
     return MovieDetails(
         id=movie_id,
         title=title,
@@ -214,7 +222,8 @@ def make_movie(movie_id: int = 156, title: str = "Arrival") -> MovieDetails:
         tmdb_id=329865,
         genres=["Drama"],
         runtime_minutes=116,
-        has_file=False,
+        has_file=has_file,
+        monitored=monitored,
     )
 
 
@@ -247,12 +256,12 @@ def make_record(
 
 
 @pytest.mark.asyncio
-async def test_sync_radarr_creates_updates_and_completes() -> None:
+async def test_sync_radarr_creates_updates_and_prunes() -> None:
     repository = FakeMediaRequestRepository(
         records={
-            # Still missing, so it is refreshed and reopened.
+            # Still monitored and fileless, so it is refreshed and reopened.
             "req-1": make_record("req-1", 156, MediaRequestStatus.COMPLETED),
-            # No longer reported missing, so Radarr now has it.
+            # No longer monitored, so its request goes with the monitoring.
             "req-2": make_record("req-2", 999, MediaRequestStatus.PENDING),
         }
     )
@@ -286,7 +295,7 @@ async def test_sync_radarr_creates_updates_and_completes() -> None:
     )
     result = await use_case.execute()
 
-    assert (result.created, result.updated, result.completed) == (1, 1, 1)
+    assert (result.created, result.updated, result.deleted) == (1, 1, 1)
 
     refreshed = await repository.find_by_radarr(radarr_movie_id=156)
     assert refreshed is not None
@@ -297,9 +306,7 @@ async def test_sync_radarr_creates_updates_and_completes() -> None:
     assert refreshed.imdb_id == "tt2543164"
     assert refreshed.localizations["eng"].title == "Arrival"
 
-    gone = await repository.find_by_radarr(radarr_movie_id=999)
-    assert gone is not None
-    assert gone.status == MediaRequestStatus.COMPLETED
+    assert await repository.find_by_radarr(radarr_movie_id=999) is None
 
     created = await repository.find_by_radarr(radarr_movie_id=200)
     assert created is not None
@@ -308,15 +315,15 @@ async def test_sync_radarr_creates_updates_and_completes() -> None:
     assert created.season_number is None
     assert created.total_episodes is None
 
-    # Only the movie TMDB knows about is looked up, once.
+    # The created row and the refreshed row share one TMDB read per run.
     assert tmdb.calls == [(329865, ("rus", "eng"))]
 
 
 @pytest.mark.asyncio
-async def test_sync_radarr_logs_a_completion_against_the_request(
+async def test_sync_radarr_logs_a_pruning_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
-    """Completing a movie is activity a user should see on the request.
+    """Pruning a movie is activity a user should see on the request.
 
     The /logs endpoint filters on request_id and the log file records at INFO, so
     a debug-level entry here would never reach the request's activity view.
@@ -328,16 +335,17 @@ async def test_sync_radarr_logs_a_completion_against_the_request(
 
     use_case = SyncRadarrMediaRequestsUseCase(
         repository=repository,
-        radarr_service=FakeRadarrService([]),
+        radarr_service=FakeRadarrService([make_movie()]),
         tmdb_service=FakeTmdbService(is_configured=False),
         recompute_state=make_recompute(repository),
     )
     await use_case.execute()
 
-    completed = [record for record in captured_records if record.get("request_id") == "req-1"]
-    assert completed, "completing a movie produced no log entry bound to the request"
-    assert completed[0]["level"] == "INFO"
-    assert completed[0]["radarr_movie_id"] == 999
+    assert await repository.find_by_radarr(radarr_movie_id=999) is None
+    pruned = [record for record in captured_records if record.get("request_id") == "req-1"]
+    assert pruned, "pruning a movie produced no log entry bound to the request"
+    assert pruned[0]["level"] == "INFO"
+    assert pruned[0]["radarr_movie_id"] == 999
 
 
 @pytest.mark.asyncio
@@ -411,3 +419,87 @@ async def test_sync_radarr_falls_back_to_radarr_metadata_without_tmdb() -> None:
     assert record.title == "Arrival"
     assert record.localizations["eng"].title == "Arrival"
     assert record.localizations["eng"].overview == "Linguist meets heptapods."
+
+
+@pytest.mark.asyncio
+async def test_sync_radarr_adopts_a_downloaded_movie_as_completed() -> None:
+    """A movie Radarr already holds never sat on the missing list either."""
+
+    repository = FakeMediaRequestRepository()
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([make_movie(has_file=True)]),
+        tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert result.created == 1
+    record = await repository.find_by_radarr(radarr_movie_id=156)
+    assert record is not None
+    assert record.status == MediaRequestStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_sync_radarr_ignores_unmonitored_movies() -> None:
+    repository = FakeMediaRequestRepository(
+        records={"req-1": make_record("req-1", 156, MediaRequestStatus.PENDING)}
+    )
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([make_movie(monitored=False)]),
+        tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert (result.created, result.updated, result.deleted) == (0, 0, 1)
+    assert await repository.find_by_radarr(radarr_movie_id=156) is None
+
+
+@pytest.mark.asyncio
+async def test_sync_radarr_prunes_nothing_when_the_library_answers_empty(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """An empty answer from Radarr reads as a restart, not as a wiped library."""
+
+    repository = FakeMediaRequestRepository(
+        records={"req-1": make_record("req-1", 156, MediaRequestStatus.PENDING)}
+    )
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([]),
+        tmdb_service=FakeTmdbService(is_configured=False),
+        recompute_state=make_recompute(repository),
+    )
+    result = await use_case.execute()
+
+    assert result.deleted == 0
+    assert await repository.find_by_radarr(radarr_movie_id=156) is not None
+    assert any(record.get("level") == "WARNING" for record in captured_records)
+
+
+@pytest.mark.asyncio
+async def test_sync_radarr_reuses_stored_localizations() -> None:
+    """TMDB is asked only for rows with nothing stored, not on every sweep."""
+
+    record = make_record("req-1", 156, MediaRequestStatus.PENDING)
+    record.localizations = {"eng": MediaLocalization(title="Arrival", overview="Stored")}
+    repository = FakeMediaRequestRepository(records={"req-1": record})
+    tmdb = FakeTmdbService()
+
+    use_case = SyncRadarrMediaRequestsUseCase(
+        repository=repository,
+        radarr_service=FakeRadarrService([make_movie()]),
+        tmdb_service=tmdb,
+        recompute_state=make_recompute(repository),
+    )
+    await use_case.execute()
+
+    assert tmdb.calls == []
+    refreshed = await repository.find_by_radarr(radarr_movie_id=156)
+    assert refreshed is not None
+    assert refreshed.localizations["eng"].overview == "Stored"

@@ -166,7 +166,7 @@ class FakeRadarrService:
         self.succeeds = succeeds
         self.file_size = file_size
 
-    async def get_missing_movies(self) -> list[MovieDetails]:
+    async def list_movies(self) -> list[MovieDetails]:
         return []
 
     async def get_movie(self, movie_id: int) -> MovieDetails:

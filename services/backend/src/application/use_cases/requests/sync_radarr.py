@@ -1,4 +1,4 @@
-"""Synchronise media requests with missing Radarr movies."""
+"""Synchronise media requests with the movies Radarr monitors."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from loguru._logger import Logger
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
     MediaLocalization,
-    MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
@@ -36,11 +35,11 @@ class SyncRadarrResult:
 
     created: int = 0
     updated: int = 0
-    completed: int = 0
+    deleted: int = 0
 
 
 class SyncRadarrMediaRequestsUseCase:
-    """Create or update media requests based on Radarr missing movies."""
+    """Reconcile media requests with the movies Radarr monitors."""
 
     def __init__(
         self,
@@ -62,20 +61,46 @@ class SyncRadarrMediaRequestsUseCase:
         self._metadata_cache: dict[int, TmdbMovieMetadata | None] = {}
 
     async def execute(self) -> SyncRadarrResult:
-        """Populate media requests for missing Radarr movies."""
+        """Reconcile media requests with the movies Radarr monitors."""
 
         result = SyncRadarrResult()
         self._metadata_cache.clear()
-        missing_movies = await self._radarr.get_missing_movies()
-        missing_ids = {movie.id for movie in missing_movies}
+        library = await self._radarr.list_movies()
+        wanted = {movie.id: movie for movie in library if movie.monitored}
 
         existing = await self._repository.list_radarr_requests()
-        # As on the Sonarr side, every Radarr-backed request gets one verdict per
-        # run, and the recompute is the only writer of the status it implies.
-        verdicts: dict[str, ArrCompletion] = {}
-        result.completed += await self._mark_completed(existing, missing_ids, verdicts)
+        existing_ids = {
+            record.radarr_movie_id: record
+            for record in existing
+            if record.radarr_movie_id is not None
+        }
 
-        for movie in missing_movies:
+        # As on the Sonarr side, Radarr is the authority: a request whose movie
+        # it no longer monitors - or no longer holds - has nothing left to be. An
+        # empty library skips the pass so a restarting Radarr wipes nothing.
+        if not library and existing:
+            self._logger.warning(
+                "Radarr reported an empty library; skipping request pruning",
+                existing_requests=len(existing),
+            )
+        else:
+            for movie_id, record in existing_ids.items():
+                if movie_id in wanted:
+                    continue
+                await self._repository.delete_request(record.id)
+                result.deleted += 1
+                self._logger.info(
+                    "Deleted request for a movie Radarr no longer monitors",
+                    request_id=record.id,
+                    radarr_movie_id=record.radarr_movie_id,
+                    request_title=record.title,
+                )
+
+        # Every surviving request gets exactly one verdict, derived from Radarr's
+        # own file state; the recompute is the only writer of status.
+        verdicts: dict[str, ArrCompletion] = {}
+
+        for movie in wanted.values():
             outcome = await self._sync_movie(movie, verdicts=verdicts)
             if outcome == "created":
                 result.created += 1
@@ -89,7 +114,7 @@ class SyncRadarrMediaRequestsUseCase:
             "Radarr sync finished",
             created=result.created,
             updated=result.updated,
-            completed=result.completed,
+            deleted=result.deleted,
         )
         return result
 
@@ -99,9 +124,7 @@ class SyncRadarrMediaRequestsUseCase:
         """Create or refresh the request for a single movie.
 
         Serves the add-request flow, where the request has to exist by the time
-        the call returns. Radarr's missing list is deliberately not consulted: an
-        unreleased movie is absent from it, and the full sweep is what owns
-        completing requests.
+        the call returns. Completing and pruning belong to the full sweep alone.
         """
 
         self._metadata_cache.clear()
@@ -123,8 +146,15 @@ class SyncRadarrMediaRequestsUseCase:
 
         existing = await self._repository.find_by_radarr(radarr_movie_id=details.id)
 
-        metadata = await self._load_tmdb_metadata(details)
-        localizations = self._build_localizations(metadata, details)
+        # TMDB is the expensive leg of the sweep, and only the translations a row
+        # is missing justify it; everything else comes from Radarr itself.
+        if existing is not None and existing.localizations:
+            localizations = existing.localizations
+        else:
+            metadata = await self._load_tmdb_metadata(details)
+            localizations = self._build_localizations(metadata, details)
+
+        verdict = ArrCompletion(is_complete=details.has_file)
 
         title = self._localization.select(localizations, "title", details.title)
         overview = self._localization.select(localizations, "overview", details.overview) or None
@@ -160,13 +190,13 @@ class SyncRadarrMediaRequestsUseCase:
                 request_title=title,
             )
             if verdicts is not None:
-                verdicts[data.id] = ArrCompletion(is_complete=False)
+                verdicts[data.id] = verdict
             return "created"
 
-        # A movie on Radarr's missing list has no file; what that implies for the
-        # status is the recompute's call, not this refresh's.
+        # What the verdict implies for the status is the recompute's call, not
+        # this refresh's.
         if verdicts is not None:
-            verdicts[existing.id] = ArrCompletion(is_complete=False)
+            verdicts[existing.id] = verdict
 
         # As on the Sonarr side, an explicit re-request of a completed movie is
         # user intent and is written directly.
@@ -193,33 +223,6 @@ class SyncRadarrMediaRequestsUseCase:
             radarr_movie_id=details.id,
         )
         return "updated"
-
-    async def _mark_completed(
-        self,
-        existing: list[MediaRequestRecord],
-        missing_ids: set[int],
-        verdicts: dict[str, ArrCompletion],
-    ) -> int:
-        """Settle the Radarr-linked requests Radarr no longer reports as missing."""
-
-        transitioned = 0
-        for record in existing:
-            if record.radarr_movie_id is None:
-                continue
-            if record.radarr_movie_id in missing_ids:
-                continue
-            verdicts[record.id] = ArrCompletion(is_complete=True)
-            if record.status is MediaRequestStatus.COMPLETED:
-                continue
-            transitioned += 1
-            # A status transition belongs in the request's activity view, unlike
-            # the metadata refresh above that runs on every sync.
-            self._logger.info(
-                "Marked Radarr movie as completed",
-                request_id=record.id,
-                radarr_movie_id=record.radarr_movie_id,
-            )
-        return transitioned
 
     async def _load_tmdb_metadata(self, details: MovieDetails) -> TmdbMovieMetadata | None:
         if not self._tmdb.is_configured or details.tmdb_id is None:

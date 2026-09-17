@@ -1,9 +1,9 @@
-"""Synchronise media requests with missing Sonarr seasons."""
+"""Synchronise media requests with the seasons Sonarr monitors."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import cast
 from uuid import uuid4
 
@@ -12,11 +12,10 @@ from loguru._logger import Logger
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
     MediaLocalization,
-    MediaRequestRecord,
     MediaRequestRepository,
     UpdateMediaRequestData,
 )
-from src.application.interfaces.sonarr import SeriesDetails, SeriesSeasonDetails, SonarrService
+from src.application.interfaces.sonarr import SeriesDetails, SonarrService
 from src.application.interfaces.tvdb import TvdbSeriesMetadata, TvdbService
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
 from src.application.use_cases.requests.state import ArrCompletion, season_completion
@@ -36,11 +35,11 @@ class SyncSonarrResult:
 
     created: int = 0
     updated: int = 0
-    completed: int = 0
+    deleted: int = 0
 
 
 class SyncSonarrMediaRequestsUseCase:
-    """Create or update media requests based on Sonarr missing seasons."""
+    """Reconcile media requests with the seasons Sonarr monitors."""
 
     def __init__(
         self,
@@ -60,31 +59,64 @@ class SyncSonarrMediaRequestsUseCase:
         self._metadata_languages = self._localization.languages
         self._logger = logger or get_logger(LogComponent.USECASE_SYNC_SONARR)
         self._metadata_cache: dict[int, TvdbSeriesMetadata | None] = {}
-        self._series_cache: dict[int, SeriesDetails] = {}
 
     async def execute(self) -> SyncSonarrResult:
-        """Populate media requests for missing Sonarr seasons."""
+        """Reconcile media requests with the seasons Sonarr monitors."""
 
         result = SyncSonarrResult()
         self._metadata_cache.clear()
-        self._series_cache.clear()
-        missing_series = await self._sonarr.get_missing_series()
-        missing_keys = {
-            (item.series_id, season_number)
-            for item in missing_series
-            for season_number in item.season_numbers
-        }
+        library = await self._sonarr.list_series()
+
+        # The monitored seasons of every series are what releasarr tracks. A
+        # series whose add options are still set is mid-scan and its season flags
+        # are about to be rewritten, so it is left out of both adoption and
+        # pruning until next time.
+        wanted: dict[tuple[int, int], SeriesDetails] = {}
+        unsettled: set[int] = set()
+        for details in library:
+            if details.has_add_options:
+                unsettled.add(details.id)
+                continue
+            for season in details.seasons.values():
+                if season.monitored:
+                    wanted[(details.id, season.season_number)] = details
 
         existing = await self._repository.list_sonarr_requests()
-        # The sync sees every Sonarr-backed request exactly once, so it hands the
-        # recompute a verdict for each: "still missing" from the list itself,
-        # Sonarr's own season counts for a season that left it. Status moves in
-        # exactly one place from here on.
+        existing_keys = {
+            (record.sonarr_series_id, record.season_number): record
+            for record in existing
+            if record.sonarr_series_id is not None and record.season_number is not None
+        }
+
+        # Sonarr is the authority: a request whose season it no longer monitors -
+        # or whose series is gone - has nothing left to be, so the row goes with
+        # it. An empty library skips the pass so a Sonarr answering 200 with
+        # nothing during a restart does not wipe every request.
+        if not library and existing:
+            self._logger.warning(
+                "Sonarr reported an empty library; skipping request pruning",
+                existing_requests=len(existing),
+            )
+        else:
+            for key, record in existing_keys.items():
+                if key in wanted or key[0] in unsettled:
+                    continue
+                await self._repository.delete_request(record.id)
+                result.deleted += 1
+                self._logger.info(
+                    "Deleted request for a season Sonarr no longer monitors",
+                    request_id=record.id,
+                    sonarr_series_id=record.sonarr_series_id,
+                    season_number=record.season_number,
+                    request_title=record.title,
+                )
+
+        # Every surviving request gets exactly one verdict, derived from Sonarr's
+        # own season counts; the recompute is the only writer of status.
         verdicts: dict[str, ArrCompletion] = {}
-        result.completed += await self._mark_completed(existing, missing_keys, verdicts)
 
         # A series' seasons are normally all requested by the same person, so a
-        # newly missing season under "monitor future seasons" should default to
+        # newly monitored season under "monitor future seasons" should default to
         # whoever already owns the series rather than come back unowned.
         series_owners: dict[int, str] = {}
         for record in sorted(existing, key=lambda r: r.created_at, reverse=True):
@@ -95,17 +127,17 @@ class SyncSonarrMediaRequestsUseCase:
             ):
                 series_owners[record.sonarr_series_id] = record.owner_user_id
 
-        for series in missing_series:
-            details = await self._series(series.series_id)
-            owner_user_id = series_owners.get(series.series_id)
-            for season_number in series.season_numbers:
-                updated = await self._sync_season(
-                    details, season_number, owner_user_id=owner_user_id, verdicts=verdicts
-                )
-                if updated == "created":
-                    result.created += 1
-                elif updated == "updated":
-                    result.updated += 1
+        for (series_id, season_number), details in wanted.items():
+            outcome = await self._sync_season(
+                details,
+                season_number,
+                owner_user_id=series_owners.get(series_id),
+                verdicts=verdicts,
+            )
+            if outcome == "created":
+                result.created += 1
+            elif outcome == "updated":
+                result.updated += 1
 
         if verdicts:
             await self._recompute_state.execute(sorted(verdicts), arr_completion=verdicts)
@@ -114,7 +146,7 @@ class SyncSonarrMediaRequestsUseCase:
             "Sonarr sync finished",
             created=result.created,
             updated=result.updated,
-            completed=result.completed,
+            deleted=result.deleted,
         )
         return result
 
@@ -128,14 +160,12 @@ class SyncSonarrMediaRequestsUseCase:
         """Create or refresh requests for named seasons of a single series.
 
         Serves the add-request flow, where the seasons to cover are known and the
-        request has to exist by the time the call returns. Sonarr's missing list
-        is deliberately not consulted: a season whose episodes have not aired yet
-        is absent from it, and the full sweep is what owns completing requests.
+        request has to exist by the time the call returns. Completing and pruning
+        belong to the full sweep alone.
         """
 
         self._metadata_cache.clear()
-        self._series_cache.clear()
-        details = await self._series(series_id)
+        details = await self._sonarr.get_series(series_id)
 
         request_ids: list[str] = []
         for season_number in sorted(set(season_numbers)):
@@ -166,10 +196,24 @@ class SyncSonarrMediaRequestsUseCase:
             season_number=season_number,
         )
 
-        metadata = await self._load_tvdb_metadata(details)
-        localizations = self._build_localizations(metadata, details, season_number)
-
         season_info = details.seasons.get(season_number)
+        # A season the library read has no entry for - an empty season Sonarr
+        # only reports a row for, say - counts as incomplete until it has numbers.
+        verdict = (
+            season_completion(season_info)
+            if season_info is not None
+            else ArrCompletion(is_complete=False)
+        )
+
+        # TVDB is the expensive leg of the sweep, and only the translations a row
+        # is missing justify it; everything else comes from Sonarr itself.
+        metadata: TvdbSeriesMetadata | None = None
+        if existing is not None and existing.localizations:
+            localizations = existing.localizations
+        else:
+            metadata = await self._load_tvdb_metadata(details)
+            localizations = self._build_localizations(metadata, details, season_number)
+
         total_episodes = season_info.total_episode_count if season_info else 0
         aired_episodes = season_info.episode_count if season_info else None
         downloaded_episodes = season_info.episode_file_count if season_info else None
@@ -213,13 +257,13 @@ class SyncSonarrMediaRequestsUseCase:
                 request_title=title,
             )
             if verdicts is not None:
-                verdicts[data.id] = ArrCompletion(is_complete=False)
+                verdicts[data.id] = verdict
             return "created"
 
-        # A season on Sonarr's missing list is incomplete by definition; what
-        # that implies for the status is the recompute's call, not this refresh's.
+        # What the verdict implies for the status is the recompute's call, not
+        # this refresh's.
         if verdicts is not None:
-            verdicts[existing.id] = ArrCompletion(is_complete=False)
+            verdicts[existing.id] = verdict
 
         # Re-requesting a completed season by hand is user intent, which the
         # recompute has no signal for, so it is written directly. The next full
@@ -253,135 +297,6 @@ class SyncSonarrMediaRequestsUseCase:
             season_number=season_number,
         )
         return "updated"
-
-    async def _mark_completed(
-        self,
-        existing: list[MediaRequestRecord],
-        missing_keys: set[tuple[int, int]],
-        verdicts: dict[str, ArrCompletion],
-    ) -> int:
-        """Settle the Sonarr-linked requests Sonarr no longer reports as missing.
-
-        Leaving the missing list is not the same as being finished. Sonarr drops a
-        season from it as soon as every episode that has aired holds a file, so a
-        season that is still airing leaves it weekly and returns the moment the
-        next episode is wanted. The verdict carries ``has_unaired`` so the
-        recompute withholds completion from such a season instead of closing and
-        reopening it. That is also what keeps a release grabbed by hand
-        actionable -- nothing can re-grab it for the episodes that follow.
-        """
-
-        transitioned = 0
-        for record in existing:
-            if record.sonarr_series_id is None or record.season_number is None:
-                continue
-            key = (record.sonarr_series_id, record.season_number)
-            if key in missing_keys:
-                continue
-
-            season = await self._settling_season(record)
-            # Without a live answer the stored counts stand, and a season Sonarr
-            # wants nothing more from has nothing left pending.
-            verdict = (
-                season_completion(season) if season is not None else ArrCompletion(is_complete=True)
-            )
-            verdicts[record.id] = verdict
-
-            update = self._settled_update(record, season)
-            if update is not None:
-                await self._repository.update_request(record.id, update)
-
-            # A status transition belongs in the request's activity view, unlike
-            # the metadata refresh above that runs on every sync.
-            if (
-                verdict.is_complete
-                and not verdict.has_unaired
-                and record.status is not MediaRequestStatus.COMPLETED
-            ):
-                transitioned += 1
-                self._logger.info(
-                    "Marked Sonarr season as completed",
-                    request_id=record.id,
-                    sonarr_series_id=record.sonarr_series_id,
-                    season_number=record.season_number,
-                )
-            elif verdict.has_unaired and record.status is MediaRequestStatus.COMPLETED:
-                self._logger.info(
-                    "Reopened Sonarr season with episodes still to air",
-                    request_id=record.id,
-                    sonarr_series_id=record.sonarr_series_id,
-                    season_number=record.season_number,
-                )
-        return transitioned
-
-    async def _series(self, series_id: int) -> SeriesDetails:
-        """Return a series' details, asking Sonarr once per run.
-
-        Both the completion sweep and the missing-season refresh want the same
-        series, and a series is reported by several seasons.
-        """
-
-        details = self._series_cache.get(series_id)
-        if details is None:
-            details = await self._sonarr.get_series(series_id)
-            self._series_cache[series_id] = details
-        return details
-
-    async def _settling_season(self, record: MediaRequestRecord) -> SeriesSeasonDetails | None:
-        """Sonarr's live numbers for a season, when the stored ones leave a doubt.
-
-        The counts on a request date from the last time the season was reported
-        missing, because only that path rewrites them. A season that has left the
-        missing list since then keeps them, and the card derives what is pending
-        from them, so an episode Sonarr already holds goes on reading as one still
-        to fetch. Those are the seasons worth a round trip: one whose stored
-        counts have nothing outstanding is settled either way.
-        """
-
-        series_id = record.sonarr_series_id
-        season_number = record.season_number
-        if series_id is None or season_number is None:
-            return None
-        total_episodes = record.total_episodes
-        aired_episodes = record.aired_episodes
-        downloaded_episodes = record.downloaded_episodes
-        if total_episodes is None or aired_episodes is None or downloaded_episodes is None:
-            # A request that predates the counts has nothing to disagree with,
-            # and asking anyway risks a series Sonarr has since dropped.
-            return None
-        if aired_episodes >= total_episodes and downloaded_episodes >= aired_episodes:
-            return None
-        return (await self._series(series_id)).seasons.get(season_number)
-
-    @staticmethod
-    def _settled_update(
-        record: MediaRequestRecord,
-        season: SeriesSeasonDetails | None,
-    ) -> UpdateMediaRequestData | None:
-        """The count corrections for a season that left the missing list.
-
-        The status the same answer implies reaches the recompute as an
-        `ArrCompletion` verdict instead, so status has exactly one writer. The
-        stored counts are only trustworthy while a season is still reported
-        missing, so a settled one is written from Sonarr's own numbers -- the
-        same ones the missing-season refresh stores. Without an answer the stored
-        counts stand, and the settled download count is simply the aired one.
-
-        Returns None when the request already says as much, so a season that needs
-        no correction is not rewritten on every sync.
-        """
-
-        if season is None:
-            update = UpdateMediaRequestData(
-                downloaded_episodes=record.aired_episodes,
-            )
-        else:
-            update = UpdateMediaRequestData(
-                total_episodes=season.total_episode_count,
-                aired_episodes=season.episode_count,
-                downloaded_episodes=season.episode_file_count,
-            )
-        return update if _changes_record(record, update) else None
 
     def _build_request_title(self, series_title: str, season_number: int) -> str:
         if season_number <= 0:
@@ -424,16 +339,6 @@ class SyncSonarrMediaRequestsUseCase:
             overview=details.overview,
         )
         return localizations
-
-
-def _changes_record(record: MediaRequestRecord, update: UpdateMediaRequestData) -> bool:
-    """Whether applying `update` would change the record at all."""
-
-    for field in fields(update):
-        value = getattr(update, field.name)
-        if value is not UNSET and getattr(record, field.name) != value:
-            return True
-    return False
 
 
 __all__ = ["SyncSonarrMediaRequestsUseCase", "SyncSonarrResult"]
