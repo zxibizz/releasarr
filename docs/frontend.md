@@ -262,6 +262,7 @@ under. `useRequestTitles` exposes both titles so release search can switch betwe
 | `components/Panel` | Section containers; drops its border on mobile. |
 | `components/EmptyState` | Empty/zero-result states. |
 | `components/OfflineState` | The "cannot reach the server" screen; the route error boundary renders it too. |
+| `components/ServerUnavailable` | The "server answered with 5xx" screen; the auth gate shows it instead of redirecting to `/login`. |
 | `components/DataField` | Label/value pairs in mobile card layouts. |
 | `utils/status.ts` | `getStatusPresentation` — the single status color/icon table. |
 | `utils/formatters.ts` | `formatFileSize`, `formatSpeed`, `formatDate`, `formatDuration`. |

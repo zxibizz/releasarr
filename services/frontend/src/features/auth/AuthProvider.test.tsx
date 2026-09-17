@@ -71,4 +71,56 @@ describe('AuthProvider bootstrap', () => {
 
     await waitFor(() => expect(screen.getByText('authenticated:admin')).toBeInTheDocument());
   });
+
+  it('reports the server as unavailable when the bootstrap refresh gets a 502', async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/auth/refresh')) {
+        return Promise.resolve(jsonResponse({ message: 'bad gateway' }, 502));
+      }
+      return Promise.resolve(jsonResponse({ required: false }));
+    });
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('unavailable:none')).toBeInTheDocument());
+  });
+
+  it('reports the server as unavailable when setup-status gets a 502, without refreshing', async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/auth/setup')) {
+        return Promise.resolve(jsonResponse({ message: 'bad gateway' }, 502));
+      }
+      return Promise.resolve(jsonResponse({ access_token: 'token-1', user: TEST_ADMIN_USER }));
+    });
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('unavailable:none')).toBeInTheDocument());
+    expect(refreshCalls()).toHaveLength(0);
+  });
+
+  it('treats a failed refresh without a session as anonymous, not unavailable', async () => {
+    vi.mocked(fetch).mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes('/auth/refresh')) {
+        return Promise.resolve(jsonResponse({ message: 'no session' }, 401));
+      }
+      return Promise.resolve(jsonResponse({ required: false }));
+    });
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('anonymous:none')).toBeInTheDocument());
+  });
 });

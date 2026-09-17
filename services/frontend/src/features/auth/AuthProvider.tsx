@@ -3,9 +3,14 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { authApi } from '@/features/auth/api';
 import { AuthContext, type AuthContextValue, type AuthStatus } from '@/features/auth/context';
 import { userHasPermission } from '@/features/auth/permissions';
-import { onAuthExpired, refreshSession, setAccessToken } from '@/lib/api/client';
+import {
+  isServerUnavailable,
+  onAuthExpired,
+  refreshSession,
+  setAccessToken,
+} from '@/lib/api/client';
 import { queryClient } from '@/lib/queryClient';
-import type { SessionUser } from '@/types';
+import type { LoginResponse, SessionUser } from '@/types';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -25,15 +30,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
-      } catch {
-        // A failed setup-status check should not itself block trying a session.
+      } catch (error) {
+        // A failed setup-status check should not itself block trying a session —
+        // unless the server is down entirely, in which case neither the refresh
+        // nor a login form could work, so say that instead.
+        if (isServerUnavailable(error)) {
+          if (!cancelled) {
+            setStatus('unavailable');
+          }
+          return;
+        }
       }
 
       // Restoring the session is the API client's job, not this component's:
       // the bootstrap and any request that 401s share one in-flight refresh,
       // so the second pass React StrictMode makes here joins the first rather
       // than asking the server to rotate the same cookie twice.
-      const session = await refreshSession();
+      let session: LoginResponse | null;
+      try {
+        session = await refreshSession();
+      } catch (error) {
+        if (!cancelled) {
+          setStatus(isServerUnavailable(error) ? 'unavailable' : 'anonymous');
+        }
+        return;
+      }
       if (cancelled) {
         return;
       }

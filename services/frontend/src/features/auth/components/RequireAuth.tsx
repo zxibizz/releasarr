@@ -2,6 +2,7 @@ import { Center, Loader } from '@mantine/core';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { OfflineState } from '@/components/OfflineState';
+import { ServerUnavailable } from '@/components/ServerUnavailable';
 import { useAuth } from '@/features/auth/useAuth';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
@@ -21,6 +22,19 @@ export function RequireAuth() {
 
   if (status === 'setup-required') {
     return <Navigate to="/setup" replace />;
+  }
+
+  /*
+   * The bootstrap got a 5xx from the server itself: the session may be fine,
+   * and a sign-in form would hit the same dead backend, so offer a retry that
+   * re-runs the bootstrap instead.
+   */
+  if (status === 'unavailable') {
+    return (
+      <Center mih="60vh" p="xl">
+        <ServerUnavailable />
+      </Center>
+    );
   }
 
   if (status === 'anonymous') {

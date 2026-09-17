@@ -46,6 +46,14 @@ describe('RequireAuth', () => {
     expect(screen.getByText('Cannot reach Releasarr')).toBeInTheDocument();
   });
 
+  it('offers a retry instead of a sign-in when the server itself is down', () => {
+    renderGuarded({ status: 'unavailable' });
+
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
+    expect(screen.getByText('Releasarr is unavailable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
+  });
+
   it('redirects to /setup when no admin exists yet', () => {
     renderGuarded({ status: 'setup-required' });
     expect(screen.getByText('Setup page')).toBeInTheDocument();
