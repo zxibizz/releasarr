@@ -19,15 +19,18 @@ from src.application.interfaces.releases import (
     ReleaseRecord,
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
+    ReleaseSearchUnavailableError,
 )
 from src.application.use_cases.releases.commands import (
     FileMappingCommand,
     QueueReleaseDownloadCommand,
+    SearchReleaseSourcesCommand,
     UpdateFileMappingsCommand,
 )
 from src.application.use_cases.releases.exceptions import ReleaseDownloadFailedError
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.regrab import ReleaseRegrapper
+from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
 from src.application.use_cases.releases.update_file_mappings import (
     UpdateReleaseFileMappingsUseCase,
 )
@@ -305,10 +308,15 @@ async def test_a_check_that_finds_no_change_logs_against_the_request(
 
     assert await regrapper.regrab(release, {}) is False
 
-    records = [record for record in captured_records if record.get("request_id") == "req-1"]
-    assert records, "an unchanged release produced no log entry bound to the request"
-    assert records[0]["release_id"] == release.id
-    assert records[0]["info_hash"] == release.info_hash
+    outcomes = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1"
+        and record["message"] == "Release is up to date on its indexer"
+    ]
+    assert outcomes, "an unchanged release produced no log entry bound to the request"
+    assert outcomes[0]["release_id"] == release.id
+    assert outcomes[0]["info_hash"] == release.info_hash
 
 
 async def test_a_check_logs_once_per_request_holding_the_release(
@@ -335,12 +343,17 @@ async def test_a_check_the_indexer_no_longer_answers_for_logs_against_the_reques
 
     assert await regrapper.regrab(release, {}) is False
 
-    records = [record for record in captured_records if record.get("request_id") == "req-1"]
-    assert records, "a release missing from its indexer's results logged nothing"
-    assert records[0]["release_id"] == release.id
+    misses = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1"
+        and record["message"] == "Release is no longer listed by its indexer"
+    ]
+    assert misses, "a release missing from its indexer's results logged nothing"
+    assert misses[0]["release_id"] == release.id
     # What was searched is what makes a miss diagnosable.
-    assert records[0]["query"] == "Show S01"
-    assert records[0]["results"] == 0
+    assert misses[0]["query"] == "Show S01"
+    assert misses[0]["results"] == 0
 
 
 async def test_a_successful_regrab_logs_against_the_request(
@@ -353,7 +366,121 @@ async def test_a_successful_regrab_logs_against_the_request(
 
     assert await regrapper.regrab(release, {}) is True
 
-    records = [record for record in captured_records if record.get("request_id") == "req-1"]
-    assert records, "a re-grab produced no log entry bound to the request"
-    assert records[0]["old_hash"] == release.info_hash
-    assert records[0]["new_hash"] == "NEWHASH"
+    regrabs = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1" and record["message"] == "Re-grabbed updated release"
+    ]
+    assert regrabs, "a re-grab produced no log entry bound to the request"
+    assert regrabs[0]["old_hash"] == release.info_hash
+    assert regrabs[0]["new_hash"] == "NEWHASH"
+
+
+async def test_starting_a_check_logs_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """The check itself is worth seeing on the request, not only its outcome."""
+
+    release = make_checkable_release()
+    regrapper = build_regrapper(
+        CheckSearchService([make_indexer_result(release, info_hash=release.info_hash)])
+    )
+
+    await regrapper.regrab(release, {})
+
+    checks = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1"
+        and record["message"] == "Checking release for updates"
+    ]
+    assert checks, "the start of a check produced no log entry bound to the request"
+    assert checks[0]["release_id"] == release.id
+    assert checks[0]["indexer"] == "RuTracker"
+
+
+class SearchDirectory(UnusedIndexerDirectoryCalls):
+    is_configured = True
+
+    def __init__(self, indexers: list[IndexerRecord]) -> None:
+        self._indexers = indexers
+
+    async def list_indexers(self) -> list[IndexerRecord]:
+        return self._indexers
+
+
+def make_searchable_indexer(indexer_id: int, name: str) -> IndexerRecord:
+    return IndexerRecord(
+        indexer_id=indexer_id,
+        name=name,
+        enabled=True,
+        supports_search=True,
+        disabled_till=None,
+    )
+
+
+class FailingSearchService:
+    is_configured = True
+
+    async def search(
+        self,
+        query: str,
+        request_id: str | None = None,
+        indexer_id: int | None = None,
+    ) -> ReleaseSearchResults:
+        raise ReleaseSearchUnavailableError("indexer offline")
+
+    def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
+        raise AssertionError("a failed search resolves nothing")
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        raise AssertionError("a failed search fetches nothing")
+
+
+async def test_a_manual_search_logs_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    release = make_checkable_release()
+    use_case = SearchReleaseSourcesUseCase(
+        CheckSearchService([make_indexer_result(release, info_hash=release.info_hash)]),
+        directory=SearchDirectory([make_searchable_indexer(1, "Alpha")]),
+    )
+
+    response = await use_case.execute(
+        SearchReleaseSourcesCommand(query="Show S01", request_id="req-1")
+    )
+
+    assert response.total_results == 1
+    searches = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1" and record["message"] == "Release search completed"
+    ]
+    assert searches, "a manual search produced no log entry bound to the request"
+    assert searches[0]["query"] == "Show S01"
+    assert searches[0]["results"] == 1
+    assert searches[0]["searched_indexers"] == 1
+    assert searches[0]["failed_indexers"] == 0
+
+
+async def test_a_failed_indexer_during_a_manual_search_logs_against_the_request(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    use_case = SearchReleaseSourcesUseCase(
+        FailingSearchService(),
+        directory=SearchDirectory([make_searchable_indexer(1, "Alpha")]),
+        retries=0,
+    )
+
+    response = await use_case.execute(
+        SearchReleaseSourcesCommand(query="Show S01", request_id="req-1")
+    )
+
+    assert len(response.failed_indexers) == 1
+    failures = [
+        record
+        for record in captured_records
+        if record.get("request_id") == "req-1" and record["message"] == "Indexer search failed"
+    ]
+    assert failures, "a failed indexer produced no log entry bound to the request"
+    assert failures[0]["indexer"] == "Alpha"
