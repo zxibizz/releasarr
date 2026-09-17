@@ -32,6 +32,10 @@ interface NavItem {
   badge?: () => ReactNode;
 }
 
+interface SettingsNavItem extends NavItem {
+  adminOnly?: boolean;
+}
+
 const NAV_ITEMS: NavItem[] = [
   {
     to: '/',
@@ -43,31 +47,29 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: 'nav.add',
     isActive: (pathname) => pathname.startsWith('/add'),
   },
-  {
-    to: '/system/tasks',
-    labelKey: 'nav.tasks',
-    isActive: (pathname) => pathname.startsWith('/system/tasks'),
-    permission: 'tasks',
-  },
-  {
-    to: '/system/indexers',
-    labelKey: 'nav.indexers',
-    isActive: (pathname) => pathname.startsWith('/system/indexers'),
-    badge: () => <IndexerAlertBadge />,
-    permission: 'indexers',
-  },
-  {
-    to: '/system/logs',
-    labelKey: 'nav.logs',
-    isActive: (pathname) => pathname.startsWith('/system/logs'),
-    permission: 'logs',
-  },
-  {
-    to: '/system/users',
-    labelKey: 'nav.users',
-    isActive: (pathname) => pathname.startsWith('/system/users'),
-    permission: 'manage_users',
-  },
+];
+
+// Settings is configuration; System is operational views. The users section is
+// the only one a non-admin may reach (a user holding manage_users); the rest are
+// admin-only, which the `adminOnly` flag on each marks.
+interface SettingsNavItem extends NavItem {
+  adminOnly?: boolean;
+}
+
+const SETTINGS_ITEMS: SettingsNavItem[] = [
+  { to: '/settings/general', labelKey: 'settings.nav.general', isActive: (p) => p.startsWith('/settings/general'), adminOnly: true },
+  { to: '/settings/users', labelKey: 'settings.nav.users', isActive: (p) => p.startsWith('/settings/users'), permission: 'manage_users' },
+  { to: '/settings/services', labelKey: 'settings.nav.services', isActive: (p) => p.startsWith('/settings/services'), adminOnly: true },
+  { to: '/settings/metadata', labelKey: 'settings.nav.metadata', isActive: (p) => p.startsWith('/settings/metadata'), adminOnly: true },
+  { to: '/settings/network', labelKey: 'settings.nav.network', isActive: (p) => p.startsWith('/settings/network'), adminOnly: true },
+  { to: '/settings/tasks', labelKey: 'settings.nav.tasks', isActive: (p) => p.startsWith('/settings/tasks'), adminOnly: true },
+  { to: '/settings/logging', labelKey: 'settings.nav.logging', isActive: (p) => p.startsWith('/settings/logging'), adminOnly: true },
+];
+
+const SYSTEM_ITEMS: NavItem[] = [
+  { to: '/system/tasks', labelKey: 'nav.tasks', isActive: (p) => p.startsWith('/system/tasks'), permission: 'tasks' },
+  { to: '/system/indexers', labelKey: 'nav.indexers', isActive: (p) => p.startsWith('/system/indexers'), permission: 'indexers', badge: () => <IndexerAlertBadge /> },
+  { to: '/system/logs', labelKey: 'nav.logs', isActive: (p) => p.startsWith('/system/logs'), permission: 'logs' },
 ];
 
 function Logo() {
@@ -83,6 +85,46 @@ function Logo() {
 function useVisibleNavItems(): NavItem[] {
   const { hasPermission } = useAuth();
   return NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+}
+
+function useVisibleSystemItems(): NavItem[] {
+  const { hasPermission } = useAuth();
+  return SYSTEM_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
+}
+
+function useVisibleSettingsItems(): SettingsNavItem[] {
+  const { isAdmin, hasPermission } = useAuth();
+  return SETTINGS_ITEMS.filter(
+    (item) => (item.adminOnly ? isAdmin : true) && (!item.permission || hasPermission(item.permission)),
+  );
+}
+
+interface NavGroupDef {
+  labelKey: string;
+  items: NavItem[];
+  isActive: (pathname: string) => boolean;
+  badge?: () => ReactNode;
+}
+
+function useNavGroups(): NavGroupDef[] {
+  const settingsItems = useVisibleSettingsItems();
+  const systemItems = useVisibleSystemItems();
+  const groups: NavGroupDef[] = [];
+  if (settingsItems.length > 0) {
+    groups.push({
+      labelKey: 'nav.settings',
+      items: settingsItems,
+      isActive: (p) => p.startsWith('/settings'),
+    });
+  }
+  if (systemItems.length > 0) {
+    groups.push({
+      labelKey: 'nav.system',
+      items: systemItems,
+      isActive: (p) => p.startsWith('/system'),
+    });
+  }
+  return groups;
 }
 
 function UserMenu() {
@@ -125,6 +167,7 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const visibleItems = useVisibleNavItems();
+  const groups = useNavGroups();
 
   return (
     <Container size="lg" h="100%" className="safe-area-inline">
@@ -151,6 +194,36 @@ function Navigation({ onOpenMenu, menuOpened }: { onOpenMenu: () => void; menuOp
               </Group>
             );
           })}
+          {groups.map((group) => {
+            const active = group.isActive(pathname);
+            return (
+              <Menu key={group.labelKey} position="bottom-start" withArrow withinPortal>
+                <Menu.Target>
+                  <UnstyledButton aria-label={t(group.labelKey)}>
+                    <Group gap={4} wrap="nowrap">
+                      <Text size="sm" fw={600} c={active ? 'blue.4' : 'dimmed'}>
+                        {t(group.labelKey)}
+                      </Text>
+                      {group.badge?.()}
+                    </Group>
+                  </UnstyledButton>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {group.items.map((item) => (
+                    <Menu.Item
+                      key={item.to}
+                      component={Link}
+                      to={item.to}
+                      rightSection={item.badge?.()}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {t(item.labelKey)}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            );
+          })}
           <LanguageSwitcher />
           <UserMenu />
         </Group>
@@ -173,6 +246,7 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const visibleItems = useVisibleNavItems();
+  const groups = useNavGroups();
 
   const handleLogout = async () => {
     onClose();
@@ -221,6 +295,40 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
             </UnstyledButton>
           );
         })}
+
+        {groups.map((group) => (
+          <div key={group.labelKey}>
+            <Divider my="sm" />
+            <Text size="xs" c="dimmed" tt="uppercase" px="md" pb={4}>
+              {t(group.labelKey)}
+            </Text>
+            {group.items.map((item) => {
+              const active = item.isActive(pathname);
+              return (
+                <UnstyledButton
+                  key={item.to}
+                  component={Link}
+                  to={item.to}
+                  onClick={onClose}
+                  aria-current={active ? 'page' : undefined}
+                  px="md"
+                  py="sm"
+                  style={{
+                    borderRadius: 'var(--mantine-radius-md)',
+                    backgroundColor: active ? 'var(--mantine-color-dark-6)' : undefined,
+                  }}
+                >
+                  <Group gap={8} wrap="nowrap">
+                    <Text fw={600} c={active ? 'blue.4' : undefined}>
+                      {t(item.labelKey)}
+                    </Text>
+                    {item.badge?.()}
+                  </Group>
+                </UnstyledButton>
+              );
+            })}
+          </div>
+        ))}
 
         <Divider my="sm" />
 

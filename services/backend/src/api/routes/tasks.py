@@ -26,6 +26,7 @@ from src.application.use_cases.tasks.get_sync_job import (
     ListScheduledTasksUseCase,
     ListSyncJobsUseCase,
 )
+from src.application.use_cases.tasks.update_interval import UpdateTaskIntervalUseCase
 from src.core.container import AppContainer, get_container
 from src.domain.enums import SyncJobKind, SyncJobTrigger
 from src.schemas.enums import AsyncJobStatus
@@ -35,6 +36,7 @@ from src.schemas.tasks import (
     ScheduledTasksResponse,
     SyncJob,
     SyncJobsResponse,
+    UpdateTaskIntervalPayload,
 )
 
 router = APIRouter(
@@ -52,6 +54,14 @@ SYNC_RESPONSES = error_responses(
 RUN_TASK_RESPONSES = error_responses(
     {
         status.HTTP_422_UNPROCESSABLE_CONTENT: "Unknown task.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+UPDATE_INTERVAL_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Unknown task.",
+        status.HTTP_422_UNPROCESSABLE_CONTENT: "The interval failed validation.",
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
 )
@@ -96,6 +106,12 @@ def _list_scheduled_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> ListScheduledTasksUseCase:
     return container.use_cases.tasks.list_scheduled_tasks
+
+
+def _update_interval_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> UpdateTaskIntervalUseCase:
+    return container.use_cases.tasks.update_interval
 
 
 def _job_location(job_id: str) -> str:
@@ -257,6 +273,21 @@ async def list_scheduled_tasks(
 ) -> ScheduledTasksResponse:
     tasks = await list_use_case.execute()
     return ScheduledTasksResponse(tasks=[_dto_to_scheduled_task(task) for task in tasks])
+
+
+@router.patch(
+    "/scheduled/{kind}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=UPDATE_INTERVAL_RESPONSES,
+    summary="Set a recurring task's interval",
+)
+async def update_task_interval(
+    kind: TaskKindParam,
+    payload: UpdateTaskIntervalPayload,
+    use_case: UpdateTaskIntervalUseCase = Depends(_update_interval_use_case),
+) -> Response:
+    await use_case.execute(kind, payload.interval_seconds)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

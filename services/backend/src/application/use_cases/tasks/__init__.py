@@ -14,6 +14,7 @@ from .get_sync_job import (
     ListScheduledTasksUseCase,
     ListSyncJobsUseCase,
 )
+from .update_interval import UpdateTaskIntervalUseCase
 
 __all__ = [
     "DEFAULT_INTERVALS",
@@ -26,4 +27,5 @@ __all__ = [
     "ListSyncJobsUseCase",
     "ScheduledTaskDTO",
     "SyncJobNotFoundError",
+    "UpdateTaskIntervalUseCase",
 ]

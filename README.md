@@ -227,8 +227,13 @@ A few things worth knowing before you point it at real data:
 
 ## Configuration
 
-All backend settings are read from the environment with a `RELEASARR_` prefix, or from a `.env`
-file. The defaults below are what you get if you set nothing.
+Releasarr is configured two ways. The environment (variables with a `RELEASARR_` prefix, or a
+`.env` file) is the base layer and the only way to set anything before the first boot. After
+that, most settings can also be edited from the **Settings** area in the UI, which stores
+overrides and applies them without a container restart. A value set in the environment always
+wins: such a field renders read-only in the UI, marked *Set by environment*, so a redeployed
+container keeps meaning what its `.env` says. The tables below list the environment variables
+and their defaults.
 
 ### Core
 

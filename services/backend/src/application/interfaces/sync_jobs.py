@@ -112,7 +112,13 @@ class ScheduledTaskRepository(Protocol):
         """Return one scheduled task, or None when it has never been recorded."""
 
     async def register(self, *, kind: SyncJobKind, interval_seconds: int) -> ScheduledTaskRecord:
-        """Ensure a task row exists and its interval is current."""
+        """Ensure a task row exists, seeding the interval only on first insert.
+
+        An existing row keeps its interval, which the settings UI can edit.
+        """
+
+    async def set_interval(self, kind: SyncJobKind, *, interval_seconds: int) -> None:
+        """Change a task's interval, used by the settings API."""
 
     async def record_run(
         self,

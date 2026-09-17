@@ -82,6 +82,16 @@ export type UpdateUserPayload = Schemas['UpdateUserPayload'];
 export type ChangePasswordPayload = Schemas['ChangePasswordPayload'];
 export type ServiceApiKey = Schemas['ServiceApiKey'];
 
+export type SettingFieldInfo = Schemas['SettingFieldInfo'];
+export type SettingsResponse = Schemas['SettingsResponse'];
+export type UpdateSettingsPayload = Schemas['UpdateSettingsPayload'];
+export type ConnectionTestPayload = Schemas['ConnectionTestPayload'];
+export type ConnectionTestResult = Schemas['ConnectionTestResult'];
+/** The six settings sections, mirrored from the backend registry. */
+export type SettingsSection = 'general' | 'services' | 'network' | 'metadata' | 'tasks' | 'logging';
+/** The six integration names accepted by the connection-test endpoint. */
+export type SettingsIntegration = 'sonarr' | 'radarr' | 'prowlarr' | 'qbittorrent' | 'tvdb' | 'tmdb';
+
 export type SetupStatus = Schemas['SetupStatus'];
 export type SetupPayload = Schemas['SetupPayload'];
 export type LoginPayload = Schemas['LoginPayload'];

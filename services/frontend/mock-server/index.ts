@@ -6,6 +6,7 @@ import express from 'express';
 import morgan from 'morgan';
 
 import { MockAuthError, mockAuth } from './mockAuth';
+import { getSettings, testConnection, updateSettingsSection } from './mockSettings';
 import { mockStore } from './store';
 import type { IndexerEventType, MediaRequest, MediaType, Release } from '../src/types';
 
@@ -256,6 +257,18 @@ api.get('/service-key', requireAdmin, (_req, res) => {
 
 api.post('/service-key/regenerate', requireAdmin, (_req, res) => {
   res.json(mockAuth.regenerateServiceKey());
+});
+
+api.get('/settings', requireAdmin, (_req, res) => {
+  res.json(getSettings());
+});
+
+api.patch('/settings/:section', requireAdmin, (req, res) => {
+  res.json(updateSettingsSection(req.params.section as never, req.body?.values ?? {}));
+});
+
+api.post('/settings/test/:integration', requireAdmin, (req, res) => {
+  res.json(testConnection(String(req.params.integration)));
 });
 
 const TASK_KINDS = ['sonarr_sync', 'radarr_sync', 'release_sync', 'export', 'regrab'] as const;

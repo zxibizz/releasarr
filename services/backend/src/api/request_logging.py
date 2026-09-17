@@ -18,6 +18,7 @@ import time
 
 from fastapi import FastAPI, Request, Response
 
+from src.core.container import get_container
 from src.core.logging import get_logger
 from src.domain.enums import LogComponent
 
@@ -54,3 +55,10 @@ def register_request_logging(app: FastAPI) -> None:
                 status_code=status_code,
                 duration_ms=round((time.perf_counter() - started) * 1000),
             )
+            # A change another process wrote shows up here without a restart. It
+            # is one rate-limited revision read, and failures must not 500 a
+            # request that already succeeded.
+            try:
+                await get_container().apply_settings_updates()
+            except Exception:
+                _http_logger.exception("Failed to refresh settings")

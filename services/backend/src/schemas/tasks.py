@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import field_serializer
+from pydantic import Field, field_serializer
 
 from src.schemas.base import APIModel
 from src.schemas.enums import SyncJobKind, SyncJobStatus, SyncJobTrigger
@@ -64,4 +64,14 @@ class ScheduledTasksResponse(APIModel):
     tasks: list[ScheduledTask]
 
 
-__all__ = ["ScheduledTask", "ScheduledTasksResponse", "SyncJob", "SyncJobsResponse"]
+class UpdateTaskIntervalPayload(APIModel):
+    interval_seconds: int = Field(ge=5)
+
+
+__all__ = [
+    "ScheduledTask",
+    "ScheduledTasksResponse",
+    "SyncJob",
+    "SyncJobsResponse",
+    "UpdateTaskIntervalPayload",
+]
