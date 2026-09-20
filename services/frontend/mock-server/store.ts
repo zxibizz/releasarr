@@ -78,7 +78,7 @@ const MOCK_TASK_INTERVALS: Record<SyncJobKind, number> = {
   radarr_sync: 3_600,
   release_sync: 30,
   export: 300,
-  regrab: 3_600,
+  regrab: 600,
 };
 
 const MOCK_TASK_ORDER: SyncJobKind[] = [

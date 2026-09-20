@@ -315,7 +315,7 @@ async def checkable_indexers() -> dict[str, IndexerRecord]:
 async def test_a_check_that_finds_no_change_logs_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
-    """The hourly sweep's usual answer has to reach the request it looked at."""
+    """The sweep's usual answer has to reach the request it looked at."""
 
     release = make_checkable_release()
     regrapper = build_regrapper(

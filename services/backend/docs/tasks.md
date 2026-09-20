@@ -17,7 +17,7 @@ and the API so the UI can never disagree with what actually runs.
 | `radarr_sync` | 60m | Reconcile requests with the movies Radarr monitors |
 | `release_sync` | 30s | Refresh download progress and state from qBittorrent |
 | `export` | 5m | Import finished releases into Sonarr and Radarr; also queued the moment one finishes |
-| `regrab` | 60m | Re-download releases the indexer has since replaced, in paced batches |
+| `regrab` | 10m | Re-download releases the indexer has since replaced, in paced batches |
 
 The order above is significant: `export` can only import releases that
 `release_sync` has already marked completed.
@@ -90,8 +90,10 @@ run takes the ones that have waited longest and the rest are left for the next.
 
 So a release is re-checked every `ceil(backlog / allowance)` runs: with 300
 candidates on one tracker and the defaults, that is 15 runs (20 per run, the
-ceiling binding), i.e. about fifteen hours at the hourly interval; raise the
-ceiling if that is slower than wanted.
+ceiling binding), i.e. about two and a half hours at the ten-minute interval;
+raise the ceiling if that is slower than wanted. A backlog that fits the ceiling
+is covered in the single run that checks it, so a small library is re-checked
+every ten minutes as before.
 
 The check itself is always scoped to the release's own indexer, and a release
 whose indexer Prowlarr no longer lists is skipped rather than searched for
@@ -174,12 +176,12 @@ over paging through everything.
 A task working on one request's row binds `request_id`, which is what puts its
 lines on that request's activity view and not only in the task's own log. The
 re-grab check is the pattern to copy: `ReleaseRegrapper` runs per release for
-both the hourly sweep and the on-demand refresh, and every way out of one check
+both the sweep and the on-demand refresh, and every way out of one check
 writes a record per request holding that release — nothing moved, the indexer no
 longer lists the release, no hash could be read, the torrent was replaced, the
 indexer would not answer, the indexer is not configured any more. A check that
 found nothing to do is still the answer to "what happened to this request", and
-the hourly sweep is the only thing that ever looked, so it is logged rather than
+the sweep is the only thing that ever looked, so it is logged rather than
 passed over.
 
 The sweep's own outcome is the exception. With no release in hand there is no
