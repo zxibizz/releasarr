@@ -785,7 +785,7 @@ class ReleaseUseCases:
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
             recompute_state=self._container.use_cases.media_requests.recompute_state,
-            batch_size=self._container.settings.regrab_batch_size,
+            max_per_indexer=self._container.settings.max_regrabs_per_indexer_per_execution,
             indexer_delay_seconds=self._container.settings.regrab_indexer_delay_seconds,
         )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,11 +26,27 @@ from src.domain.enums import LogComponent
 if TYPE_CHECKING:
     from loguru import Logger
 
-# A check costs the tracker a search, so a sweep works through its candidates in
-# bounded batches rather than all of them at once. What a batch then takes is
-# `batch_size * indexer_delay_seconds` per tracker in the worst case.
-DEFAULT_BATCH_SIZE = 25
+# A check costs the tracker a search, so the sweep takes a bounded share of each
+# indexer's backlog per run. What that share is depends on how much is waiting: a
+# backlog small enough to fit the ceiling goes in one run, anything larger is
+# spread over this many runs instead.
+REGRAB_SPREAD_EXECUTIONS = 5
+DEFAULT_MAX_REGRABS_PER_INDEXER_PER_EXECUTION = 20
 DEFAULT_INDEXER_DELAY_SECONDS = 2.0
+
+
+def _quota_for(count: int, *, executions: int, ceiling: int) -> int:
+    """How many of one indexer's candidates a single run may check.
+
+    A backlog that already fits the ceiling is not held back: spreading it would
+    only delay a check that costs the tracker the same either way. Above that, an
+    even share is taken, capped by the ceiling - so the whole set is covered in
+    `executions` runs unless the ceiling makes that impossible.
+    """
+
+    if count <= ceiling:
+        return count
+    return min(-(-count // executions), ceiling)
 
 
 @dataclass(slots=True)
@@ -39,6 +56,8 @@ class RegrabResult:
     checked: int = 0
     regrabbed: int = 0
     failed: int = 0
+    # Candidates this run left for the next one, by design rather than failure.
+    deferred: int = 0
     skipped: bool = False
 
 
@@ -49,11 +68,11 @@ class RegrabOutdatedReleasesUseCase:
     which the on-demand refresh on a request drives as well.
 
     Trackers throttle a client that asks for too much at once, so the sweep is
-    paced rather than exhaustive: it takes the least recently checked releases
-    first, checks at most `batch_size` of them in a run, and leaves a gap between
-    two checks against the same indexer. The backlog drains over successive runs,
-    and the ordering is what makes that fair - each run picks up where the last
-    one stopped instead of re-checking the same head of the list.
+    paced rather than exhaustive: each indexer gets a per-run allowance, and every
+    run takes the releases that have waited longest, so its backlog spreads over
+    the following runs. The ordering, not a stored queue, is what makes that fair.
+    Two checks against the same indexer are additionally kept
+    `indexer_delay_seconds` apart.
     """
 
     def __init__(
@@ -67,8 +86,9 @@ class RegrabOutdatedReleasesUseCase:
         directory: IndexerDirectory,
         logger: Logger | None = None,
         clock: Callable[[], datetime] | None = None,
-        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_per_indexer: int = DEFAULT_MAX_REGRABS_PER_INDEXER_PER_EXECUTION,
         indexer_delay_seconds: float = DEFAULT_INDEXER_DELAY_SECONDS,
+        spread_executions: int = REGRAB_SPREAD_EXECUTIONS,
         sleeper: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
         self._repository = repository
@@ -76,7 +96,8 @@ class RegrabOutdatedReleasesUseCase:
         self._download_service = download_service
         self._logger = logger or get_logger(LogComponent.USECASE_REGRAB_OUTDATED)
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._batch_size = max(1, batch_size)
+        self._max_per_indexer = max(1, max_per_indexer)
+        self._spread_executions = max(1, spread_executions)
         self._indexer_delay_seconds = max(0.0, indexer_delay_seconds)
         self._sleep = sleeper or asyncio.sleep
         self._regrapper = ReleaseRegrapper(
@@ -92,15 +113,14 @@ class RegrabOutdatedReleasesUseCase:
         )
 
     async def execute(self) -> RegrabResult:
-        """Process one batch of potential outdated releases."""
+        """Process this run's share of the potential outdated releases."""
         if not self._search_service.is_configured or not self._download_service.is_configured:
             # A re-grab is a search plus a download, so there is nothing to check
             # and nothing to reach for when either side is missing.
             self._logger.info("Skipping re-grab: Prowlarr or qBittorrent is not configured")
             return RegrabResult(skipped=True)
 
-        releases = await self._repository.get_potential_outdated_releases(limit=self._batch_size)
-        indexers_by_name = await self._regrapper.indexers_by_name()
+        releases = await self._repository.get_potential_outdated_releases()
 
         if not releases:
             # No release to attribute this to, so no `request_id`: the line is the
@@ -108,10 +128,13 @@ class RegrabOutdatedReleasesUseCase:
             self._logger.info("No releases to check for updates")
             return RegrabResult()
 
-        result = RegrabResult()
+        selected, deferred = self._select_batch(releases)
+        indexers_by_name = await self._regrapper.indexers_by_name()
+
+        result = RegrabResult(deferred=deferred)
         last_check: dict[str, datetime] = {}
 
-        for release in releases:
+        for release in selected:
             try:
                 await self._wait_for_indexer(release, last_check)
                 if await self._regrapper.regrab(release, indexers_by_name):
@@ -133,8 +156,8 @@ class RegrabOutdatedReleasesUseCase:
             finally:
                 # Recorded whatever came of the check. A release the sweep only
                 # looked at - blocked indexer, unknown indexer, no longer listed -
-                # still counts as checked, or with a bounded batch it would hold
-                # its place at the head of the list for every run after this one.
+                # still counts as checked, or it would spend its indexer's
+                # allowance again on every run after this one.
                 await self._record_check(release, last_check)
 
         self._logger.info(
@@ -143,8 +166,37 @@ class RegrabOutdatedReleasesUseCase:
             regrabbed=result.regrabbed,
             failed=result.failed,
             candidates=len(releases),
+            deferred=deferred,
         )
         return result
+
+    def _select_batch(self, releases: list[ReleaseRecord]) -> tuple[list[ReleaseRecord], int]:
+        """This run's share of the backlog, a bounded number per indexer.
+
+        Candidates arrive least recently checked first, so an indexer's own
+        allowance goes to the releases that have waited longest. What is left over
+        belongs to the next run - nothing is stored for it, the ordering is the
+        queue.
+        """
+
+        counts = Counter(self._indexer_key(release) for release in releases)
+        allowances = {
+            key: _quota_for(
+                count,
+                executions=self._spread_executions,
+                ceiling=self._max_per_indexer,
+            )
+            for key, count in counts.items()
+        }
+
+        selected: list[ReleaseRecord] = []
+        taken: Counter[str] = Counter()
+        for release in releases:
+            key = self._indexer_key(release)
+            if taken[key] < allowances[key]:
+                taken[key] += 1
+                selected.append(release)
+        return selected, len(releases) - len(selected)
 
     async def _wait_for_indexer(
         self,
@@ -195,8 +247,9 @@ class RegrabOutdatedReleasesUseCase:
 
 
 __all__ = [
-    "DEFAULT_BATCH_SIZE",
     "DEFAULT_INDEXER_DELAY_SECONDS",
+    "DEFAULT_MAX_REGRABS_PER_INDEXER_PER_EXECUTION",
+    "REGRAB_SPREAD_EXECUTIONS",
     "RegrabOutdatedReleasesUseCase",
     "RegrabResult",
 ]

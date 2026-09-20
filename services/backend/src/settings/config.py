@@ -98,9 +98,10 @@ class AppSettings(BaseSettings):
     # consecutive misses.
     release_missing_grace_seconds: int = Field(default=900)
     # A re-grab asks a tracker to search again, and asking it too often is how a
-    # client gets throttled. The sweep checks this many releases per run and
-    # leaves at least this long between two checks against the same indexer.
-    regrab_batch_size: int = Field(default=25)
+    # client gets throttled. A run checks at most this many releases from any one
+    # indexer - spread evenly when more than that is waiting - and leaves at
+    # least this long between two checks against the same indexer.
+    max_regrabs_per_indexer_per_execution: int = Field(default=20)
     regrab_indexer_delay_seconds: float = Field(default=2.0)
 
     model_config = {

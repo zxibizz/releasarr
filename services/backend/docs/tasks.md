@@ -69,25 +69,29 @@ The sweep asks a tracker to search again for every release it checks, and a
 client that asks too much at once gets throttled. It is therefore bounded twice
 over:
 
-- **Per run.** `RegrabOutdatedReleasesUseCase` asks for
-  `RELEASARR_REGRAB_BATCH_SIZE` candidates (default 25) and checks those.
-- **Per indexer.** Two checks against the same indexer are kept at least
+- **Per indexer, per run.** Each indexer gets an allowance of
+  `min(ceil(its backlog / 5), RELEASARR_MAX_REGRABS_PER_INDEXER_PER_EXECUTION)`,
+  so the whole backlog is spread evenly over five runs unless the ceiling makes
+  that impossible (default ceiling 20). A backlog that already fits the ceiling is
+  taken in one run — spreading it would only delay a check that costs the tracker
+  the same either way.
+- **Per indexer, in time.** Two checks against the same indexer are kept at least
   `RELEASARR_REGRAB_INDEXER_DELAY_SECONDS` apart (default 2s). The gap is per
-tracker, so a backlog on one of them does not hold up the others.
+  tracker, so a backlog on one of them does not hold up the others.
 
 Both are editable at runtime under **Settings → Tasks**.
 
-The rotation is what makes a bounded run fair. Candidates come back ordered by
-`releases.regrab_checked_at` with the never-checked first, and the sweep stamps
+The rotation is what makes a per-run allowance fair. Candidates come back ordered
+by `releases.regrab_checked_at` with the never-checked first, and the sweep stamps
 that column for every release it looked at — including the ones it only skipped,
-or with a batch of 25 they would hold their place at the head of the list for
-every run after this one. A release therefore goes to the back of the queue once
-checked, and the backlog drains over successive intervals instead of a burst.
+or they would spend their indexer's allowance again on every run after this one.
+A release therefore goes to the back of its indexer's queue once checked, so each
+run takes the ones that have waited longest and the rest are left for the next.
 
-The resulting cadence is `ceil(candidates / batch_size)` intervals per release:
-with 300 candidates and the defaults, each release is re-checked about every
-twelve hours rather than hourly. Raise the batch size (or lengthen the interval)
-if that is slower than wanted; the delay is what protects the tracker.
+So a release is re-checked every `ceil(backlog / allowance)` runs: with 300
+candidates on one tracker and the defaults, that is 15 runs (20 per run, the
+ceiling binding), i.e. about fifteen hours at the hourly interval; raise the
+ceiling if that is slower than wanted.
 
 The check itself is always scoped to the release's own indexer, and a release
 whose indexer Prowlarr no longer lists is skipped rather than searched for
