@@ -226,10 +226,11 @@ import shows up in the UI without every page polling.
    file is refused before anything is queued. See
    [`services/backend/docs/file-mapping.md`](../services/backend/docs/file-mapping.md#re-grabbing-a-release).
 
-   The sweep itself is paced because trackers throttle a client that asks too much at once: it
-   checks a bounded batch per run, ordered so each run continues where the last one stopped
-   (`releases.regrab_checked_at`), and leaves a gap between two checks against the same
-   indexer. A release only its own indexer can be asked about is skipped when Prowlarr no
+   The sweep itself is paced because trackers throttle a client that asks too much at once: each
+   indexer gets a per-run allowance, computed so its backlog spreads evenly over five runs unless
+   a ceiling binds, and each run takes the releases that have waited longest
+   (`releases.regrab_checked_at`). Two checks against the same indexer are additionally kept a
+   delay apart. A release only its own indexer can be asked about is skipped when Prowlarr no
    longer lists that indexer, rather than searched for unscoped. See
    [`services/backend/docs/tasks.md`](../services/backend/docs/tasks.md#re-grab-pacing).
 

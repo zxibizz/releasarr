@@ -110,9 +110,10 @@ export const resources = {
             label: 'Release missing grace period (seconds)',
             description: 'How long a torrent may be absent before the release is failed.',
           },
-          regrab_batch_size: {
-            label: 'Re-grabs per run',
-            description: 'How many releases one run checks; the least recently checked go first.',
+          max_regrabs_per_indexer_per_execution: {
+            label: 'Re-grabs per indexer per run',
+            description:
+              'How many releases one run may check from a single indexer; a larger backlog is spread over several runs.',
           },
           regrab_indexer_delay_seconds: {
             label: 'Delay between checks on one indexer (seconds)',
@@ -1249,10 +1250,10 @@ export const resources = {
             label: 'Период ожидания пропавшего релиза (сек.)',
             description: 'Сколько торрент может отсутствовать, прежде чем релиз будет провален.',
           },
-          regrab_batch_size: {
-            label: 'Перезакачек за проход',
+          max_regrabs_per_indexer_per_execution: {
+            label: 'Перезакачек на индексатор за проход',
             description:
-              'Сколько релизов проверяет один проход; первыми идут те, что проверялись давно.',
+              'Сколько релизов за один проход проверяется у одного индексатора; больший объём растягивается на несколько проходов.',
           },
           regrab_indexer_delay_seconds: {
             label: 'Пауза между проверками на одном индексаторе (сек.)',

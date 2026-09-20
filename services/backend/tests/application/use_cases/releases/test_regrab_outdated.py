@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -115,14 +116,8 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
         # The sweep stamps every candidate it looked at, which is bookkeeping
         # rather than a re-grab, so it is kept apart from `updates`.
         self.checks: list[tuple[str, object]] = []
-        self.limits: list[int | None] = []
 
-    async def get_potential_outdated_releases(
-        self,
-        *,
-        limit: int | None = None,
-    ) -> list[ReleaseRecord]:
-        self.limits.append(limit)
+    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
         return self.releases
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
@@ -342,22 +337,133 @@ async def test_regrab_falls_back_to_the_release_name_without_a_stored_query() ->
     assert search_service.queries == ["Old.Release.Name"]
 
 
-async def test_regrab_asks_for_a_bounded_batch() -> None:
-    repository = FakeReleaseRepository(make_release())
+def many_releases(count: int, *, torrent_source: str = "RuTracker") -> list[ReleaseRecord]:
+    """A backlog on one tracker, each release named for the one it came from.
+
+    The name is what the check searches with, so a test can assert which of them
+    a run took rather than only how many.
+    """
+
+    return [
+        make_release(
+            release_id=f"{torrent_source}-{index:02d}",
+            name=f"{torrent_source} {index:02d}",
+            torrent_source=torrent_source,
+        )
+        for index in range(count)
+    ]
+
+
+async def test_a_backlog_that_fits_the_ceiling_goes_in_one_run() -> None:
+    """Spreading it would delay a check that costs the tracker the same either way."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    repository = FakeReleaseRepository(*many_releases(12))
     search_service = FakeSearchService(make_match())
     download_service = FakeDownloadService()
-    directory = FakeIndexerDirectory([INDEXER_RUTRACKER])
 
     use_case = build_use_case(
         repository,
         search_service,
         download_service,
-        directory=directory,
-        batch_size=4,
+        clock=lambda: now,
+        sleeper=RecordingSleeper(),
+        max_per_indexer=20,
     )
-    await use_case.execute()
+    result = await use_case.execute()
 
-    assert repository.limits == [4]
+    assert result.checked == 12
+    assert result.deferred == 0
+
+
+async def test_a_larger_backlog_is_spread_over_the_configured_executions() -> None:
+    """Fifty waiting on one tracker, five runs to cover them: ten a run."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    backlog = many_releases(50)
+    repository = FakeReleaseRepository(*backlog)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        clock=lambda: now,
+        sleeper=RecordingSleeper(),
+        max_per_indexer=20,
+        spread_executions=5,
+    )
+    result = await use_case.execute()
+
+    assert result.checked == 10
+    assert result.deferred == 40
+    # The ones that waited longest go first: the fake returns the list in the
+    # order the query would, least recently checked first.
+    assert search_service.queries == [release.name for release in backlog[:10]]
+
+
+async def test_the_ceiling_caps_an_indexers_share() -> None:
+    """An even fifth of 200 is 40, which is more than a tracker should be asked."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    repository = FakeReleaseRepository(*many_releases(200))
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        clock=lambda: now,
+        sleeper=RecordingSleeper(),
+        max_per_indexer=20,
+        spread_executions=5,
+    )
+    result = await use_case.execute()
+
+    assert result.checked == 20
+    assert result.deferred == 180
+
+
+async def test_each_indexer_draws_on_its_own_allowance() -> None:
+    """A quiet tracker is not held back by a busy one, and neither spends the other's."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    repository = FakeReleaseRepository(
+        *many_releases(30),
+        *many_releases(4, torrent_source="OtherTracker"),
+    )
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=FakeIndexerDirectory(
+            [
+                INDEXER_RUTRACKER,
+                IndexerRecord(
+                    indexer_id=9,
+                    name="OtherTracker",
+                    enabled=True,
+                    supports_search=True,
+                ),
+            ]
+        ),
+        clock=lambda: now,
+        sleeper=RecordingSleeper(),
+        max_per_indexer=20,
+        spread_executions=5,
+    )
+    result = await use_case.execute()
+
+    # RuTracker: ceil(30 / 5) = 6. OtherTracker: 4, which fits its ceiling, so all of it.
+    assert result.checked == 10
+    assert result.deferred == 24
+    taken = Counter(query.split(" ")[0] for query in search_service.queries)
+    assert taken == {"RuTracker": 6, "OtherTracker": 4}
 
 
 async def test_regrab_spaces_checks_against_the_same_indexer() -> None:

@@ -101,7 +101,7 @@ const MOCK_TASK_RESULTS: Record<SyncJobKind, Record<string, unknown>> = {
     requests_updated: 1,
   },
   export: { succeeded: 1, failed: 0 },
-  regrab: { checked: 5, regrabbed: 1, failed: 0, skipped: false },
+  regrab: { checked: 5, regrabbed: 1, failed: 0, deferred: 12, skipped: false },
 };
 
 type NewMediaRequestPayload = {

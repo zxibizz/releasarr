@@ -167,6 +167,7 @@ class SyncSteps:
             "checked": result.checked,
             "regrabbed": result.regrabbed,
             "failed": result.failed,
+            "deferred": result.deferred,
             "skipped": result.skipped,
         }
 

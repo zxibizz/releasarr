@@ -54,7 +54,7 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     # --- general ---
     SettingField("release_missing_grace_seconds", "general", "int"),
     # --- tasks ---
-    SettingField("regrab_batch_size", "tasks", "int"),
+    SettingField("max_regrabs_per_indexer_per_execution", "tasks", "int"),
     SettingField("regrab_indexer_delay_seconds", "tasks", "float"),
     # --- services: Sonarr / Radarr ---
     SettingField("sonarr_url", "services", "str"),
