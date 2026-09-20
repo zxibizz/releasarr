@@ -14,7 +14,7 @@ from loguru import logger
 
 from src.core.container import AppContainer
 from src.core.logging import get_logger
-from src.domain.enums import LogComponent, SyncJobKind
+from src.domain.enums import LogComponent, SyncJobKind, SyncJobTrigger
 from src.tasks.sync_releases import SyncReleasesTask
 
 StepSummary = dict[str, object]
@@ -89,6 +89,10 @@ class SyncSteps:
                 grace_seconds=self.container.settings.release_missing_grace_seconds,
             )
             result = await task.execute()
+            if result.completed_now:
+                # A download that just finished is importable right now, and the
+                # periodic export is up to five minutes away.
+                await self._queue_export(result.completed_now)
 
         # Runs regardless of qBittorrent configuration: a request's status and
         # warnings can drift from a release created, mapped or deleted through
@@ -109,8 +113,29 @@ class SyncSteps:
             "missing_new": result.missing_new,
             "missing_pending": result.missing_pending,
             "missing_failed": result.missing_failed,
+            "completed": result.completed_now,
             "requests_updated": requests_updated,
         }
+
+    async def _queue_export(self, completed: int) -> None:
+        """Import a download that just finished instead of waiting out the sweep.
+
+        Best-effort, like every other queue write: the release is finished and
+        recorded regardless, and the periodic export still runs - it is what
+        retries a failed import and picks up anything this missed.
+        """
+
+        try:
+            await self.container.use_cases.tasks.enqueue_sync.execute(
+                kinds=[SyncJobKind.EXPORT],
+                trigger=SyncJobTrigger.DOWNLOAD_CLIENT,
+            )
+        except Exception as exc:
+            _logger.warning(
+                "Could not queue an export for the finished releases",
+                completed=completed,
+                error=str(exc),
+            )
 
     async def _recompute_request_states(self) -> int:
         """Settle status, warnings and freshness for every request with releases.
@@ -137,8 +162,13 @@ class SyncSteps:
     async def regrab(self) -> StepSummary:
         """Re-download releases the indexer has since replaced (e.g. repacks)."""
 
-        await self.container.use_cases.releases.regrab_outdated.execute()
-        return {"completed": True}
+        result = await self.container.use_cases.releases.regrab_outdated.execute()
+        return {
+            "checked": result.checked,
+            "regrabbed": result.regrabbed,
+            "failed": result.failed,
+            "skipped": result.skipped,
+        }
 
 
 _STEP_METHODS: dict[SyncJobKind, str] = {

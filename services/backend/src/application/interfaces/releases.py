@@ -262,8 +262,16 @@ class ReleaseRepository(Protocol):
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         """Fetch completed releases that haven't been exported to Sonarr."""
 
-    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+    async def get_potential_outdated_releases(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[ReleaseRecord]:
         """Fetch completed releases that might have better versions available.
+
+        Ordered least recently checked first, so a caller that passes ``limit``
+        works through the whole set over successive runs rather than re-checking
+        the same head of the list.
 
         A release that already refused its replacement is left out: re-checking it
         on every pass cannot change the indexer's answer, and the file list the

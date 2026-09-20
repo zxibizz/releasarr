@@ -248,6 +248,12 @@ class Release(Base):
     # searches with. `name` is the tracker's own title, which on some trackers
     # does not match the release at all; a hand-supplied release has neither.
     search_query: Mapped[str | None] = mapped_column(Text())
+    # When the regrab sweep last looked at this release, which is also the order
+    # it works through its candidates: a run checks the least recently checked
+    # ones first and stops after its batch, so a backlog drains over several runs
+    # instead of arriving at one tracker as a burst. Stamped for a release the
+    # sweep only skipped, or it would keep hold of its slot for ever.
+    regrab_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     requests: Mapped[list[MediaRequest]] = relationship(
         "MediaRequest",

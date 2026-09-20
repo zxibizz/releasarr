@@ -207,7 +207,8 @@ import shows up in the UI without every page polling.
    absolute paths. It then asks both apps whether they now hold the request in full, and only
    closes the request if they say yes. Every request the import actually carried files for is
    stamped with an `exported_at`, including the ones that stay open because the release only
-   covered part of a season.
+   covered part of a season. The release sync queues a run as soon as it sees a download turn
+   completed, so the five-minute interval is a fallback rather than the main path.
 6. **`regrab`** re-searches Prowlarr for tracked releases, compares info hashes, and
    re-downloads when the indexer has replaced the torrent (repacks), putting the release back to
    `downloading` so the export queue cannot import the files the replacement is still replacing.
@@ -224,6 +225,13 @@ import shows up in the UI without every page polling.
    replacement adds are automapped on their own, and a replacement that does not carry a stored
    file is refused before anything is queued. See
    [`services/backend/docs/file-mapping.md`](../services/backend/docs/file-mapping.md#re-grabbing-a-release).
+
+   The sweep itself is paced because trackers throttle a client that asks too much at once: it
+   checks a bounded batch per run, ordered so each run continues where the last one stopped
+   (`releases.regrab_checked_at`), and leaves a gap between two checks against the same
+   indexer. A release only its own indexer can be asked about is skipped when Prowlarr no
+   longer lists that indexer, rather than searched for unscoped. See
+   [`services/backend/docs/tasks.md`](../services/backend/docs/tasks.md#re-grab-pacing).
 
 Ordering matters: `export` can only import what `release_sync` has already marked completed,
 which is why `sync_downloads` queues the two together and in that order.

@@ -53,6 +53,9 @@ class SettingField:
 SETTING_FIELDS: tuple[SettingField, ...] = (
     # --- general ---
     SettingField("release_missing_grace_seconds", "general", "int"),
+    # --- tasks ---
+    SettingField("regrab_batch_size", "tasks", "int"),
+    SettingField("regrab_indexer_delay_seconds", "tasks", "float"),
     # --- services: Sonarr / Radarr ---
     SettingField("sonarr_url", "services", "str"),
     SettingField("sonarr_api_key", "services", "str", is_secret=True),

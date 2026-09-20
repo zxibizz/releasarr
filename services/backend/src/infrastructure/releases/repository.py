@@ -285,7 +285,11 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             result = await session.execute(stmt)
             return [self._to_record(release) for release in result.scalars().all()]
 
-    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+    async def get_potential_outdated_releases(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[ReleaseRecord]:
         async with self.db.session() as session:
             # Anything but a hand-supplied torrent came from an indexer we can
             # search again; `torrent_source` holds that indexer's name, so it
@@ -299,6 +303,11 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             # download before it can compare files. The on-demand refresh is what
             # retries one, and a replacement that finally carries every stored file
             # clears the row, which is what puts it back in here.
+            #
+            # Least recently checked first, which is the sweep's rotation: the
+            # timestamp is stamped on every candidate it looked at, so a bounded
+            # run works through the backlog instead of re-checking the same head
+            # of the list, and a release nobody has checked yet goes first.
             refused_replacement = (
                 select(models.RequestWarning.id)
                 .where(
@@ -321,8 +330,14 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                     models.MediaRequest.status == MediaRequestStatus.MONITORING,
                     ~refused_replacement,
                 )
+                .order_by(
+                    models.Release.regrab_checked_at.asc().nulls_first(),
+                    models.Release.id,
+                )
                 .distinct()
             )
+            if limit is not None:
+                stmt = stmt.limit(limit)
             result = await session.execute(stmt)
             return [self._to_record(release) for release in result.scalars().all()]
 

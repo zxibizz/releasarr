@@ -48,6 +48,16 @@ from tests.fakes import (
     UnusedReleaseRepositoryCalls,
 )
 
+# A check only asks the release's own tracker, so these are what the sweep
+# resolves before handing them to it.
+INDEXER_RUTRACKER = IndexerRecord(
+    indexer_id=7,
+    name="RuTracker",
+    enabled=True,
+    supports_search=True,
+)
+INDEXERS_BY_NAME = {"rutracker": INDEXER_RUTRACKER}
+
 
 class StubReleaseRepository:
     def __init__(self, release: ReleaseRecord) -> None:
@@ -252,7 +262,7 @@ class CheckIndexerDirectory(UnusedIndexerDirectoryCalls):
     is_configured = True
 
     async def list_indexers(self) -> list[IndexerRecord]:
-        return []
+        return [INDEXER_RUTRACKER]
 
 
 def make_checkable_release(
@@ -296,6 +306,12 @@ def build_regrapper(search_service: CheckSearchService) -> ReleaseRegrapper:
     )
 
 
+async def checkable_indexers() -> dict[str, IndexerRecord]:
+    """What the sweep resolves before a check: the release's own tracker."""
+
+    return INDEXERS_BY_NAME
+
+
 async def test_a_check_that_finds_no_change_logs_against_the_request(
     captured_records: list[dict[str, Any]],
 ) -> None:
@@ -306,7 +322,7 @@ async def test_a_check_that_finds_no_change_logs_against_the_request(
         CheckSearchService([make_indexer_result(release, info_hash=release.info_hash)])
     )
 
-    assert await regrapper.regrab(release, {}) is False
+    assert await regrapper.regrab(release, INDEXERS_BY_NAME) is False
 
     outcomes = [
         record
@@ -329,7 +345,7 @@ async def test_a_check_logs_once_per_request_holding_the_release(
         CheckSearchService([make_indexer_result(release, info_hash=release.info_hash)])
     )
 
-    await regrapper.regrab(release, {})
+    await regrapper.regrab(release, INDEXERS_BY_NAME)
 
     for request_id in ("req-1", "req-2"):
         assert [record for record in captured_records if record.get("request_id") == request_id]
@@ -341,7 +357,7 @@ async def test_a_check_the_indexer_no_longer_answers_for_logs_against_the_reques
     release = replace(make_checkable_release(), search_query="Show S01")
     regrapper = build_regrapper(CheckSearchService([]))
 
-    assert await regrapper.regrab(release, {}) is False
+    assert await regrapper.regrab(release, INDEXERS_BY_NAME) is False
 
     misses = [
         record
@@ -364,7 +380,7 @@ async def test_a_successful_regrab_logs_against_the_request(
         CheckSearchService([make_indexer_result(release, info_hash="NEWHASH")])
     )
 
-    assert await regrapper.regrab(release, {}) is True
+    assert await regrapper.regrab(release, INDEXERS_BY_NAME) is True
 
     regrabs = [
         record
@@ -386,7 +402,7 @@ async def test_starting_a_check_logs_against_the_request(
         CheckSearchService([make_indexer_result(release, info_hash=release.info_hash)])
     )
 
-    await regrapper.regrab(release, {})
+    await regrapper.regrab(release, INDEXERS_BY_NAME)
 
     checks = [
         record

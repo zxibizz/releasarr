@@ -46,6 +46,13 @@ from tests.fakes import (
 REQUEST_ID = "req-1"
 RELEASE_ID = "rel-1"
 OWNER_ID = "owner-1"
+# The release's own tracker, which is the only one a check may ask.
+INDEXER_RUTRACKER = IndexerRecord(
+    indexer_id=7,
+    name="RuTracker",
+    enabled=True,
+    supports_search=True,
+)
 
 
 def make_release(
@@ -264,7 +271,7 @@ def build_harness(
         auto_mapper=stub_auto_mapper(),
         warning_repository=warnings,
         recompute_state=recompute,
-        directory=FakeIndexerDirectory(),
+        directory=FakeIndexerDirectory([INDEXER_RUTRACKER]),
     )
 
     request_repository = FakeRequestRepository(

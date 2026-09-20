@@ -785,6 +785,8 @@ class ReleaseUseCases:
             directory=self._container.services.indexer_directory,
             warning_repository=self._container.repositories.request_warnings,
             recompute_state=self._container.use_cases.media_requests.recompute_state,
+            batch_size=self._container.settings.regrab_batch_size,
+            indexer_delay_seconds=self._container.settings.regrab_indexer_delay_seconds,
         )
 
     @cached_property
@@ -873,15 +875,11 @@ class SettingsUseCases:
 
     @cached_property
     def list_indexer_categories(self) -> ListIndexerCategoriesUseCase:
-        return ListIndexerCategoriesUseCase(
-            directory=self._container.services.indexer_directory
-        )
+        return ListIndexerCategoriesUseCase(directory=self._container.services.indexer_directory)
 
     @cached_property
     def list_download_categories(self) -> ListDownloadCategoriesUseCase:
-        return ListDownloadCategoriesUseCase(
-            client=self._container.services.qbittorrent_client
-        )
+        return ListDownloadCategoriesUseCase(client=self._container.services.qbittorrent_client)
 
 
 @dataclass
