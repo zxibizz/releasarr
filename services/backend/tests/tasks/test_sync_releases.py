@@ -123,6 +123,36 @@ async def test_fully_downloaded_torrent_is_completed(
     assert release.completed_at is not None
 
 
+async def test_a_download_that_just_finished_is_reported(db_manager: DBManager) -> None:
+    """This is the signal the export step queues a run on."""
+
+    await seed(db_manager)
+
+    result = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert result.completed_now == 1
+
+
+async def test_a_download_still_in_flight_is_not_reported(db_manager: DBManager) -> None:
+    await seed(db_manager)
+
+    result = await make_task(db_manager, [torrent("downloading")]).execute()
+
+    assert result.completed_now == 0
+
+
+async def test_a_finished_release_is_only_reported_once(db_manager: DBManager) -> None:
+    """A seeding release stops being synced, so it cannot announce itself twice."""
+
+    await seed(db_manager)
+    task = make_task(db_manager, [finished_torrent("uploading")])
+    assert (await task.execute()).completed_now == 1
+
+    later = await make_task(db_manager, [finished_torrent("uploading")]).execute()
+
+    assert later.completed_now == 0
+
+
 async def test_full_progress_without_completion_time_is_not_completed(
     db_manager: DBManager,
 ) -> None:
@@ -341,9 +371,7 @@ async def test_a_run_with_movement_logs_the_counters(
     await make_task(db_manager, [torrent("downloading")]).execute()
 
     summaries = [
-        record
-        for record in captured_records
-        if record["message"] == "Release sync complete"
+        record for record in captured_records if record["message"] == "Release sync complete"
     ]
     assert len(summaries) == 1
     assert summaries[0]["component"] == "task.release_sync"
@@ -362,9 +390,7 @@ async def test_an_unchanged_run_logs_nothing(
     await task.execute()
 
     assert [
-        record
-        for record in captured_records
-        if record["message"] == "Release sync complete"
+        record for record in captured_records if record["message"] == "Release sync complete"
     ] == []
 
 

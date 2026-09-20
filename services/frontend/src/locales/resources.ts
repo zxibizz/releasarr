@@ -89,6 +89,9 @@ export const resources = {
           task: 'Task',
           intervalSeconds: 'Interval (seconds)',
           saved: 'Interval updated',
+          regrabTitle: 'Re-grab pacing',
+          regrabDescription:
+            'How much a re-grab run asks of the indexers. In-flight work is unaffected.',
           kinds: {
             sonarr_sync: 'Sonarr sync',
             radarr_sync: 'Radarr sync',
@@ -106,6 +109,15 @@ export const resources = {
           release_missing_grace_seconds: {
             label: 'Release missing grace period (seconds)',
             description: 'How long a torrent may be absent before the release is failed.',
+          },
+          regrab_batch_size: {
+            label: 'Re-grabs per run',
+            description: 'How many releases one run checks; the least recently checked go first.',
+          },
+          regrab_indexer_delay_seconds: {
+            label: 'Delay between checks on one indexer (seconds)',
+            description:
+              'Trackers throttle a client that asks too often, so checks on the same indexer are spaced out.',
           },
           sonarr_url: { label: 'Sonarr URL', description: '' },
           sonarr_api_key: { label: 'Sonarr API key', description: '' },
@@ -1216,6 +1228,9 @@ export const resources = {
           task: 'Задача',
           intervalSeconds: 'Интервал (секунды)',
           saved: 'Интервал обновлён',
+          regrabTitle: 'Темп перезакачек',
+          regrabDescription:
+            'Насколько интенсивно перезакачка обращается к индексаторам. На скачивания это не влияет.',
           kinds: {
             sonarr_sync: 'Синхронизация Sonarr',
             radarr_sync: 'Синхронизация Radarr',
@@ -1233,6 +1248,16 @@ export const resources = {
           release_missing_grace_seconds: {
             label: 'Период ожидания пропавшего релиза (сек.)',
             description: 'Сколько торрент может отсутствовать, прежде чем релиз будет провален.',
+          },
+          regrab_batch_size: {
+            label: 'Перезакачек за проход',
+            description:
+              'Сколько релизов проверяет один проход; первыми идут те, что проверялись давно.',
+          },
+          regrab_indexer_delay_seconds: {
+            label: 'Пауза между проверками на одном индексаторе (сек.)',
+            description:
+              'Трекеры ограничивают частые запросы, поэтому проверки на одном индексаторе разнесены по времени.',
           },
           sonarr_url: { label: 'URL Sonarr', description: '' },
           sonarr_api_key: { label: 'API-ключ Sonarr', description: '' },

@@ -248,7 +248,11 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         return []
 
-    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+    async def get_potential_outdated_releases(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[ReleaseRecord]:
         return []
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:

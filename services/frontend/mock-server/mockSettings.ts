@@ -25,6 +25,8 @@ interface MockField {
  */
 const FIELDS: MockField[] = [
   { key: 'release_missing_grace_seconds', section: 'general', kind: 'int' },
+  { key: 'regrab_batch_size', section: 'tasks', kind: 'int' },
+  { key: 'regrab_indexer_delay_seconds', section: 'tasks', kind: 'float' },
   { key: 'sonarr_url', section: 'services', kind: 'str' },
   { key: 'sonarr_api_key', section: 'services', kind: 'str', is_secret: true },
   { key: 'sonarr_quality_profile_id', section: 'services', kind: 'int_optional' },
@@ -114,7 +116,7 @@ const values: Record<string, Record<string, unknown>> = {
     tmdb_api_key: 'tmdb-key',
     metadata_languages: ['eng', 'rus'],
   },
-  tasks: {},
+  tasks: { regrab_batch_size: 25, regrab_indexer_delay_seconds: 2 },
   logging: { log_level: 'INFO', log_json: false, log_history_files: 3 },
 };
 

@@ -295,7 +295,11 @@ class UnusedReleaseRepositoryCalls:
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         raise NotImplementedError
 
-    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
+    async def get_potential_outdated_releases(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[ReleaseRecord]:
         raise NotImplementedError
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:

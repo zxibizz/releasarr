@@ -16,11 +16,17 @@ and the API so the UI can never disagree with what actually runs.
 | `sonarr_sync` | 60m | Reconcile requests with the seasons Sonarr monitors |
 | `radarr_sync` | 60m | Reconcile requests with the movies Radarr monitors |
 | `release_sync` | 30s | Refresh download progress and state from qBittorrent |
-| `export` | 5m | Import finished releases into Sonarr and Radarr |
-| `regrab` | 60m | Re-download releases the indexer has since replaced |
+| `export` | 5m | Import finished releases into Sonarr and Radarr; also queued the moment one finishes |
+| `regrab` | 60m | Re-download releases the indexer has since replaced, in paced batches |
 
 The order above is significant: `export` can only import releases that
 `release_sync` has already marked completed.
+
+The five intervals are the schedule, not the only thing that makes a task run.
+Two of them are also queued by work that just happened: the release sync queues an
+`export` when a download turns completed, and saving file mappings queues one when
+its release has already finished. Both are described under
+[On-Demand Runs](#on-demand-runs-api-triggered).
 
 `release_sync` also recomputes derived request state — `status`, `mapping_overlap` warnings, and
 `newest_release_published_at` — for every request that has releases, via
@@ -57,6 +63,38 @@ runs update that row (last execution, duration, status, error) rather than
 writing a job history row, which keeps a 30-second task from producing thousands
 of rows a day.
 
+## Re-grab pacing
+
+The sweep asks a tracker to search again for every release it checks, and a
+client that asks too much at once gets throttled. It is therefore bounded twice
+over:
+
+- **Per run.** `RegrabOutdatedReleasesUseCase` asks for
+  `RELEASARR_REGRAB_BATCH_SIZE` candidates (default 25) and checks those.
+- **Per indexer.** Two checks against the same indexer are kept at least
+  `RELEASARR_REGRAB_INDEXER_DELAY_SECONDS` apart (default 2s). The gap is per
+tracker, so a backlog on one of them does not hold up the others.
+
+Both are editable at runtime under **Settings → Tasks**.
+
+The rotation is what makes a bounded run fair. Candidates come back ordered by
+`releases.regrab_checked_at` with the never-checked first, and the sweep stamps
+that column for every release it looked at — including the ones it only skipped,
+or with a batch of 25 they would hold their place at the head of the list for
+every run after this one. A release therefore goes to the back of the queue once
+checked, and the backlog drains over successive intervals instead of a burst.
+
+The resulting cadence is `ceil(candidates / batch_size)` intervals per release:
+with 300 candidates and the defaults, each release is re-checked about every
+twelve hours rather than hourly. Raise the batch size (or lengthen the interval)
+if that is slower than wanted; the delay is what protects the tracker.
+
+The check itself is always scoped to the release's own indexer, and a release
+whose indexer Prowlarr no longer lists is skipped rather than searched for
+unscoped: an unscoped query puts the search to every configured tracker at once,
+which is the load this pacing exists to avoid. That skip is logged per request
+and writes no warning, since no answer was received.
+
 ## On-Demand Runs (API triggered)
 
 The API and the scheduler are separate processes, so "run now" is a queued job
@@ -76,6 +114,16 @@ gets corrected, and the payload is on disk by then, so the fix applies at once
 instead of waiting out the 5-minute interval. Failing to queue it is logged and
 otherwise ignored: the mappings are stored regardless, and the scheduled run is
 still coming.
+
+The release sync does the same for a download that just finished. A torrent
+reaching full progress is the one moment the export has something new to do, and
+it happens on a schedule of its own, so `SyncReleasesTask` reports how many
+releases moved into `completed` and the step queues an `export` for them. A batch
+of torrents finishing at once collapses onto one job, and the enqueue carries the
+`download_client` trigger so it reads the same as one that arrived over the API.
+The periodic run stays: it is what retries an import that failed, picks up
+releases that completed before this existed, and covers an enqueue that could not
+be written.
 
 One job runs one task, so a `sync_all` queues five jobs. The response tracks the
 last of them, since that finishing means the whole sequence is done.
@@ -125,9 +173,10 @@ re-grab check is the pattern to copy: `ReleaseRegrapper` runs per release for
 both the hourly sweep and the on-demand refresh, and every way out of one check
 writes a record per request holding that release — nothing moved, the indexer no
 longer lists the release, no hash could be read, the torrent was replaced, the
-indexer would not answer. A check that found nothing to do is still the answer
-to "what happened to this request", and the hourly sweep is the only thing that
-ever looked, so it is logged rather than passed over.
+indexer would not answer, the indexer is not configured any more. A check that
+found nothing to do is still the answer to "what happened to this request", and
+the hourly sweep is the only thing that ever looked, so it is logged rather than
+passed over.
 
 The sweep's own outcome is the exception. With no release in hand there is no
 `request_id` to attach, so `No releases to check for updates` is only reachable
@@ -217,9 +266,10 @@ activity spans both files and neither alone would answer.
 
 ### Hooking up qBittorrent
 
-Point qBittorrent's completion hook at `sync_downloads` so finished torrents are
-imported into Sonarr and Radarr immediately instead of waiting for the 5-minute
-export loop. In **Options → Downloads → Run external program on torrent
+The release sync notices a finished torrent within its 30-second interval and
+queues the export itself, so this hook is optional: it shaves those seconds off
+by reporting the completion directly. Point qBittorrent's completion hook at
+`sync_downloads` in **Options → Downloads → Run external program on torrent
 finished**:
 
 ```bash

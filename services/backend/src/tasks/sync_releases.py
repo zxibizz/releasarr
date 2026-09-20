@@ -40,6 +40,19 @@ class _MissingOutcome(Enum):
     FAILED = auto()
 
 
+class _UpdateOutcome(Enum):
+    """What writing one torrent's state onto its release produced.
+
+    ``COMPLETED`` is the only transition a caller acts on: a download that just
+    finished is what the export queue imports, and waiting for the periodic
+    sweep to notice it would delay the import by up to that task's interval.
+    """
+
+    UNCHANGED = auto()
+    MOVED = auto()
+    COMPLETED = auto()
+
+
 @dataclass(slots=True)
 class SyncResult:
     """Result of a release sync operation."""
@@ -52,6 +65,9 @@ class SyncResult:
     missing_pending: int = 0
     missing_failed: int = 0
     requests_updated: int = 0
+    # Releases that moved into `completed` during this pass, which the export
+    # step reads to decide whether a run is worth queueing.
+    completed_now: int = 0
 
 
 @dataclass(slots=True)
@@ -92,6 +108,7 @@ class SyncReleasesTask:
         unchanged = 0
         failed = 0
         not_found = 0
+        completed_now = 0
         missing: Counter[_MissingOutcome] = Counter()
 
         # Get all releases from DB
@@ -130,10 +147,13 @@ class SyncReleasesTask:
                 continue
 
             try:
-                if await self._update_release(release, torrent):
-                    synced += 1
-                else:
+                outcome = await self._update_release(release, torrent)
+                if outcome is _UpdateOutcome.UNCHANGED:
                     unchanged += 1
+                else:
+                    synced += 1
+                    if outcome is _UpdateOutcome.COMPLETED:
+                        completed_now += 1
             except Exception as exc:
                 failed += 1
                 _logger.opt(exception=exc).error(
@@ -150,6 +170,7 @@ class SyncReleasesTask:
             missing_new=missing[_MissingOutcome.STAMPED],
             missing_pending=missing[_MissingOutcome.PENDING],
             missing_failed=missing[_MissingOutcome.FAILED],
+            completed_now=completed_now,
         )
         self._log_run_summary(summary)
         return summary
@@ -166,6 +187,7 @@ class SyncReleasesTask:
                 missing_new=summary.missing_new,
                 missing_pending=summary.missing_pending,
                 missing_failed=summary.missing_failed,
+                completed=summary.completed_now,
             )
 
     async def _reconcile_missing(self, release: models.Release, now: datetime) -> _MissingOutcome:
@@ -217,8 +239,12 @@ class SyncReleasesTask:
             )
         return _MissingOutcome.FAILED
 
-    async def _update_release(self, release: models.Release, torrent: dict[str, Any]) -> bool:
-        """Write the torrent's state onto the release, reporting whether it moved.
+    async def _update_release(
+        self,
+        release: models.Release,
+        torrent: dict[str, Any],
+    ) -> _UpdateOutcome:
+        """Write the torrent's state onto the release, reporting what it did.
 
         A release lives in the database for as long as it seeds, which is usually
         far longer than it downloads, so on a typical cycle every field already
@@ -231,19 +257,24 @@ class SyncReleasesTask:
         # already holds None, so the compare-before-write fast path still skips it.
         fields["missing_since"] = None
         if all(getattr(release, name) == value for name, value in fields.items()):
-            return False
+            return _UpdateOutcome.UNCHANGED
+
+        finishing = (
+            release.status is not ReleaseStatus.COMPLETED
+            and fields["status"] is ReleaseStatus.COMPLETED
+        )
 
         async with self.db.transaction() as session:
             stored = await session.get(models.Release, release.id)
             if stored is None:
-                return False
+                return _UpdateOutcome.UNCHANGED
 
             for name, value in fields.items():
                 setattr(stored, name, value)
 
             await session.flush()
 
-        return True
+        return _UpdateOutcome.COMPLETED if finishing else _UpdateOutcome.MOVED
 
     def _fields_from_torrent(
         self,

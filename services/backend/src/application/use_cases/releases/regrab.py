@@ -99,8 +99,9 @@ class ReleaseRegrapper:
         """Map a release's stored indexer name back to Prowlarr's own record.
 
         Best-effort: a release older than the indexer list, or Prowlarr being
-        briefly unreachable, should not stop every re-grab check from running -
-        it just falls back to the unscoped search for that release.
+        briefly unreachable, should not stop every re-grab check from running.
+        A release with no entry here is skipped rather than searched for
+        unscoped, because that is the search that queries every tracker at once.
         """
 
         if not self._directory.is_configured:
@@ -141,8 +142,10 @@ class ReleaseRegrapper:
         over releases nobody is watching.
         """
 
-        # Search Prowlarr for the specific release, scoped to the indexer it
-        # originally came from when that indexer is still known to Prowlarr.
+        # Search Prowlarr for the specific release. Only the indexer it
+        # originally came from is asked: the release id is what has to come back,
+        # and the unscoped sweep would put the query to every configured tracker
+        # at once, which is the load the paced sweep exists to avoid.
         # The stored query is what the release was found with; a release with
         # none predates that column and can only be looked up by its name.
         query = release.search_query or release.name
@@ -162,6 +165,19 @@ class ReleaseRegrapper:
             query=query,
         )
 
+        if indexer is None:
+            # Prowlarr no longer lists the tracker this came from - it was removed
+            # or renamed. Nothing is written about it: no answer was received, so
+            # there is nothing to warn about, and the next sweep will look again.
+            self._log_for_requests(
+                self._logger.warning,
+                "Could not check for updates: indexer unknown",
+                release,
+                release_name=release.name,
+                indexer=release.torrent_source,
+            )
+            return False
+
         unusable = self._unusable_reason(indexer)
         if unusable is not None:
             # Prowlarr will refuse the query either way, so spending the timeout
@@ -177,7 +193,7 @@ class ReleaseRegrapper:
             await self._write_regrab_warning(release, reason=unusable)
             return False
 
-        indexer_id = indexer.indexer_id if indexer is not None else None
+        indexer_id = indexer.indexer_id
         try:
             results = await self._search_service.search(query, indexer_id=indexer_id)
         except ReleaseSearchUnavailableError as exc:
@@ -467,15 +483,9 @@ class ReleaseRegrapper:
             file_ids=added_ids if added_ids and not mapped else None,
         )
 
-    def _unusable_reason(self, indexer: IndexerRecord | None) -> str | None:
-        """Why this indexer cannot answer a search right now, or None if it can.
+    def _unusable_reason(self, indexer: IndexerRecord) -> str | None:
+        """Why this indexer cannot answer a search right now, or None if it can."""
 
-        An unknown indexer is not reported: the search falls back to Prowlarr's
-        unscoped sweep, which may still find the release elsewhere.
-        """
-
-        if indexer is None:
-            return None
         health = derive_health(indexer, self._clock())
         if health is IndexerHealth.DISABLED:
             return f"indexer {indexer.name} is disabled in Prowlarr"

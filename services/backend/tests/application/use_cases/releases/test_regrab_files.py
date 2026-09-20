@@ -40,6 +40,15 @@ RELEASE_ID = "https://tracker.example/details/1"
 ROOT = "Show.S01.1080p.WEB-DL"
 REPACK_ROOT = "Show.S01.1080p.REPACK-GRP"
 TORRENT_URL = "https://tracker.example/download/1.torrent"
+# The sweep resolves the release's own tracker and hands the map to the check;
+# a release whose tracker is missing from it is skipped rather than searched for.
+INDEXER_RUTRACKER = IndexerRecord(
+    indexer_id=7,
+    name="RuTracker",
+    enabled=True,
+    supports_search=True,
+)
+INDEXERS_BY_NAME = {"rutracker": INDEXER_RUTRACKER}
 
 
 def torrent_for(*names: str, root: str = ROOT) -> bytes:
@@ -255,7 +264,7 @@ class FakeIndexerDirectory(UnusedIndexerDirectoryCalls):
     is_configured = True
 
     async def list_indexers(self) -> list[IndexerRecord]:
-        return []
+        return [INDEXER_RUTRACKER]
 
 
 def rows_for(
@@ -302,7 +311,7 @@ async def test_a_replacement_adds_its_new_files_and_maps_only_those() -> None:
     )
 
     regrab = await build_regrapper(repository, search_service, download_service, warnings).regrab(
-        release, {}
+        release, INDEXERS_BY_NAME
     )
 
     assert regrab is True
@@ -332,7 +341,7 @@ async def test_a_replacement_nobody_can_map_raises_a_warning() -> None:
     )
 
     await build_regrapper(repository, search_service, download_service, warnings).regrab(
-        release, {}
+        release, INDEXERS_BY_NAME
     )
 
     added = repository.reconciliations[0].added
@@ -361,7 +370,7 @@ async def test_a_replacement_that_drops_a_stored_file_is_refused() -> None:
     regrapper = build_regrapper(repository, search_service, download_service, warnings)
 
     with pytest.raises(ReleaseRegrabRejectedError) as rejected:
-        await regrapper.regrab(release, {})
+        await regrapper.regrab(release, INDEXERS_BY_NAME)
 
     missing = f"{ROOT}/Show.S01E02.mkv"
     assert rejected.value.missing_files == [missing]
@@ -389,7 +398,7 @@ async def test_an_unreadable_file_list_leaves_the_stored_files_alone() -> None:
     search_service = FakeSearchService(make_match(), fetch_error=RuntimeError("torrent 404"))
 
     regrab = await build_regrapper(repository, search_service, download_service, warnings).regrab(
-        release, {}
+        release, INDEXERS_BY_NAME
     )
 
     assert regrab is True
@@ -413,7 +422,7 @@ async def test_a_magnet_only_release_records_every_file_the_torrent_lists() -> N
     )
 
     await build_regrapper(repository, search_service, download_service, warnings).regrab(
-        release, {}
+        release, INDEXERS_BY_NAME
     )
 
     added = repository.reconciliations[0].added
@@ -440,7 +449,7 @@ async def test_a_renamed_root_folder_keeps_the_stored_mappings() -> None:
     )
 
     await build_regrapper(repository, search_service, download_service, warnings).regrab(
-        release, {}
+        release, INDEXERS_BY_NAME
     )
 
     reconciliation = repository.reconciliations[0]

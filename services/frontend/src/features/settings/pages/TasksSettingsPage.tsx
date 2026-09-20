@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { SettingsSectionForm } from '@/features/settings/components/SettingsSectionForm';
 import { useScheduledTasks, useUpdateTaskInterval } from '@/features/tasks/queries';
 import type { SyncJobKind } from '@/types';
 
@@ -94,6 +95,15 @@ export function TasksSettingsPage() {
           </Table.Tbody>
         </Table>
       )}
+
+      {/* The interval table edits `scheduled_tasks`; these come from the settings
+          registry, and both are read at the start of every scheduler loop. */}
+      <SettingsSectionForm
+        section="tasks"
+        titleKey="settings.tasks.regrabTitle"
+        descriptionKey="settings.tasks.regrabDescription"
+        titleOrder={3}
+      />
     </Stack>
   );
 }

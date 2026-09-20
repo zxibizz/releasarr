@@ -231,8 +231,11 @@ binding, so a partial failure is visible there too.
 `RegrabOutdatedReleasesUseCase` and the on-demand refresh) scopes the same way: it maps a
 release's stored `torrent_source` (the indexer name Prowlarr reported at grab time) back to an
 indexer id via `list_indexers()`, and searches only that indexer instead of sweeping all of
-them. An unknown name or an unreachable directory falls back to an unscoped search rather than
-skipping the release. If that search raises `ReleaseSearchUnavailableError` (the indexer is
+them. An unknown name, or a directory that cannot be read, means the check is skipped with a
+warning bound to the release's requests — not widened to the unscoped sweep, which would put the
+query to every tracker at once and is what the sweep's pacing exists to avoid. Nothing is
+written about it either way: no answer was received, so there is nothing to warn a user about.
+If that search raises `ReleaseSearchUnavailableError` (the indexer is
 banned or not responding), it does not treat it as a bug: it logs a warning against every
 request the release belongs to (`request_id=`, picked up by that request's `/logs` activity
 view), and persists a `regrab_indexer_unavailable` row per request in `request_warnings` (see

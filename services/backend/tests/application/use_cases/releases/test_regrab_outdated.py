@@ -25,6 +25,27 @@ from tests.fakes import (
 )
 
 RELEASE_ID = "https://tracker.example/details/1"
+INDEXER_RUTRACKER = IndexerRecord(
+    indexer_id=7,
+    name="RuTracker",
+    enabled=True,
+    supports_search=True,
+)
+
+
+def request_check_lines(records: list[dict[str, Any]]) -> list[str]:
+    """The lines the check bound to the release's own request.
+
+    A release's activity view is filtered on `request_id`, so a skip that only
+    reached the scheduler's log would be invisible where someone would look for
+    it.
+    """
+
+    return [
+        record["message"]
+        for record in records
+        if record.get("request_id") == "req-1" and record["level"] == "WARNING"
+    ]
 
 
 def make_release(
@@ -33,10 +54,12 @@ def make_release(
     search_query: str | None = None,
     info_hash: str = "OLDHASH",
     request_ids: list[str] | None = None,
+    release_id: str = RELEASE_ID,
+    torrent_source: str = "RuTracker",
 ) -> ReleaseRecord:
     now = datetime.now(UTC)
     return ReleaseRecord(
-        id=RELEASE_ID,
+        id=release_id,
         name=name,
         info_hash=info_hash,
         size_bytes=1024,
@@ -51,7 +74,7 @@ def make_release(
         completed_at=now,
         request_ids=request_ids if request_ids is not None else ["req-1"],
         requests=[],
-        torrent_source="RuTracker",
+        torrent_source=torrent_source,
         quality="1080p",
         files=[],
         last_exported_info_hash=None,
@@ -86,16 +109,38 @@ def make_match(
 
 
 class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
-    def __init__(self, release: ReleaseRecord) -> None:
-        self.release = release
+    def __init__(self, *releases: ReleaseRecord) -> None:
+        self.releases = list(releases)
         self.updates: dict[str, object] = {}
+        # The sweep stamps every candidate it looked at, which is bookkeeping
+        # rather than a re-grab, so it is kept apart from `updates`.
+        self.checks: list[tuple[str, object]] = []
+        self.limits: list[int | None] = []
 
-    async def get_potential_outdated_releases(self) -> list[ReleaseRecord]:
-        return [self.release]
+    async def get_potential_outdated_releases(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> list[ReleaseRecord]:
+        self.limits.append(limit)
+        return self.releases
 
     async def update_release(self, release_id: str, **kwargs: object) -> bool:
-        self.updates.update(kwargs)
+        if set(kwargs) == {"regrab_checked_at"}:
+            self.checks.append((release_id, kwargs["regrab_checked_at"]))
+        else:
+            self.updates.update(kwargs)
         return True
+
+
+class RecordingSleeper:
+    """Records what the pacing asked for instead of waiting for it."""
+
+    def __init__(self) -> None:
+        self.waits: list[float] = []
+
+    async def __call__(self, seconds: float) -> None:
+        self.waits.append(seconds)
 
 
 class FakeSearchService:
@@ -172,7 +217,9 @@ def build_use_case(
     overrides.setdefault("auto_mapper", stub_auto_mapper())
     overrides.setdefault("warning_repository", stub_warning_repository())
     overrides.setdefault("recompute_state", stub_recompute_state())
-    overrides.setdefault("directory", FakeIndexerDirectory([]))
+    # A directory that knows the release's own tracker, so a test that is not
+    # about scoping is not quietly exercising the skip path.
+    overrides.setdefault("directory", FakeIndexerDirectory([INDEXER_RUTRACKER]))
     return RegrabOutdatedReleasesUseCase(repository, search_service, download_service, **overrides)
 
 
@@ -295,6 +342,105 @@ async def test_regrab_falls_back_to_the_release_name_without_a_stored_query() ->
     assert search_service.queries == ["Old.Release.Name"]
 
 
+async def test_regrab_asks_for_a_bounded_batch() -> None:
+    repository = FakeReleaseRepository(make_release())
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+    directory = FakeIndexerDirectory([INDEXER_RUTRACKER])
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=directory,
+        batch_size=4,
+    )
+    await use_case.execute()
+
+    assert repository.limits == [4]
+
+
+async def test_regrab_spaces_checks_against_the_same_indexer() -> None:
+    """One tracker, asked twice in a row, is exactly what gets a client throttled."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    repository = FakeReleaseRepository(
+        make_release(release_id="rel-1"),
+        make_release(release_id="rel-2"),
+    )
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+    sleeper = RecordingSleeper()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=FakeIndexerDirectory([INDEXER_RUTRACKER]),
+        clock=lambda: now,
+        indexer_delay_seconds=2.0,
+        sleeper=sleeper,
+    )
+    result = await use_case.execute()
+
+    assert search_service.indexer_ids == [7, 7]
+    assert sleeper.waits == [2.0]
+    assert result.checked == 2
+
+
+async def test_regrab_does_not_hold_up_another_indexer() -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    repository = FakeReleaseRepository(
+        make_release(release_id="rel-1"),
+        make_release(release_id="rel-2", torrent_source="OtherTracker"),
+    )
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+    sleeper = RecordingSleeper()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=FakeIndexerDirectory(
+            [
+                INDEXER_RUTRACKER,
+                IndexerRecord(
+                    indexer_id=9, name="OtherTracker", enabled=True, supports_search=True
+                ),
+            ]
+        ),
+        clock=lambda: now,
+        indexer_delay_seconds=2.0,
+        sleeper=sleeper,
+    )
+    await use_case.execute()
+
+    assert search_service.indexer_ids == [7, 9]
+    assert sleeper.waits == []
+
+
+async def test_regrab_marks_every_release_it_looked_at() -> None:
+    """The stamp is the rotation: a candidate that never advances holds its slot."""
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    release = make_release()
+    repository = FakeReleaseRepository(release)
+    search_service = FakeSearchService(make_match())
+    download_service = FakeDownloadService()
+
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=FakeIndexerDirectory([INDEXER_RUTRACKER]),
+        clock=lambda: now,
+    )
+    await use_case.execute()
+
+    assert repository.checks == [(RELEASE_ID, now)]
+
+
 async def test_regrab_skips_the_search_when_prowlarr_has_blocked_the_indexer() -> None:
     release = make_release()  # torrent_source="RuTracker"
     repository = FakeReleaseRepository(release)
@@ -363,52 +509,71 @@ async def test_regrab_warns_when_the_indexer_is_disabled_in_prowlarr() -> None:
     assert "disabled in Prowlarr" in rows[0].details["reason"]
 
 
-async def test_regrab_falls_back_to_unscoped_search_when_indexer_unknown() -> None:
+async def test_regrab_skips_a_release_whose_indexer_is_gone(
+    captured_records: list[dict[str, Any]],
+) -> None:
+    """Only the release's own tracker is asked, so an unknown one has no query to run."""
+
     release = make_release()  # torrent_source="RuTracker"
-    match = make_match()
     repository = FakeReleaseRepository(release)
-    search_service = FakeSearchService(match)
+    search_service = FakeSearchService(make_match())
     download_service = FakeDownloadService()
+    warning_repository = FakeRequestWarningRepository()
     directory = FakeIndexerDirectory(
         [IndexerRecord(indexer_id=9, name="SomeOtherIndexer", enabled=True, supports_search=True)]
     )
 
-    use_case = build_use_case(repository, search_service, download_service, directory=directory)
+    use_case = build_use_case(
+        repository,
+        search_service,
+        download_service,
+        directory=directory,
+        warning_repository=warning_repository,
+    )
     await use_case.execute()
 
-    assert search_service.indexer_ids == [None]
+    assert search_service.queries == []
+    assert download_service.calls == []
+    # No answer was received, so nothing is warned about: the check is only
+    # recorded on the request's activity view.
+    assert warning_repository.calls == []
+    assert request_check_lines(captured_records) == ["Could not check for updates: indexer unknown"]
 
 
-async def test_regrab_falls_back_to_unscoped_search_without_prowlarr() -> None:
+async def test_regrab_skips_every_release_when_prowlarr_is_unconfigured(
+    captured_records: list[dict[str, Any]],
+) -> None:
     """An unconfigured directory has no indexer names to scope a release to."""
 
     release = make_release()
-    match = make_match()
     repository = FakeReleaseRepository(release)
-    search_service = FakeSearchService(match)
+    search_service = FakeSearchService(make_match())
     download_service = FakeDownloadService()
     directory = FakeIndexerDirectory([], is_configured=False)
 
     use_case = build_use_case(repository, search_service, download_service, directory=directory)
     await use_case.execute()
 
-    assert search_service.indexer_ids == [None]
-    assert len(download_service.calls) == 1
+    assert search_service.indexer_ids == []
+    assert download_service.calls == []
+    assert request_check_lines(captured_records) == ["Could not check for updates: indexer unknown"]
 
 
-async def test_regrab_falls_back_to_unscoped_search_when_directory_fails() -> None:
+async def test_regrab_skips_every_release_when_the_indexer_list_fails(
+    captured_records: list[dict[str, Any]],
+) -> None:
     release = make_release()
-    match = make_match()
     repository = FakeReleaseRepository(release)
-    search_service = FakeSearchService(match)
+    search_service = FakeSearchService(make_match())
     download_service = FakeDownloadService()
     directory = FakeIndexerDirectory([], error=RuntimeError("prowlarr unreachable"))
 
     use_case = build_use_case(repository, search_service, download_service, directory=directory)
     await use_case.execute()
 
-    assert search_service.indexer_ids == [None]
-    assert len(download_service.calls) == 1
+    assert search_service.indexer_ids == []
+    assert download_service.calls == []
+    assert request_check_lines(captured_records) == ["Could not check for updates: indexer unknown"]
 
 
 async def test_regrab_warns_the_request_when_the_indexer_is_unavailable(

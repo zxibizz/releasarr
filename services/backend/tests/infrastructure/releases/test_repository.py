@@ -387,6 +387,100 @@ async def test_regrab_candidates_skip_a_release_that_refused_its_replacement(
     ]
 
 
+@pytest.mark.asyncio
+async def test_regrab_candidates_are_ordered_least_recently_checked_first(
+    repository: SqlAlchemyReleaseRepository,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+    db_manager: DBManager,
+) -> None:
+    """The sweep's batch only works through a backlog because this order advances."""
+
+    await seed_requests(["req-1"])
+    async with db_manager.transaction() as session:
+        request = await session.get(models.MediaRequest, "req-1")
+        assert request is not None
+        request.status = MediaRequestStatus.MONITORING
+
+    async def _add(release_id: str, checked_at: datetime | None) -> None:
+        async with db_manager.transaction() as session:
+            release = models.Release(
+                id=release_id,
+                name=release_id,
+                info_hash=release_id.upper(),
+                size_bytes=100,
+                status=ReleaseStatus.COMPLETED,
+                progress=1.0,
+                download_speed=0.0,
+                upload_speed=0.0,
+                seeders=1,
+                leechers=0,
+                ratio=1.0,
+                torrent_source="RuTracker",
+                regrab_checked_at=checked_at,
+            )
+            request = await session.get(models.MediaRequest, "req-1")
+            assert request is not None
+            release.requests = [request]
+            session.add(release)
+
+    await _add("seen-recently", datetime(2026, 2, 1, tzinfo=UTC))
+    await _add("never-checked", None)
+    await _add("seen-long-ago", datetime(2026, 1, 1, tzinfo=UTC))
+
+    candidates = await repository.get_potential_outdated_releases()
+
+    assert [record.id for record in candidates] == [
+        "never-checked",
+        "seen-long-ago",
+        "seen-recently",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_regrab_candidates_honour_a_limit(
+    repository: SqlAlchemyReleaseRepository,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+    db_manager: DBManager,
+) -> None:
+    """A bounded batch takes the oldest checks, not an arbitrary subset."""
+
+    await seed_requests(["req-1"])
+    async with db_manager.transaction() as session:
+        request = await session.get(models.MediaRequest, "req-1")
+        assert request is not None
+        request.status = MediaRequestStatus.MONITORING
+
+    async def _add(release_id: str, checked_at: datetime | None) -> None:
+        async with db_manager.transaction() as session:
+            release = models.Release(
+                id=release_id,
+                name=release_id,
+                info_hash=release_id.upper(),
+                size_bytes=100,
+                status=ReleaseStatus.COMPLETED,
+                progress=1.0,
+                download_speed=0.0,
+                upload_speed=0.0,
+                seeders=1,
+                leechers=0,
+                ratio=1.0,
+                torrent_source="RuTracker",
+                regrab_checked_at=checked_at,
+            )
+            request = await session.get(models.MediaRequest, "req-1")
+            assert request is not None
+            release.requests = [request]
+            session.add(release)
+
+    await _add("seen-recently", datetime(2026, 2, 1, tzinfo=UTC))
+    await _add("never-checked", None)
+    await _add("seen-long-ago", datetime(2026, 1, 1, tzinfo=UTC))
+
+    candidates = await repository.get_potential_outdated_releases(limit=2)
+
+    assert [record.id for record in candidates] == ["never-checked", "seen-long-ago"]
+
+
 async def _seed_release_with_file(
     db_manager: DBManager,
     file_id: str,
