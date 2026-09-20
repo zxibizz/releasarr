@@ -294,11 +294,11 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             # matching those conditions, so that status is the request-side filter.
             #
             # A release that already refused its replacement is left out entirely:
-            # the indexer's answer is not going to change between two hourly
-            # passes, and a check costs a search plus the torrent file it has to
-            # download before it can compare files. The on-demand refresh is what
-            # retries one, and a replacement that finally carries every stored file
-            # clears the row, which is what puts it back in here.
+            # the indexer's answer is not going to change between two passes, and
+            # a check costs a search plus the torrent file it has to download
+            # before it can compare files. The on-demand refresh is what retries
+            # one, and a replacement that finally carries every stored file clears
+            # the row, which is what puts it back in here.
             #
             # Least recently checked first, which is the sweep's rotation: the
             # timestamp is stamped on every candidate it looked at, so the run

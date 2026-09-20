@@ -79,7 +79,7 @@ That last rule is why the file list is read before anything is queued: a replace
 a file would leave the release describing something that was never downloaded, and the export
 would try to import a path that does not exist.
 
-The refusal is also what takes the release out of the hourly sweep: `get_potential_outdated_releases`
+The refusal is also what takes the release out of the sweep: `get_potential_outdated_releases`
 excludes any release holding a `regrab_files_missing` row, because the indexer's answer will not
 change between two passes and each check costs a search plus the torrent file it downloads to
 compare files. The on-demand refresh on the request still checks it — that is the retry path — and

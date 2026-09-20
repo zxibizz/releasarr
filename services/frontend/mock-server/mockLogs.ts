@@ -130,7 +130,7 @@ export const generateMockRequestLogs = (request: MediaRequest): RequestLogEntry[
         quality: '1080p',
       },
     }),
-    // The hourly re-grab check has its own line per release it looked at, so the
+    // The re-grab check has its own line per release it looked at, so the
     // fixture carries one rather than leaving the shape to the live appends.
     buildLog(now, 33, {
       id: `${request.id}-log-8`,

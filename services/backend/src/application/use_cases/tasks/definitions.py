@@ -13,7 +13,7 @@ DEFAULT_INTERVALS: dict[SyncJobKind, int] = {
     SyncJobKind.RADARR_SYNC: 60 * 60,
     SyncJobKind.RELEASE_SYNC: 30,
     SyncJobKind.EXPORT: 5 * 60,
-    SyncJobKind.REGRAB: 60 * 60,
+    SyncJobKind.REGRAB: 10 * 60,
 }
 
 # Ordered because later tasks consume what earlier ones produce: the export can

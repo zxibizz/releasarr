@@ -138,8 +138,8 @@ class ReleaseRegrapper:
 
         Returns whether a new download was queued. Every way out of here logs
         against the release's requests: a check that found nothing to do is still
-        the answer to "what happened to this request", and the sweep runs hourly
-        over releases nobody is watching.
+        the answer to "what happened to this request", and the sweep runs on its
+        own schedule over releases nobody is watching.
         """
 
         # Search Prowlarr for the specific release. Only the indexer it
