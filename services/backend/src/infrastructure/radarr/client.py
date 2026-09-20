@@ -33,6 +33,13 @@ _logger = get_logger(LogComponent.INTEGRATION_RADARR)
 # anything stricter would hide a request from our own sync until release day.
 MINIMUM_AVAILABILITY = "released"
 
+# The import preview refuses a path it cannot read a movie and a year out of. The
+# import itself does not: its command substitutes an empty parse for the same file
+# and takes the movie from the id it is handed, which is what lets Radarr's own
+# manual-import screen import a file a user picked the movie for by hand. A
+# preview rejected for this reason is therefore no reason to skip the import.
+UNPARSEABLE_PATH_MESSAGE = "Unable to parse movie info from path"
+
 
 class RadarrHttpClient(ArrHttpClient, RadarrService):
     """Interact with Radarr's HTTP API."""
@@ -200,21 +207,33 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         command would otherwise overwrite with blanks - see ``_command_payload``.
         """
 
-        payload = await self._request(
-            "POST",
-            "/manualimport",
-            json=[
-                {
-                    "path": file.path,
-                    "movieId": file.movie_id,
-                    # Radarr dereferences both, and only fills them in from the
-                    # file name when they arrive as these "unknown" forms.
-                    "quality": {"quality": {"id": UNKNOWN_QUALITY_ID}},
-                    "languages": [],
-                }
-                for file in files
-            ],
-        )
+        try:
+            payload = await self._request(
+                "POST",
+                "/manualimport",
+                json=[
+                    {
+                        "path": file.path,
+                        "movieId": file.movie_id,
+                        # Radarr dereferences both, and only fills them in from the
+                        # file name when they arrive as these "unknown" forms.
+                        "quality": {"quality": {"id": UNKNOWN_QUALITY_ID}},
+                        "languages": [],
+                    }
+                    for file in files
+                ],
+            )
+        except httpx.HTTPStatusError as exc:
+            if UNPARSEABLE_PATH_MESSAGE not in exc.response.text:
+                raise
+            # Nothing but the parse is missing, and the command does its own
+            # anyway - the movie it imports into comes from the id we send.
+            _logger.warning(
+                "Radarr could not parse a movie out of the file path; importing on the movie id",
+                file_count=len(files),
+                file_path=files[0].path,
+            )
+            return {}
 
         if not isinstance(payload, list):
             return {}
@@ -277,12 +296,18 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         overwriting whatever it worked out from the file itself, so anything left
         out here is stored as unknown. The preview's values are passed straight
         back, which is also what Radarr's own interactive import does.
+
+        The quality is the exception: it is applied over the file's own, so a
+        payload without one stores no quality at all rather than the aggregated
+        one. Unknown stands in for the preview's answer, which is what Radarr's own
+        manual import sends for a file whose quality it cannot tell either.
         """
 
         payload: dict[str, Any] = {
             "path": file.path,
             "movieId": file.movie_id,
             "folderName": file.folder_name,
+            "quality": {"quality": {"id": UNKNOWN_QUALITY_ID}},
         }
         if resolved is None:
             return payload

@@ -155,8 +155,49 @@ async def test_manual_import_reprocesses_before_queueing_the_command() -> None:
     ]
 
 
+async def test_manual_import_continues_when_radarr_cannot_parse_the_path() -> None:
+    """Radarr's preview refuses a path it cannot parse; its import does not.
+
+    Its own manual-import screen imports such a file from the movie a user picked,
+    and the command substitutes an empty parse for the same path, so stopping at
+    the preview would abandon an import Radarr would have carried out.
+    """
+
+    calls: list[tuple[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read()
+        calls.append((request.url.path, json.loads(body) if body else None))
+
+        if request.url.path.endswith("/manualimport"):
+            return httpx.Response(
+                500,
+                json={"message": f"Unable to parse movie info from path: {IMPORT_FILE.path}"},
+            )
+        if request.url.path.endswith("/command/7"):
+            return httpx.Response(200, json={"id": 7, "status": "completed"})
+        return httpx.Response(201, json={"id": 7})
+
+    client = build_client(handler)
+
+    assert await client.manual_import([IMPORT_FILE]) is True
+
+    commands = [body for path, body in calls if path.endswith("/command") and body]
+    assert len(commands) == 1
+    # Only the movie id carries over, so the quality has to stand in for the
+    # preview's answer: the command applies it over whatever it read from the file.
+    assert commands[0]["files"] == [
+        {
+            "path": IMPORT_FILE.path,
+            "movieId": 42,
+            "folderName": "Arrival",
+            "quality": {"quality": {"id": 0}},
+        }
+    ]
+
+
 async def test_manual_import_fails_when_radarr_cannot_read_the_file() -> None:
-    """A rejected preview must stop the release from being recorded as exported."""
+    """A preview rejected for any other reason must stop the release being exported."""
 
     command_calls = 0
 
