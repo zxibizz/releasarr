@@ -1,0 +1,23 @@
+#!/command/with-contenv sh
+# RELEASARR_MODE picks what this container runs; every later step and service reads it.
+#   all    - api + scheduler + nginx (the default)
+#   web    - api + nginx: serves the UI and queues jobs, never runs them
+#   worker - the scheduler alone: runs jobs, serves nothing
+
+mode="${RELEASARR_MODE:-all}"
+case "${mode}" in
+    all|web|worker) ;;
+    *)
+        echo "RELEASARR_MODE must be one of all, web, worker; got '${mode}'" >&2
+        exit 1
+        ;;
+esac
+
+case "${mode}:${RELEASARR_DATABASE_URL:-sqlite}" in
+    all:*) ;;
+    *:sqlite*)
+        echo "WARNING: RELEASARR_MODE=${mode} on SQLite only works if the web and worker containers share one /config volume on one host; use Postgres to run them apart" >&2
+        ;;
+esac
+
+echo "releasarr mode: ${mode}"

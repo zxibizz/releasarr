@@ -164,6 +164,11 @@ cython_debug/
 .vscode
 persistence_data
 .logs/
+
+# Local runtime state from the compose examples; never committed.
+/releasarr-config/
+/releasarr-postgres/
+*.db
 # Allow React query helpers committed from frontend
 !services/frontend/src/lib/
 !services/frontend/src/lib/*

@@ -91,7 +91,7 @@ the committed images are what actually ship.
 ## HTTPS
 
 A service worker only registers in a secure context: `https://`, or `http://localhost`. The
-production image serves plain HTTP on port 80, so installation and offline support only work
+production image serves plain HTTP on port 8050, so installation and offline support only work
 behind a TLS reverse proxy (or from `localhost` itself). On a plain `http://<lan-ip>:8050` the app
 still works — the manifest and the icons are simply inert, because the browser refuses to run the
 worker.

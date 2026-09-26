@@ -11,6 +11,7 @@ from src.api.routes.releases import router as releases_router
 from src.api.routes.requests import router as requests_router
 from src.api.routes.service_keys import router as service_keys_router
 from src.api.routes.settings import router as settings_router
+from src.api.routes.system import router as system_router
 from src.api.routes.tasks import router as tasks_router
 from src.api.routes.users import router as users_router
 
@@ -22,6 +23,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(users_router)
     app.include_router(service_keys_router)
     app.include_router(settings_router)
+    app.include_router(system_router)
     app.include_router(requests_router)
     app.include_router(releases_router)
     app.include_router(request_releases_router)

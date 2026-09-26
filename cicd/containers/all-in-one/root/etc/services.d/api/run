@@ -1,6 +1,15 @@
 #!/command/with-contenv sh
 # uvicorn logs to stderr, but s6 only pipes fd 1 to the logger in log/run.
 exec 2>&1
+
+if [ "${RELEASARR_MODE:-all}" = "worker" ]; then
+    # Not part of this mode: stay down instead of being restarted forever.
+    s6-svc -O .
+    exit 0
+fi
+
 # Port 8000 is what the nginx site proxies /api/ to.
 cd /app
-exec /app/.venv/bin/uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+export HOME=/config
+exec s6-applyuidgid -u "${PUID:-1000}" -g "${PGID:-1000}" \
+    /app/.venv/bin/uvicorn src.api.app:app --host 127.0.0.1 --port 8000

@@ -1,0 +1,12 @@
+#!/command/with-contenv sh
+# Runs before any service starts, so nothing serves a request or claims a job
+# against a stale schema. S6_BEHAVIOUR_IF_STAGE2_FAILS=2 takes the container
+# down if this fails, rather than leaving a half-started stack behind.
+if [ "${RELEASARR_MODE:-all}" = "worker" ]; then
+    # The web container owns migrations; running them from both would race.
+    exit 0
+fi
+cd /app
+# asyncpg probes ~/.postgresql, and root's HOME is unreadable once privileges drop.
+export HOME=/config
+exec s6-applyuidgid -u "${PUID:-1000}" -g "${PGID:-1000}" /app/.venv/bin/alembic upgrade head

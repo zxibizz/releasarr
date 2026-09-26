@@ -1,5 +1,5 @@
 server {
-  listen 80;
+  listen 8050;
   merge_slashes off;
   # Debian's defaults write both to /var/log/nginx, where nothing rotates them
   # and nobody reads them. Sending them to the service's own descriptors puts

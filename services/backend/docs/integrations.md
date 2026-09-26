@@ -428,7 +428,7 @@ results are built client-side from `https://image.tmdb.org/t/p/w500` plus `poste
 
 ## Metadata languages
 
-`RELEASARR_METADATA_LANGUAGES` defaults to `("eng", "rus")`. Three-letter ISO 639-2 is the
+`RELEASARR_METADATA_LANGUAGES` defaults to `("eng",)`. Three-letter ISO 639-2 is the
 canonical storage form, and it reaches the `media_requests.localizations` JSON column in that
 form.
 

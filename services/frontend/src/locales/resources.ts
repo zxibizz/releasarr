@@ -25,6 +25,7 @@ export const resources = {
         nav: {
           label: 'System sections',
         },
+        version: 'Releasarr v{{version}}',
       },
       settings: {
         saved: 'Settings saved',
@@ -1165,6 +1166,7 @@ export const resources = {
         nav: {
           label: 'Разделы системы',
         },
+        version: 'Releasarr, версия {{version}}',
       },
       settings: {
         saved: 'Настройки сохранены',

@@ -1,0 +1,12 @@
+#!/command/with-contenv sh
+# The API and scheduler drop to PUID:PGID, so everything they write under
+# /config has to be theirs.
+set -e
+
+PUID="${PUID:-1000}"
+PGID="${PGID:-1000}"
+
+mkdir -p /config /config/logs
+chown "${PUID}:${PGID}" /config /config/logs
+
+echo "releasarr running as ${PUID}:${PGID}"

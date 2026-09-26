@@ -26,6 +26,9 @@ The docs above are repo-wide. Detail that only concerns one side lives next to t
 
 [`../openapi.yaml`](../openapi.yaml) is the API contract, and the thing to change first.
 
+Two docs here are for people running Releasarr rather than changing it:
+[`upgrading.md`](upgrading.md) and [`troubleshooting.md`](troubleshooting.md).
+
 `screenshots/` holds the images used by the root [`README.md`](../README.md). They are
 generated — run `npm run screenshots` from `services/frontend/` rather than replacing them by
 hand.

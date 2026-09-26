@@ -11,6 +11,9 @@ from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from typing import TYPE_CHECKING
 
+from sqlalchemy.engine import make_url
+
+from src import __version__
 from src.application.interfaces.releases import (
     ReleaseDownloadService,
     ReleaseLifecycleService,
@@ -89,6 +92,7 @@ from src.application.use_cases.settings import (
     TestIntegrationConnectionUseCase,
     UpdateSettingsSectionUseCase,
 )
+from src.application.use_cases.system import GetSystemInfoUseCase
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.use_cases.tasks.get_sync_job import (
     GetSyncJobUseCase,
@@ -340,6 +344,10 @@ class UseCaseContainer:
     def settings(self) -> SettingsUseCases:
         return SettingsUseCases(self._container)
 
+    @cached_property
+    def system(self) -> SystemUseCases:
+        return SystemUseCases(self._container)
+
 
 @dataclass
 class AuthUseCases:
@@ -490,6 +498,18 @@ class LogUseCases:
     @cached_property
     def list(self) -> ListLogsUseCase:
         return ListLogsUseCase(query=self._container.queries.logs)
+
+
+@dataclass
+class SystemUseCases:
+    _container: AppContainer
+
+    @cached_property
+    def info(self) -> GetSystemInfoUseCase:
+        return GetSystemInfoUseCase(
+            version=__version__,
+            database=make_url(self._container.settings.database_url).get_backend_name(),
+        )
 
 
 @dataclass

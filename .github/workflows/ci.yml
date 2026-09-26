@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  # Called by release.yml so a tag cannot publish an image that would not have
+  # passed on master.
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      # The suite runs on in-memory SQLite; this is only for the migrations,
+      # which differ on Postgres wherever an enum is involved.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: releasarr
+          POSTGRES_PASSWORD: releasarr
+          POSTGRES_DB: releasarr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U releasarr -d releasarr"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: services/backend
+    env:
+      RELEASARR_AUTH_SECRET: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: |
+          uv run ruff check ./src ./tests
+          uv run ruff format --check ./src
+
+      - name: Typecheck
+        run: uv run mypy src
+
+      - name: Test
+        run: uv run pytest -q
+
+      - name: Migrations apply from empty (SQLite)
+        env:
+          RELEASARR_DATABASE_URL: sqlite+aiosqlite:///./ci-check.db
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+
+      # `alembic check` only runs here: SQLite reflects server defaults as text
+      # and reports every timestamp column as drifted.
+      - name: Migrations apply from empty (Postgres)
+        env:
+          RELEASARR_DATABASE_URL: postgresql+asyncpg://releasarr:releasarr@localhost:5432/releasarr
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The backend contract test checks the app against openapi.yaml; this
+      # checks the TypeScript generated from it.
+      - name: API types are current
+        run: |
+          npm run codegen
+          git diff --exit-code -- src/lib/api/generated/types.ts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # `build` runs tsc --noEmit first, so this is the typecheck too.
+      - name: Build
+        run: npm run build
+
+  versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Versions agree
+        run: python3 .github/scripts/check_version.py
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Build only: publishing happens from release.yml on a tag.
+      - name: Build production image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.all-in-one
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

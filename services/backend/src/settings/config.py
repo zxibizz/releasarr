@@ -13,7 +13,6 @@ class AppSettings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
 
     api_title: str = Field(default="Releasarr API")
-    api_version: str = Field(default="0.1.0")
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)
 
@@ -29,7 +28,9 @@ class AppSettings(BaseSettings):
     # Browser-facing path: nginx and the Vite dev proxy both strip the leading
     # /api, so this must be the path the client actually sees, not the FastAPI route.
     auth_cookie_path: str = Field(default="/api/auth")
-    auth_cookie_secure: bool = Field(default=True)
+    # Off by default because most instances are reached over plain HTTP on a
+    # LAN, where a browser silently drops a Secure cookie and login never sticks.
+    auth_cookie_secure: bool = Field(default=False)
     auth_cookie_samesite: Literal["lax", "strict", "none"] = Field(default="lax")
     auth_max_failed_logins: int = Field(default=10)
     auth_lockout_seconds: int = Field(default=900)
@@ -71,7 +72,7 @@ class AppSettings(BaseSettings):
     tmdb_base_url: str = Field(default="https://api.themoviedb.org/3")
     tmdb_api_key: SecretStr = Field(default=SecretStr(""))
 
-    metadata_languages: tuple[str, ...] = Field(default=("eng", "rus"))
+    metadata_languages: tuple[str, ...] = Field(default=("eng",))
 
     prowlarr_url: str = Field(default="")
     prowlarr_api_key: SecretStr = Field(default=SecretStr(""))

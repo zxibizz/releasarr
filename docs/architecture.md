@@ -9,7 +9,7 @@ Three processes, one container image:
 
 ```
         ┌─────────────────────────────────────────────┐
-        │  nginx  :80                                 │
+        │  nginx  :8050                               │
         │    /        → /static  (built frontend)     │
         │    /api/    → localhost:8000  (prefix       │
         │               stripped by trailing slash)   │
@@ -24,9 +24,14 @@ Three processes, one container image:
 ```
 
 [s6-overlay](https://github.com/just-containers/s6-overlay) is PID 1 and supervises all three.
-`/etc/cont-init.d/01-migrations` runs `alembic upgrade head` before anything starts — a failure
-there takes the container down rather than serving against a stale schema — and the three
-services in `/etc/services.d` come up afterwards, each restarted on its own if it dies. The tree
+The `/etc/cont-init.d` steps run first, in order: `00-mode` validates `RELEASARR_MODE`,
+`01-prepare` hands `/config` to `PUID`:`PGID`, `02-auth-secret` generates
+`/config/auth-secret` when `RELEASARR_AUTH_SECRET` is unset and exports it to the services, and
+`03-migrations` runs `alembic upgrade head` — a failure there takes the container down rather
+than serving against a stale schema. The three services in `/etc/services.d` come up afterwards,
+uvicorn and the scheduler dropped to `PUID`:`PGID`, each restarted on its own if it dies.
+`RELEASARR_MODE=web` parks the scheduler and `worker` parks nginx and uvicorn (and skips the
+migrations), so the same image runs as two containers against a shared Postgres. The tree
 lives in `cicd/containers/all-in-one/root/`, copied to `/` at build time.
 
 Each service has a `log/run` that pipes it through `s6-log`, which tags every line with `[api]`,
@@ -239,6 +244,8 @@ which is why `sync_downloads` queues the two together and in that order.
 
 ## Deployment
 
-`.forgejo/workflows/deploy.yml` runs `ruff check ./src` and `ruff format --check ./src`, builds
-and pushes the image, then SSHes to pull and restart the compose stack. There is no test or
-typecheck step in CI — run `uv run pytest` and `uv run mypy src` locally.
+`.github/workflows/ci.yml` runs lint, typecheck, tests, migrations on SQLite and Postgres, and
+an image build on every push and pull request. Pushing a `v*` tag runs
+`.github/workflows/release.yml`, which reruns CI, checks the tag against the version in the
+source, and publishes the multi-arch image to `ghcr.io` with a GitHub release. The release
+steps are in [`CONTRIBUTING.md`](../CONTRIBUTING.md#releasing).

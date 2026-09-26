@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from src import __version__
 from src.api.errors import register_exception_handlers
 from src.api.request_logging import register_request_logging
 from src.api.routes import register_routes
@@ -45,7 +46,7 @@ async def lifespan(_: FastAPI):
 container = get_container()
 app = FastAPI(
     title=container.settings.api_title,
-    version=container.settings.api_version,
+    version=__version__,
     lifespan=lifespan,
 )
 """FastAPI ASGI application."""
@@ -90,9 +91,9 @@ async def readiness_probe() -> dict[str, str]:
 
 @app.get("/healthz")
 async def healthcheck() -> dict[str, str]:
-    """Simple health endpoint to aid local development."""
+    """Liveness probe; unauthenticated, so the container healthcheck can reach it."""
 
-    return {"status": "ok"}
+    return {"status": "ok", "version": __version__}
 
 
 __all__ = ["app"]

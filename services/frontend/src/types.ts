@@ -81,6 +81,7 @@ export type CreateUserPayload = Schemas['CreateUserPayload'];
 export type UpdateUserPayload = Schemas['UpdateUserPayload'];
 export type ChangePasswordPayload = Schemas['ChangePasswordPayload'];
 export type ServiceApiKey = Schemas['ServiceApiKey'];
+export type SystemInfo = Schemas['SystemInfo'];
 
 export type SettingFieldInfo = Schemas['SettingFieldInfo'];
 export type SettingsResponse = Schemas['SettingsResponse'];
