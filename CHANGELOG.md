@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   image. Only matters if you build it yourself.
 - **The image runs Python 3.14** (was 3.12), and the frontend is built on Node 26.
   Dependencies are updated to match.
+- **The compose examples no longer require `ARR_NETWORK`** or assume the \*arr apps are
+  containers on the same host. Existing `compose.yaml` files keep working as they are.
 
 ## [0.10.0] - 2026-09-26
 

@@ -1,13 +1,12 @@
 # Split deployment: the web container (UI + API) and the worker (the scheduler,
 # which runs every sync, grab and import) run separately and meet at a shared
-# Postgres database. Copy to compose.yaml and set RELEASARR_DB_PASSWORD and
-# ARR_NETWORK in .env.
+# Postgres database. Copy to compose.yaml and set RELEASARR_DB_PASSWORD in .env.
 #
 # For a single container on SQLite, use compose.example.yaml instead. This file
 # is for when you want to restart or resource-limit the scheduler on its own, or
 # would rather keep Releasarr's data in Postgres.
 #
-# Both containers talk to the *arr apps, so both join their network. Neither
+# Both containers talk to the *arr apps, so both need to reach them. Neither
 # opens a media file; see compose.example.yaml for the one path rule that does
 # matter.
 #
@@ -35,7 +34,6 @@ x-releasarr: &releasarr
   # the API's, and the worker reuses the auth secret the web container generated.
   volumes:
     - ./releasarr-config:/config
-  networks: [default, arr]
 
 services:
   postgres:
@@ -78,9 +76,3 @@ services:
     environment:
       <<: *releasarr-env
       RELEASARR_MODE: worker
-
-networks:
-  arr:
-    # The network Sonarr/Radarr are already on; see compose.example.yaml.
-    external: true
-    name: ${ARR_NETWORK:?set ARR_NETWORK in .env to the network Sonarr/Radarr are on}

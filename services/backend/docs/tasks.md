@@ -270,26 +270,10 @@ sorts by time, which is what keeps `?request_id=` useful: the API logs accepting
 request and the scheduler logs the work that request queued, so a single request's
 activity spans both files and neither alone would answer.
 
-### Hooking up qBittorrent
+### Finished torrents
 
 The release sync notices a finished torrent within its 30-second interval and
-queues the export itself, so this hook is optional: it shaves those seconds off
-by reporting the completion directly. Point qBittorrent's completion hook at
-`sync_downloads` in **Options → Downloads → Run external program on torrent
-finished**:
-
-```bash
-curl -fsS -X POST -H "X-API-Key: $RELEASARR_SERVICE_KEY" http://releasarr:8000/api/tasks/sync_downloads
-```
-
-Substitute your own host and the service API key (visible, and rotatable, under `/service-key`,
-or **System → Users** in the UI); the `/api` prefix is what nginx serves the API under. The narrow endpoint is deliberate: a full sync on every torrent would hit
-Sonarr, Radarr, the metadata providers, and the indexers far more often than
-necessary.
-
-Runs triggered this way show up in the Queue section of **System → Tasks** in
-the web UI, tagged with the download client as their trigger, and their log
-lines are filterable by task in the Logs section on the same page.
+queues the export itself, so no download-client hook is needed.
 
 Note that the export only picks up releases whose status is `completed`, which
 the release sync derives from qBittorrent reporting full progress and a

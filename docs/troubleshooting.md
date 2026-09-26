@@ -39,16 +39,17 @@ Sonarr and Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`.
 next to each one checks it without saving. A field marked *Set by environment* comes from a
 `RELEASARR_*` variable and can only be changed there.
 
-From inside the container, other containers are reachable by name only on a shared Docker
-network — `http://sonarr:8989/api/v3`, not `http://localhost:8989/api/v3`.
+`localhost` inside the container is the container itself, not the machine it runs on. Use the
+host name or IP where each service listens: `http://192.168.1.10:8989/api/v3`.
 
 ## A finished download never imports
 
 The release is marked completed but Sonarr or Radarr reports that the path does not exist.
 Releasarr hands over the path qBittorrent reports, unchanged, so it has to exist at that same
-path inside the Sonarr and Radarr containers. If qBittorrent saves to `/downloads/…` but Sonarr
-sees the same directory as `/data/downloads/…`, the import fails. Mount the download directory
-at the same path in the qBittorrent and \*arr containers.
+path wherever Sonarr and Radarr run. If qBittorrent saves to `/downloads/…` but Sonarr
+sees the same directory as `/data/downloads/…`, the import fails. Make the download directory
+appear at the same path to qBittorrent and to the \*arr apps — the same mount point, or a
+matching path on each host.
 
 **System → Tasks** shows each `export` run with its own logs. A release that fails to import
 five times in a row is marked failed rather than retried forever.
@@ -59,7 +60,7 @@ Anything that forwards a whole host name to port 8050 works. With Caddy:
 
 ```
 releasarr.example.com {
-    reverse_proxy releasarr:8050
+    reverse_proxy your-host:8050
 }
 ```
 

@@ -31,7 +31,6 @@ Your library managers stay the source of truth; Releasarr just handles the awkwa
 - [How a request flows through the system](#how-a-request-flows-through-the-system)
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
-- [Hooking up qBittorrent](#hooking-up-qbittorrent)
 - [Upgrading](#upgrading)
 - [Development](#development)
 - [Architecture](#architecture)
@@ -154,13 +153,12 @@ indexers and grabbing releases report themselves as unavailable rather than sile
 nothing.
 
 The image is published for `linux/amd64` and `linux/arm64` as `ghcr.io/zxibizz/releasarr`.
-Copy [`compose.example.yaml`](compose.example.yaml) to `compose.yaml`, and put the name of the
-Docker network your \*arr containers are on in a `.env` next to it
-(`docker inspect sonarr` lists it under *Networks*):
+The \*arr apps can run anywhere Releasarr can reach over HTTP — another machine, a NAS, bare
+metal or containers. Copy [`compose.example.yaml`](compose.example.yaml) to `compose.yaml` and
+start it:
 
 ```bash
 curl -fsSLo compose.yaml https://raw.githubusercontent.com/zxibizz/releasarr/master/compose.example.yaml
-echo "ARR_NETWORK=<network name>" > .env
 docker compose up -d
 ```
 
@@ -168,7 +166,7 @@ Or, without compose:
 
 ```bash
 docker run -d --name releasarr --restart unless-stopped \
-  --network <network name> -p 8050:8050 \
+  -p 8050:8050 \
   -e PUID=1000 -e PGID=1000 -e TZ=Etc/UTC \
   -v "$PWD/releasarr-config:/config" \
   ghcr.io/zxibizz/releasarr:0.10.0
@@ -191,7 +189,7 @@ A few things worth knowing before you point it at real data:
 
 - **qBittorrent and Sonarr/Radarr must agree on paths.** Releasarr never opens a media file
   itself — it hands Sonarr and Radarr's manual import the absolute paths qBittorrent reports.
-  Those paths have to resolve to the same files inside the \*arr containers, which is the same
+  Those paths have to resolve to the same files wherever Sonarr and Radarr run, which is the same
   rule Sonarr and Radarr's own download handling already needs. Releasarr needs no download or
   library mounts.
 - **Everything Releasarr keeps is in `/config`**: the SQLite database, the logs, and
@@ -201,8 +199,8 @@ A few things worth knowing before you point it at real data:
 - **Over plain HTTP, sign-in just works.** Behind a TLS reverse proxy, set
   `RELEASARR_AUTH_COOKIE_SECURE=true` so the session cookie is never sent unencrypted. Either
   way, do not port-forward it — see [`SECURITY.md`](SECURITY.md).
-- **Every route needs a signed-in session**, or, for scripts, the service API key — see
-  [Hooking up qBittorrent](#hooking-up-qbittorrent) below.
+- **Every route needs a signed-in session**, or, for scripts, the service API key, which an
+  admin finds under **Users**.
 
 Releasarr also **installs as an app**. Use *Install* in Chrome on Android or *Add to Home Screen*
 in Safari on iOS, and it launches in its own window and opens without a connection. Two caveats
@@ -314,26 +312,6 @@ one, so the first profile they report is used unless you pick one.
 | `RELEASARR_REGRAB_INDEXER_DELAY_SECONDS` | `2.0` | Minimum gap between two re-grab checks on the same indexer |
 
 Both re-grab settings are editable at runtime under **Settings → Tasks**.
-
-## Hooking up qBittorrent
-
-A finished torrent is imported on its own: the release sync runs every 30 seconds, notices the
-torrent completing and queues the export itself. Pointing qBittorrent at Releasarr shaves those
-seconds off by reporting the completion directly. Grab the service API key
-first (an admin, from **Users** — it always exists, generated automatically), then in
-**Options → Downloads → Run external program on torrent finished**:
-
-```bash
-curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr:8050/api/tasks/sync_downloads
-```
-
-`releasarr` here is the container name on the Docker network qBittorrent shares with it; from
-outside that network, use the host and published port instead (`http://your-host:8050/api/…`).
-Either way the `/api` prefix is what nginx serves the API under.
-
-`sync_downloads` queues only `release_sync` and `export` — a full sync on every torrent would
-hammer Sonarr, Radarr, the metadata providers, and your indexers for no reason. Runs arriving
-this way show up in the queue on **Tasks**, tagged with the download client as their trigger.
 
 ## Upgrading
 

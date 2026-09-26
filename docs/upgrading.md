@@ -81,8 +81,9 @@ sudo chown -R 1000:1000 releasarr-config   # your PUID:PGID
 Then start it from [`compose.example.yaml`](../compose.example.yaml) with `./releasarr-config`
 as the `/config` volume, and:
 
-- **Publish `8050:8050`**, not `8050:80`, and change qBittorrent's *Run external program on
-  torrent finished* hook to `http://releasarr:8050/api/tasks/sync_downloads`.
+- **Publish `8050:8050`**, not `8050:80`. A qBittorrent *Run external program on torrent
+  finished* hook pointed at Releasarr is no longer needed and can be removed: the release sync
+  picks up finished torrents on its own.
 - **Keep your `RELEASARR_AUTH_SECRET`** in the environment, or drop it and let one be generated;
   open sessions refresh onto the new one without anyone signing in again.
 - **Behind a TLS reverse proxy, set `RELEASARR_AUTH_COOKIE_SECURE=true`**; that used to be the

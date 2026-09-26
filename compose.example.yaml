@@ -1,17 +1,16 @@
-# Releasarr next to the Sonarr / Radarr / Prowlarr / qBittorrent stack you
-# already run: one container with the UI, the API and the scheduler
-# (RELEASARR_MODE=all, the default) on SQLite. compose.split.example.yaml runs
-# the web side and the scheduler apart, on Postgres.
+# One container with the UI, the API and the scheduler (RELEASARR_MODE=all, the
+# default) on SQLite. compose.split.example.yaml runs the web side and the
+# scheduler apart, on Postgres.
 #
-# Copy to compose.yaml next to a .env holding ARR_NETWORK (see .env.example),
-# then `docker compose up -d` and open http://<host>:8050 to create the first
-# admin account. Sonarr, Radarr, Prowlarr, qBittorrent and the metadata keys
-# can all be filled in under Settings from there.
+# Copy to compose.yaml, `docker compose up -d` and open http://<host>:8050 to
+# create the first admin account. Sonarr, Radarr, Prowlarr, qBittorrent and the
+# metadata keys can all be filled in under Settings from there, as any URL this
+# container can reach: another host, a NAS, or a container on this one.
 #
 # Releasarr never opens a media file itself: it hands Sonarr and Radarr the
 # paths qBittorrent reports, so it needs no download or library mounts. What it
-# does need is for those paths to mean the same thing inside the qBittorrent
-# container and inside the Sonarr/Radarr containers.
+# does need is for those paths to mean the same thing to qBittorrent and to
+# Sonarr/Radarr, wherever each of them runs.
 
 services:
   releasarr:
@@ -33,13 +32,14 @@ services:
       # Anything below this line can also be managed from the Settings page.
       # Setting it here pins it: the UI shows it read-only, marked "Set by
       # environment", so this file stays the source of truth for what it declares.
-      # RELEASARR_SONARR_URL: http://sonarr:8989/api/v3
+      # localhost here is this container, not the machine it runs on.
+      # RELEASARR_SONARR_URL: http://<sonarr-host>:8989/api/v3
       # RELEASARR_SONARR_API_KEY: ${SONARR_API_KEY:-}
-      # RELEASARR_RADARR_URL: http://radarr:7878/api/v3
+      # RELEASARR_RADARR_URL: http://<radarr-host>:7878/api/v3
       # RELEASARR_RADARR_API_KEY: ${RADARR_API_KEY:-}
-      # RELEASARR_PROWLARR_URL: http://prowlarr:9696/api/v1
+      # RELEASARR_PROWLARR_URL: http://<prowlarr-host>:9696/api/v1
       # RELEASARR_PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
-      # RELEASARR_QBITTORRENT_URL: http://qbittorrent:8080/api/v2
+      # RELEASARR_QBITTORRENT_URL: http://<qbittorrent-host>:8080/api/v2
       # RELEASARR_QBITTORRENT_USERNAME: admin
       # RELEASARR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       #
@@ -50,15 +50,6 @@ services:
       # The SQLite database, the logs and the generated auth secret. Migrated on
       # every start; drop this and every restart begins from an empty instance.
       - ./releasarr-config:/config
-    networks: [arr]
     ports:
       # nginx serves the UI and proxies /api to the backend behind it.
       - "8050:8050"
-
-networks:
-  arr:
-    # The network Sonarr, Radarr, Prowlarr and qBittorrent are already on, so
-    # Releasarr can reach them by container name and qBittorrent can reach
-    # http://releasarr:8050. `docker inspect sonarr` lists it under Networks.
-    external: true
-    name: ${ARR_NETWORK:?set ARR_NETWORK in .env to the network Sonarr/Radarr are on}
