@@ -29,7 +29,7 @@ x-releasarr: &releasarr
   image: ghcr.io/zxibizz/releasarr:0.10.0
   # build:
   #   context: .
-  #   dockerfile: Dockerfile.all-in-one
+  #   dockerfile: Dockerfile
   restart: unless-stopped
   # One directory for both: the logs page reads the scheduler's log file next to
   # the API's, and the worker reuses the auth secret the web container generated.

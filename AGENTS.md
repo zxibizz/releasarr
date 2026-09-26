@@ -19,7 +19,7 @@ Two halves, one contract:
 | `services/frontend/` | React 19 / Vite / TypeScript / Mantine. |
 | `services/frontend/mock-server/` | Express mock of the contract, for UI work without a backend. |
 | `services/bot/` | Untracked scratch work. **Ignore it.** |
-| `cicd/containers/all-in-one/root/` | Overlay baked into the production image: nginx site, init steps, s6 services, healthcheck. |
+| `cicd/containers/prod/root/` | Overlay baked into the production image: nginx site, init steps, s6 services, healthcheck. |
 | `.github/` | CI, the tag-driven release workflow, and the version scripts it runs. |
 
 ## Deeper guides
@@ -126,8 +126,8 @@ npm run build                    # tsc --noEmit && vite build
 npm run codegen                  # regenerate types from ../../openapi.yaml
 ```
 
-The production image is `Dockerfile.all-in-one`, built from the repository root
-(`docker build -f Dockerfile.all-in-one .`) and served on `:8050`; everything it writes lives
+The production image is `Dockerfile`, built from the repository root
+(`docker build .`) and served on `:8050`; everything it writes lives
 under `/config`, and `RELEASARR_MODE` picks `all`, `web` or `worker`. Tagging `v*` publishes it
 to `ghcr.io` — see [`CONTRIBUTING.md`](CONTRIBUTING.md#releasing). For a containerised stack
 that reloads on edit instead, `docker compose -f docker-compose.dev.yaml up --build` — UI on

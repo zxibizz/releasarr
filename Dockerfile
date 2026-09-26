@@ -71,7 +71,7 @@ COPY services/backend/alembic.ini /app
 
 # The nginx site, the init steps, and the three supervised services, each
 # already at the path it occupies in the image
-COPY cicd/containers/all-in-one/root/ /
+COPY cicd/containers/prod/root/ /
 RUN chmod +x /etc/cont-init.d/* /etc/services.d/*/run /etc/services.d/*/log/run \
         /usr/local/bin/releasarr-healthcheck
 

@@ -32,7 +32,7 @@ than serving against a stale schema. The three services in `/etc/services.d` com
 uvicorn and the scheduler dropped to `PUID`:`PGID`, each restarted on its own if it dies.
 `RELEASARR_MODE=web` parks the scheduler and `worker` parks nginx and uvicorn (and skips the
 migrations), so the same image runs as two containers against a shared Postgres. The tree
-lives in `cicd/containers/all-in-one/root/`, copied to `/` at build time.
+lives in `cicd/containers/prod/root/`, copied to `/` at build time.
 
 Each service has a `log/run` that pipes it through `s6-log`, which tags every line with `[api]`,
 `[scheduler]`, or `[nginx]` — otherwise one container's stream mixes three processes with no way

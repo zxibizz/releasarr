@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`Dockerfile.all-in-one` is now `Dockerfile`**, so `docker build .` builds the production
+  image. Only matters if you build it yourself.
+
 ## [0.10.0] - 2026-09-26
 
 First public release.

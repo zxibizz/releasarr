@@ -20,7 +20,7 @@ services:
     image: ghcr.io/zxibizz/releasarr:0.10.0
     # build:
     #   context: .
-    #   dockerfile: Dockerfile.all-in-one
+    #   dockerfile: Dockerfile
     container_name: releasarr
     restart: unless-stopped
     environment:

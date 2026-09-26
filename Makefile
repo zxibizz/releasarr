@@ -43,4 +43,4 @@ codegen: ## Regenerate the UI's API types from openapi.yaml
 	cd $(FRONTEND) && npm run codegen
 
 image: ## Build the production image as releasarr:local
-	docker build -f Dockerfile.all-in-one -t releasarr:local .
+	docker build -t releasarr:local .

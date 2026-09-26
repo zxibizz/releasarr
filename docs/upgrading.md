@@ -48,6 +48,8 @@ releases, accounts and the Settings page overrides in `/config/releasarr.db` are
 over. Note down any settings you changed in the UI first. The next Sonarr and Radarr sync
 recreates the requests; release history and file mappings do not come back.
 
+If you build the image yourself: `Dockerfile.all-in-one` is now `Dockerfile`.
+
 ## From before 0.10.0
 
 Releasarr used to be built from a checkout and run with the database and logs mounted into
