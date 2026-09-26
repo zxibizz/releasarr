@@ -54,7 +54,7 @@
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vite-pwa/assets-generator": "^2.0.0",
+    "@vite-pwa/assets-generator": "^1.0.4",
     "@vitejs/plugin-react-swc": "^4.3.3",
     "concurrently": "^10.0.5",
     "cors": "^2.8.6",

@@ -57,6 +57,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # vite-plugin-pwa 1.x peers on ^1.0.0, so a 2.x breaks `npm ci` with
+      # ERESOLVE. Lift this once vite-plugin-pwa widens its range.
+      - dependency-name: "@vite-pwa/assets-generator"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
