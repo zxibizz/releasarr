@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The compose examples no longer require `ARR_NETWORK`** or assume the \*arr apps are
   containers on the same host. Existing `compose.yaml` files keep working as they are.
 
+### Removed
+
+- **`POST /api/tasks/sync_downloads`.** The release sync already queues the import as soon as
+  it sees a torrent finish, so a qBittorrent completion hook adds nothing. Remove any hook that
+  calls it.
+
 ## [0.10.0] - 2026-09-26
 
 First public release.

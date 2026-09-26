@@ -112,7 +112,6 @@ scheduler claims them within a few seconds. Each endpoint returns `202` with a
 | --- | --- | --- |
 | `POST /tasks/run/{kind}` | The named task | Run button on the tasks page |
 | `POST /tasks/sync_all` | All five, in order | "Run all tasks" button, operators |
-| `POST /tasks/sync_downloads` | `release_sync`, `export` | Download client on torrent completion |
 
 Saving file mappings queues an `export` too, whenever the release they belong to
 has already finished downloading. Remapping is how a wrong or missing import
@@ -125,8 +124,8 @@ The release sync does the same for a download that just finished. A torrent
 reaching full progress is the one moment the export has something new to do, and
 it happens on a schedule of its own, so `SyncReleasesTask` reports how many
 releases moved into `completed` and the step queues an `export` for them. A batch
-of torrents finishing at once collapses onto one job, and the enqueue carries the
-`download_client` trigger so it reads the same as one that arrived over the API.
+of torrents finishing at once collapses onto one job, which carries the
+`download_client` trigger.
 The periodic run stays: it is what retries an import that failed, picks up
 releases that completed before this existed, and covers an enqueue that could not
 be written.

@@ -240,7 +240,7 @@ import shows up in the UI without every page polling.
    [`services/backend/docs/tasks.md`](../services/backend/docs/tasks.md#re-grab-pacing).
 
 Ordering matters: `export` can only import what `release_sync` has already marked completed,
-which is why `sync_downloads` queues the two together and in that order.
+which is why a `sync_all` queues them in that order.
 
 ## Deployment
 

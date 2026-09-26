@@ -3,7 +3,6 @@
 from .definitions import (
     DEFAULT_INTERVALS,
     SYNC_ALL_SEQUENCE,
-    SYNC_DOWNLOADS_SEQUENCE,
     TASK_ORDER,
 )
 from .dto import ScheduledTaskDTO
@@ -19,7 +18,6 @@ from .update_interval import UpdateTaskIntervalUseCase
 __all__ = [
     "DEFAULT_INTERVALS",
     "SYNC_ALL_SEQUENCE",
-    "SYNC_DOWNLOADS_SEQUENCE",
     "TASK_ORDER",
     "EnqueueSyncJobUseCase",
     "GetSyncJobUseCase",

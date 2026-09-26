@@ -835,15 +835,9 @@ api.post('/requests/:requestId/releases/refresh', async (req, res) => {
 });
 
 const SYNC_ALL_SEQUENCE: TaskKind[] = [...TASK_KINDS];
-const SYNC_DOWNLOADS_SEQUENCE: TaskKind[] = ['release_sync', 'export'];
 
-const queueSync = async (
-  kinds: TaskKind[],
-  operation: string,
-  trigger: 'api' | 'download_client',
-  res: express.Response,
-) => {
-  const { jobs, created } = await mockStore.enqueueSyncJob({ kinds, trigger });
+const queueSync = async (kinds: TaskKind[], operation: string, res: express.Response) => {
+  const { jobs, created } = await mockStore.enqueueSyncJob({ kinds, trigger: 'api' });
   // The last job finishing means the whole sequence is done.
   const tracked = jobs[jobs.length - 1];
 
@@ -866,11 +860,7 @@ const queueSync = async (
 };
 
 api.post('/tasks/sync_all', async (_req, res) => {
-  await queueSync(SYNC_ALL_SEQUENCE, 'sync_all', 'api', res);
-});
-
-api.post('/tasks/sync_downloads', async (_req, res) => {
-  await queueSync(SYNC_DOWNLOADS_SEQUENCE, 'sync_downloads', 'download_client', res);
+  await queueSync(SYNC_ALL_SEQUENCE, 'sync_all', res);
 });
 
 api.post('/tasks/run/:kind', async (req, res) => {
@@ -878,7 +868,7 @@ api.post('/tasks/run/:kind', async (req, res) => {
   if (!TASK_KINDS.includes(kind)) {
     return res.status(422).json({ message: `Unknown task: ${kind}` });
   }
-  await queueSync([kind], `run_${kind}`, 'api', res);
+  await queueSync([kind], `run_${kind}`, res);
 });
 
 api.get('/tasks/scheduled', async (_req, res) => {

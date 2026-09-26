@@ -1170,35 +1170,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /tasks/sync_downloads:
-    post:
-      tags: [Tasks]
-      summary: Queue a download sync and library import
-      description: |
-        Refreshes download state from the download client and imports finished
-        releases into Sonarr and Radarr. Intended for a download client to call
-        when a torrent finishes, so it deliberately skips the slower library and
-        indexer tasks of a full sync.
-      operationId: triggerDownloadSync
-      responses:
-        '202':
-          description: Sync queued.
-          headers:
-            Location:
-              description: URL to poll for the queued sync job.
-              schema:
-                type: string
-                format: uri
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AsyncOperationResponse'
-        '500':
-          description: Unexpected server error.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /tasks/run/{kind}:
     post:
       tags: [Tasks]

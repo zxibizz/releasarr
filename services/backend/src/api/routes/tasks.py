@@ -15,10 +15,7 @@ from src.api.dependencies import require_permission
 from src.api.responses import error_responses
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
 from src.application.use_cases.auth import Permission
-from src.application.use_cases.tasks.definitions import (
-    SYNC_ALL_SEQUENCE,
-    SYNC_DOWNLOADS_SEQUENCE,
-)
+from src.application.use_cases.tasks.definitions import SYNC_ALL_SEQUENCE
 from src.application.use_cases.tasks.dto import ScheduledTaskDTO
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.use_cases.tasks.get_sync_job import (
@@ -212,29 +209,6 @@ async def trigger_full_sync(
         trigger=SyncJobTrigger.API,
         operation="sync_all",
         queued_message="Full sync queued.",
-        use_case=enqueue_use_case,
-        response=response,
-    )
-
-
-@router.post(
-    "/sync_downloads",
-    response_model=AsyncOperationResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    responses=SYNC_RESPONSES,
-    summary="Queue a download sync and library import",
-)
-async def trigger_download_sync(
-    response: Response,
-    enqueue_use_case: EnqueueSyncJobUseCase = Depends(_enqueue_use_case),
-) -> AsyncOperationResponse:
-    """Entry point for a download client reporting that a torrent finished."""
-
-    return await _queue(
-        kinds=SYNC_DOWNLOADS_SEQUENCE,
-        trigger=SyncJobTrigger.DOWNLOAD_CLIENT,
-        operation="sync_downloads",
-        queued_message="Download sync queued.",
         use_case=enqueue_use_case,
         response=response,
     )

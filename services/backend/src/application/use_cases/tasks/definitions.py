@@ -29,13 +29,6 @@ TASK_ORDER: tuple[SyncJobKind, ...] = (
 
 SYNC_ALL_SEQUENCE = TASK_ORDER
 
-# A finished download only needs its state refreshed and then imported; the
-# library and indexer tasks are far too slow to run per torrent.
-SYNC_DOWNLOADS_SEQUENCE: tuple[SyncJobKind, ...] = (
-    SyncJobKind.RELEASE_SYNC,
-    SyncJobKind.EXPORT,
-)
-
 
 def interval_for(kind: SyncJobKind) -> int:
     return DEFAULT_INTERVALS[kind]
@@ -44,7 +37,6 @@ def interval_for(kind: SyncJobKind) -> int:
 __all__ = [
     "DEFAULT_INTERVALS",
     "SYNC_ALL_SEQUENCE",
-    "SYNC_DOWNLOADS_SEQUENCE",
     "TASK_ORDER",
     "interval_for",
 ]

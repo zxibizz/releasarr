@@ -129,9 +129,8 @@ const body = {
 res.status(202).location(body.location).json(body);
 ```
 
-`sync_all` queues all five task kinds; `sync_downloads` queues `release_sync` then `export`, the
-qBittorrent-hook sequence. The **last** job in a sequence is the one tracked, since its
-completion means the whole run is done.
+`sync_all` queues all five task kinds. The **last** job in a sequence is the one tracked, since
+its completion means the whole run is done.
 
 ## The refresh button
 

@@ -491,29 +491,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tasks/sync_downloads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Queue a download sync and library import
-         * @description Refreshes download state from the download client and imports finished
-         *     releases into Sonarr and Radarr. Intended for a download client to call
-         *     when a torrent finishes, so it deliberately skips the slower library and
-         *     indexer tasks of a full sync.
-         */
-        post: operations["triggerDownloadSync"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/tasks/run/{kind}": {
         parameters: {
             query?: never;
@@ -3462,37 +3439,6 @@ export interface operations {
         };
     };
     triggerFullSync: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Sync queued. */
-            202: {
-                headers: {
-                    /** @description URL to poll for the queued sync job. */
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AsyncOperationResponse"];
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    triggerDownloadSync: {
         parameters: {
             query?: never;
             header?: never;

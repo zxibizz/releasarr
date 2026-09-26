@@ -116,22 +116,6 @@ async def test_sync_all_queues_every_task_in_order(api_client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_sync_downloads_queues_only_the_download_tasks(api_client: AsyncClient) -> None:
-    """The download client hook skips the slow library and indexer tasks."""
-
-    fake = FakeEnqueue()
-
-    with override_dependency(_enqueue_use_case, fake):
-        response = await api_client.post("/tasks/sync_downloads", headers=API_KEY_HEADER)
-
-    assert response.status_code == status.HTTP_202_ACCEPTED
-    assert fake.calls == [
-        ((SyncJobKind.RELEASE_SYNC, SyncJobKind.EXPORT), SyncJobTrigger.DOWNLOAD_CLIENT)
-    ]
-    assert response.json()["operation"] == "sync_downloads"
-
-
-@pytest.mark.asyncio
 async def test_run_task_queues_a_single_task(api_client: AsyncClient) -> None:
     fake = FakeEnqueue()
 
