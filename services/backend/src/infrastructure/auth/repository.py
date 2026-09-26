@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 
 from src.application.interfaces.auth import (
     RefreshTokenRecord,
@@ -91,7 +92,7 @@ class SqlAlchemyRefreshTokenRepository(BaseSqlAlchemyRepository, RefreshTokenRep
             result = await session.execute(
                 delete(models.RefreshToken).where(models.RefreshToken.expires_at < now)
             )
-            return result.rowcount or 0
+            return cast(CursorResult[Any], result).rowcount or 0
 
     @staticmethod
     def _to_record(token: models.RefreshToken) -> RefreshTokenRecord:

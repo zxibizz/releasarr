@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, cast
 from uuid import uuid4
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.sync_jobs import (
@@ -154,7 +155,7 @@ class SqlAlchemySyncJobRepository(BaseSqlAlchemyRepository, SyncJobRepository):
                     error=error,
                 )
             )
-            return int(result.rowcount or 0)
+            return int(cast(CursorResult[Any], result).rowcount or 0)
 
     async def prune(self, *, keep: int) -> int:
         """Trim finished history, leaving queued and running jobs untouched."""
@@ -173,7 +174,7 @@ class SqlAlchemySyncJobRepository(BaseSqlAlchemyRepository, SyncJobRepository):
                     models.SyncJob.id.not_in(survivors),
                 )
             )
-            return int(result.rowcount or 0)
+            return int(cast(CursorResult[Any], result).rowcount or 0)
 
     @staticmethod
     def _to_record(job: models.SyncJob) -> SyncJobRecord:

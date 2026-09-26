@@ -14,7 +14,8 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.0",
-    "sqlalchemy[asyncio]>=2.0.38",
+    # 2.0.46 re-daemonizes aiosqlite 0.22's worker thread; older releases hang at exit.
+    "sqlalchemy[asyncio]>=2.0.46",
     "alembic>=1.14.1",
     "httpx>=0.28.1",
     "asyncpg>=0.30.0",

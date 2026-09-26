@@ -2,14 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
-
-
-class StrEnum(str, Enum):
-    """Base class ensuring enum values behave like strings."""
-
-    def __str__(self) -> str:  # pragma: no cover - trivial wrapper
-        return str(self.value)
+from enum import StrEnum
 
 
 class MediaType(StrEnum):

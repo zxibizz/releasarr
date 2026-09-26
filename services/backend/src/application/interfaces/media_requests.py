@@ -84,26 +84,26 @@ class UpdateMediaRequestData:
     field from an explicit ``None`` (which clears a nullable column).
     """
 
-    title: str | None | _Unset = UNSET
+    title: str | _Unset | None = UNSET
     year: int | _Unset = UNSET
-    poster_url: str | None | _Unset = UNSET
-    overview: str | None | _Unset = UNSET
+    poster_url: str | _Unset | None = UNSET
+    overview: str | _Unset | None = UNSET
     genres: list[str] | _Unset = UNSET
     status: MediaRequestStatus | _Unset = UNSET
-    runtime_minutes: int | None | _Unset = UNSET
-    imdb_id: str | None | _Unset = UNSET
-    season_number: int | None | _Unset = UNSET
-    total_episodes: int | None | _Unset = UNSET
-    aired_episodes: int | None | _Unset = UNSET
-    downloaded_episodes: int | None | _Unset = UNSET
-    series_title: str | None | _Unset = UNSET
-    series_year: int | None | _Unset = UNSET
-    sonarr_series_id: int | None | _Unset = UNSET
-    radarr_movie_id: int | None | _Unset = UNSET
+    runtime_minutes: int | _Unset | None = UNSET
+    imdb_id: str | _Unset | None = UNSET
+    season_number: int | _Unset | None = UNSET
+    total_episodes: int | _Unset | None = UNSET
+    aired_episodes: int | _Unset | None = UNSET
+    downloaded_episodes: int | _Unset | None = UNSET
+    series_title: str | _Unset | None = UNSET
+    series_year: int | _Unset | None = UNSET
+    sonarr_series_id: int | _Unset | None = UNSET
+    radarr_movie_id: int | _Unset | None = UNSET
     localizations: dict[str, MediaLocalization] | _Unset = UNSET
-    exported_at: datetime | None | _Unset = UNSET
-    owner_user_id: str | None | _Unset = UNSET
-    newest_release_published_at: datetime | None | _Unset = UNSET
+    exported_at: datetime | _Unset | None = UNSET
+    owner_user_id: str | _Unset | None = UNSET
+    newest_release_published_at: datetime | _Unset | None = UNSET
 
 
 class MediaRequestRepository(Protocol):

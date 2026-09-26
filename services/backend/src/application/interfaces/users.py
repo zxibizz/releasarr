@@ -57,7 +57,7 @@ class UpdateUserData:
     field from an explicit value.
     """
 
-    display_name: str | None | _Unset = UNSET
+    display_name: str | _Unset | None = UNSET
     password_hash: str | _Unset = UNSET
     role: UserRole | _Unset = UNSET
     is_active: bool | _Unset = UNSET
@@ -67,8 +67,8 @@ class UpdateUserData:
     can_access_logs: bool | _Unset = UNSET
     allowed_root_folders: list[str] | _Unset = UNSET
     failed_login_attempts: int | _Unset = UNSET
-    locked_until: datetime | None | _Unset = UNSET
-    last_login_at: datetime | None | _Unset = UNSET
+    locked_until: datetime | _Unset | None = UNSET
+    last_login_at: datetime | _Unset | None = UNSET
 
 
 class UserRepository(Protocol):

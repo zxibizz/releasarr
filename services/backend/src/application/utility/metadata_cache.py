@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Protocol, TypeVar
-
-T = TypeVar("T")
+from typing import Protocol
 
 
 class SupportsWarning(Protocol):
     def warning(self, message: str, **kwargs: object) -> None: ...
 
 
-async def get_cached_metadata(
+async def get_cached_metadata[T](
     *,
     cache: dict[int, T | None],
     lookup_id: int,

@@ -26,7 +26,7 @@ class CreateUserCommand:
 class UpdateUserCommand:
     """Fields default to ``UNSET`` to distinguish "omitted" from "cleared"."""
 
-    display_name: str | None | _Unset = UNSET
+    display_name: str | _Unset | None = UNSET
     password: str | _Unset = UNSET
     role: UserRole | _Unset = UNSET
     is_active: bool | _Unset = UNSET

@@ -58,20 +58,20 @@ CreateMediaRequestCommand = CreateMovieRequestCommand | CreateSeriesRequestComma
 
 @dataclass(slots=True)
 class UpdateMediaRequestCommand:
-    title: str | None | _Unset = field(default=UNSET)
+    title: str | _Unset | None = field(default=UNSET)
     year: int | _Unset = field(default=UNSET)
-    poster_url: str | None | _Unset = field(default=UNSET)
-    overview: str | None | _Unset = field(default=UNSET)
-    genres: list[str] | None | _Unset = field(default=UNSET)
+    poster_url: str | _Unset | None = field(default=UNSET)
+    overview: str | _Unset | None = field(default=UNSET)
+    genres: list[str] | _Unset | None = field(default=UNSET)
     status: MediaRequestStatus | _Unset = field(default=UNSET)
-    runtime: int | None | _Unset = field(default=UNSET)
-    imdb_id: str | None | _Unset = field(default=UNSET)
-    season_number: int | None | _Unset = field(default=UNSET)
-    total_episodes: int | None | _Unset = field(default=UNSET)
-    series_title: str | None | _Unset = field(default=UNSET)
-    series_year: int | None | _Unset = field(default=UNSET)
-    localizations: dict[str, MediaLocalization] | None | _Unset = field(default=UNSET)
-    owner_user_id: str | None | _Unset = field(default=UNSET)
+    runtime: int | _Unset | None = field(default=UNSET)
+    imdb_id: str | _Unset | None = field(default=UNSET)
+    season_number: int | _Unset | None = field(default=UNSET)
+    total_episodes: int | _Unset | None = field(default=UNSET)
+    series_title: str | _Unset | None = field(default=UNSET)
+    series_year: int | _Unset | None = field(default=UNSET)
+    localizations: dict[str, MediaLocalization] | _Unset | None = field(default=UNSET)
+    owner_user_id: str | _Unset | None = field(default=UNSET)
 
     def is_empty(self) -> bool:
         """Return True when no field was supplied in the update payload."""

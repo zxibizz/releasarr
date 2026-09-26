@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from src.application.interfaces.users import UserRecord
 from src.domain.enums import UserRole
 
 
-class Permission(str, Enum):
+class Permission(StrEnum):
     """A capability a user may or may not have, independent of their role."""
 
     VIEW_ALL_REQUESTS = "view_all_requests"

@@ -339,7 +339,7 @@ def _dto_to_file_mapping(mapping: ReleaseFileMappingDTO | None) -> FileRequestMa
         from src.schemas.releases import MovieFileRequestMapping
 
         return MovieFileRequestMapping(
-            mapping_type=media_type.value,
+            mapping_type="movie",
             request_id=mapping.request_id or "",
             request_title=mapping.request_title,
         )
@@ -347,7 +347,7 @@ def _dto_to_file_mapping(mapping: ReleaseFileMappingDTO | None) -> FileRequestMa
     from src.schemas.releases import SeriesFileRequestMapping
 
     return SeriesFileRequestMapping(
-        mapping_type=media_type.value,
+        mapping_type="series",
         request_id=mapping.request_id or "",
         request_title=mapping.request_title,
         season=mapping.season or 0,
