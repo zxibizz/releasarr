@@ -16,7 +16,7 @@ RUN npm run build
 
 # ------------------------------------------------
 
-FROM ghcr.io/astral-sh/uv:0.11 AS uv
+FROM ghcr.io/astral-sh/uv:0.12 AS uv
 
 # Must be the exact image the runtime stage uses: the venv is bound to the
 # interpreter that built it.
