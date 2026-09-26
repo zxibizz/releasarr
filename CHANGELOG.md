@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`Dockerfile.all-in-one` is now `Dockerfile`**, so `docker build .` builds the production
   image. Only matters if you build it yourself.
+- **The image runs Python 3.14** (was 3.12), and the frontend is built on Node 26.
+  Dependencies are updated to match.
 
 ## [0.10.0] - 2026-09-26
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import multiprocessing
 import re
 import sys
 from pathlib import Path
@@ -32,6 +33,10 @@ _SECRET_QUERY_PARAMS = re.compile(
 # volume and the one place a credential reaches the log file. Metadata providers
 # that take their key as a query parameter would otherwise leak it.
 _MUTED_LIBRARIES = ("httpx", "httpcore")
+
+# Python 3.14's forkserver default makes these locks named semaphores, which outlive a
+# uvicorn that exits by re-raising SIGTERM. Nothing forks; this keeps them anonymous.
+_QUEUE_CONTEXT = "fork" if "fork" in multiprocessing.get_all_start_methods() else None
 
 
 def redact_secrets(record: Record) -> None:
@@ -124,6 +129,7 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
         sys.stdout,
         level=level,
         enqueue=True,
+        context=_QUEUE_CONTEXT,
         serialize=settings.log_json,
         backtrace=False,
         diagnose=False,
@@ -135,6 +141,7 @@ def configure_logging(settings: AppSettings, *, service: LogService) -> None:
         log_path,
         level=_file_level(level),
         enqueue=True,
+        context=_QUEUE_CONTEXT,
         serialize=True,
         rotation="10 MB",
         retention="14 days",
