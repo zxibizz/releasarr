@@ -1,6 +1,13 @@
 #!/command/with-contenv sh
 # The site config sends both logs to fd 1 and fd 2; s6 only pipes fd 1 on.
 exec 2>&1
+
+if [ "${RELEASARR_MODE:-all}" = "worker" ]; then
+    # Not part of this mode: stay down instead of being restarted forever.
+    s6-svc -O .
+    exit 0
+fi
+
 # `daemon off` is what makes nginx supervisable: forked into the background it
 # would exit immediately and s6 would restart it forever.
 exec nginx -g "daemon off;"

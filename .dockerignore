@@ -8,3 +8,8 @@
 **/.DS_Store
 services/frontend/dist
 services/backend/.mypy_cache
+**/.ruff_cache
+**/.logs
+**/*.db
+/releasarr-config
+/releasarr-postgres

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "releasarr-backend"
-version = "0.1.0"
-description = "Next-generation Releasarr backend aligned with the new frontend contract"
+version = "0.10.0"
+description = "Releasarr API and scheduler"
 requires-python = ">=3.12"
 readme = "README.md"
 authors = [{ name = "Releasarr Team" }]

@@ -118,7 +118,6 @@ FIELDS_BY_KEY: dict[str, SettingField] = {field.key: field for field in SETTING_
 # changing them live would orphan in-flight work.
 READONLY_KEYS: tuple[str, ...] = (
     "api_title",
-    "api_version",
     "api_host",
     "api_port",
     "database_url",

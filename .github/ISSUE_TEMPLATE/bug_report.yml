@@ -1,0 +1,89 @@
+name: Bug report
+description: Something went wrong with a search, a download, an import or the UI.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Releasarr logs every task run and every integration call. The logs plus
+        `GET /api/system` answer most questions on their own, so please include both.
+
+        Security issues go through [private reporting](https://github.com/zxibizz/releasarr/security/advisories/new)
+        instead of this form.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. Request season 2 of ...
+        2. Grab the release ... from ...
+        3. The mapping editor shows ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Releasarr version
+      description: >
+        The `version` field from `curl http://releasarr:8050/api/healthz`, the
+        version at the bottom of the user menu, or your image tag.
+    validations:
+      required: true
+
+  - type: textarea
+    id: system
+    attributes:
+      label: GET /api/system output
+      description: >
+        `curl -H "X-API-Key: $SERVICE_KEY" http://releasarr:8050/api/system`, with
+        the service key an admin can copy from **System → Users**.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Releasarr logs
+      description: >
+        From **System → Logs**, or `docker logs releasarr`, around the time of the
+        problem. Redact paths and titles if you need to, but keep them
+        recognisable — path mismatches are a common cause. Never paste API keys.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >
+        How Releasarr is deployed, the relevant `RELEASARR_*` variables (no keys
+        or passwords), and the versions of the *arr apps and qBittorrent involved.
+      placeholder: |
+        Deployment: docker compose, ghcr.io/zxibizz/releasarr:0.10.0
+        Host: Ubuntu 24.04, x86_64
+        Database: SQLite / Postgres 17
+        Sonarr v4.x, Radarr v5.x, Prowlarr v1.x, qBittorrent 5.x
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: qBittorrent's download paths resolve to the same paths inside the Sonarr/Radarr containers.
+          required: true
+        - label: I am running the latest release.
+          required: false

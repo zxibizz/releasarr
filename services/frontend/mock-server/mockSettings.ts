@@ -97,7 +97,7 @@ const values: Record<string, Record<string, unknown>> = {
     auth_refresh_reuse_grace_seconds: 15,
     auth_cookie_name: 'releasarr_refresh',
     auth_cookie_path: '/api/auth',
-    auth_cookie_secure: true,
+    auth_cookie_secure: false,
     auth_cookie_samesite: 'lax',
     auth_max_failed_logins: 10,
     auth_lockout_seconds: 900,

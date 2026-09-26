@@ -1,0 +1,10 @@
+#!/bin/sh
+# Docker runs this outside s6, from the container's own environment.
+case "${RELEASARR_MODE:-all}" in
+    worker)
+        [ "$(/command/s6-svstat -u /run/service/scheduler)" = "true" ]
+        ;;
+    *)
+        exec curl -fsS http://127.0.0.1:8050/api/healthz
+        ;;
+esac

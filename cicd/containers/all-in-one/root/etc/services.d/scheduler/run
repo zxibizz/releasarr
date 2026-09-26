@@ -1,5 +1,14 @@
 #!/command/with-contenv sh
 # Loguru's console sink writes to stderr, but s6 only pipes fd 1 to the logger.
 exec 2>&1
+
+if [ "${RELEASARR_MODE:-all}" = "web" ]; then
+    # Not part of this mode: stay down instead of being restarted forever.
+    s6-svc -O .
+    exit 0
+fi
+
 cd /app
-exec /app/.venv/bin/python -m src.tasks.scheduler_service
+export HOME=/config
+exec s6-applyuidgid -u "${PUID:-1000}" -g "${PGID:-1000}" \
+    /app/.venv/bin/python -m src.tasks.scheduler_service

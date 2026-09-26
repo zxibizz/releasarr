@@ -1,0 +1,86 @@
+# Split deployment: the web container (UI + API) and the worker (the scheduler,
+# which runs every sync, grab and import) run separately and meet at a shared
+# Postgres database. Copy to compose.yaml and set RELEASARR_DB_PASSWORD and
+# ARR_NETWORK in .env.
+#
+# For a single container on SQLite, use compose.example.yaml instead. This file
+# is for when you want to restart or resource-limit the scheduler on its own, or
+# would rather keep Releasarr's data in Postgres.
+#
+# Both containers talk to the *arr apps, so both join their network. Neither
+# opens a media file; see compose.example.yaml for the one path rule that does
+# matter.
+#
+# Run exactly ONE worker.
+
+# Both Releasarr containers read the same configuration. Keep it here rather
+# than on one service: a variable set on only one of them is locked in the UI
+# while the other still follows the Settings page.
+x-releasarr-env: &releasarr-env
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+  TZ: ${TZ:-Etc/UTC}
+  # URL-encode the password if it contains anything but letters and digits.
+  RELEASARR_DATABASE_URL: postgresql+asyncpg://releasarr:${RELEASARR_DB_PASSWORD:?set RELEASARR_DB_PASSWORD in .env}@postgres:5432/releasarr
+
+x-releasarr: &releasarr
+  # Pin a version rather than latest, so a restart never changes the version
+  # underneath you. Both containers must run the same one.
+  image: ghcr.io/zxibizz/releasarr:0.10.0
+  # build:
+  #   context: .
+  #   dockerfile: Dockerfile.all-in-one
+  restart: unless-stopped
+  # One directory for both: the logs page reads the scheduler's log file next to
+  # the API's, and the worker reuses the auth secret the web container generated.
+  volumes:
+    - ./releasarr-config:/config
+  networks: [default, arr]
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: releasarr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: releasarr
+      POSTGRES_PASSWORD: ${RELEASARR_DB_PASSWORD:?set RELEASARR_DB_PASSWORD in .env}
+      POSTGRES_DB: releasarr
+    volumes:
+      # Requests, releases, users, the job queue and the Settings page overrides.
+      - ./releasarr-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U releasarr -d releasarr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  releasarr-web:
+    <<: *releasarr
+    container_name: releasarr-web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *releasarr-env
+      # Serves the UI and queues jobs. Runs the migrations on every start.
+      RELEASARR_MODE: web
+    ports:
+      - "8050:8050"
+
+  releasarr-worker:
+    <<: *releasarr
+    container_name: releasarr-worker
+    depends_on:
+      # Healthy means migrated, and the auth secret exists in ./releasarr-config.
+      releasarr-web:
+        condition: service_healthy
+    environment:
+      <<: *releasarr-env
+      RELEASARR_MODE: worker
+
+networks:
+  arr:
+    # The network Sonarr/Radarr are already on; see compose.example.yaml.
+    external: true
+    name: ${ARR_NETWORK:?set ARR_NETWORK in .env to the network Sonarr/Radarr are on}

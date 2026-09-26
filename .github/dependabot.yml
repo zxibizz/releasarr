@@ -1,0 +1,77 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /services/backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      backend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: /services/frontend
+    schedule:
+      interval: weekly
+    # The default of 5 is too low: it can ship @mantine/hooks while holding back
+    # the @mantine/core bump it cannot install without.
+    open-pull-requests-limit: 10
+    groups:
+      # Families that must move in lockstep. Grouped across all update types, so
+      # a major never arrives as a set of individually unmergeable PRs.
+      mantine:
+        patterns: ["@mantine/*", "postcss-preset-mantine"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      lint:
+        patterns: ["eslint", "@eslint/*", "typescript-eslint", "eslint-plugin-*", "globals"]
+      build-and-test:
+        patterns:
+          - "vite"
+          - "vitest"
+          - "@vitejs/*"
+          - "vite-plugin-pwa"
+          - "@vite-pwa/*"
+          - "jsdom"
+          - "@testing-library/*"
+          - "typescript"
+      # Must stay last: an earlier group wins, so this only sweeps the remainder.
+      frontend:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # These need code migration, not a version bump, so an automated PR would
+      # only sit there red. Raise them deliberately instead.
+      - dependency-name: "@mantine/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Only the base images; s6-overlay is fetched by URL inside the Dockerfile and
+  # has to be bumped by hand.
+  - package-ecosystem: docker
+    directories:
+      - /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10

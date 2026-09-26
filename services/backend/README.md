@@ -114,6 +114,7 @@ prefix or from `.env`. The full table with defaults is in the
 - **Base URLs are passed through verbatim** and must already include the provider's API path:
   Sonarr and Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`, TMDB `…/3`.
 - **`RELEASARR_AUTH_SECRET` has no default and fails closed.** `AppContainer.startup()` raises
-  before the app accepts a connection if it is empty.
+  before the app accepts a connection if it is empty. The container generates one into
+  `/config/auth-secret` before starting the backend when it is unset.
 - **`RELEASARR_METADATA_LANGUAGES`** is ISO 639-2 three-letter codes, defaulting to
-  `("eng", "rus")`, and sets both what metadata gets fetched and the order it is preferred in.
+  `("eng",)`, and sets both what metadata gets fetched and the order it is preferred in.

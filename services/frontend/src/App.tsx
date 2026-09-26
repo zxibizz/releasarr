@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/features/auth/useAuth';
+import { AppVersion } from '@/features/system/components/AppVersion';
 import { useSyncWatcher } from '@/features/tasks/queries';
 import {
   accessibleSystemItems,
@@ -94,6 +95,8 @@ function UserMenu() {
       <Menu.Dropdown>
         <Menu.Label>{user.username}</Menu.Label>
         <Menu.Item onClick={handleLogout}>{t('auth.logout')}</Menu.Item>
+        <Menu.Divider />
+        <AppVersion px="sm" py={4} />
       </Menu.Dropdown>
     </Menu>
   );
@@ -254,6 +257,7 @@ function MobileMenu({ opened, onClose }: { opened: boolean; onClose: () => void 
             <UnstyledButton px="md" py="sm" onClick={handleLogout}>
               <Text fw={600}>{t('auth.logout')}</Text>
             </UnstyledButton>
+            <AppVersion px="md" />
           </>
         ) : null}
       </Stack>

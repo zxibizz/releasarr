@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
 import path from 'path';
 
 import cors from 'cors';
@@ -15,7 +16,7 @@ import {
   updateSettingsSection,
 } from './mockSettings';
 import { mockStore } from './store';
-import type { IndexerEventType, MediaRequest, MediaType, Release } from '../src/types';
+import type { IndexerEventType, MediaRequest, MediaType, Release, SystemInfo } from '../src/types';
 
 const DEFAULT_PORT = 8001;
 const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 10);
@@ -274,6 +275,15 @@ api.get('/service-key', requireAdmin, (_req, res) => {
 
 api.post('/service-key/regenerate', requireAdmin, (_req, res) => {
   res.json(mockAuth.regenerateServiceKey());
+});
+
+const packageVersion = (
+  JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as { version: string }
+).version;
+
+api.get('/system', (_req, res) => {
+  const info: SystemInfo = { version: packageVersion, database: 'sqlite' };
+  res.json(info);
 });
 
 api.get('/settings', requireAdmin, (_req, res) => {

@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a capability Releasarr does not have.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that Releasarr makes hard or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+      description: A setting, a task, a UI affordance — whatever shape you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: A concrete example
+      description: >
+        A real release name or torrent file layout this would handle. Concrete
+        examples are what turn a feature request into a test case.
+      placeholder: |
+        Show.S01.1080p.WEB-DL/
+          Show.S01E01.mkv
+          Show.S01E02.mkv
+          Extras/
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+    validations:
+      required: false

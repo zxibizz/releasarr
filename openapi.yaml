@@ -1,16 +1,17 @@
 openapi: 3.0.3
 info:
   title: Releasarr API
-  version: 0.1.0
+  version: 0.10.0
   description: |
-    Contract derived from the new frontend client. Captures the HTTP interface the
-    UI expects today so the backend can be validated and mocked consistently.
+    The HTTP interface between the Releasarr UI and backend. The backend is
+    validated against it, the frontend types are generated from it, and the
+    mock server implements it.
   license:
-    name: Proprietary
-    url: https://github.com/koreetz/releasarr
+    name: MIT
+    url: https://github.com/zxibizz/releasarr/blob/master/LICENSE
 servers:
-  - url: https://api.releasarr.dev/api
-    description: Production server
+  - url: /api
+    description: Same origin, as served by the container
   - url: http://localhost:8001/api
     description: Local development server
 security:
@@ -1940,6 +1941,27 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Administrator privileges are required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /system:
+    get:
+      tags: [System]
+      summary: Describe the running instance
+      description: >-
+        The version and database backend of this instance, for the UI and for
+        bug reports.
+      operationId: getSystemInfo
+      responses:
+        '200':
+          description: The running instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+        '401':
+          description: Authentication required.
           content:
             application/json:
               schema:
@@ -3976,6 +3998,16 @@ components:
         created_at:
           type: string
           format: date-time
+    SystemInfo:
+      type: object
+      required: [version, database]
+      properties:
+        version:
+          type: string
+          description: The Releasarr release this instance runs, e.g. 0.10.0.
+        database:
+          type: string
+          enum: [sqlite, postgresql]
     SettingFieldInfo:
       type: object
       required: [key, section, kind, is_secret, requires_restart, locked, choices]

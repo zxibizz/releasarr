@@ -234,8 +234,5 @@ release name is fully visible, and full-screen modal behaviour.
 
 - **No end-to-end tests.** No Playwright, no Cypress. The mock server is the closest thing, and
   it is for manual work.
-- **No CI test run.** `.forgejo/workflows/deploy.yml` runs only `ruff check` and
-  `ruff format --check` on `services/backend/src`. Run `uv run pytest`, `uv run mypy src`, `npm test`,
-  and `npm run build` locally before pushing.
 - **No schema-level contract checking.** The contract test compares operation lists, not field
   shapes.

@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # Same checks as master; a tag must not publish something that would have failed.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  # Cheap tag-shaped checks, before anything is published.
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag matches the version in the source
+        run: python3 .github/scripts/check_version.py "${{ github.ref_name }}"
+      - name: Release notes exist
+        run: python3 .github/scripts/changelog_section.py "${{ github.ref_name }}"
+
+  publish:
+    needs: [verify, preflight]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # arm64 is emulated here; the build is slow but it is once per release.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # auto: only a stable release moves `latest`. A prerelease also has its
+          # {{major}}.{{minor}} and {{major}} patterns collapsed back to the full
+          # version, so v1.2.3-rc1 can never take over `1.2`, `1` or `latest`.
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref_name, 'v0.') }}
+            type=raw,value=beta,enable=${{ contains(github.ref_name, '-') }}
+          labels: |
+            org.opencontainers.image.title=releasarr
+            org.opencontainers.image.description=Search indexers, grab torrents and map files to episodes for Sonarr and Radarr
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.all-in-one
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Extract the release notes
+        run: python3 .github/scripts/changelog_section.py "${{ github.ref_name }}" > NOTES.md
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          case "${{ github.ref_name }}" in
+            v0.*|*-*) prerelease="--prerelease" ;;
+          esac
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file NOTES.md \
+            $prerelease

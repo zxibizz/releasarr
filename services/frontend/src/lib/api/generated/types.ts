@@ -904,6 +904,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe the running instance
+         * @description The version and database backend of this instance, for the UI and for bug reports.
+         */
+        get: operations["getSystemInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings": {
         parameters: {
             query?: never;
@@ -1809,6 +1829,12 @@ export interface components {
             last_used_at?: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        SystemInfo: {
+            /** @description The Releasarr release this instance runs, e.g. 0.10.0. */
+            version: string;
+            /** @enum {string} */
+            database: "sqlite" | "postgresql";
         };
         SettingFieldInfo: {
             key: string;
@@ -4551,6 +4577,35 @@ export interface operations {
             };
             /** @description Administrator privileges are required. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSystemInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The running instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

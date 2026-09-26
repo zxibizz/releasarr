@@ -1,5 +1,9 @@
 # Releasarr
 
+[![CI](https://github.com/zxibizz/releasarr/actions/workflows/ci.yml/badge.svg)](https://github.com/zxibizz/releasarr/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Image](https://img.shields.io/badge/ghcr.io-zxibizz%2Freleasarr-blue?logo=docker)](https://github.com/zxibizz/releasarr/pkgs/container/releasarr)
+
 **A hands-on companion for Sonarr and Radarr: pick the release yourself, map its files to episodes, and let Releasarr import the result back into your library.**
 
 <p align="center">
@@ -28,6 +32,7 @@ Your library managers stay the source of truth; Releasarr just handles the awkwa
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
 - [Hooking up qBittorrent](#hooking-up-qbittorrent)
+- [Upgrading](#upgrading)
 - [Development](#development)
 - [Architecture](#architecture)
 - [Further reading](#further-reading)
@@ -102,7 +107,7 @@ with.
 | **Import back to the \*arrs** | Finished downloads are handed to Sonarr and Radarr's manual import with absolute paths, and requests close once those apps confirm they hold the media in full. A torrent that finishes is queued for import the moment the release sync sees it, not at the next sweep. |
 | **Repack detection** | Releases the indexer has since replaced are re-downloaded automatically — every ten minutes in the background, or on demand from a release list's refresh button, which also pulls the latest download progress. Background checks are capped per indexer per run and spaced out in time, so a large library does not arrive at one tracker as a burst. The replacement's own file list is read back: files the release already had keep their mappings, new ones are mapped on their own, and a torrent that dropped a file is refused rather than grabbed. |
 | **Request warnings** | A regrab whose indexer has since gone, a release its indexer no longer lists, files a replacement added that could not be mapped, a replacement missing files the release already has, or two files claiming the same episode, are surfaced on the request rather than left to be noticed later. |
-| **Bilingual UI and metadata** | English and Russian, for both the interface and the media titles it searches by. |
+| **Bilingual UI** | English and Russian interface, with titles and overviews fetched in whichever metadata languages you configure. |
 | **Operational visibility** | Structured logs, filterable by request or by task, readable from the UI. |
 | **Accounts and access** | One sign-in per person, with requests owned by whoever added them. Permissions and a root-folder allow-list decide what a user reaches; admins manage both accounts and the service API key. |
 
@@ -148,60 +153,56 @@ still worth configuring — without them Releasarr boots and you can look around
 indexers and grabbing releases report themselves as unavailable rather than silently doing
 nothing.
 
-```bash
-git clone https://github.com/zxibizz/releasarr.git
-cd releasarr
-```
-
-Copy [`.env.example`](.env.example) to `.env` in the repository root and fill it in:
+The image is published for `linux/amd64` and `linux/arm64` as `ghcr.io/zxibizz/releasarr`.
+Copy [`compose.example.yaml`](compose.example.yaml) to `compose.yaml`, and put the name of the
+Docker network your \*arr containers are on in a `.env` next to it
+(`docker inspect sonarr` lists it under *Networks*):
 
 ```bash
-cp .env.example .env
+curl -fsSLo compose.yaml https://raw.githubusercontent.com/zxibizz/releasarr/master/compose.example.yaml
+echo "ARR_NETWORK=<network name>" > .env
+docker compose up -d
 ```
 
-```ini
-RELEASARR_AUTH_SECRET=pick-something-long-and-random
-
-RELEASARR_SONARR_URL=http://sonarr:8989/api/v3
-RELEASARR_SONARR_API_KEY=...
-RELEASARR_RADARR_URL=http://radarr:7878/api/v3
-RELEASARR_RADARR_API_KEY=...
-
-RELEASARR_PROWLARR_URL=http://prowlarr:9696/api/v1
-RELEASARR_PROWLARR_API_KEY=...
-
-RELEASARR_QBITTORRENT_URL=http://qbittorrent:8080/api/v2
-RELEASARR_QBITTORRENT_USERNAME=admin
-RELEASARR_QBITTORRENT_PASSWORD=...
-
-RELEASARR_TVDB_API_KEY=...
-RELEASARR_TMDB_API_KEY=...
-```
-
-Then build and run it:
+Or, without compose:
 
 ```bash
-# The mount below needs the file to exist first, or Docker creates a directory
-# in its place and SQLite cannot open it.
-touch services/backend/releasarr.db
-
-docker build -f Dockerfile.all-in-one -t releasarr .
-docker run -d --name releasarr --restart always -p 8050:80 \
-  --env-file .env \
-  -v "$PWD/services/backend/releasarr.db:/app/releasarr.db" \
-  -v "$PWD/services/backend/.logs:/app/.logs" \
-  releasarr
+docker run -d --name releasarr --restart unless-stopped \
+  --network <network name> -p 8050:8050 \
+  -e PUID=1000 -e PGID=1000 -e TZ=Etc/UTC \
+  -v "$PWD/releasarr-config:/config" \
+  ghcr.io/zxibizz/releasarr:0.10.0
 ```
 
-Add a `-v` line for every download and media directory Releasarr has to see, at the same
-absolute path Sonarr and Radarr use — the first note below is why.
+Open **http://\<host\>:8050**. The first visit lands on a one-time setup screen that creates the
+admin account; after that, **Settings** is where Sonarr, Radarr, Prowlarr, qBittorrent and the
+TVDB and TMDB keys go. Everything there can also be pinned from the environment instead — see
+[Configuration](#configuration).
 
-Releasarr is on **http://localhost:8050**. One container runs the whole thing: nginx serves the
-frontend and proxies the API under `/api/`, Alembic migrates on boot, and the scheduler worker
-runs alongside uvicorn. All three are supervised by s6-overlay, so a process that dies is
-restarted on its own, and a failed migration stops the container instead of leaving it half up.
-Every line in `docker logs releasarr` is tagged with the service that wrote it — `[api]`,
-`[scheduler]`, or `[nginx]`.
+One container runs the whole thing: nginx serves the frontend and proxies the API under
+`/api/`, Alembic migrates on boot, and the scheduler worker runs alongside uvicorn. All three are
+supervised by s6-overlay, so a process that dies is restarted on its own, and a failed migration
+stops the container instead of leaving it half up. Every line in `docker logs releasarr` is
+tagged with the service that wrote it — `[api]`, `[scheduler]`, or `[nginx]`. For Postgres, or
+to run the scheduler in a container of its own, use
+[`compose.split.example.yaml`](compose.split.example.yaml) instead.
+
+A few things worth knowing before you point it at real data:
+
+- **qBittorrent and Sonarr/Radarr must agree on paths.** Releasarr never opens a media file
+  itself — it hands Sonarr and Radarr's manual import the absolute paths qBittorrent reports.
+  Those paths have to resolve to the same files inside the \*arr containers, which is the same
+  rule Sonarr and Radarr's own download handling already needs. Releasarr needs no download or
+  library mounts.
+- **Everything Releasarr keeps is in `/config`**: the SQLite database, the logs, and
+  `auth-secret`, the key that signs sign-in tokens. It is generated on first start unless
+  `RELEASARR_AUTH_SECRET` is set; treat it like any other credential. The container writes all
+  of it as `PUID`:`PGID`.
+- **Over plain HTTP, sign-in just works.** Behind a TLS reverse proxy, set
+  `RELEASARR_AUTH_COOKIE_SECURE=true` so the session cookie is never sent unencrypted. Either
+  way, do not port-forward it — see [`SECURITY.md`](SECURITY.md).
+- **Every route needs a signed-in session**, or, for scripts, the service API key — see
+  [Hooking up qBittorrent](#hooking-up-qbittorrent) below.
 
 Releasarr also **installs as an app**. Use *Install* in Chrome on Android or *Add to Home Screen*
 in Safari on iOS, and it launches in its own window and opens without a connection. Two caveats
@@ -209,21 +210,6 @@ worth knowing: a service worker only runs in a secure context, so installation a
 need `https://` — a TLS reverse proxy in front of the container — or `http://localhost`; on a plain
 `http://<lan-ip>:8050` the app works but the manifest is inert. And no API response is ever cached,
 so offline means the app shell and an explanation, not your requests.
-
-A few things worth knowing before you point it at real data:
-
-- **Releasarr must see the same paths as Sonarr and Radarr.** Imports are handed over as
-  absolute filesystem paths, so the download directory qBittorrent reports has to resolve
-  identically inside the \*arr containers.
-- **The database is a bind-mounted SQLite file** (`services/backend/releasarr.db`). Create it
-  before the first run — `touch services/backend/releasarr.db` — or Docker will make a
-  directory in its place. Set
-  `RELEASARR_DATABASE_URL` to a `postgresql+asyncpg://` URL to use Postgres instead.
-- **`RELEASARR_AUTH_SECRET` has no default and the API refuses to start without it** — it signs
-  access tokens, so treat it like any other credential. The first time you open the UI you will
-  land on a one-time setup screen to create the first admin account; every route after that
-  needs a signed-in session (or, for scripts, a service API key — see "Hooking up qBittorrent"
-  below).
 
 ## Configuration
 
@@ -235,18 +221,29 @@ wins: such a field renders read-only in the UI, marked *Set by environment*, so 
 container keeps meaning what its `.env` says. The tables below list the environment variables
 and their defaults.
 
+### Container
+
+Read by the image's init scripts rather than by Releasarr itself, so none of them appear in the
+Settings area.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PUID` / `PGID` | `1000` | The user and group the API and scheduler run as, and that own everything under `/config` |
+| `TZ` | `Etc/UTC` | Time zone for log timestamps |
+| `RELEASARR_MODE` | `all` | `all` runs everything; `web` runs the UI and API without the scheduler; `worker` runs only the scheduler. Split modes need Postgres — see [`compose.split.example.yaml`](compose.split.example.yaml) |
+
 ### Core
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_AUTH_SECRET` | *(required, no default)* | Signs access tokens. The app fails to start without it. |
-| `RELEASARR_DATABASE_URL` | `sqlite+aiosqlite:///./releasarr.db` | Async SQLAlchemy URL; `postgresql+asyncpg://…` also works |
-| `RELEASARR_API_HOST` | `0.0.0.0` | Uvicorn bind host |
+| `RELEASARR_AUTH_SECRET` | *(generated in the container)* | Signs access tokens. The container generates one into `/config/auth-secret` when unset; run directly, the app fails to start without it. |
+| `RELEASARR_DATABASE_URL` | `sqlite+aiosqlite:////config/releasarr.db` in the image, `sqlite+aiosqlite:///./releasarr.db` run directly | Async SQLAlchemy URL; `postgresql+asyncpg://…` also works |
+| `RELEASARR_API_HOST` | `0.0.0.0` | Uvicorn bind host when run directly |
 | `RELEASARR_API_PORT` | `8001` | Uvicorn bind port when run directly (the image uses 8000 behind nginx) |
 | `RELEASARR_LOG_LEVEL` | `INFO` | Console log level; the file sink always keeps at least INFO |
 | `RELEASARR_LOG_JSON` | `false` | Emit JSON logs |
-| `RELEASARR_LOG_FILE` | `.logs/backend.log` | The API process's log file, rotated at 10 MB |
-| `RELEASARR_SCHEDULER_LOG_FILE` | `.logs/scheduler.log` | The scheduler's own log file, rotated the same way |
+| `RELEASARR_LOG_FILE` | `/config/logs/backend.log` in the image, `.logs/backend.log` run directly | The API process's log file, rotated at 10 MB |
+| `RELEASARR_SCHEDULER_LOG_FILE` | `/config/logs/scheduler.log` in the image, `.logs/scheduler.log` run directly | The scheduler's own log file, rotated the same way |
 | `RELEASARR_LOG_HISTORY_FILES` | `3` | How many rotated files the logs view reaches back through in each file |
 | `RELEASARR_DEFAULT_PAGE_SIZE` | `20` | Default page size |
 | `RELEASARR_MAX_PAGE_SIZE` | `100` | Largest page size a client may ask for |
@@ -258,7 +255,7 @@ and their defaults.
 | `RELEASARR_AUTH_ACCESS_TOKEN_TTL_SECONDS` | `900` | Access token lifetime |
 | `RELEASARR_AUTH_REFRESH_TOKEN_TTL_SECONDS` | `86400` | Refresh token lifetime for a normal login |
 | `RELEASARR_AUTH_REFRESH_REMEMBER_TTL_SECONDS` | `2592000` | Refresh token lifetime with "remember me" checked |
-| `RELEASARR_AUTH_COOKIE_SECURE` | `true` | Mark the refresh cookie `Secure`; only disable over plain HTTP in local dev |
+| `RELEASARR_AUTH_COOKIE_SECURE` | `false` | Mark the refresh cookie `Secure`. Turn on behind a TLS reverse proxy; over plain HTTP the browser drops the cookie and sign-in never sticks |
 | `RELEASARR_AUTH_COOKIE_SAMESITE` | `lax` | Refresh cookie `SameSite` attribute |
 | `RELEASARR_AUTH_MAX_FAILED_LOGINS` | `10` | Failed attempts before an account is locked |
 | `RELEASARR_AUTH_LOCKOUT_SECONDS` | `900` | Lockout duration once the limit above is hit |
@@ -286,7 +283,7 @@ one, so the first profile they report is used unless you pick one.
 | `RELEASARR_TMDB_API_KEY` | *(empty)* | TMDB API key, for movie metadata |
 | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | TVDB API base |
 | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | TMDB API base |
-| `RELEASARR_METADATA_LANGUAGES` | `("eng", "rus")` | Languages to fetch titles and overviews in |
+| `RELEASARR_METADATA_LANGUAGES` | `("eng",)` | Languages to fetch titles and overviews in, as ISO 639-2 codes in order of preference, e.g. `["eng", "rus"]` |
 
 ### Prowlarr
 
@@ -327,21 +324,31 @@ first (an admin, from **Users** — it always exists, generated automatically), 
 **Options → Downloads → Run external program on torrent finished**:
 
 ```bash
-curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr/api/tasks/sync_downloads
+curl -fsS -X POST -H "X-API-Key: your-service-key" http://releasarr:8050/api/tasks/sync_downloads
 ```
 
-`releasarr` here is the container name on a shared Docker network, where nginx listens on port
-80; from outside, use the published port instead (`http://your-host:8050/api/…`). Either way the
-`/api` prefix is what nginx serves the API under.
+`releasarr` here is the container name on the Docker network qBittorrent shares with it; from
+outside that network, use the host and published port instead (`http://your-host:8050/api/…`).
+Either way the `/api` prefix is what nginx serves the API under.
 
 `sync_downloads` queues only `release_sync` and `export` — a full sync on every torrent would
 hammer Sonarr, Radarr, the metadata providers, and your indexers for no reason. Runs arriving
 this way show up in the queue on **Tasks**, tagged with the download client as their trigger.
 
+## Upgrading
+
+Pin the image to a version (`ghcr.io/zxibizz/releasarr:0.10.0`), read the
+[changelog](CHANGELOG.md) for the releases in between, then bump the tag and
+`docker compose up -d`. Migrations run on start, and a failed one stops the container rather
+than serving against a half-migrated database. [`docs/upgrading.md`](docs/upgrading.md) covers
+the tag scheme, backups, and moving an install from before 0.10.0 onto the `/config` layout.
+
 ## Development
 
 The two halves run independently, and the frontend ships with a mock API so you can work on the
-UI without a backend, a library, or a tracker.
+UI without a backend, a library, or a tracker. From the repository root, `make setup` installs
+both and `make check` runs everything CI does; [`CONTRIBUTING.md`](CONTRIBUTING.md) has the
+rest.
 
 ### Frontend
 
@@ -403,9 +410,10 @@ place — uvicorn's `--reload` for the API, watchfiles for the scheduler, Vite's
 Only a dependency change needs `--build` again. Vite proxies `/api` to the backend, the same
 prefix nginx serves it under in production, so the browser stays on a single origin.
 
-Two things it shares with the production stack: the same `.env`, and the same
-`services/backend/releasarr.db`. Bringing it up starts syncing against whichever Sonarr, Radarr, and
-Prowlarr that file points at.
+Two things to know before bringing it up: it reads the same `.env` as the backend run directly
+(copy [`.env.example`](.env.example)), and keeps its SQLite database at
+`services/backend/releasarr.db`. Bringing it up starts syncing against whichever Sonarr,
+Radarr, and Prowlarr that `.env` points at.
 
 ## Architecture
 
@@ -447,10 +455,13 @@ cache so pages have data on first paint.
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic 2, httpx, Loguru, Typer, `uv` |
 | **Frontend** | React 19, Vite, TypeScript, Mantine 9, TanStack Query 5, React Router 7, i18next |
 | **Storage** | SQLite by default, PostgreSQL via `asyncpg` |
-| **Packaging** | One Docker image: s6-overlay supervising nginx + uvicorn + scheduler worker |
+| **Packaging** | One Docker image: s6-overlay supervising nginx + uvicorn + scheduler worker, or split into web and worker containers |
 
 ## Further reading
 
+- [`docs/upgrading.md`](docs/upgrading.md) and [`docs/troubleshooting.md`](docs/troubleshooting.md) — running it: tags, backups, moving from an older layout, and the problems people actually hit
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md) — sending a change, and reporting a vulnerability
 - [`docs/`](docs/README.md) — developer documentation: architecture, backend and frontend conventions, data model, testing
 - [`AGENTS.md`](AGENTS.md) — the short orientation, and the rules that matter most when changing this code
 - [`openapi.yaml`](openapi.yaml) — the API contract
