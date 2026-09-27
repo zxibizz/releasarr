@@ -50,7 +50,7 @@ recreates the requests; release history and file mappings do not come back.
 
 If you build the image yourself: `Dockerfile.all-in-one` is now `Dockerfile`.
 
-## From 0.11 to the release after it
+## From 0.11 to 0.12
 
 The API and its paths now follow the \*arr apps. Nothing needs migrating by hand, but anything
 outside Releasarr that talked to it does:
