@@ -71,7 +71,7 @@ body:
         How Releasarr is deployed, the relevant `RELEASARR_*` variables (no keys
         or passwords), and the versions of the *arr apps and qBittorrent involved.
       placeholder: |
-        Deployment: docker compose, ghcr.io/zxibizz/releasarr:0.10.0
+        Deployment: docker compose, ghcr.io/zxibizz/releasarr:0.11.0
         Host: Ubuntu 24.04, x86_64
         Database: SQLite / Postgres 17
         Sonarr v4.x, Radarr v5.x, Prowlarr v1.x, qBittorrent 5.x

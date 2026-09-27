@@ -3,7 +3,7 @@
 Pin a version tag rather than `latest`, so a restart never changes the version underneath you:
 
 ```yaml
-image: ghcr.io/zxibizz/releasarr:0.10.0
+image: ghcr.io/zxibizz/releasarr:0.11.0
 ```
 
 The published tags are:
@@ -58,7 +58,7 @@ image, and moves all of that:
 
 | | Before | Now |
 | --- | --- | --- |
-| Image | built locally from `Dockerfile.all-in-one` | `ghcr.io/zxibizz/releasarr:0.10.0` |
+| Image | built locally from `Dockerfile.all-in-one` | `ghcr.io/zxibizz/releasarr:0.11.0` |
 | Port inside the container | `80` | `8050` |
 | Database | `/app/releasarr.db` | `/config/releasarr.db` |
 | Logs | `/app/.logs/` | `/config/logs/` |

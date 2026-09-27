@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-27
+
+The first release with a published image. v0.10.0 was tagged, but its image was never built
+and the tag has been withdrawn, so everything listed under it arrives here.
+
 ### Added
 
 - **TheTVDB and TMDB are credited** on the Add Request page and in the README, as TMDB's API
@@ -34,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it sees a torrent finish, so a qBittorrent completion hook adds nothing. Remove any hook that
   calls it.
 
-## [0.10.0] - 2026-09-26
+## 0.10.0 - 2026-09-26 [YANKED]
 
 First public release.
 
@@ -63,5 +68,5 @@ First public release.
 See [docs/upgrading.md](docs/upgrading.md) for moving an existing install onto
 the new layout.
 
-[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.10.0...HEAD
-[0.10.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.10.0
+[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.11.0
