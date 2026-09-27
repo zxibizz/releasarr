@@ -29,12 +29,14 @@ Your library managers stay the source of truth; Releasarr just handles the awkwa
 - [Screenshots](#screenshots)
 - [What it does](#what-it-does)
 - [How a request flows through the system](#how-a-request-flows-through-the-system)
+- [Requirements and limitations](#requirements-and-limitations)
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
 - [Upgrading](#upgrading)
 - [Development](#development)
 - [Architecture](#architecture)
 - [Further reading](#further-reading)
+- [Credits and disclaimer](#credits-and-disclaimer)
 
 ## Screenshots
 
@@ -144,6 +146,27 @@ that is deliberately separate from the web server:
 
 The order matters: `export` can only import releases that `release_sync` has already marked
 completed.
+
+## Requirements and limitations
+
+| Service | API it talks to | Needed for |
+| --- | --- | --- |
+| Sonarr | `/api/v3` — Sonarr v4, and v3 which serves the same API | Series requests and import |
+| Radarr | `/api/v3` — Radarr v3 and later | Movie requests and import |
+| Prowlarr | `/api/v1` | Searching indexers |
+| qBittorrent | Web API `/api/v2` — 4.x and 5.x | Downloading |
+| TheTVDB | v4, with your own API key | Series metadata and search |
+| TMDB | v3, with your own API key | Movie metadata and search |
+
+Worth knowing before you install it:
+
+- **Torrents only, through qBittorrent only.** There is no Usenet support and no other download
+  client.
+- **It complements Sonarr and Radarr's automatic grabbing rather than replacing it.** Nothing is
+  downloaded until someone picks a release.
+- **It is served from the root of a host.** There is no URL base setting, so behind a reverse
+  proxy give it its own (sub)domain, not a path like `/releasarr`.
+- **The interface is in English and Russian.**
 
 ## Getting started
 
@@ -430,7 +453,7 @@ cache so pages have data on first paint.
 
 | Layer | Choices |
 | --- | --- |
-| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic 2, httpx, Loguru, Typer, `uv` |
+| **Backend** | Python 3.12+, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic 2, httpx, Loguru, Typer, `uv` |
 | **Frontend** | React 19, Vite, TypeScript, Mantine 9, TanStack Query 5, React Router 7, i18next |
 | **Storage** | SQLite by default, PostgreSQL via `asyncpg` |
 | **Packaging** | One Docker image: s6-overlay supervising nginx + uvicorn + scheduler worker, or split into web and worker containers |
@@ -445,3 +468,13 @@ cache so pages have data on first paint.
 - [`openapi.yaml`](openapi.yaml) — the API contract
 - [`services/backend/docs/tasks.md`](services/backend/docs/tasks.md) — background tasks, the scheduler, job queueing, and log filtering in detail
 - [`services/frontend/README.md`](services/frontend/README.md) — frontend conventions and the file mapping internals
+
+## Credits and disclaimer
+
+Series metadata comes from [TheTVDB](https://thetvdb.com) and movie metadata from
+[TMDB](https://www.themoviedb.org). This product uses the TMDB API but is not endorsed or
+certified by TMDB.
+
+Releasarr is an independent project, not affiliated with Sonarr, Radarr, Prowlarr, qBittorrent,
+TheTVDB or TMDB. It hosts no content and indexes nothing itself; what you download through it,
+and whether you are allowed to, is up to you.

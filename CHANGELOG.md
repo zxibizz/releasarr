@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **TheTVDB and TMDB are credited** on the Add Request page and in the README, as TMDB's API
+  terms require.
+- **The README lists what Releasarr talks to and what it does not do**: supported API
+  versions, torrents through qBittorrent only, and no URL base.
+
+### Fixed
+
+- **Pausing and resuming works on qBittorrent 5**, which renamed those endpoints to stop and
+  start. Adding a torrent paused is honoured there too. qBittorrent 4.x keeps working.
+
 ### Changed
 
 - **`Dockerfile.all-in-one` is now `Dockerfile`**, so `docker build .` builds the production

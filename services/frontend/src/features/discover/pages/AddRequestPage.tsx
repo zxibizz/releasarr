@@ -1,5 +1,6 @@
 import {
   Alert,
+  Anchor,
   Badge,
   Button,
   Group,
@@ -186,6 +187,19 @@ export function AddRequestPage() {
           description={t('discover.start.description')}
         />
       )}
+
+      {/* TMDB's API terms require this notice wherever its data is shown. */}
+      <Text size="xs" c="dimmed">
+        {t('discover.attribution.sources')}{' '}
+        <Anchor href="https://thetvdb.com" target="_blank" rel="noopener noreferrer" inherit>
+          TheTVDB
+        </Anchor>{' '}
+        {t('discover.attribution.and')}{' '}
+        <Anchor href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" inherit>
+          TMDB
+        </Anchor>
+        . {t('discover.attribution.tmdbNotice')}
+      </Text>
 
       <AddRequestModal media={picked} onClose={() => setPicked(null)} />
     </Stack>

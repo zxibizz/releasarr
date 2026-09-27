@@ -154,6 +154,17 @@ describe('AddRequestPage', () => {
     );
   });
 
+  it('credits the metadata providers', () => {
+    renderWithProviders(<AddRequestPage />);
+
+    expect(screen.getByRole('link', { name: 'TheTVDB' })).toHaveAttribute('href', 'https://thetvdb.com');
+    expect(screen.getByRole('link', { name: 'TMDB' })).toHaveAttribute(
+      'href',
+      'https://www.themoviedb.org',
+    );
+    expect(screen.getByText(/not endorsed or certified by TMDB/)).toBeInTheDocument();
+  });
+
   it('searches movies and series together, splitting the two into tabs', async () => {
     stubRoutes({ results: [seriesResult, movieResult] });
 

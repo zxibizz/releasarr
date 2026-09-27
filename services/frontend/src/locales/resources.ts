@@ -394,6 +394,11 @@ export const resources = {
         title: 'Add Request',
         subtitle: 'Search TVDB or TMDB, then add the result to Sonarr or Radarr',
         searchPlaceholder: 'Search movies and series by title…',
+        attribution: {
+          sources: 'Metadata provided by',
+          and: 'and',
+          tmdbNotice: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+        },
         actions: {
           add: 'Add Request',
           addShort: 'Add',
@@ -1549,6 +1554,12 @@ export const resources = {
         title: 'Новый запрос',
         subtitle: 'Найдите в TVDB или TMDB и добавьте результат в Sonarr или Radarr',
         searchPlaceholder: 'Поиск фильмов и сериалов по названию…',
+        attribution: {
+          sources: 'Метаданные предоставлены',
+          and: 'и',
+          tmdbNotice:
+            'Этот продукт использует TMDB API, но не одобрен и не сертифицирован TMDB.',
+        },
         actions: {
           add: 'Новый запрос',
           addShort: 'Добавить',
