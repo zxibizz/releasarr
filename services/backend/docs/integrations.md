@@ -324,8 +324,8 @@ Three classes, split by concern:
 | Method | Path | Used for |
 | --- | --- | --- |
 | POST | `/auth/login` | Form login with username and password |
-| POST | `/torrents/add` | Magnet (`urls`) or uploaded `.torrent` (`fileselect[]`) |
-| POST | `/torrents/pause`, `/torrents/resume` | By lowercased hash |
+| POST | `/torrents/add` | Magnet (`urls`) or uploaded `.torrent` (`fileselect[]`), with both `stopped` (5.x) and `paused` (4.x) |
+| POST | `/torrents/stop`, `/torrents/start` | By lowercased hash; on a `404` (4.x) retried as `/torrents/pause`, `/torrents/resume` |
 | GET | `/torrents/info` | One torrent by hash, or a list filtered by category/tag |
 | POST | `/torrents/delete` | By hash, with `deleteFiles` |
 

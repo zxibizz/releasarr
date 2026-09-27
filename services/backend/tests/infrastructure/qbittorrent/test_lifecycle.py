@@ -49,43 +49,69 @@ def lifecycle_service(client: QbittorrentClient) -> QbittorrentReleaseLifecycleS
     return QbittorrentReleaseLifecycleService(client=client)
 
 
+def _paths(transport: FakeTransport) -> list[str]:
+    return [req[1] for req in transport.requests if req[1] != "/auth/login"]
+
+
 @pytest.mark.asyncio
-async def test_pause_calls_qbittorrent_api(
+async def test_pause_uses_the_qbittorrent_5_endpoint(
     lifecycle_service: QbittorrentReleaseLifecycleService,
     transport: FakeTransport,
 ) -> None:
-    transport.set_response("/torrents/pause", 200)
+    result = await lifecycle_service.pause("ABCDEF123456")
+
+    assert result is True
+    assert _paths(transport) == ["/torrents/stop"]
+
+
+@pytest.mark.asyncio
+async def test_resume_uses_the_qbittorrent_5_endpoint(
+    lifecycle_service: QbittorrentReleaseLifecycleService,
+    transport: FakeTransport,
+) -> None:
+    result = await lifecycle_service.resume("ABCDEF123456")
+
+    assert result is True
+    assert _paths(transport) == ["/torrents/start"]
+
+
+@pytest.mark.asyncio
+async def test_pause_falls_back_to_the_qbittorrent_4_endpoint(
+    lifecycle_service: QbittorrentReleaseLifecycleService,
+    transport: FakeTransport,
+) -> None:
+    transport.set_response("/torrents/stop", 404)
 
     result = await lifecycle_service.pause("ABCDEF123456")
 
     assert result is True
-    # Should have login + pause requests
-    assert any(req[1] == "/torrents/pause" for req in transport.requests)
+    assert _paths(transport) == ["/torrents/stop", "/torrents/pause"]
 
 
 @pytest.mark.asyncio
-async def test_resume_calls_qbittorrent_api(
+async def test_resume_falls_back_to_the_qbittorrent_4_endpoint(
     lifecycle_service: QbittorrentReleaseLifecycleService,
     transport: FakeTransport,
 ) -> None:
-    transport.set_response("/torrents/resume", 200)
+    transport.set_response("/torrents/start", 404)
 
     result = await lifecycle_service.resume("ABCDEF123456")
 
     assert result is True
-    assert any(req[1] == "/torrents/resume" for req in transport.requests)
+    assert _paths(transport) == ["/torrents/start", "/torrents/resume"]
 
 
 @pytest.mark.asyncio
-async def test_pause_returns_false_on_failure(
+async def test_pause_does_not_retry_the_old_name_on_a_real_failure(
     lifecycle_service: QbittorrentReleaseLifecycleService,
     transport: FakeTransport,
 ) -> None:
-    transport.set_response("/torrents/pause", 500)
+    transport.set_response("/torrents/stop", 500)
 
     result = await lifecycle_service.pause("ABCDEF123456")
 
     assert result is False
+    assert _paths(transport) == ["/torrents/stop"]
 
 
 @pytest.mark.asyncio
@@ -93,6 +119,7 @@ async def test_resume_returns_false_on_failure(
     lifecycle_service: QbittorrentReleaseLifecycleService,
     transport: FakeTransport,
 ) -> None:
+    transport.set_response("/torrents/start", 404)
     transport.set_response("/torrents/resume", 500)
 
     result = await lifecycle_service.resume("ABCDEF123456")

@@ -127,41 +127,30 @@ class QbittorrentClient:
             raise RuntimeError(f"qBittorrent authentication failed: {exc!s}") from exc
         self._logged_in = True
 
+    # qBittorrent 5 renamed pause/resume to stop/start and answers 404 to the old
+    # names; 4.x has only the old ones. The 5.x name goes first as the common case.
     async def pause_torrent(self, info_hash: str) -> bool:
         """Pause a torrent by info hash. Returns True on success."""
-        await self._ensure_login()
-        try:
-            response = await self._client.post(
-                "/torrents/pause",
-                data={"hashes": info_hash.lower()},
-            )
-            if response.status_code == httpx.codes.FORBIDDEN:
-                self._logged_in = False
-                await self._ensure_login()
-                response = await self._client.post(
-                    "/torrents/pause",
-                    data={"hashes": info_hash.lower()},
-                )
-            return response.status_code == httpx.codes.OK
-        except httpx.HTTPError:
-            return False
+        return await self._post_hashes(("/torrents/stop", "/torrents/pause"), info_hash)
 
     async def resume_torrent(self, info_hash: str) -> bool:
         """Resume a torrent by info hash. Returns True on success."""
+        return await self._post_hashes(("/torrents/start", "/torrents/resume"), info_hash)
+
+    async def _post_hashes(self, paths: Sequence[str], info_hash: str) -> bool:
+        """POST to the first of `paths` this qBittorrent has; True on a 200."""
         await self._ensure_login()
+        data = {"hashes": info_hash.lower()}
         try:
-            response = await self._client.post(
-                "/torrents/resume",
-                data={"hashes": info_hash.lower()},
-            )
-            if response.status_code == httpx.codes.FORBIDDEN:
-                self._logged_in = False
-                await self._ensure_login()
-                response = await self._client.post(
-                    "/torrents/resume",
-                    data={"hashes": info_hash.lower()},
-                )
-            return response.status_code == httpx.codes.OK
+            for path in paths:
+                response = await self._client.post(path, data=data)
+                if response.status_code == httpx.codes.FORBIDDEN:
+                    self._logged_in = False
+                    await self._ensure_login()
+                    response = await self._client.post(path, data=data)
+                if response.status_code != httpx.codes.NOT_FOUND:
+                    return response.status_code == httpx.codes.OK
+            return False
         except httpx.HTTPError:
             return False
 
@@ -244,9 +233,12 @@ class QbittorrentClient:
         tags: Sequence[str] | None,
         paused: bool,
     ) -> dict[str, str]:
+        flag = "true" if paused else "false"
         payload: dict[str, str] = {
             "autoTMM": "false",
-            "paused": "true" if paused else "false",
+            # 5.x reads `stopped`, 4.x reads `paused`; each ignores the other.
+            "paused": flag,
+            "stopped": flag,
             "contentLayout": "Original",
             "dlLimit": "NaN",
             "upLimit": "NaN",
