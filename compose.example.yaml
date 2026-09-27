@@ -16,7 +16,7 @@ services:
   releasarr:
     # Pin a version rather than latest, so a restart never changes the version
     # underneath you. Swap for the build block below to run from a checkout.
-    image: ghcr.io/zxibizz/releasarr:0.11.0
+    image: ghcr.io/zxibizz/releasarr:0.12.0
     # build:
     #   context: .
     #   dockerfile: Dockerfile

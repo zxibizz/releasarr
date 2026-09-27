@@ -190,7 +190,7 @@ docker run -d --name releasarr --restart unless-stopped \
   -p 8050:8050 \
   -e PUID=1000 -e PGID=1000 -e TZ=Etc/UTC \
   -v "$PWD/releasarr-config:/config" \
-  ghcr.io/zxibizz/releasarr:0.11.0
+  ghcr.io/zxibizz/releasarr:0.12.0
 ```
 
 Open **http://\<host\>:8050**. The first visit lands on a one-time setup screen that creates the
@@ -345,7 +345,7 @@ Both re-grab settings are editable at runtime under **Settings → Tasks**.
 
 ## Upgrading
 
-Pin the image to a version (`ghcr.io/zxibizz/releasarr:0.11.0`), read the
+Pin the image to a version (`ghcr.io/zxibizz/releasarr:0.12.0`), read the
 [changelog](CHANGELOG.md) for the releases in between, then bump the tag and
 `docker compose up -d`. Migrations run on start, and a failed one stops the container rather
 than serving against a half-migrated database. [`docs/upgrading.md`](docs/upgrading.md) covers

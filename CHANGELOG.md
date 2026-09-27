@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-27
+
+The API, its paths and the connection settings now follow the \*arr apps' conventions. Scripts
+and monitors that call Releasarr need updating; see
+[upgrading from 0.11](https://github.com/zxibizz/releasarr/blob/master/docs/upgrading.md#from-011-to-012).
+
 ### Added
 
 - **URL base.** Set **Settings → General → URL base** (or `RELEASARR_URL_BASE`) to, say,
@@ -91,5 +97,6 @@ First public release.
 See [docs/upgrading.md](docs/upgrading.md) for moving an existing install onto
 the new layout.
 
-[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.12.0
 [0.11.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.11.0

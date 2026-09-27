@@ -25,7 +25,7 @@ x-releasarr-env: &releasarr-env
 x-releasarr: &releasarr
   # Pin a version rather than latest, so a restart never changes the version
   # underneath you. Both containers must run the same one.
-  image: ghcr.io/zxibizz/releasarr:0.11.0
+  image: ghcr.io/zxibizz/releasarr:0.12.0
   # build:
   #   context: .
   #   dockerfile: Dockerfile
