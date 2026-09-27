@@ -53,7 +53,7 @@ seeded accounts (`admin`/`admin` and `user`/`user`) work out of the box; see
 
 Two more variables are read by `vite.config.ts` rather than the app, and only the containerised
 dev stack sets them: `VITE_API_PROXY_TARGET` makes the dev server proxy `/api` to that backend
-with the prefix stripped, as nginx does in production, and `VITE_WATCH_POLLING=true` switches the
+unchanged, as nginx does in production, and `VITE_WATCH_POLLING=true` switches the
 file watcher to polling, which bind-mounted source requires.
 
 ## Architecture

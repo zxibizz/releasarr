@@ -23,6 +23,20 @@ class HttpClientError(RuntimeError):
     """Raised when an outbound request ultimately fails (after retries)."""
 
 
+def api_base_url(app_url: str, api_path: str) -> str:
+    """Join an app's root URL - URL base included - with the API path it serves.
+
+    Configured the way every other *arr client asks for it: the address the app's
+    own UI answers on. A URL already ending in the API path is taken as-is, so
+    one copied from an older configuration keeps working.
+    """
+
+    root = app_url.strip().rstrip("/")
+    if not root or root.endswith(api_path):
+        return root
+    return f"{root}{api_path}"
+
+
 def build_async_client(
     *,
     base_url: str = "",
@@ -124,4 +138,4 @@ class BaseHttpClient:
         await asyncio.sleep(self._backoff_base * (2**attempt))
 
 
-__all__ = ["BaseHttpClient", "HttpClientError", "build_async_client"]
+__all__ = ["BaseHttpClient", "HttpClientError", "api_base_url", "build_async_client"]

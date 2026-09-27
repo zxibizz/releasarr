@@ -343,7 +343,8 @@ tasks page and `useSyncWatcher` demonstrable without a backend.
 (restricted: no tasks/indexers/logs, `allowed_root_folders: ['/media/movies']`, and it owns two
 of the seeded requests in `mockData.ts` so its scoped view isn't empty). Set
 `MOCK_EMPTY_USERS=1` to start with no users at all and exercise the first-run setup screen. An
-`api.use()` middleware resolves the bearer token (or `X-API-Key`) before every route except
+`api.use()` middleware resolves the bearer token (or the service key, as `X-Api-Key` or
+`?apikey=`) before every route except
 `/auth/setup|login|refresh|logout`, attaching the resolved user to `res.locals.user`; route
 handlers read it directly rather than re-deriving it.
 

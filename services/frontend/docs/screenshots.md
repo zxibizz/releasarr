@@ -48,7 +48,7 @@ just puts an unexplained binary in git.
 ## Sessions
 
 Every page below `/` needs a session, so a fresh context is signed in before it opens one.
-`signIn()` posts the mock's `admin` account to `/api/auth/login`, which leaves the refresh cookie
+`signIn()` posts the mock's `admin` account to `/api/v1/auth/login`, which leaves the refresh cookie
 in that context's jar; the app keeps its access token in memory and bootstraps it from the cookie
 on load, so the cookie is the whole of what a returning browser has.
 

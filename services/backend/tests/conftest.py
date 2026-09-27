@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import (
 
 from src.api.app import app
 from src.api.dependencies.auth import get_principal
+from src.api.paths import API_PREFIX
 from src.application.interfaces.users import UserRecord
 from src.application.use_cases.auth import Principal
 from src.db import Base
@@ -67,9 +68,11 @@ def _default_authenticated_principal() -> Iterator[None]:
 
 @pytest.fixture()
 async def api_client() -> AsyncIterator[AsyncClient]:
-    """Async HTTP client bound to the FastAPI app."""
+    """Async HTTP client bound to the FastAPI app, rooted at the API prefix."""
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url=f"http://test{API_PREFIX}"
+    ) as client:
         yield client
 
 

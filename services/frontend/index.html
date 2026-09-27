@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- nginx rewrites this one tag to the URL base; every other URL in the
+         build is relative to it. Keep it byte-for-byte as it is. -->
+    <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Kept identical to `background_color` in vite.config.ts and to the body
          background in styles/global.css, so the status bar and the splash screen

@@ -127,7 +127,7 @@ HTTP clients take a `transport` parameter for exactly this purpose:
 
 ```python
 client = SonarrHttpClient(
-    base_url="http://sonarr/api/v3",
+    base_url="http://sonarr",
     api_key="key",
     transport=httpx.MockTransport(handler),
 )

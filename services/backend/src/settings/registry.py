@@ -10,8 +10,11 @@ coercion in the provider, so the three never disagree about what is editable.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, get_args
+
+from src.settings.config import normalize_url_base
 
 SettingsSection = Literal[
     "general",
@@ -47,11 +50,14 @@ class SettingField:
     is_secret: bool = False
     requires_restart: bool = False
     choices: tuple[str, ...] = ()
+    # Applied after the shape check; raises ValueError for a value it rejects.
+    normalize: Callable[[Any], Any] | None = None
 
 
 # Order matters: it is the order sections and their fields surface in the UI.
 SETTING_FIELDS: tuple[SettingField, ...] = (
     # --- general ---
+    SettingField("url_base", "general", "str", requires_restart=True, normalize=normalize_url_base),
     SettingField("release_missing_grace_seconds", "general", "int"),
     # --- tasks ---
     SettingField("max_regrabs_per_indexer_per_execution", "tasks", "int"),
@@ -81,7 +87,6 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("auth_refresh_remember_ttl_seconds", "network", "int", requires_restart=True),
     SettingField("auth_refresh_reuse_grace_seconds", "network", "int", requires_restart=True),
     SettingField("auth_cookie_name", "network", "str", requires_restart=True),
-    SettingField("auth_cookie_path", "network", "str", requires_restart=True),
     SettingField("auth_cookie_secure", "network", "bool", requires_restart=True),
     SettingField(
         "auth_cookie_samesite",
@@ -170,6 +175,9 @@ def coerce_value(field: SettingField, value: Any) -> Any:
 
     if field.choices and value not in field.choices:
         raise ValueError(f"{field.key} must be one of {', '.join(field.choices)}")
+
+    if field.normalize is not None:
+        value = field.normalize(value)
 
     return value
 

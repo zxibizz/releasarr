@@ -6,19 +6,20 @@ unconfigured. Adapters live in `src/infrastructure/<service>/`; the ports they i
 
 ## At a glance
 
-| Service | Setting | Default | Required URL suffix | Unconfigured |
+| Service | Setting | Default | API path appended | Unconfigured |
 | --- | --- | --- | --- | --- |
-| Sonarr | `RELEASARR_SONARR_URL` | `http://localhost:8989/api/v3` | `/api/v3` | Client exists, errors on first call |
-| Radarr | `RELEASARR_RADARR_URL` | `http://localhost:7878/api/v3` | `/api/v3` | Client exists, errors on first call |
+| Sonarr | `RELEASARR_SONARR_URL` | `http://localhost:8989` | `/api/v3` | Client exists, errors on first call |
+| Radarr | `RELEASARR_RADARR_URL` | `http://localhost:7878` | `/api/v3` | Client exists, errors on first call |
 | Prowlarr | `RELEASARR_PROWLARR_URL` | *(empty)* | `/api/v1` | reports `is_configured = False`; the indexer endpoints and release search raise |
 | qBittorrent | `RELEASARR_QBITTORRENT_URL` | *(empty)* | `/api/v2` | reports `is_configured = False`; the release operations raise, the scheduler's steps skip |
-| TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | v4 root | reports `is_configured = False`; use cases degrade |
-| TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | `/3` | reports `is_configured = False`; use cases degrade |
+| TVDB | `RELEASARR_TVDB_BASE_URL` | `https://api4.thetvdb.com/v4` | none | reports `is_configured = False`; use cases degrade |
+| TMDB | `RELEASARR_TMDB_BASE_URL` | `https://api.themoviedb.org/3` | none | reports `is_configured = False`; use cases degrade |
 
-**Base URLs are passed through verbatim.** `ProwlarrReleaseSearchService` requests `/search`
-and `QbittorrentClient` requests `/torrents/add`, so the configured value must already carry
-`/api/v1` or `/api/v2`. Getting this wrong produces a 404 from the provider, not a startup
-error.
+**The \*arr and qBittorrent URLs are the app's own address**, URL base included, the way every
+other \*arr client takes them. Each client passes its setting through
+`api_base_url()` (`src/infrastructure/http/base.py`), which appends the API path unless the URL
+already ends in it — so a value from an older configuration, suffix and all, still works. TVDB and
+TMDB are not \*arr apps and their base URLs are used verbatim.
 
 Degradation is decided once, in `src/core/container.py`, not at the call site. This is why the
 app boots with nothing configured.

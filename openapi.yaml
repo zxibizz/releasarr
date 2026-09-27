@@ -10,13 +10,14 @@ info:
     name: MIT
     url: https://github.com/zxibizz/releasarr/blob/master/LICENSE
 servers:
-  - url: /api
-    description: Same origin, as served by the container
-  - url: http://localhost:8001/api
+  - url: /api/v1
+    description: Same origin, as served by the container (after any URL base)
+  - url: http://localhost:8001/api/v1
     description: Local development server
 security:
   - BearerAuth: []
   - ServiceKeyAuth: []
+  - ServiceKeyQuery: []
 paths:
   /requests:
     get:
@@ -1916,14 +1917,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /system:
+  /system/status:
     get:
       tags: [System]
       summary: Describe the running instance
       description: >-
-        The version and database backend of this instance, for the UI and for
-        bug reports.
-      operationId: getSystemInfo
+        The name, version, database backend and URL base of this instance, for
+        the UI and for bug reports. The unauthenticated liveness probe is
+        `GET /ping`, outside the API prefix, as in the *arr apps.
+      operationId: getSystemStatus
       responses:
         '200':
           description: The running instance.
@@ -2239,10 +2241,17 @@ components:
     ServiceKeyAuth:
       type: apiKey
       in: header
-      name: X-API-Key
+      name: X-Api-Key
       description: >-
         The single service API key. It is not bound to any user account and
         always authenticates with full administrator access.
+    ServiceKeyQuery:
+      type: apiKey
+      in: query
+      name: apikey
+      description: >-
+        The same service API key as a query parameter, for clients that can
+        only configure a URL. The header wins when both are sent.
 
   parameters:
     RequestId:
@@ -3971,14 +3980,20 @@ components:
           format: date-time
     SystemInfo:
       type: object
-      required: [version, database]
+      required: [app_name, version, database, url_base]
       properties:
+        app_name:
+          type: string
+          description: Always `Releasarr`.
         version:
           type: string
           description: The Releasarr release this instance runs, e.g. 0.10.0.
         database:
           type: string
           enum: [sqlite, postgresql]
+        url_base:
+          type: string
+          description: The path the instance is served under, e.g. `/releasarr`; empty at the root.
     SettingFieldInfo:
       type: object
       required: [key, section, kind, is_secret, requires_restart, locked, choices]

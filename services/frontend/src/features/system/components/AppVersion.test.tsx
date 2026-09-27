@@ -16,12 +16,17 @@ afterEach(() => {
 
 describe('AppVersion', () => {
   it('shows the version the backend reports', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({ version: '1.2.3', database: 'sqlite' });
+    vi.mocked(apiRequest).mockResolvedValue({
+      app_name: 'Releasarr',
+      version: '1.2.3',
+      database: 'sqlite',
+      url_base: '',
+    });
 
     renderWithProviders(<AppVersion />);
 
     expect(await screen.findByText('Releasarr v1.2.3')).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenCalledWith('/system', expect.anything());
+    expect(apiRequest).toHaveBeenCalledWith('/system/status', expect.anything());
   });
 
   it('renders nothing when the version cannot be read', async () => {

@@ -5,7 +5,22 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from src.infrastructure.http import BaseHttpClient, HttpClientError
+from src.infrastructure.http import BaseHttpClient, HttpClientError, api_base_url
+
+
+@pytest.mark.parametrize(
+    ("app_url", "expected"),
+    [
+        ("http://sonarr:8989", "http://sonarr:8989/api/v3"),
+        ("http://sonarr:8989/", "http://sonarr:8989/api/v3"),
+        ("https://host/sonarr", "https://host/sonarr/api/v3"),
+        ("http://sonarr:8989/api/v3", "http://sonarr:8989/api/v3"),
+        ("http://sonarr:8989/api/v3/", "http://sonarr:8989/api/v3"),
+        ("", ""),
+    ],
+)
+def test_api_base_url_appends_the_api_path_once(app_url: str, expected: str) -> None:
+    assert api_base_url(app_url, "/api/v3") == expected
 
 
 @pytest.fixture(autouse=True)

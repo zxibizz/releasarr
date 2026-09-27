@@ -15,7 +15,7 @@ Please report privately via GitHub's
 [private vulnerability reporting](https://github.com/zxibizz/releasarr/security/advisories/new)
 rather than opening a public issue.
 
-Include what you did, what happened, and the version from `GET /api/healthz`. A
+Include what you did, what happened, and the version from `GET /api/v1/system/status`. A
 proof of concept helps but is not required. Expect an acknowledgement within a
 week.
 

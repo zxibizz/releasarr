@@ -29,7 +29,7 @@ from src.infrastructure.arr.base import (
     UNKNOWN_QUALITY_ID,
     ArrHttpClient,
 )
-from src.infrastructure.http import BaseHttpClient, HttpClientError
+from src.infrastructure.http import BaseHttpClient, HttpClientError, api_base_url
 
 _logger = get_logger(LogComponent.INTEGRATION_SONARR)
 
@@ -58,7 +58,7 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
     ) -> None:
         self._api_key = api_key
         self._http = BaseHttpClient(
-            base_url=base_url,
+            base_url=api_base_url(base_url, "/api/v3"),
             headers={"X-Api-Key": api_key},
             timeout=timeout_seconds,
             transport=transport,

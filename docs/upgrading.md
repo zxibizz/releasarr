@@ -50,6 +50,23 @@ recreates the requests; release history and file mappings do not come back.
 
 If you build the image yourself: `Dockerfile.all-in-one` is now `Dockerfile`.
 
+## From 0.11 to the release after it
+
+The API and its paths now follow the \*arr apps. Nothing needs migrating by hand, but anything
+outside Releasarr that talked to it does:
+
+| | 0.11 | Now |
+| --- | --- | --- |
+| API prefix | `/api/` | `/api/v1/` |
+| Instance info | `GET /api/system` | `GET /api/v1/system/status` |
+| Health probe | `GET /api/healthz`, `/api/readyz` | `GET /ping` |
+| Service key | `X-API-Key` header | `X-Api-Key` header (case never mattered) or `?apikey=` |
+| Sonarr URL | `http://sonarr:8989/api/v3` | `http://sonarr:8989` |
+
+Old \*arr and qBittorrent URLs with the API suffix keep working, so stored settings and
+`RELEASARR_*_URL` variables can be cleaned up at leisure. `RELEASARR_AUTH_COOKIE_PATH` is ignored
+now; remove it. Everyone is signed out once, because the refresh cookie moved with the API.
+
 ## From before 0.10.0
 
 Releasarr used to be built from a checkout and run with the database and logs mounted into

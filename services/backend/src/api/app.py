@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src import __version__
 from src.api.errors import register_exception_handlers
+from src.api.paths import API_PREFIX
 from src.api.request_logging import register_request_logging
 from src.api.routes import register_routes
 from src.core.container import get_container
@@ -48,6 +50,8 @@ app = FastAPI(
     title=container.settings.api_title,
     version=__version__,
     lifespan=lifespan,
+    openapi_url=f"{API_PREFIX}/openapi.json",
+    docs_url=f"{API_PREFIX}/docs",
 )
 """FastAPI ASGI application."""
 
@@ -73,27 +77,18 @@ register_request_logging(app)
 register_exception_handlers(app)
 
 
-@app.get("/readyz")
-async def readiness_probe() -> dict[str, str]:
-    """Check application dependencies."""
+@app.get("/ping", include_in_schema=False)
+async def ping() -> JSONResponse:
+    """Unauthenticated probe, as the *arr apps serve it: OK only while the database answers."""
     from sqlalchemy import text
 
     container = get_container()
     try:
         async with container.db_manager.session() as session:
             await session.execute(text("SELECT 1"))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database connectivity failed"
-        ) from exc
-    return {"status": "ready"}
-
-
-@app.get("/healthz")
-async def healthcheck() -> dict[str, str]:
-    """Liveness probe; unauthenticated, so the container healthcheck can reach it."""
-
-    return {"status": "ok", "version": __version__}
+    except Exception:
+        return JSONResponse({"status": "Error"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return JSONResponse({"status": "OK"})
 
 
 __all__ = ["app"]

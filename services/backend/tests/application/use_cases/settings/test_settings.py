@@ -193,6 +193,36 @@ async def test_get_settings_reports_locked_and_restart_required() -> None:
 
     assert "prowlarr_search_concurrency" in view.locked_keys
     assert "auth_access_token_ttl_seconds" in view.restart_required_keys
+    assert "url_base" in view.restart_required_keys
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("", ""), ("/", ""), ("releasarr", "/releasarr"), ("/media/releasarr/", "/media/releasarr")],
+)
+async def test_update_normalizes_the_url_base(raw: str, expected: str) -> None:
+    repo = InMemoryAppSettingsRepository()
+    provider = LayeredSettingsProvider(repo, _env())
+    use_case = UpdateSettingsSectionUseCase(repository=repo, provider=provider)
+
+    await use_case.execute("general", {"url_base": raw})
+
+    assert (await repo.get()).overrides == {"url_base": expected}
+    assert provider.current().url_base == expected
+
+
+@pytest.mark.parametrize("raw", ["/a b", "/x/../y", '/"><script>', "/a;b"])
+async def test_update_rejects_a_url_base_that_is_not_plain_path_segments(raw: str) -> None:
+    _, use_case = _update(_env())
+
+    with pytest.raises(InvalidSettingValueError):
+        await use_case.execute("general", {"url_base": raw})
+
+
+def test_the_environment_url_base_is_normalized_too() -> None:
+    assert _env(url_base="releasarr/").url_base == "/releasarr"
+    with pytest.raises(ValueError):
+        _env(url_base="/a b")
 
 
 def _update(env: AppSettings) -> tuple[LayeredSettingsProvider, UpdateSettingsSectionUseCase]:

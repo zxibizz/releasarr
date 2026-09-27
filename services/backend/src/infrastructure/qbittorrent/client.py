@@ -10,7 +10,7 @@ import httpx
 
 from src.core.logging import get_logger
 from src.domain.enums import LogComponent
-from src.infrastructure.http import HttpClientError, build_async_client
+from src.infrastructure.http import HttpClientError, api_base_url, build_async_client
 
 _logger = get_logger(LogComponent.INTEGRATION_QBITTORRENT)
 
@@ -29,7 +29,7 @@ class QbittorrentClient:
 
     def __post_init__(self) -> None:
         self._client = build_async_client(
-            base_url=self.base_url,
+            base_url=api_base_url(self.base_url, "/api/v2"),
             timeout=self.timeout,
             transport=self._transport,
         )

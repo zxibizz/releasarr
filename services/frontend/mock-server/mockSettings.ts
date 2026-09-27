@@ -24,6 +24,7 @@ interface MockField {
  * environment-pinned, read-only state is visible in the mock UI.
  */
 const FIELDS: MockField[] = [
+  { key: 'url_base', section: 'general', kind: 'str', requires_restart: true },
   { key: 'release_missing_grace_seconds', section: 'general', kind: 'int' },
   { key: 'max_regrabs_per_indexer_per_execution', section: 'tasks', kind: 'int' },
   { key: 'regrab_indexer_delay_seconds', section: 'tasks', kind: 'float' },
@@ -48,7 +49,6 @@ const FIELDS: MockField[] = [
   { key: 'auth_refresh_remember_ttl_seconds', section: 'network', kind: 'int', requires_restart: true },
   { key: 'auth_refresh_reuse_grace_seconds', section: 'network', kind: 'int', requires_restart: true },
   { key: 'auth_cookie_name', section: 'network', kind: 'str', requires_restart: true },
-  { key: 'auth_cookie_path', section: 'network', kind: 'str', requires_restart: true },
   { key: 'auth_cookie_secure', section: 'network', kind: 'bool', requires_restart: true },
   { key: 'auth_cookie_samesite', section: 'network', kind: 'str', requires_restart: true, choices: ['lax', 'strict', 'none'] },
   { key: 'auth_max_failed_logins', section: 'network', kind: 'int' },
@@ -71,18 +71,18 @@ const FIELDS: MockField[] = [
 ];
 
 const values: Record<string, Record<string, unknown>> = {
-  general: { release_missing_grace_seconds: 900 },
+  general: { url_base: '', release_missing_grace_seconds: 900 },
   services: {
-    sonarr_url: 'http://sonarr:8989/api/v3',
+    sonarr_url: 'http://sonarr:8989',
     sonarr_api_key: 'sonarr-key',
     sonarr_quality_profile_id: null,
-    radarr_url: 'http://radarr:7878/api/v3',
+    radarr_url: 'http://radarr:7878',
     radarr_api_key: 'radarr-key',
     radarr_quality_profile_id: null,
-    prowlarr_url: 'http://prowlarr:9696/api/v1',
+    prowlarr_url: 'http://prowlarr:9696',
     prowlarr_api_key: 'prowlarr-key',
     prowlarr_categories: ['5000', '2000'],
-    qbittorrent_url: 'http://qbittorrent:8080/api/v2',
+    qbittorrent_url: 'http://qbittorrent:8080',
     qbittorrent_username: 'admin',
     qbittorrent_password: 'secret',
     qbittorrent_save_path: '/downloads',
@@ -96,7 +96,6 @@ const values: Record<string, Record<string, unknown>> = {
     auth_refresh_remember_ttl_seconds: 2592000,
     auth_refresh_reuse_grace_seconds: 15,
     auth_cookie_name: 'releasarr_refresh',
-    auth_cookie_path: '/api/auth',
     auth_cookie_secure: false,
     auth_cookie_samesite: 'lax',
     auth_max_failed_logins: 10,

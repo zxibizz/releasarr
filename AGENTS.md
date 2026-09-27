@@ -83,7 +83,7 @@ Violating these produces changes that look fine and break something elsewhere.
     [`docs/architecture.md`](docs/architecture.md#authentication-and-authorization).
 11. **Never cache `/api` in the service worker.** There is no `runtimeCaching` block today, and
     adding one looks harmless and is not: every response is authenticated and the refresh cookie
-    at `/api/auth` rotates exactly once per use, so a replayed response reaches the backend as a
+    at `<url base>/api/v1/auth` rotates exactly once per use, so a replayed response reaches the backend as a
     rotated token — which is what token theft looks like. `navigateFallbackDenylist` keeps `/api`
     out of the SPA fallback for the same reason. See
     [`services/frontend/docs/pwa.md`](services/frontend/docs/pwa.md).

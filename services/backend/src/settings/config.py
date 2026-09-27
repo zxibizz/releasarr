@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings
+
+# The value is written into the nginx site and the served index.html, so it is
+# held to plain path segments rather than escaped at each of those places.
+_URL_BASE_SEGMENT = re.compile(r"^[A-Za-z0-9._~-]+$")
+
+
+def normalize_url_base(value: str) -> str:
+    """Return ``value`` as ``/segment[/segment...]``, or ``""`` for the root."""
+
+    segments = [segment for segment in value.strip().split("/") if segment]
+    for segment in segments:
+        if segment in {".", ".."} or not _URL_BASE_SEGMENT.match(segment):
+            raise ValueError(
+                "url_base may only contain letters, digits and . _ ~ - between slashes"
+            )
+    return "".join(f"/{segment}" for segment in segments)
 
 
 class AppSettings(BaseSettings):
@@ -15,6 +32,11 @@ class AppSettings(BaseSettings):
     api_title: str = Field(default="Releasarr API")
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)
+
+    # The path Releasarr is served under behind a reverse proxy, as in the *arr
+    # apps' own URL Base setting. The container's nginx strips it before the API
+    # sees a request, so only browser-facing values (the cookie path) use it.
+    url_base: str = Field(default="")
 
     database_url: str = Field(default="sqlite+aiosqlite:///./releasarr.db")
 
@@ -25,9 +47,6 @@ class AppSettings(BaseSettings):
     auth_refresh_token_ttl_seconds: int = Field(default=86400)
     auth_refresh_remember_ttl_seconds: int = Field(default=2_592_000)
     auth_cookie_name: str = Field(default="releasarr_refresh")
-    # Browser-facing path: nginx and the Vite dev proxy both strip the leading
-    # /api, so this must be the path the client actually sees, not the FastAPI route.
-    auth_cookie_path: str = Field(default="/api/auth")
     # Off by default because most instances are reached over plain HTTP on a
     # LAN, where a browser silently drops a Secure cookie and login never sticks.
     auth_cookie_secure: bool = Field(default=False)
@@ -55,10 +74,12 @@ class AppSettings(BaseSettings):
     default_page_size: int = Field(default=20)
     max_page_size: int = Field(default=100)
 
-    sonarr_url: str = Field(default="http://localhost:8989/api/v3")
+    # The address each app's own UI answers on, URL base included; the clients
+    # add the API path themselves.
+    sonarr_url: str = Field(default="http://localhost:8989")
     sonarr_api_key: SecretStr = Field(default=SecretStr(""))
 
-    radarr_url: str = Field(default="http://localhost:7878/api/v3")
+    radarr_url: str = Field(default="http://localhost:7878")
     radarr_api_key: SecretStr = Field(default=SecretStr(""))
 
     # Sonarr and Radarr refuse an add without a quality profile, which releasarr
@@ -105,6 +126,11 @@ class AppSettings(BaseSettings):
     max_regrabs_per_indexer_per_execution: int = Field(default=20)
     regrab_indexer_delay_seconds: float = Field(default=2.0)
 
+    @field_validator("url_base")
+    @classmethod
+    def _normalize_url_base(cls, value: str) -> str:
+        return normalize_url_base(value)
+
     model_config = {
         "env_prefix": "RELEASARR_",
         "env_file": ".env",
@@ -119,4 +145,4 @@ def get_settings() -> AppSettings:
     return AppSettings()
 
 
-__all__ = ["AppSettings", "get_settings"]
+__all__ = ["AppSettings", "get_settings", "normalize_url_base"]

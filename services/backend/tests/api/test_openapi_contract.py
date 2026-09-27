@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from src.api.app import app
+from src.api.paths import API_PREFIX
 
 HTTP_METHODS = {"get", "put", "post", "delete", "patch", "options", "head", "trace"}
 
@@ -29,9 +30,10 @@ def _load_contract() -> dict[str, Any]:
         return yaml.safe_load(handle)
 
 
-def _collect_operations(spec: dict[str, Any]) -> set[tuple[str, str]]:
+def _collect_operations(spec: dict[str, Any], prefix: str = "") -> set[tuple[str, str]]:
     operations = set()
-    for path, definition in spec.get("paths", {}).items():
+    for relative_path, definition in spec.get("paths", {}).items():
+        path = f"{prefix}{relative_path}"
         for method, operation in definition.items():
             if method.lower() not in HTTP_METHODS:
                 continue
@@ -47,7 +49,10 @@ async def test_generated_openapi_covers_contract_operations() -> None:
     contract = _load_contract()
     generated = app.openapi()
 
-    contract_ops = _collect_operations(contract)
+    # The contract's paths are relative to its same-origin server, which is where
+    # the app mounts its routers.
+    assert contract["servers"][0]["url"] == API_PREFIX
+    contract_ops = _collect_operations(contract, prefix=API_PREFIX)
     generated_ops = _collect_operations(generated)
 
     missing = contract_ops - generated_ops

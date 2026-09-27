@@ -20,7 +20,7 @@ from src.application.interfaces.indexers import (
 )
 from src.core.logging import get_logger
 from src.domain.enums import IndexerEventType, IndexerLogLevel, LogComponent
-from src.infrastructure.http import BaseHttpClient, HttpClientError
+from src.infrastructure.http import BaseHttpClient, HttpClientError, api_base_url
 from src.infrastructure.prowlarr.parsing import (
     safe_bool,
     safe_datetime,
@@ -78,7 +78,7 @@ class ProwlarrIndexerDirectory(IndexerDirectory):
 
     def __post_init__(self) -> None:
         self._http = BaseHttpClient(
-            base_url=self.base_url,
+            base_url=api_base_url(self.base_url, "/api/v1"),
             headers={"X-Api-Key": self.api_key},
             timeout=self.timeout_seconds,
             transport=self._transport,

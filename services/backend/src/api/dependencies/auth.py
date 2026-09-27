@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from fastapi import Depends, Header, status
+from fastapi import Depends, Header, Query, status
 
 from src.api.errors import api_error
 from src.application.use_cases.auth import AuthenticatePrincipalUseCase, Permission, Principal
@@ -17,12 +17,16 @@ def _authenticate_use_case() -> AuthenticatePrincipalUseCase:
 
 async def get_principal(
     authorization: str | None = Header(default=None),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
+    # Kept out of every operation's parameters; the contract declares it once,
+    # as a security scheme.
+    apikey: str | None = Query(default=None, include_in_schema=False),
 ) -> Principal | None:
     """Resolve the caller from a bearer access token or the service API key.
 
-    Returns ``None`` when no credentials were presented, so a request with no
-    auth header at all never touches the database.
+    The key is read from ``X-Api-Key`` or, as the *arr apps also allow, from an
+    ``apikey`` query parameter. Returns ``None`` when no credentials were
+    presented, so a request with no auth at all never touches the database.
     """
 
     if authorization:
@@ -35,8 +39,9 @@ async def get_principal(
             )
         return await _authenticate_use_case().authenticate_bearer(token)
 
-    if x_api_key:
-        return await _authenticate_use_case().authenticate_service_key(x_api_key)
+    service_key = x_api_key or apikey
+    if service_key:
+        return await _authenticate_use_case().authenticate_service_key(service_key)
 
     return None
 

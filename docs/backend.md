@@ -61,8 +61,9 @@ These `_get_*` functions are also the seam the API tests override — see
 ### Auth and permissions
 
 `src/api/dependencies/auth.py` resolves a `Principal` (`src/application/use_cases/auth/permissions.py`)
-from either an `Authorization: Bearer` access token (a session, from `/auth/login`) or an
-`X-API-Key` header (the service key, which always authenticates as a full admin — it isn't bound
+from either an `Authorization: Bearer` access token (a session, from `/auth/login`) or the
+service key, from an `X-Api-Key` header or an `apikey` query parameter as in the \*arr apps (it
+always authenticates as a full admin — it isn't bound
 to any user account). Three dependencies build on it:
 
 ```python
@@ -289,8 +290,11 @@ class SonarrHttpClient(SonarrService):
 
 The `transport` parameter exists so tests can inject `httpx.MockTransport`. Keep it.
 
-Base URLs are passed through verbatim, so they must already include the provider's API path:
-Sonarr/Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`.
+Sonarr, Radarr, Prowlarr and qBittorrent are configured by the address their own UI answers on
+(URL base included), as every other \*arr client asks for them, and each client appends its API
+path with `api_base_url()` from `src/infrastructure/http/`: Sonarr/Radarr `/api/v3`, Prowlarr
+`/api/v1`, qBittorrent `/api/v2`. A URL that already ends in that path is left as it is. TVDB
+and TMDB base URLs are passed through verbatim.
 
 ### Repositories
 
@@ -371,7 +375,10 @@ API rejects a PATCH of it. Every edit bumps a `revision` on the row; both proces
 (`AppContainer.apply_settings_updates()`, called from the request middleware and each scheduler
 loop) and, on a change, drop their cached service and use-case containers so the next resolve
 rebuilds clients from the new settings. A field marked `requires_restart` is read once at process
-startup (logging, auth wiring) and is not re-applied live.
+startup (logging, auth wiring, the nginx site's URL base) and is not re-applied live. A field
+whose values need more than a shape check sets `normalize` — `url_base` does, since it is
+written into the nginx site and `index.html` and so is held to plain path segments; the same
+function validates it on `AppSettings`, because a stored override bypasses model validation.
 
 For an env-only setting that is never editable, add the `AppSettings` field and read it as before,
 but leave it out of the registry — and list it in `READONLY_KEYS` so the UI shows it as fixed.

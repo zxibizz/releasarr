@@ -5,6 +5,6 @@ case "${RELEASARR_MODE:-all}" in
         [ "$(/command/s6-svstat -u /run/service/scheduler)" = "true" ]
         ;;
     *)
-        exec curl -fsS http://127.0.0.1:8050/api/healthz
+        exec curl -fsS "http://127.0.0.1:8050$(cat /run/releasarr/url-base 2>/dev/null)/ping"
         ;;
 esac

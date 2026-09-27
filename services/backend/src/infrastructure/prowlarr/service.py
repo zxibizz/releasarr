@@ -13,7 +13,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchService,
     ReleaseSearchUnavailableError,
 )
-from src.infrastructure.http import BaseHttpClient, HttpClientError
+from src.infrastructure.http import BaseHttpClient, HttpClientError, api_base_url
 from src.infrastructure.prowlarr.parsing import (
     safe_datetime,
     safe_int,
@@ -36,7 +36,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
 
     def __post_init__(self) -> None:
         self._http = BaseHttpClient(
-            base_url=self.base_url,
+            base_url=api_base_url(self.base_url, "/api/v1"),
             headers={"X-Api-Key": self.api_key},
             timeout=self.timeout_seconds,
             transport=self._transport,

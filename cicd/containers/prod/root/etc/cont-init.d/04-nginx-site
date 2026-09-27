@@ -1,0 +1,34 @@
+#!/command/with-contenv sh
+# Renders the nginx site for the effective URL base: the environment's, or the
+# one saved in Settings, which is why this runs after migrations and why a
+# change there takes a restart, as it does in the *arr apps.
+set -e
+
+if [ "${RELEASARR_MODE:-all}" = "worker" ]; then
+    exit 0
+fi
+
+cd /app
+export HOME=/config
+url_base="$(s6-applyuidgid -u "${PUID:-1000}" -g "${PGID:-1000}" /app/.venv/bin/python -m src.api.url_base)"
+
+# Served at the root, /static is the web root as it is. Under a URL base it is
+# linked in at that path, so every request path still maps straight onto a file.
+web_root=/static
+if [ -n "${url_base}" ]; then
+    web_root=/run/releasarr/www
+    rm -rf "${web_root}"
+    mkdir -p "$(dirname "${web_root}${url_base}")"
+    ln -s /static "${web_root}${url_base}"
+fi
+
+# The healthcheck runs outside s6 and has no other way to learn the path.
+mkdir -p /run/releasarr
+printf '%s' "${url_base}" > /run/releasarr/url-base
+
+# normalize_url_base admits only [A-Za-z0-9._~-] and slashes, so neither value
+# can contain the # delimiter.
+sed -e "s#__URL_BASE__#${url_base}#g" -e "s#__WEB_ROOT__#${web_root}#g" \
+    /etc/nginx/releasarr.conf.template > /etc/nginx/sites-available/default
+
+echo "releasarr url base: ${url_base:-/}"

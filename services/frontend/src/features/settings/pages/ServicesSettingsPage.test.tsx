@@ -52,15 +52,15 @@ const settings: SettingsResponse = {
   ],
   values: {
     services: {
-      sonarr_url: 'http://sonarr:8989/api/v3',
+      sonarr_url: 'http://sonarr:8989',
       sonarr_api_key: '**********',
       sonarr_quality_profile_id: 4,
-      prowlarr_url: 'http://prowlarr:9696/api/v1',
+      prowlarr_url: 'http://prowlarr:9696',
       prowlarr_api_key: '**********',
       prowlarr_categories: ['5000'],
       qbittorrent_url: '',
       qbittorrent_category: null,
-      radarr_url: 'http://radarr:7878/api/v3',
+      radarr_url: 'http://radarr:7878',
       radarr_api_key: '',
     },
     network: { prowlarr_search_retries: 1, auth_lockout_seconds: 900 },

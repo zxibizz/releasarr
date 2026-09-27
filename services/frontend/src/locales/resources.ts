@@ -107,6 +107,11 @@ export const resources = {
           failed: 'Connection failed',
         },
         fields: {
+          url_base: {
+            label: 'URL base',
+            description:
+              'For reverse proxy support, e.g. /releasarr. Empty serves Releasarr from the root.',
+          },
           release_missing_grace_seconds: {
             label: 'Release missing grace period (seconds)',
             description: 'How long a torrent may be absent before the release is failed.',
@@ -121,25 +126,39 @@ export const resources = {
             description:
               'Trackers throttle a client that asks too often, so checks on the same indexer are spaced out.',
           },
-          sonarr_url: { label: 'Sonarr URL', description: '' },
+          sonarr_url: {
+            label: 'Sonarr URL',
+            description: 'The address Sonarr opens on, with its URL base, e.g. http://sonarr:8989.',
+          },
           sonarr_api_key: { label: 'Sonarr API key', description: '' },
           sonarr_quality_profile_id: {
             label: 'Sonarr quality profile ID',
             description: 'Left unset, the first profile Sonarr reports is used.',
           },
-          radarr_url: { label: 'Radarr URL', description: '' },
+          radarr_url: {
+            label: 'Radarr URL',
+            description: 'The address Radarr opens on, with its URL base, e.g. http://radarr:7878.',
+          },
           radarr_api_key: { label: 'Radarr API key', description: '' },
           radarr_quality_profile_id: {
             label: 'Radarr quality profile ID',
             description: 'Left unset, the first profile Radarr reports is used.',
           },
-          prowlarr_url: { label: 'Prowlarr URL', description: '' },
+          prowlarr_url: {
+            label: 'Prowlarr URL',
+            description:
+              'The address Prowlarr opens on, with its URL base, e.g. http://prowlarr:9696.',
+          },
           prowlarr_api_key: { label: 'Prowlarr API key', description: '' },
           prowlarr_categories: {
             label: 'Prowlarr categories',
             description: 'Search category IDs to include; empty searches every category.',
           },
-          qbittorrent_url: { label: 'qBittorrent URL', description: '' },
+          qbittorrent_url: {
+            label: 'qBittorrent URL',
+            description:
+              'The address the qBittorrent Web UI opens on, e.g. http://qbittorrent:8080.',
+          },
           qbittorrent_username: { label: 'qBittorrent username', description: '' },
           qbittorrent_password: { label: 'qBittorrent password', description: '' },
           qbittorrent_save_path: { label: 'qBittorrent save path', description: '' },
@@ -160,10 +179,10 @@ export const resources = {
           },
           auth_refresh_reuse_grace_seconds: {
             label: 'Refresh reuse grace period (seconds)',
-            description: 'How long a just-rotated refresh token is forgiven as a client racing itself.',
+            description:
+              'How long a just-rotated refresh token is forgiven as a client racing itself.',
           },
           auth_cookie_name: { label: 'Refresh cookie name', description: '' },
-          auth_cookie_path: { label: 'Refresh cookie path', description: '' },
           auth_cookie_secure: { label: 'Secure cookie only', description: '' },
           auth_cookie_samesite: { label: 'Cookie SameSite policy', description: '' },
           auth_max_failed_logins: { label: 'Max failed logins', description: '' },
@@ -1253,6 +1272,11 @@ export const resources = {
           failed: 'Ошибка подключения',
         },
         fields: {
+          url_base: {
+            label: 'Базовый URL',
+            description:
+              'Для работы за обратным прокси, например /releasarr. Пусто — Releasarr открывается с корня.',
+          },
           release_missing_grace_seconds: {
             label: 'Период ожидания пропавшего релиза (сек.)',
             description: 'Сколько торрент может отсутствовать, прежде чем релиз будет провален.',
@@ -1267,25 +1291,40 @@ export const resources = {
             description:
               'Трекеры ограничивают частые запросы, поэтому проверки на одном индексаторе разнесены по времени.',
           },
-          sonarr_url: { label: 'URL Sonarr', description: '' },
+          sonarr_url: {
+            label: 'URL Sonarr',
+            description:
+              'Адрес, по которому открывается Sonarr, с его базовым URL, например http://sonarr:8989.',
+          },
           sonarr_api_key: { label: 'API-ключ Sonarr', description: '' },
           sonarr_quality_profile_id: {
             label: 'ID профиля качества Sonarr',
             description: 'Если не задан, используется первый профиль, который вернёт Sonarr.',
           },
-          radarr_url: { label: 'URL Radarr', description: '' },
+          radarr_url: {
+            label: 'URL Radarr',
+            description:
+              'Адрес, по которому открывается Radarr, с его базовым URL, например http://radarr:7878.',
+          },
           radarr_api_key: { label: 'API-ключ Radarr', description: '' },
           radarr_quality_profile_id: {
             label: 'ID профиля качества Radarr',
             description: 'Если не задан, используется первый профиль, который вернёт Radarr.',
           },
-          prowlarr_url: { label: 'URL Prowlarr', description: '' },
+          prowlarr_url: {
+            label: 'URL Prowlarr',
+            description:
+              'Адрес, по которому открывается Prowlarr, с его базовым URL, например http://prowlarr:9696.',
+          },
           prowlarr_api_key: { label: 'API-ключ Prowlarr', description: '' },
           prowlarr_categories: {
             label: 'Категории Prowlarr',
             description: 'ID категорий поиска; пусто — искать во всех категориях.',
           },
-          qbittorrent_url: { label: 'URL qBittorrent', description: '' },
+          qbittorrent_url: {
+            label: 'URL qBittorrent',
+            description: 'Адрес веб-интерфейса qBittorrent, например http://qbittorrent:8080.',
+          },
           qbittorrent_username: { label: 'Имя пользователя qBittorrent', description: '' },
           qbittorrent_password: { label: 'Пароль qBittorrent', description: '' },
           qbittorrent_save_path: { label: 'Путь сохранения qBittorrent', description: '' },
@@ -1306,10 +1345,10 @@ export const resources = {
           },
           auth_refresh_reuse_grace_seconds: {
             label: 'Период прощения повторного refresh (сек.)',
-            description: 'Как долго только что обновлённый refresh-токен прощается как гонка одного клиента.',
+            description:
+              'Как долго только что обновлённый refresh-токен прощается как гонка одного клиента.',
           },
           auth_cookie_name: { label: 'Имя cookie обновления', description: '' },
-          auth_cookie_path: { label: 'Путь cookie обновления', description: '' },
           auth_cookie_secure: { label: 'Только защищённые cookie', description: '' },
           auth_cookie_samesite: { label: 'Политика SameSite для cookie', description: '' },
           auth_max_failed_logins: { label: 'Макс. неудачных попыток входа', description: '' },
@@ -1557,8 +1596,7 @@ export const resources = {
         attribution: {
           sources: 'Метаданные предоставлены',
           and: 'и',
-          tmdbNotice:
-            'Этот продукт использует TMDB API, но не одобрен и не сертифицирован TMDB.',
+          tmdbNotice: 'Этот продукт использует TMDB API, но не одобрен и не сертифицирован TMDB.',
         },
         actions: {
           add: 'Новый запрос',

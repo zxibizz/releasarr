@@ -509,6 +509,7 @@ class SystemUseCases:
         return GetSystemInfoUseCase(
             version=__version__,
             database=make_url(self._container.settings.database_url).get_backend_name(),
+            url_base=self._container.settings.url_base,
         )
 
 

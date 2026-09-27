@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Releasarr logs every task run and every integration call. The logs plus
-        `GET /api/system` answer most questions on their own, so please include both.
+        `GET /api/v1/system/status` answer most questions on their own, so please include both.
 
         Security issues go through [private reporting](https://github.com/zxibizz/releasarr/security/advisories/new)
         instead of this form.
@@ -35,7 +35,7 @@ body:
     attributes:
       label: Releasarr version
       description: >
-        The `version` field from `curl http://releasarr:8050/api/healthz`, the
+        The `version` field from `GET /api/v1/system/status` below, the
         version at the bottom of the user menu, or your image tag.
     validations:
       required: true
@@ -43,10 +43,11 @@ body:
   - type: textarea
     id: system
     attributes:
-      label: GET /api/system output
+      label: GET /api/v1/system/status output
       description: >
-        `curl -H "X-API-Key: $SERVICE_KEY" http://releasarr:8050/api/system`, with
-        the service key an admin can copy from **System → Users**.
+        `curl "http://releasarr:8050/api/v1/system/status?apikey=$SERVICE_KEY"`,
+        prefixed with your URL base if you set one, using the service key an
+        admin can copy from **System → Users**.
       render: json
     validations:
       required: true

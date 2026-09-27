@@ -9,10 +9,11 @@ Three processes, one container image:
 
 ```
         ┌─────────────────────────────────────────────┐
-        │  nginx  :8050                               │
+        │  nginx  :8050          (paths after the     │
+        │                         URL base, if any)   │
         │    /        → /static  (built frontend)     │
-        │    /api/    → localhost:8000  (prefix       │
-        │               stripped by trailing slash)   │
+        │    /api/v1/ → localhost:8000/api/v1/        │
+        │    /ping    → localhost:8000/ping           │
         └──────────────────┬──────────────────────────┘
                            │
         ┌──────────────────▼──────────┐   ┌───────────────────────────┐
@@ -28,7 +29,10 @@ The `/etc/cont-init.d` steps run first, in order: `00-mode` validates `RELEASARR
 `01-prepare` hands `/config` to `PUID`:`PGID`, `02-auth-secret` generates
 `/config/auth-secret` when `RELEASARR_AUTH_SECRET` is unset and exports it to the services, and
 `03-migrations` runs `alembic upgrade head` — a failure there takes the container down rather
-than serving against a stale schema. The three services in `/etc/services.d` come up afterwards,
+than serving against a stale schema. `04-nginx-site` then reads the effective URL base (the
+environment's, or the one saved in Settings, via `python -m src.api.url_base`) and renders
+`/etc/nginx/releasarr.conf.template` into the nginx site — which is why a URL base change takes a
+restart, as it does in the \*arr apps. The three services in `/etc/services.d` come up afterwards,
 uvicorn and the scheduler dropped to `PUID`:`PGID`, each restarted on its own if it dies.
 `RELEASARR_MODE=web` parks the scheduler and `worker` parks nginx and uvicorn (and skips the
 migrations), so the same image runs as two containers against a shared Postgres. The tree
@@ -40,6 +44,14 @@ to tell them apart. The `run` scripts start with `exec 2>&1` because s6 pipes on
 logger, and both uvicorn and Loguru write to stderr. nginx is pointed at `/dev/stdout` and
 `/dev/stderr` for the same reason, which also stops it filling `/var/log/nginx` inside the
 container, where nothing rotates it.
+
+nginx is the only place the URL base exists on the server side. It strips it before proxying, so
+the API always sees `/api/v1/...` and `/ping`; the static files are linked in under the base
+path; and the one `<base href="/" />` in `index.html` is rewritten to it. The frontend is built
+with relative URLs (`base: './'`), so assets, the manifest, the service worker, the router's
+`basename` and the API client all resolve against that tag — one build serves any URL base. The
+backend reads `url_base` only for what the browser sees: the refresh cookie's path and
+`/system/status`.
 
 nginx also sets the cache headers the built frontend depends on. `/sw.js`, `/index.html` and the
 manifest are always revalidated — a cached service worker would pin a browser to a build the
@@ -56,7 +68,7 @@ s6 ends its own halt sequence with a kill.
 
 `docker-compose.dev.yaml` keeps the same split but gives each process its own container with the
 source bind-mounted and reload enabled, and lets the Vite dev server stand in for nginx and the
-built bundle — it proxies `/api` with the prefix stripped exactly as nginx does, so the two
+built bundle — it proxies `/api` through unchanged exactly as nginx does, so the two
 environments agree on URLs.
 
 **The API never executes background work.** `POST /tasks/…` writes `sync_jobs` rows and returns
@@ -84,21 +96,23 @@ consumers:
 | Frontend | `npm run codegen` regenerates `src/lib/api/generated/types.ts` with `openapi-typescript`. `src/types.ts` re-exports the schemas the app uses. |
 | Mock server | `services/frontend/mock-server/` implements the same document, and serves it at `/openapi.yaml`. |
 
-Note the prefix asymmetry: the spec's `servers` entry is `/api` because that is what nginx
-serves under, but FastAPI mounts routes at `/requests`, `/discover`, and so on. The app itself
-has no `/api` prefix.
+The spec's `servers` entry is `/api/v1`, and FastAPI mounts every router under that same
+`API_PREFIX` (`src/api/paths.py`), so a path in the spec is the app's path minus the prefix. Only
+`/ping` lives outside it, unauthenticated and out of the contract, as in the \*arr apps.
 
 ## Authentication and authorization
 
 Every request carries one of two credentials: an `Authorization: Bearer` access token (a human
-session, 15 minutes, issued by `/auth/login`) or an `X-API-Key` service key (long-lived, always
-admin — for the bot and similar integrations, not bound to any particular user). Both resolve to
+session, 15 minutes, issued by `/auth/login`) or the service key (long-lived, always admin —
+for the bot and similar integrations, not bound to any particular user), sent as an `X-Api-Key`
+header or, as the \*arr apps also accept it, an `?apikey=` query parameter. nginx logs that
+parameter as `(removed)` and uvicorn runs without an access log, so it never reaches a log. Both resolve to
 the same `Principal` (`src/application/use_cases/auth/permissions.py`), which is what every route
 depends on via `require_user` / `require_admin` / `require_permission(...)` — see
 [`backend.md`](backend.md#auth-and-permissions).
 
 A session's refresh token is the one piece of this that is not a bearer token: it lives in an
-httpOnly cookie (`releasarr_refresh`, path `/api/auth`, set by `POST /auth/login|refresh`), so
+httpOnly cookie (`releasarr_refresh`, path `<url base>/api/v1/auth`, set by `POST /auth/login|refresh`), so
 `services/frontend/src/lib/api/client.ts` never touches it directly. It reads the access token
 from memory instead, and reacts to a `401` by refreshing once and retrying. That refresh is the
 client's `refreshSession()`, used by `AuthProvider`'s bootstrap too, so however many requests 401

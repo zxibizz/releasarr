@@ -18,6 +18,7 @@ import time
 
 from fastapi import FastAPI, Request, Response
 
+from src.api.paths import API_PREFIX
 from src.core.container import get_container
 from src.core.logging import get_logger
 from src.domain.enums import LogComponent
@@ -49,7 +50,7 @@ def register_request_logging(app: FastAPI) -> None:
             # browser by /logs -- so a key passed into metadata would be a key on
             # screen.
             path = request.url.path
-            log = _auth_logger if path.startswith("/auth") else _http_logger
+            log = _auth_logger if path.startswith(f"{API_PREFIX}/auth") else _http_logger
             log.debug(
                 f"{request.method} {path}",
                 status_code=status_code,

@@ -11,7 +11,7 @@ uv run alembic upgrade head
 uv run fastapi dev src/api/app.py
 ```
 
-The API comes up on `:8001`. Health probes are `/healthz` and `/readyz`; everything else needs a
+The API comes up on `:8001`, under `/api/v1`. The health probe is `/ping`; everything else needs a
 signed-in session (or a service API key for scripts) — see "Auth" below. Set
 `RELEASARR_AUTH_SECRET` before starting; there is no default and the app refuses to boot without
 it.
@@ -40,7 +40,7 @@ depends on `require_user` / `require_admin` / `require_permission(...)`
 (`src/api/dependencies/auth.py`), which resolve either credential to a `Principal`. For
 script/bot access, there is a single service API key, generated automatically and always
 present (as in Sonarr): fetch its metadata or rotate it under `/service-key`, or from **Users**
-in the UI, and send it as `X-API-Key` instead of signing in — it always authenticates as
+in the UI, and send it as `X-Api-Key` (or `?apikey=`) instead of signing in — it always authenticates as
 a full admin. See
 [`../../docs/architecture.md`](../../docs/architecture.md#authentication-and-authorization) and
 [`docs/backend.md`](../../docs/backend.md#auth-and-permissions) for the full picture.
@@ -111,8 +111,9 @@ Settings live in `src/settings/config.py`, read from the environment with a `REL
 prefix or from `.env`. The full table with defaults is in the
 [root README](../../README.md#configuration). The ones that catch people out:
 
-- **Base URLs are passed through verbatim** and must already include the provider's API path:
-  Sonarr and Radarr `…/api/v3`, Prowlarr `…/api/v1`, qBittorrent `…/api/v2`, TMDB `…/3`.
+- **\*arr URLs are the app's own address**, URL base included (`http://sonarr:8989`); the
+  clients append `/api/v3`, `/api/v1` or `/api/v2` themselves. TVDB and TMDB base URLs are
+  passed through verbatim.
 - **`RELEASARR_AUTH_SECRET` has no default and fails closed.** `AppContainer.startup()` raises
   before the app accepts a connection if it is empty. The container generates one into
   `/config/auth-secret` before starting the backend when it is unset.

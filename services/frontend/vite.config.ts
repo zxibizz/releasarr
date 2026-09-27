@@ -10,15 +10,21 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 /*
  * Both knobs exist for the containerised dev stack (docker-compose.dev.yaml) and
  * are unset everywhere else. The proxy reproduces what nginx does in production
- * — serve the API under /api, stripped before it reaches the backend — so the
- * browser can stay on one origin while the backend lives on the compose
- * network. Polling is needed because a bind mount delivers no filesystem events
- * to a Linux container on a macOS or Windows host.
+ * — pass /api through to the backend unchanged — so the browser can stay on one
+ * origin while the backend lives on the compose network. Polling is needed
+ * because a bind mount delivers no filesystem events to a Linux container on a
+ * macOS or Windows host.
  */
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET;
 const watchPolling = process.env.VITE_WATCH_POLLING === 'true';
 
 export default defineConfig({
+  /*
+   * Relative, so one build serves any URL base: the <base href> nginx writes
+   * into index.html is what every asset, the manifest and the worker resolve
+   * against.
+   */
+  base: './',
   plugins: [
     react(),
     /*
@@ -41,15 +47,16 @@ export default defineConfig({
        */
       devOptions: { enabled: false },
       manifest: {
-        id: '/',
         name: 'Releasarr',
         short_name: 'Releasarr',
         description: 'Orchestrates media requests across Sonarr, Radarr, Prowlarr and qBittorrent.',
         // A manifest is a static file, so it cannot follow the in-app language
         // switch the way the rest of the UI does.
         lang: 'en',
-        start_url: '/',
-        scope: '/',
+        // Relative to the manifest, so they follow the URL base. `id` is left
+        // to default to start_url, which at the root is the `/` it used to be.
+        start_url: './',
+        scope: './',
         display: 'standalone',
         orientation: 'any',
         /*
@@ -85,9 +92,10 @@ export default defineConfig({
          * authenticated and the refresh cookie rotates exactly once per use, so
          * replaying one looks to the backend like a stolen token — hence the
          * denylist, and hence the deliberate absence of a `runtimeCaching`
-         * block.
+         * block. Matched anywhere in the path, since the URL base in front of
+         * it is only known at runtime.
          */
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/\/api\//, /\/ping$/],
         cleanupOutdatedCaches: true,
         skipWaiting: false,
         clientsClaim: false,
@@ -107,7 +115,6 @@ export default defineConfig({
           '/api': {
             target: apiProxyTarget,
             changeOrigin: true,
-            rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
           },
         }
       : undefined,

@@ -21,8 +21,10 @@ def _get_use_case(container: AppContainer = Depends(_get_container)) -> GetSyste
     return container.use_cases.system.info
 
 
-@router.get("", response_model=SystemInfo, responses=error_responses(AUTH_REQUIRED_RESPONSES))
-async def get_system_info(
+@router.get(
+    "/status", response_model=SystemInfo, responses=error_responses(AUTH_REQUIRED_RESPONSES)
+)
+async def get_system_status(
     use_case: GetSystemInfoUseCase = Depends(_get_use_case),
 ) -> SystemInfo:
     info = await use_case.execute()

@@ -1,7 +1,8 @@
 """API router registration helpers."""
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
+from src.api.paths import API_PREFIX
 from src.api.routes.auth import router as auth_router
 from src.api.routes.discover import router as discover_router
 from src.api.routes.indexers import router as indexers_router
@@ -17,20 +18,22 @@ from src.api.routes.users import router as users_router
 
 
 def register_routes(app: FastAPI) -> None:
-    """Attach all routers to the FastAPI application."""
+    """Attach all routers to the FastAPI application, under the API prefix."""
 
-    app.include_router(auth_router)
-    app.include_router(users_router)
-    app.include_router(service_keys_router)
-    app.include_router(settings_router)
-    app.include_router(system_router)
-    app.include_router(requests_router)
-    app.include_router(releases_router)
-    app.include_router(request_releases_router)
-    app.include_router(discover_router)
-    app.include_router(logs_router)
-    app.include_router(tasks_router)
-    app.include_router(indexers_router)
+    api = APIRouter(prefix=API_PREFIX)
+    api.include_router(auth_router)
+    api.include_router(users_router)
+    api.include_router(service_keys_router)
+    api.include_router(settings_router)
+    api.include_router(system_router)
+    api.include_router(requests_router)
+    api.include_router(releases_router)
+    api.include_router(request_releases_router)
+    api.include_router(discover_router)
+    api.include_router(logs_router)
+    api.include_router(tasks_router)
+    api.include_router(indexers_router)
+    app.include_router(api)
 
 
 __all__ = ["register_routes"]

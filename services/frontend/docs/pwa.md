@@ -21,7 +21,7 @@ hand-written list would go stale the first time a chunk was renamed.
 Nothing under `/api` — not precached, and not cached at runtime. There is deliberately **no
 `runtimeCaching` block**; adding one is the change most likely to look harmless and be wrong:
 
-- Every response is authenticated, and the refresh cookie is scoped to `/api/auth` and rotates
+- Every response is authenticated, and the refresh cookie is scoped to `<url base>/api/v1/auth` and rotates
   exactly once per use (with a 15-second reuse grace). A replayed response reaches the backend
   as a rotated token, which is what token theft looks like.
 - The access token lives in memory only, so a cached `200` from a previous session would be

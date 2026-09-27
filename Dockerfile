@@ -11,7 +11,9 @@ WORKDIR /app
 COPY services/frontend/package.json services/frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY services/frontend/ .
-ENV VITE_API_URL=/api
+# Relative: resolved in the browser against the <base href> nginx sets, so the
+# one build works under any URL base.
+ENV VITE_API_URL=api/v1
 RUN npm run build
 
 # ------------------------------------------------

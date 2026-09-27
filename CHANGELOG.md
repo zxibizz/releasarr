@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **URL base.** Set **Settings → General → URL base** (or `RELEASARR_URL_BASE`) to, say,
+  `/releasarr` and restart, and the whole app — UI, API, installed PWA — is served under that
+  path, as the \*arr apps' own URL Base setting does.
+- **`?apikey=` authenticates like `X-Api-Key`**, as in the \*arr apps, for tools that can only
+  be given a URL. nginx logs it as `(removed)`.
+- **`GET /ping`**, unauthenticated, answers `{"status": "OK"}` while the database does — the
+  probe uptime monitors already use for Sonarr and Radarr.
+
+### Changed
+
+- **Sonarr, Radarr, Prowlarr and qBittorrent are configured by their own address**, e.g.
+  `http://sonarr:8989`, with no `/api/v3` suffix — Releasarr appends the API path. A URL that
+  still ends in the old suffix keeps working.
+- **The API moved to `/api/v1`.** `GET /api/system` is now `GET /api/v1/system/status` and also
+  reports `app_name` and `url_base`. Scripts calling the API need the new prefix.
+- **`/api/healthz` and `/api/readyz` are replaced by `/ping`.** The container healthcheck
+  follows; update any external monitor that polled them.
+- **The refresh cookie now lives at `<url base>/api/v1/auth`**, so everyone signs in once more
+  after upgrading. The `RELEASARR_AUTH_COOKIE_PATH` setting is gone; the path follows the URL
+  base.
+
 ## [0.11.0] - 2026-09-27
 
 The first release with a published image. v0.10.0 was tagged, but its image was never built

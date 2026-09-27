@@ -881,7 +881,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/system": {
+    "/system/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -890,9 +890,9 @@ export interface paths {
         };
         /**
          * Describe the running instance
-         * @description The version and database backend of this instance, for the UI and for bug reports.
+         * @description The name, version, database backend and URL base of this instance, for the UI and for bug reports. The unauthenticated liveness probe is `GET /ping`, outside the API prefix, as in the *arr apps.
          */
-        get: operations["getSystemInfo"];
+        get: operations["getSystemStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1808,10 +1808,14 @@ export interface components {
             created_at: string;
         };
         SystemInfo: {
+            /** @description Always `Releasarr`. */
+            app_name: string;
             /** @description The Releasarr release this instance runs, e.g. 0.10.0. */
             version: string;
             /** @enum {string} */
             database: "sqlite" | "postgresql";
+            /** @description The path the instance is served under, e.g. `/releasarr`; empty at the root. */
+            url_base: string;
         };
         SettingFieldInfo: {
             key: string;
@@ -4532,7 +4536,7 @@ export interface operations {
             };
         };
     };
-    getSystemInfo: {
+    getSystemStatus: {
         parameters: {
             query?: never;
             header?: never;

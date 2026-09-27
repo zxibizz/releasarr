@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 
 from src.api.dependencies import require_user
 from src.api.errors import api_error
+from src.api.paths import API_PREFIX
 from src.api.responses import AUTH_REQUIRED_RESPONSES, error_responses
 from src.application.use_cases.auth import (
     BootstrapAdminCommand,
@@ -55,6 +56,11 @@ def _get_container() -> AppContainer:
     return get_container()
 
 
+def _cookie_path(container: AppContainer) -> str:
+    # The path the browser sees, which nginx has already stripped the URL base from.
+    return f"{container.settings.url_base}{API_PREFIX}{router.prefix}"
+
+
 def _set_refresh_cookie(
     response: Response, container: AppContainer, session: IssuedSessionDTO
 ) -> None:
@@ -64,7 +70,7 @@ def _set_refresh_cookie(
         key=settings.auth_cookie_name,
         value=session.refresh_token,
         max_age=max_age,
-        path=settings.auth_cookie_path,
+        path=_cookie_path(container),
         secure=settings.auth_cookie_secure,
         httponly=True,
         samesite=settings.auth_cookie_samesite,
@@ -73,7 +79,7 @@ def _set_refresh_cookie(
 
 def _clear_refresh_cookie(response: Response, container: AppContainer) -> None:
     settings = container.settings
-    response.delete_cookie(key=settings.auth_cookie_name, path=settings.auth_cookie_path)
+    response.delete_cookie(key=settings.auth_cookie_name, path=_cookie_path(container))
 
 
 def _session_to_response(session: IssuedSessionDTO) -> LoginResponse:

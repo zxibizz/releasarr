@@ -1,6 +1,11 @@
 import type { LoginResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
+// Resolved against <base href>, so a relative value (the production build's
+// `api/v1`) follows whatever URL base the server put the app under.
+const API_BASE_URL = new URL(
+  import.meta.env.VITE_API_URL || 'http://localhost:8001/api/v1',
+  document.baseURI,
+).href.replace(/\/+$/, '');
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'The request was invalid. Please check the data and try again.',

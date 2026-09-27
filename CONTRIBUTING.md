@@ -116,7 +116,7 @@ image tag, and never moves `latest`.
 ## Reporting bugs
 
 Open an issue with the bug template. The most useful things you can include are
-the output of `GET /api/system` and the logs from **System → Logs** around the
+the output of `GET /api/v1/system/status` and the logs from **System → Logs** around the
 problem.
 
 Security issues go to [SECURITY.md](SECURITY.md) instead, not to the issue

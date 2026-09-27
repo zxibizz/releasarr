@@ -17,8 +17,6 @@ from loguru import logger
 from src.api.app import app
 from src.api.dependencies.auth import get_principal
 
-API_KEY_HEADER: dict[str, str] = {}
-
 
 @pytest.fixture()
 def captured_records() -> Iterator[list[dict[str, Any]]]:
@@ -47,10 +45,12 @@ def captured_records() -> Iterator[list[dict[str, Any]]]:
 async def test_a_served_request_is_logged(
     api_client: AsyncClient, captured_records: list[dict[str, Any]]
 ) -> None:
-    response = await api_client.get("/healthz")
+    response = await api_client.get("/system/status")
 
     assert response.status_code == 200
-    entry = next(record for record in captured_records if record["message"] == "GET /healthz")
+    entry = next(
+        record for record in captured_records if record["message"] == "GET /api/v1/system/status"
+    )
     assert entry["level"] == "DEBUG"
     assert entry["component"] == "api.http"
     assert entry["status_code"] == 200
@@ -67,7 +67,9 @@ async def test_an_auth_request_is_tagged_api_auth(
     response = await api_client.post("/auth/logout")
 
     assert response.status_code == 204
-    entry = next(record for record in captured_records if record["message"] == "POST /auth/logout")
+    entry = next(
+        record for record in captured_records if record["message"] == "POST /api/v1/auth/logout"
+    )
     assert entry["level"] == "DEBUG"
     assert entry["component"] == "api.auth"
 
@@ -82,7 +84,7 @@ async def test_a_rejected_request_records_its_status(
     response = await api_client.get("/logs")
 
     assert response.status_code == 401
-    entry = next(record for record in captured_records if record["message"] == "GET /logs")
+    entry = next(record for record in captured_records if record["message"] == "GET /api/v1/logs")
     assert entry["status_code"] == 401
 
 
@@ -92,9 +94,9 @@ async def test_the_query_string_is_not_recorded(
 ) -> None:
     """The log file is served to the browser, so a credential must not reach it."""
 
-    await api_client.get("/logs", params={"api_key": "SUPERSECRET"}, headers=API_KEY_HEADER)
+    await api_client.get("/logs", params={"apikey": "SUPERSECRET"})
 
     messages = [
         record["message"] for record in captured_records if record.get("component") == "api.http"
     ]
-    assert messages == ["GET /logs"]
+    assert messages == ["GET /api/v1/logs"]

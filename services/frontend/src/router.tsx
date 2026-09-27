@@ -1,5 +1,10 @@
 import { Center, Loader } from '@mantine/core';
-import { createBrowserRouter, Navigate, type LoaderFunctionArgs } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  Navigate,
+  type LoaderFunctionArgs,
+  type RouteObject,
+} from 'react-router-dom';
 
 import AppLayout from '@/App';
 import { NotFound, RouteErrorBoundary } from '@/components/RouteErrorBoundary';
@@ -14,6 +19,7 @@ import {
   requestDetailQuery,
   requestsListQuery,
 } from '@/features/requests/queries';
+import { getBasePath } from '@/lib/basePath';
 import { prefetchWhenOnline, queryClient } from '@/lib/queryClient';
 
 const requestsLoader = async () => {
@@ -41,7 +47,7 @@ const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
   return null;
 };
 
-export const router = createBrowserRouter([
+const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage />, errorElement: <RouteErrorBoundary /> },
   { path: '/setup', element: <SetupPage />, errorElement: <RouteErrorBoundary /> },
   {
@@ -232,6 +238,8 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+];
+
+export const router = createBrowserRouter(routes, { basename: getBasePath() || undefined });
 
 export default router;

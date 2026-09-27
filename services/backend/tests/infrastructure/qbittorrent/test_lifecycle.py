@@ -19,7 +19,7 @@ class FakeTransport(AsyncBaseTransport):
         self.responses[path] = Response(status_code)
 
     async def handle_async_request(self, request: Request) -> Response:
-        path = request.url.path
+        path = request.url.path.removeprefix("/api/v2")
         method = request.method
         self.requests.append((method, path, dict(request.url.params)))
 

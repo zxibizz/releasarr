@@ -156,11 +156,11 @@ empty). Set `MOCK_EMPTY_USERS=1` to start with no users and exercise the first-r
 instead.
 
 An `api.use()` middleware in `index.ts` runs before every route except `/auth/setup|login|
-refresh|logout`: it resolves the `Authorization: Bearer` token (or `X-API-Key`) via
+refresh|logout`: it resolves the `Authorization: Bearer` token (or the service key, as `X-Api-Key` or `?apikey=`) via
 `mockAuth.authenticate()` and attaches the user to `res.locals.user`, or answers `401` if neither
 is valid. `GET /requests` and `GET /discover/root-folders` read `res.locals.user` to apply the
 same ownership/allow-list scoping the real backend does. The refresh token travels as an
-httpOnly cookie (`releasarr_refresh`, path `/api/auth`) set via a small hand-rolled cookie parser
+httpOnly cookie (`releasarr_refresh`, path `/api/v1/auth`) set via a small hand-rolled cookie parser
 — there was no reason to add the `cookie-parser` dependency for one header. Rotated tokens are
 stamped rather than deleted, so a replay inside the backend's reuse grace window (15s) is
 forgiven as two tabs racing the same cookie; `logout` deletes the record, which drops that

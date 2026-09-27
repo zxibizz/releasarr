@@ -21,7 +21,7 @@ import type { IndexerEventType, MediaRequest, MediaType, Release, SystemInfo } f
 const DEFAULT_PORT = 8001;
 const port = Number.parseInt(process.env.MOCK_SERVER_PORT ?? `${DEFAULT_PORT}`, 10);
 const origin = process.env.MOCK_SERVER_ORIGIN ?? `http://localhost:${port}`;
-const apiPath = process.env.MOCK_SERVER_API_PATH ?? '/api';
+const apiPath = process.env.MOCK_SERVER_API_PATH ?? '/api/v1';
 const apiBaseUrl =
   process.env.VITE_API_URL ?? process.env.REACT_APP_API_URL ?? `${origin}${apiPath}`;
 
@@ -110,18 +110,19 @@ const parseCookies = (header: string | undefined): Record<string, string> => {
 };
 
 const REFRESH_COOKIE = 'releasarr_refresh';
+const REFRESH_COOKIE_PATH = `${apiPath}/auth`;
 
 const setRefreshCookie = (res: express.Response, token: string) => {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    path: '/api/auth',
+    path: REFRESH_COOKIE_PATH,
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
 };
 
 const clearRefreshCookie = (res: express.Response) => {
-  res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+  res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
 };
 
 const contractPath = path.resolve(process.cwd(), '../../openapi.yaml');
@@ -135,6 +136,10 @@ app.get('/openapi.yaml', (_req, res, next) => {
 
 app.get('/__health', (_req, res) => {
   res.json({ status: 'ok', apiBaseUrl });
+});
+
+app.get('/ping', (_req, res) => {
+  res.json({ status: 'OK' });
 });
 
 const api = express.Router();
@@ -152,7 +157,8 @@ api.use((req, res, next) => {
   }
   const user = mockAuth.authenticate(
     req.headers.authorization,
-    req.headers['x-api-key'] as string | undefined,
+    (req.headers['x-api-key'] as string | undefined) ??
+      (typeof req.query.apikey === 'string' ? req.query.apikey : undefined),
   );
   if (!user) {
     return res.status(401).json({ code: 'unauthorized', message: 'Authentication required' });
@@ -278,11 +284,18 @@ api.post('/service-key/regenerate', requireAdmin, (_req, res) => {
 });
 
 const packageVersion = (
-  JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as { version: string }
+  JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as {
+    version: string;
+  }
 ).version;
 
-api.get('/system', (_req, res) => {
-  const info: SystemInfo = { version: packageVersion, database: 'sqlite' };
+api.get('/system/status', (_req, res) => {
+  const info: SystemInfo = {
+    app_name: 'Releasarr',
+    version: packageVersion,
+    database: 'sqlite',
+    url_base: '',
+  };
   res.json(info);
 });
 

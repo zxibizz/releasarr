@@ -286,7 +286,7 @@ so rotation can preserve the original session length instead of collapsing it to
 
 ### `service_api_keys`
 
-At most one row: the single key (`key`) that authenticates via `X-API-Key`. Stored and shown in
+At most one row: the single key (`key`) that authenticates via `X-Api-Key` or `?apikey=`. Stored and shown in
 plaintext — it isn't a password, and an admin needs to read it back into whatever integration
 uses it, the same as Sonarr/Radarr's own API key. It is not bound to a user — authenticating with
 it always yields a full admin `Principal`, the same way Sonarr and Radarr's API keys aren't scoped

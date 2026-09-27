@@ -11,7 +11,7 @@ import {
 
 const APP_URL = 'http://localhost:3000';
 const MOCK_HEALTH_URL = 'http://localhost:8001/__health';
-const MOCK_API_URL = 'http://localhost:8001/api';
+const MOCK_API_URL = 'http://localhost:8001/api/v1';
 const SERVER_START_TIMEOUT_MS = 90_000;
 
 /**

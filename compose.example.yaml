@@ -32,16 +32,20 @@ services:
       # Anything below this line can also be managed from the Settings page.
       # Setting it here pins it: the UI shows it read-only, marked "Set by
       # environment", so this file stays the source of truth for what it declares.
-      # localhost here is this container, not the machine it runs on.
-      # RELEASARR_SONARR_URL: http://<sonarr-host>:8989/api/v3
+      # Each app's own address, URL base included, as in their UIs. localhost
+      # here is this container, not the machine it runs on.
+      # RELEASARR_SONARR_URL: http://<sonarr-host>:8989
       # RELEASARR_SONARR_API_KEY: ${SONARR_API_KEY:-}
-      # RELEASARR_RADARR_URL: http://<radarr-host>:7878/api/v3
+      # RELEASARR_RADARR_URL: http://<radarr-host>:7878
       # RELEASARR_RADARR_API_KEY: ${RADARR_API_KEY:-}
-      # RELEASARR_PROWLARR_URL: http://<prowlarr-host>:9696/api/v1
+      # RELEASARR_PROWLARR_URL: http://<prowlarr-host>:9696
       # RELEASARR_PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
-      # RELEASARR_QBITTORRENT_URL: http://<qbittorrent-host>:8080/api/v2
+      # RELEASARR_QBITTORRENT_URL: http://<qbittorrent-host>:8080
       # RELEASARR_QBITTORRENT_USERNAME: admin
       # RELEASARR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
+      #
+      # Serving under a path of a reverse proxy, e.g. https://example.com/releasarr.
+      # RELEASARR_URL_BASE: /releasarr
       #
       # Only behind a TLS reverse proxy. Over plain HTTP the browser drops a
       # Secure cookie and every sign-in is forgotten on the next page load.

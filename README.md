@@ -164,8 +164,6 @@ Worth knowing before you install it:
   client.
 - **It complements Sonarr and Radarr's automatic grabbing rather than replacing it.** Nothing is
   downloaded until someone picks a release.
-- **It is served from the root of a host.** There is no URL base setting, so behind a reverse
-  proxy give it its own (sub)domain, not a path like `/releasarr`.
 - **The interface is in English and Russian.**
 
 ## Getting started
@@ -196,12 +194,15 @@ docker run -d --name releasarr --restart unless-stopped \
 ```
 
 Open **http://\<host\>:8050**. The first visit lands on a one-time setup screen that creates the
-admin account; after that, **Settings** is where Sonarr, Radarr, Prowlarr, qBittorrent and the
-TVDB and TMDB keys go. Everything there can also be pinned from the environment instead — see
+admin account; after that, **Settings** is where everything else goes, the way it is in the \*arr
+apps: Sonarr, Radarr and Prowlarr by the address their own UI opens on (`http://sonarr:8989`,
+URL base included if they have one) and their API key, qBittorrent by its Web UI address and
+login, and the TVDB and TMDB keys. The container itself needs nothing beyond `PUID`, `PGID` and
+`TZ`; anything in Settings can still be pinned from the environment instead — see
 [Configuration](#configuration).
 
 One container runs the whole thing: nginx serves the frontend and proxies the API under
-`/api/`, Alembic migrates on boot, and the scheduler worker runs alongside uvicorn. All three are
+`/api/v1/`, Alembic migrates on boot, and the scheduler worker runs alongside uvicorn. All three are
 supervised by s6-overlay, so a process that dies is restarted on its own, and a failed migration
 stops the container instead of leaving it half up. Every line in `docker logs releasarr` is
 tagged with the service that wrote it — `[api]`, `[scheduler]`, or `[nginx]`. For Postgres, or
@@ -223,7 +224,12 @@ A few things worth knowing before you point it at real data:
   `RELEASARR_AUTH_COOKIE_SECURE=true` so the session cookie is never sent unencrypted. Either
   way, do not port-forward it — see [`SECURITY.md`](SECURITY.md).
 - **Every route needs a signed-in session**, or, for scripts, the service API key, which an
-  admin finds under **Users**.
+  admin finds under **Users** — sent as an `X-Api-Key` header or an `?apikey=` query parameter,
+  as with the \*arr apps. `GET /api/v1/system/status` describes the instance, and `GET /ping`
+  answers without either, for uptime monitors.
+- **Behind a reverse proxy on a path** such as `https://example.com/releasarr`, set
+  **Settings → General → URL base** to `/releasarr` (or `RELEASARR_URL_BASE`) and restart the
+  container. Proxy the whole path through unchanged, as you would for Sonarr's URL base.
 
 Releasarr also **installs as an app**. Use *Install* in Chrome on Android or *Add to Home Screen*
 in Safari on iOS, and it launches in its own window and opens without a connection. Two caveats
@@ -234,13 +240,13 @@ so offline means the app shell and an explanation, not your requests.
 
 ## Configuration
 
-Releasarr is configured two ways. The environment (variables with a `RELEASARR_` prefix, or a
-`.env` file) is the base layer and the only way to set anything before the first boot. After
-that, most settings can also be edited from the **Settings** area in the UI, which stores
-overrides and applies them without a container restart. A value set in the environment always
-wins: such a field renders read-only in the UI, marked *Set by environment*, so a redeployed
-container keeps meaning what its `.env` says. The tables below list the environment variables
-and their defaults.
+Releasarr is configured the way the \*arr apps are: in the **Settings** area of the UI, which
+stores its values in the database under `/config` and applies them without a container restart
+(the few that need one, like the URL base, say so). The environment (variables with a
+`RELEASARR_` prefix, or a `.env` file) is an override layer on top, and the only way to set
+anything before the first boot. A value set in the environment always wins: such a field renders
+read-only in the UI, marked *Set by environment*, so a redeployed container keeps meaning what
+its `.env` says. The tables below list the environment variables and their defaults.
 
 ### Container
 
@@ -258,6 +264,7 @@ Settings area.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `RELEASARR_AUTH_SECRET` | *(generated in the container)* | Signs access tokens. The container generates one into `/config/auth-secret` when unset; run directly, the app fails to start without it. |
+| `RELEASARR_URL_BASE` | *(empty)* | Path to serve under behind a reverse proxy, e.g. `/releasarr`. Takes effect on restart |
 | `RELEASARR_DATABASE_URL` | `sqlite+aiosqlite:////config/releasarr.db` in the image, `sqlite+aiosqlite:///./releasarr.db` run directly | Async SQLAlchemy URL; `postgresql+asyncpg://…` also works |
 | `RELEASARR_API_HOST` | `0.0.0.0` | Uvicorn bind host when run directly |
 | `RELEASARR_API_PORT` | `8001` | Uvicorn bind port when run directly (the image uses 8000 behind nginx) |
@@ -286,9 +293,9 @@ Settings area.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_SONARR_URL` | `http://localhost:8989/api/v3` | Sonarr API base URL |
+| `RELEASARR_SONARR_URL` | `http://localhost:8989` | Sonarr's address, URL base included |
 | `RELEASARR_SONARR_API_KEY` | *(empty)* | Sonarr API key |
-| `RELEASARR_RADARR_URL` | `http://localhost:7878/api/v3` | Radarr API base URL |
+| `RELEASARR_RADARR_URL` | `http://localhost:7878` | Radarr's address, URL base included |
 | `RELEASARR_RADARR_API_KEY` | *(empty)* | Radarr API key |
 | `RELEASARR_SONARR_QUALITY_PROFILE_ID` | *(first reported)* | Profile used when adding a series |
 | `RELEASARR_RADARR_QUALITY_PROFILE_ID` | *(first reported)* | Profile used when adding a movie |
@@ -310,7 +317,7 @@ one, so the first profile they report is used unless you pick one.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_PROWLARR_URL` | *(empty — required to search)* | Prowlarr API base, including the `/api/v1` suffix |
+| `RELEASARR_PROWLARR_URL` | *(empty — required to search)* | Prowlarr's address, URL base included |
 | `RELEASARR_PROWLARR_API_KEY` | *(empty)* | Prowlarr API key |
 | `RELEASARR_PROWLARR_CATEGORIES` | *(all)* | Indexer category IDs to restrict searches to |
 | `RELEASARR_PROWLARR_TIMEOUT` | `20.0` | Request timeout in seconds |
@@ -322,7 +329,7 @@ one, so the first profile they report is used unless you pick one.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RELEASARR_QBITTORRENT_URL` | *(empty — required to download)* | qBittorrent Web API base, including the `/api/v2` suffix |
+| `RELEASARR_QBITTORRENT_URL` | *(empty — required to download)* | qBittorrent Web UI address |
 | `RELEASARR_QBITTORRENT_USERNAME` | *(empty)* | Web UI username |
 | `RELEASARR_QBITTORRENT_PASSWORD` | *(empty)* | Web UI password |
 | `RELEASARR_QBITTORRENT_SAVE_PATH` | *(client default)* | Override where torrents are saved |
