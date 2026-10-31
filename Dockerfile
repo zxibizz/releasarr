@@ -22,7 +22,7 @@ FROM ghcr.io/astral-sh/uv:0.12 AS uv
 
 # Must be the exact image the runtime stage uses: the venv is bound to the
 # interpreter that built it.
-FROM python:3.14-slim-bookworm AS backend-builder
+FROM python:3.15-slim-bookworm AS backend-builder
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # ------------------------------------------------
 
-FROM python:3.14-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 # tzdata makes TZ work, as it does in the *arr images.
 RUN apt-get -o Acquire::ForceIPv4=true update && \
