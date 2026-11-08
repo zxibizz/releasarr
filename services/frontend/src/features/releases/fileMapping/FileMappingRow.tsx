@@ -1,4 +1,4 @@
-import { Badge, Group, NumberInput, Paper, Select, Stack, Text } from '@mantine/core';
+import { Badge, Button, Group, NumberInput, Paper, Select, Stack, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 
 import type { MappingDraft } from '@/features/releases/fileMapping/useFileMappingForm';
@@ -19,6 +19,7 @@ interface FileMappingRowProps {
   isDirty: boolean;
   onSelectRequest: (request: MediaRequest | null) => void;
   onChange: (changes: Partial<MappingDraft>) => void;
+  onIgnoredChange: (ignored: boolean) => void;
 }
 
 export function FileMappingRow({
@@ -30,11 +31,13 @@ export function FileMappingRow({
   isDirty,
   onSelectRequest,
   onChange,
+  onIgnoredChange,
 }: FileMappingRowProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const stored = file.request_mapping;
   const isSeries = draft.mappingType === 'series';
+  const ignored = Boolean(draft.ignored);
 
   const options = requests.map((request) => ({
     value: request.id,
@@ -81,11 +84,27 @@ export function FileMappingRow({
                 {t('fileMapping.mapped', { defaultValue: 'Mapped' })}
               </Badge>
             )}
+            {ignored && (
+              <Badge size="sm" variant="light" color="gray">
+                {t('fileMapping.ignored', { defaultValue: 'Ignored' })}
+              </Badge>
+            )}
             {isDirty && (
               <Badge size="sm" variant="light" color="yellow">
                 {t('fileMapping.changed', { defaultValue: 'Changed' })}
               </Badge>
             )}
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              ml="auto"
+              onClick={() => onIgnoredChange(!ignored)}
+            >
+              {ignored
+                ? t('fileMapping.unignore', { defaultValue: 'Stop ignoring' })
+                : t('fileMapping.ignore', { defaultValue: 'Ignore' })}
+            </Button>
           </Group>
         </Stack>
 
@@ -102,57 +121,67 @@ export function FileMappingRow({
           </Text>
         )}
 
-        <Group align="flex-start" wrap="wrap" gap="sm">
-          <Stack gap={4} style={{ flex: selectFlex, minWidth: 0 }}>
-            <Select
-              label={t('fileMapping.request', { defaultValue: 'Request' })}
-              placeholder={t('fileMapping.selectRequest', { defaultValue: 'Select a request...' })}
-              data={options}
-              value={draft.requestId || null}
-              disabled={requestsDisabled}
-              searchable
-              clearable
-              onChange={(value) =>
-                onSelectRequest(requests.find((request) => request.id === value) ?? null)
-              }
-            />
-            {/*
+        {ignored ? (
+          <Text size="sm" c="dimmed">
+            {t('fileMapping.ignoredHint', {
+              defaultValue: 'Automatic mapping will leave this file alone.',
+            })}
+          </Text>
+        ) : (
+          <Group align="flex-start" wrap="wrap" gap="sm">
+            <Stack gap={4} style={{ flex: selectFlex, minWidth: 0 }}>
+              <Select
+                label={t('fileMapping.request', { defaultValue: 'Request' })}
+                placeholder={t('fileMapping.selectRequest', {
+                  defaultValue: 'Select a request...',
+                })}
+                data={options}
+                value={draft.requestId || null}
+                disabled={requestsDisabled}
+                searchable
+                clearable
+                onChange={(value) =>
+                  onSelectRequest(requests.find((request) => request.id === value) ?? null)
+                }
+              />
+              {/*
               A select renders a single-line input, so a long series title is cut
               off no matter how wide the field is. Repeat it underneath where it
               can wrap, so the chosen request is always legible.
             */}
-            {selected && (
-              <Text size="xs" c="dimmed" className="break-anywhere">
-                {optionLabel(selected)}
-              </Text>
-            )}
-          </Stack>
+              {selected && (
+                <Text size="xs" c="dimmed" className="break-anywhere">
+                  {optionLabel(selected)}
+                </Text>
+              )}
+            </Stack>
 
-          {isSeries && (
-            <Group gap="sm" wrap="nowrap" style={{ flex: episodeFieldsFlex, minWidth: 0 }}>
-              <NumberInput
-                label={t('fileMapping.season', { defaultValue: 'Season' })}
-                min={1}
-                inputMode="numeric"
-                style={{ flex: 1, minWidth: 0 }}
-                value={draft.season ?? ''}
-                onChange={(value) =>
-                  onChange({ season: typeof value === 'number' ? value : undefined })
-                }
-              />
-              <NumberInput
-                label={t('fileMapping.episode', { defaultValue: 'Episode' })}
-                min={1}
-                inputMode="numeric"
-                style={{ flex: 1, minWidth: 0 }}
-                value={draft.episode ?? ''}
-                onChange={(value) =>
-                  onChange({ episode: typeof value === 'number' ? value : undefined })
-                }
-              />
-            </Group>
-          )}
-        </Group>
+            {isSeries && (
+              <Group gap="sm" wrap="nowrap" style={{ flex: episodeFieldsFlex, minWidth: 0 }}>
+                <NumberInput
+                  label={t('fileMapping.season', { defaultValue: 'Season' })}
+                  min={1}
+                  inputMode="numeric"
+                  style={{ flex: 1, minWidth: 0 }}
+                  value={draft.season ?? ''}
+                  onChange={(value) =>
+                    onChange({ season: typeof value === 'number' ? value : undefined })
+                  }
+                />
+                <NumberInput
+                  label={t('fileMapping.episode', { defaultValue: 'Episode' })}
+                  min={1}
+                  inputMode="numeric"
+                  style={{ flex: 1, minWidth: 0 }}
+                  value={draft.episode ?? ''}
+                  onChange={(value) =>
+                    onChange({ episode: typeof value === 'number' ? value : undefined })
+                  }
+                />
+              </Group>
+            )}
+          </Group>
+        )}
       </Stack>
     </Paper>
   );

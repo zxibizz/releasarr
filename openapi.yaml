@@ -3050,6 +3050,11 @@ components:
           type: string
         request_mapping:
           $ref: '#/components/schemas/FileRequestMapping'
+        ignored:
+          type: boolean
+          description: >-
+            A human ruled this file out, for example an extra or an alternate cut.
+            It carries no mapping and automapping never fills it in.
     ReleaseRefreshResponse:
       type: object
       required: [releases, statuses_updated, regrabbed]
@@ -3179,6 +3184,12 @@ components:
           type: string
         request_mapping:
           $ref: '#/components/schemas/FileRequestMappingOrNull'
+        ignored:
+          type: boolean
+          description: >-
+            Rule the file out, so automapping leaves it unmapped. Requires a null
+            `request_mapping`; sending both is a 400. A null `request_mapping` with
+            `ignored` false clears the file and hands it back to automapping.
     ReleaseFileMappingsUpdate:
       type: object
       required: [files]

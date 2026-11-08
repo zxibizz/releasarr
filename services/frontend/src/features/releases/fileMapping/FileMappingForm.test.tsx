@@ -156,4 +156,43 @@ describe('FileMappingForm', () => {
       },
     ]);
   });
+
+  it('saves an ignored file as ignored, and stops offering it a mapping', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await screen.findByText('Severance.S02E02.1080p.mkv');
+    await waitFor(() => expect(screen.getAllByLabelText('Episode')).toHaveLength(2));
+
+    await user.click(screen.getAllByRole('button', { name: 'Ignore' })[1]);
+
+    expect(screen.getByText('Ignored')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('Episode')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Stop ignoring' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save mappings/i }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiRequest)).toHaveBeenCalledWith(
+        MAPPING_PATH,
+        expect.objectContaining({ method: 'PUT' }),
+      );
+    });
+    const call = vi.mocked(apiRequest).mock.calls.find(([path]) => path === MAPPING_PATH);
+    const body = call?.[1]?.body as { files: unknown[] };
+
+    expect(body.files).toEqual([
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Severance',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+      { file_id: 'f2', request_mapping: null, ignored: true },
+    ]);
+  });
 });

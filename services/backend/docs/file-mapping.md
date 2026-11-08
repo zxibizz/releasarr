@@ -71,7 +71,7 @@ files under it, which is how a repack that renamed only the torrent's root keeps
 
 | Case                                     | What happens                                                                                              |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| A stored file the torrent still carries  | The row is repointed at the new name, size and path, and keeps **every** mapping column                   |
+| A stored file the torrent still carries  | The row is repointed at the new name, size and path, and keeps **every** mapping column and `ignored`    |
 | A file only the torrent has              | Inserted unmapped, then automapped on its own (`ReleaseAutoMapper.apply_to`)                              |
 | A stored file the torrent does not carry | The re-grab is refused outright — nothing queued, nothing written — with a `regrab_files_missing` warning |
 
@@ -212,6 +212,10 @@ Title matches must be complete, so `Iron Man 2` does not claim `Iron Man`'s file
 Because the matcher runs at grab, on every suggestion request, and again at export:
 
 - **Hand-set `season` and `episode` are preserved** — they sit first in the precedence chain.
+- **An `ignored` file is skipped outright**, before it is resolved, so it neither gets a mapping
+  nor advances its folder's episode count, and `seasons_in` does not count its season. A cleared
+  mapping is not enough for this: a file with no mapping is a gap, and the export that every save
+  queues fills gaps. That is how a hand-cleared creditless OP got numbered back onto episode 11.
 - **`request_id` is always re-derived** from the season. Deliberate: it is what fixes a pack
   grabbed against one season's request.
 - Non-video files, unrequested seasons, and ambiguous bare numbers are skipped rather than
@@ -261,8 +265,11 @@ zeroing the failure count gives it a fresh five attempts. If the release is `COM
 scheduler. A still-downloading release is left alone — export runs on completion anyway. A
 failure to queue is logged but does not fail the save.
 
-Passing `request_mapping: null` for a file clears its mapping; leaving the file out of the
-`files` list leaves whatever it has. The contract says so
+Passing `request_mapping: null` for a file clears its mapping and hands it back to automapping;
+adding `ignored: true` clears it and keeps automapping off it. `ignored: true` alongside a mapping
+is a `ValueError` → 400, and any entry without the flag un-ignores its file. Leaving the file out
+of the `files` list leaves whatever it has. Ignoring a file named by `regrab_files_unmapped`
+settles it as mapping it does. The contract says so
 (`ReleaseFileMappingInput.request_mapping`, nullable), and both the editor and the automap button
 in the UI rely on it.
 

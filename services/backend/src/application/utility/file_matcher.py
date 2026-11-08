@@ -42,7 +42,8 @@ class ReleaseFileMatcher:
     matched on title instead of season.
 
     Season and episode numbers already stored on a file are left alone, since they
-    may have been corrected by hand; only gaps are filled. The request a file points
+    may have been corrected by hand; only gaps are filled. A file a human marked
+    ignored is not a gap, and the matcher never touches it. The request a file points
     at is always re-derived from its season, which is what repairs a pack that was
     mapped entirely onto the grabbing request.
     """
@@ -64,7 +65,10 @@ class ReleaseFileMatcher:
         unresolved: list[ReleaseFileRecord] = []
 
         for file in sorted(files, key=lambda item: natural_sort_key(item.path or item.name)):
-            if not is_video_file(file.name):
+            # Skipped before resolving, not after: an ignored file must not advance
+            # the folder's episode count either, or the file after it is numbered
+            # as if the extra had been an episode.
+            if file.ignored or not is_video_file(file.name):
                 continue
 
             if self._is_movie_file(file):
@@ -95,7 +99,7 @@ class ReleaseFileMatcher:
 
         seasons: set[int] = set()
         for file in files:
-            if not is_video_file(file.name):
+            if file.ignored or not is_video_file(file.name):
                 continue
             season = parse_episode(file.name, file.path).season
             if season is not None:

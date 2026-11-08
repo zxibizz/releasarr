@@ -242,6 +242,7 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
         for update in updates:
             if update.file_id in file_lookup:
                 file_lookup[update.file_id].mapping = update.mapping
+                file_lookup[update.file_id].ignored = update.ignored and update.mapping is None
         self.last_updates = updates
         return True
 
@@ -812,6 +813,84 @@ async def test_update_file_mappings_saves_even_when_the_export_cannot_be_queued(
 
     assert result is True
     assert file_record.mapping is not None
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_ignores_a_file() -> None:
+    mapped = ReleaseFileMapping(
+        mapping_type=MediaType.SERIES,
+        request_id="req-1",
+        request_title="Show - Season 1",
+        season=1,
+        episode=11,
+    )
+    file_record = make_release_file("file-1")
+    file_record.mapping = mapped
+    release = make_release_record("rel-1", files=[file_record])
+    repository = FakeReleaseRepository({release.id: release})
+    use_case = build_update_file_mappings_use_case(repository)
+
+    await use_case.execute(
+        UpdateFileMappingsCommand(
+            release_id="rel-1",
+            files=[FileMappingCommand(file_id="file-1", ignored=True)],
+        )
+    )
+
+    assert file_record.mapping is None
+    assert file_record.ignored is True
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_refuses_an_ignored_file_that_is_also_mapped() -> None:
+    release = make_release_record("rel-1", files=[make_release_file("file-1")])
+    repository = FakeReleaseRepository({release.id: release})
+    use_case = build_update_file_mappings_use_case(repository)
+    command = UpdateFileMappingsCommand(
+        release_id="rel-1",
+        files=[
+            FileMappingCommand(
+                file_id="file-1",
+                mapping_type=MediaType.MOVIE.value,
+                request_id="req-1",
+                ignored=True,
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError):
+        await use_case.execute(command)
+    assert repository.last_updates is None
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_clears_the_regrab_warning_when_a_file_is_ignored() -> None:
+    release = make_release_record(
+        "rel-1",
+        files=[make_release_file("file-1"), make_release_file("file-2")],
+    )
+    repository = FakeReleaseRepository({release.id: release})
+    warning_repository = FakeWarningRepository([regrab_unmapped_row("rel-1", ["file-1", "file-2"])])
+    use_case = build_update_file_mappings_use_case(
+        repository, warning_repository=warning_repository
+    )
+
+    await use_case.execute(
+        UpdateFileMappingsCommand(
+            release_id="rel-1",
+            files=[
+                FileMappingCommand(
+                    file_id="file-1",
+                    mapping_type=MediaType.MOVIE.value,
+                    request_id="req-1",
+                    request_title="Example Movie",
+                ),
+                FileMappingCommand(file_id="file-2", ignored=True),
+            ],
+        )
+    )
+
+    assert warning_repository.rows == []
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Ignore a file in the mapping editor.** A file marked **Ignore** (an extra, a creditless
+  OP/ED, an alternate cut) stays unmapped: automatic mapping and the **Map automatically**
+  button both leave it alone, and **Stop ignoring** hands it back.
+
+### Fixed
+
+- **Clearing a file's mapping no longer gets undone a moment later.** Saving queues an export,
+  and the export's automatic mapping read the cleared file as one nobody had looked at and
+  mapped it again — so a pack's bonus files kept landing back on real episodes and failing the
+  Sonarr import. Use **Ignore** for files that should never be imported; a plain clear still
+  hands the file back to automatic mapping.
+
 ## [0.12.0] - 2026-09-27
 
 The API, its paths and the connection settings now follow the \*arr apps' conventions. Scripts

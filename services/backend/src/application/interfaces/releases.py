@@ -39,6 +39,7 @@ class ReleaseFileRecord:
     size_bytes: int
     path: str
     mapping: ReleaseFileMapping | None
+    ignored: bool = False
 
 
 @dataclass(slots=True)
@@ -123,6 +124,7 @@ class FileMappingUpdateData:
 
     file_id: str
     mapping: ReleaseFileMapping | None
+    ignored: bool = False
 
 
 @dataclass(slots=True)

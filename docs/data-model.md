@@ -197,6 +197,10 @@ directory; `export` joins it onto the path qBittorrent reports).
 Mapping: `mapping_type` (`movie` | `series` | NULL), `mapped_request_id` (FK, `SET NULL`),
 `mapped_request_title`, `season`, `episode`.
 
+`ignored` (bool, default false) records that a human ruled the file out. An ignored file has no
+mapping, and the matcher skips it entirely. The flag is what tells it apart from a file nobody
+has mapped yet, which automapping would otherwise fill in on the next pass.
+
 | Constraint | Encodes |
 | --- | --- |
 | `ck_release_files_series_mapping` | A `series` mapping must carry both season and episode. |
@@ -354,6 +358,7 @@ one is a four-place change plus a migration.
 | `7a1f5c2e9d43` | Add `releases.search_query` |
 | `c3d4e5f6a7b8` | Add `releases.missing_since` |
 | `a1b2c3d4e5f6` | Create `app_settings` |
+| `f8c2d6a4b1e9` | Add `release_files.ignored` |
 
 ## The enum migration trap
 

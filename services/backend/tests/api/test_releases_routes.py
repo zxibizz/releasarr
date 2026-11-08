@@ -295,6 +295,31 @@ async def test_update_file_mappings_returns_success(api_client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
+async def test_update_file_mappings_passes_the_ignored_flag(api_client: AsyncClient) -> None:
+    commands = []
+
+    class FakeUpdate:
+        async def execute(self, command):
+            commands.append(command)
+            return True
+
+    with override_dependency(_update_mappings_use_case, FakeUpdate()):
+        response = await api_client.put(
+            "/releases/rel-1/files/mapping",
+            headers=API_KEY_HEADER,
+            json={
+                "files": [
+                    {"file_id": "file-1", "request_mapping": None, "ignored": True},
+                    {"file_id": "file-2", "request_mapping": None},
+                ]
+            },
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [file.ignored for file in commands[0].files] == [True, False]
+
+
+@pytest.mark.asyncio
 async def test_update_file_mappings_missing_file_returns_404(api_client: AsyncClient) -> None:
     class FakeUpdate:
         async def execute(self, command):

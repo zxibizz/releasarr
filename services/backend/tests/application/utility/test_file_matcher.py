@@ -16,6 +16,7 @@ def make_file(
     path: str,
     *,
     mapping: ReleaseFileMapping | None = None,
+    ignored: bool = False,
 ) -> ReleaseFileRecord:
     return ReleaseFileRecord(
         id=file_id,
@@ -23,6 +24,7 @@ def make_file(
         size_bytes=2048,
         path=path,
         mapping=mapping,
+        ignored=ignored,
     )
 
 
@@ -374,3 +376,52 @@ def test_seasons_in_reports_only_video_files() -> None:
     ]
 
     assert ReleaseFileMatcher().seasons_in(files) == {1, 2}
+
+
+def test_ignored_files_stay_unmapped() -> None:
+    """Extras a human ruled out must survive the export's automap pass.
+
+    The layout is the Mirai Nikki BDRip pack: alternate cuts of 05 and 10 read as
+    those episodes, and the creditless OP/EDs were numbered on from them.
+    """
+
+    root = "Mirai Nikki [480p]"
+    bonus = f"{root}/Bonus/[Unknown] Mirai Nikki"
+    tags = "[BDrip 854x480 x264 Vorbis]"
+    ignored = [
+        make_file("alt-05", f"{bonus} 05 {tags} Kawahara Yoshihisa version.mkv", ignored=True),
+        make_file("alt-10", f"{bonus} 10 {tags} (clear lines version).mkv", ignored=True),
+        make_file("op-ed1", f"{bonus} Creditless OP-ED1.mkv", ignored=True),
+        make_file("op-ed2", f"{bonus} Creditless OP-ED2.mkv", ignored=True),
+    ]
+    episodes = [
+        make_file(f"ep-{n}", f"{root}/[Unknown] Mirai Nikki {n:02d} {tags}.mkv") for n in (1, 2)
+    ]
+
+    updates = ReleaseFileMatcher().autocomplete([*ignored, *episodes], [make_request("req-1", 1)])
+
+    assert {update.file_id for update in updates} == {"ep-1", "ep-2"}
+    assert all(file.mapping is None for file in ignored)
+    assert placements(episodes) == [("req-1", 1, 1), ("req-1", 1, 2)]
+
+
+def test_an_ignored_file_does_not_advance_the_episode_count() -> None:
+    files = [
+        make_file("a", "Show/Season 1/Show 01.mkv"),
+        make_file("b", "Show/Season 1/Show NCOP.mkv", ignored=True),
+        make_file("c", "Show/Season 1/Show Special.mkv"),
+    ]
+
+    ReleaseFileMatcher().autocomplete(files, [make_request("req-1", 1)])
+
+    assert files[1].mapping is None
+    assert placements([files[0], files[2]]) == [("req-1", 1, 1), ("req-1", 1, 2)]
+
+
+def test_an_ignored_file_does_not_pull_in_its_season() -> None:
+    files = [
+        make_file("a", "Show/Show.S01E01.mkv"),
+        make_file("b", "Show/Show.S02E01.mkv", ignored=True),
+    ]
+
+    assert ReleaseFileMatcher().seasons_in(files) == {1}

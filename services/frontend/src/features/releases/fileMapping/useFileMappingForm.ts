@@ -23,6 +23,12 @@ export interface MappingDraft {
   mappingType: MappingType;
   season?: number;
   episode?: number;
+  /**
+   * Ruled out by a human. Distinct from a blank draft, which hands the file back
+   * to automapping: the export re-runs it on every save, so a file that is only
+   * cleared gets mapped again a moment later.
+   */
+  ignored?: boolean;
 }
 
 type DraftMap = Record<string, MappingDraft>;
@@ -31,6 +37,7 @@ type DraftMap = Record<string, MappingDraft>;
 type SeasonIndex = Map<number, MediaRequest>;
 
 const EMPTY_DRAFT: MappingDraft = { requestId: '', requestTitle: '', mappingType: 'movie' };
+const IGNORED_DRAFT: MappingDraft = { ...EMPTY_DRAFT, ignored: true };
 /** Stable defaults so the draft memos don't invalidate on every render. */
 const NO_REQUESTS: MediaRequest[] = [];
 const NO_SUGGESTIONS: ReleaseFileMappingSuggestion[] = [];
@@ -109,6 +116,10 @@ const buildInitialDrafts = (files: ReleaseFile[]): DraftMap => {
   const drafts: DraftMap = {};
 
   files.forEach((file) => {
+    if (file.ignored) {
+      drafts[file.id] = { ...IGNORED_DRAFT };
+      return;
+    }
     drafts[file.id] = file.request_mapping
       ? draftFromMapping(file.request_mapping)
       : { ...EMPTY_DRAFT };
@@ -121,7 +132,8 @@ const isSameDraft = (a: MappingDraft, b: MappingDraft): boolean =>
   a.requestId === b.requestId &&
   a.mappingType === b.mappingType &&
   a.season === b.season &&
-  a.episode === b.episode;
+  a.episode === b.episode &&
+  Boolean(a.ignored) === Boolean(b.ignored);
 
 /**
  * Identity of a batch of proposals by content. Comparing these rather than array
@@ -150,6 +162,9 @@ const withSuggestions = (
 
   suggestions.forEach((suggestion) => {
     const current = next[suggestion.file_id];
+    if (current?.ignored) {
+      return;
+    }
     const untouched = current && isSameDraft(current, initial[suggestion.file_id] ?? EMPTY_DRAFT);
     if (current && !untouched) {
       return;
@@ -164,11 +179,18 @@ const withSuggestions = (
  * What to send for one file. A draft the reader has left unmapped clears the
  * file's stored mapping rather than saying nothing about it — automapping, and
  * clearing a row by hand, both depend on that. A file that was never mapped has
- * nothing to clear and is left out of the payload.
+ * nothing to clear and is left out of the payload, and so is one already
+ * ignored that still is.
  */
 const toPayload = (file: ReleaseFile, draft: MappingDraft): ReleaseFileMappingInput | null => {
+  if (draft.ignored) {
+    return file.ignored ? null : { file_id: file.id, request_mapping: null, ignored: true };
+  }
+
   if (!draft.requestId) {
-    return file.request_mapping ? { file_id: file.id, request_mapping: null } : null;
+    return file.request_mapping || file.ignored
+      ? { file_id: file.id, request_mapping: null }
+      : null;
   }
 
   if (draft.mappingType === 'series') {
@@ -254,6 +276,7 @@ export function useFileMappingForm(
           mappingType: 'series',
           season: existing?.season ?? request.season_number,
           episode: existing?.episode,
+          ignored: false,
         });
       } else {
         updateDraft(fileId, {
@@ -262,27 +285,40 @@ export function useFileMappingForm(
           mappingType: 'movie',
           season: undefined,
           episode: undefined,
+          ignored: false,
         });
       }
     },
     [drafts, updateDraft],
   );
 
+  /** Rule a file out, or hand it back to automapping as a blank row. */
+  const setIgnored = useCallback((fileId: string, ignored: boolean) => {
+    setDrafts((current) => ({
+      ...current,
+      [fileId]: ignored ? { ...IGNORED_DRAFT } : { ...EMPTY_DRAFT },
+    }));
+  }, []);
+
   /**
    * The whole release mapped to the request whose page this is, in one tap: the
    * automapper's proposals where it has them, and the files it cannot place
    * numbered in name order around them. The stored mappings go first, so what a
-   * file was mapped to before never decides what it is mapped to now.
+   * file was mapped to before never decides what it is mapped to now. An ignored
+   * row is a decision rather than a mapping, and it stays.
    */
   const automap = useCallback(
     (targetRequest: MediaRequest | undefined, targetFiles: ReleaseFile[]) => {
       const next: DraftMap = {};
 
       files.forEach((file) => {
-        next[file.id] = { ...EMPTY_DRAFT };
+        next[file.id] = drafts[file.id]?.ignored ? { ...IGNORED_DRAFT } : { ...EMPTY_DRAFT };
       });
 
       suggestions.forEach((suggestion) => {
+        if (next[suggestion.file_id]?.ignored) {
+          return;
+        }
         next[suggestion.file_id] = draftFromMapping(suggestion.request_mapping);
       });
 
@@ -314,7 +350,7 @@ export function useFileMappingForm(
 
       // Name order, because that is the order the release itself is in.
       [...targetFiles].sort(compareByFileName).forEach((file) => {
-        if (next[file.id]?.requestId) {
+        if (next[file.id]?.requestId || next[file.id]?.ignored) {
           return;
         }
 
@@ -334,7 +370,7 @@ export function useFileMappingForm(
 
       setDrafts(next);
     },
-    [files, seasonIndexes, suggestions],
+    [drafts, files, seasonIndexes, suggestions],
   );
 
   const reset = useCallback(() => setDrafts(initialDrafts), [initialDrafts]);
@@ -364,6 +400,7 @@ export function useFileMappingForm(
     getDraft,
     updateDraft,
     selectRequest,
+    setIgnored,
     automap,
     reset,
     isDirty,

@@ -327,6 +327,7 @@ def _dto_to_file(file_dto: ReleaseFileDTO) -> ReleaseFile:
         size=file_dto.size_bytes,
         path=file_dto.path,
         request_mapping=_dto_to_file_mapping(file_dto.request_mapping),
+        ignored=file_dto.ignored,
     )
 
 
@@ -575,6 +576,7 @@ def _build_update_command(
                 request_title=mapping.request_title if mapping else None,
                 season=getattr(mapping, "season", None),
                 episode=getattr(mapping, "episode", None),
+                ignored=file_input.ignored,
             )
         )
     return UpdateFileMappingsCommand(release_id=release_id, files=commands)

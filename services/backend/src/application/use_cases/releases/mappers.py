@@ -47,6 +47,7 @@ def _file_record_to_dto(record: ReleaseFileRecord) -> ReleaseFileDTO:
         size_bytes=record.size_bytes,
         path=record.path,
         request_mapping=mapping_to_dto(record.mapping),
+        ignored=record.ignored,
     )
 
 

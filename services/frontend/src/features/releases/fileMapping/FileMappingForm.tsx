@@ -129,6 +129,7 @@ export function FileMappingForm({
       isDirty={form.isDirty(file.id)}
       onSelectRequest={(request) => form.selectRequest(file.id, request)}
       onChange={(changes) => form.updateDraft(file.id, changes)}
+      onIgnoredChange={(ignored) => form.setIgnored(file.id, ignored)}
     />
   );
 

@@ -38,6 +38,7 @@ class ReleaseFile(APIModel):
     size: int = Field(validation_alias="size_bytes")
     path: str
     request_mapping: FileRequestMapping | None = None
+    ignored: bool = False
 
 
 class ReleaseWarning(APIModel):
@@ -85,6 +86,7 @@ class ReleaseRefreshResponse(APIModel):
 class ReleaseFileMappingInput(APIModel):
     file_id: str
     request_mapping: FileRequestMapping | None = None
+    ignored: bool = False
 
 
 class ReleaseFileMappingsUpdate(APIModel):

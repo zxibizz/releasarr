@@ -63,7 +63,15 @@ class UpdateReleaseFileMappingsUseCase:
                 raise ReleaseFileNotFoundError(command.release_id, file_command.file_id)
 
             mapping = self._build_mapping(file_command)
-            updates.append(FileMappingUpdateData(file_id=file_command.file_id, mapping=mapping))
+            if file_command.ignored and mapping is not None:
+                raise ValueError("an ignored release file cannot also be mapped")
+            updates.append(
+                FileMappingUpdateData(
+                    file_id=file_command.file_id,
+                    mapping=mapping,
+                    ignored=file_command.ignored,
+                )
+            )
 
         updated = await self._repository.update_file_mappings(command.release_id, updates)
         if not updated:
@@ -92,8 +100,9 @@ class UpdateReleaseFileMappingsUseCase:
         The warning names the files the replacement torrent added, because only the
         pass that read that torrent knows which files the release did not have
         before; a re-grab is not the only thing that can place them though, so a
-        human doing it by hand has to be able to resolve the row too. A save that
-        still leaves one of them unmapped is the answer "not yet".
+        human doing it by hand has to be able to resolve the row too. Ignoring a
+        file answers the warning as well as mapping it does. A save that still
+        leaves one of them unmapped is the answer "not yet".
         """
 
         try:
@@ -117,8 +126,10 @@ class UpdateReleaseFileMappingsUseCase:
             if release is None:
                 return
 
-            mapped = {file.id for file in release.files if file.mapping is not None}
-            if warned - mapped:
+            settled = {
+                file.id for file in release.files if file.mapping is not None or file.ignored
+            }
+            if warned - settled:
                 return
 
             await self._warning_repository.replace_for_releases(

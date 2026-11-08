@@ -300,6 +300,12 @@ class ReleaseFile(Base):
     mapped_request_title: Mapped[str | None] = mapped_column(String(255))
     season: Mapped[int | None] = mapped_column(Integer)
     episode: Mapped[int | None] = mapped_column(Integer)
+    # Set when a human ruled the file out (an extra, a duplicate cut). An empty
+    # mapping cannot say this on its own: automapping reads it as a gap and fills
+    # it on the next pass, which is the export that every save queues.
+    ignored: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
 
     release: Mapped[Release] = relationship("Release", back_populates="files")
     mapped_request: Mapped[MediaRequest | None] = relationship("MediaRequest", lazy="selectin")

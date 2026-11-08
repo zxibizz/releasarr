@@ -413,4 +413,100 @@ describe('useFileMappingForm', () => {
     expect(result.current.getDraft('f1')).toMatchObject({ season: 1, episode: undefined });
     expect(result.current.buildPayload(files)).toEqual([]);
   });
+
+  it('ignores a mapped file instead of just clearing it', () => {
+    const stored: ReleaseFile[] = [
+      {
+        ...files[0],
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Show',
+          mapping_type: 'series',
+          season: 2,
+          episode: 11,
+        },
+      },
+    ];
+    const { result } = renderHook(() => useFileMappingForm(stored));
+
+    act(() => result.current.setIgnored('f1', true));
+
+    expect(result.current.dirtyFileIds).toEqual(['f1']);
+    expect(result.current.buildPayload(stored)).toEqual([
+      { file_id: 'f1', request_mapping: null, ignored: true },
+    ]);
+  });
+
+  it('starts an ignored file ignored and sends nothing while it stays that way', () => {
+    const stored: ReleaseFile[] = [{ ...files[0], ignored: true }];
+    const { result } = renderHook(() => useFileMappingForm(stored));
+
+    expect(result.current.getDraft('f1').ignored).toBe(true);
+    expect(result.current.dirtyFileIds).toEqual([]);
+    expect(result.current.buildPayload(stored)).toEqual([]);
+  });
+
+  it('hands an ignored file back to automapping when it stops being ignored', () => {
+    const stored: ReleaseFile[] = [{ ...files[0], ignored: true }];
+    const { result } = renderHook(() => useFileMappingForm(stored));
+
+    act(() => result.current.setIgnored('f1', false));
+
+    expect(result.current.buildPayload(stored)).toEqual([{ file_id: 'f1', request_mapping: null }]);
+  });
+
+  it('stops ignoring a file once a request is picked for it', () => {
+    const stored: ReleaseFile[] = [{ ...files[0], ignored: true }];
+    const { result } = renderHook(() => useFileMappingForm(stored, [seriesRequest]));
+
+    act(() => result.current.selectRequest('f1', seriesRequest));
+    act(() => result.current.updateDraft('f1', { episode: 1 }));
+
+    expect(result.current.getDraft('f1').ignored).toBe(false);
+    expect(result.current.buildPayload(stored)).toEqual([
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-1',
+          request_title: 'Show',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+    ]);
+  });
+
+  it('keeps ignored files out of automapping and its numbering', () => {
+    const release: ReleaseFile[] = [
+      { id: 'e1', name: 'Show 01.mkv', size: 1, path: 'Show/Show 01.mkv' },
+      { id: 'op', name: 'Show NCOP.mkv', size: 1, path: 'Show/Show NCOP.mkv', ignored: true },
+      { id: 'e2', name: 'Show Special.mkv', size: 1, path: 'Show/Show Special.mkv' },
+    ];
+    const { result } = renderHook(() => useFileMappingForm(release, [seriesRequest]));
+
+    act(() => result.current.automap(seriesRequest, release));
+
+    expect(result.current.getDraft('op')).toMatchObject({ requestId: '', ignored: true });
+    expect(result.current.getDraft('e1')).toMatchObject({ season: 2, episode: 1 });
+    expect(result.current.getDraft('e2')).toMatchObject({ season: 2, episode: 2 });
+  });
+
+  it('never lays a proposal over an ignored file', () => {
+    const stored: ReleaseFile[] = [{ ...files[0], ignored: true }];
+    const proposals: ReleaseFileMappingSuggestion[] = [
+      {
+        file_id: 'f1',
+        request_mapping: {
+          request_id: 'req-1',
+          mapping_type: 'series',
+          season: 2,
+          episode: 1,
+        },
+      },
+    ];
+    const { result } = renderHook(() => useFileMappingForm(stored, [seriesRequest], proposals));
+
+    expect(result.current.getDraft('f1')).toMatchObject({ requestId: '', ignored: true });
+  });
 });

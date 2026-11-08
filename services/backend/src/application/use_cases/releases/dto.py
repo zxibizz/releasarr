@@ -40,6 +40,7 @@ class ReleaseFileDTO:
     size_bytes: int
     path: str
     request_mapping: ReleaseFileMappingDTO | None
+    ignored: bool = False
 
 
 @dataclass(slots=True)

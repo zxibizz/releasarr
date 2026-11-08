@@ -1329,6 +1329,8 @@ export interface components {
             size: number;
             path: string;
             request_mapping?: components["schemas"]["FileRequestMapping"];
+            /** @description A human ruled this file out, for example an extra or an alternate cut. It carries no mapping and automapping never fills it in. */
+            ignored?: boolean;
         };
         /** @description What one on-demand check of a request's releases did. `statuses_updated` counts the releases whose live stats moved, `regrabbed` the ones the indexer had replaced and which were therefore downloaded again. */
         ReleaseRefreshResponse: {
@@ -1388,6 +1390,8 @@ export interface components {
         ReleaseFileMappingInput: {
             file_id: string;
             request_mapping?: components["schemas"]["FileRequestMappingOrNull"];
+            /** @description Rule the file out, so automapping leaves it unmapped. Requires a null `request_mapping`; sending both is a 400. A null `request_mapping` with `ignored` false clears the file and hands it back to automapping. */
+            ignored?: boolean;
         };
         ReleaseFileMappingsUpdate: {
             files: components["schemas"]["ReleaseFileMappingInput"][];

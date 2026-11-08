@@ -15,7 +15,7 @@ import {
   testConnection,
   updateSettingsSection,
 } from './mockSettings';
-import { mockStore } from './store';
+import { MockStore, mockStore } from './store';
 import type { IndexerEventType, MediaRequest, MediaType, Release, SystemInfo } from '../src/types';
 
 const DEFAULT_PORT = 8001;
@@ -707,6 +707,9 @@ api.put('/releases/:releaseId/files/mapping', async (req, res) => {
   const files = Array.isArray(req.body?.files) ? req.body.files : [];
   if (files.length === 0) {
     return res.status(400).json({ message: 'Payload must include files array' });
+  }
+  if (MockStore.hasIgnoredMapping(files)) {
+    return res.status(400).json({ message: 'an ignored release file cannot also be mapped' });
   }
 
   const success = await mockStore.updateFileMappings(req.params.releaseId, files);

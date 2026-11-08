@@ -203,6 +203,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                     return False
 
                 mapping = update.mapping
+                file.ignored = update.ignored and mapping is None
                 if mapping is None:
                     file.mapping_type = None
                     file.mapped_request_id = None
@@ -434,6 +435,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             size_bytes=file.size_bytes,
             path=file.path,
             mapping=mapping,
+            ignored=file.ignored,
         )
 
 

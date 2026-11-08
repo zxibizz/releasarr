@@ -34,6 +34,7 @@ class FileMappingCommand:
     request_title: str | None = None
     season: int | None = None
     episode: int | None = None
+    ignored: bool = False
 
 
 @dataclass(slots=True)

@@ -139,6 +139,7 @@ type QueueDownloadPayload = {
 type UpdateFileMappingPayload = {
   file_id: string;
   request_mapping?: ReleaseFile['request_mapping'];
+  ignored?: boolean;
 };
 
 const DEFAULT_POSTER = (title: string) =>
@@ -892,6 +893,11 @@ export class MockStore {
     return true;
   }
 
+  /** Whether any entry is both ignored and mapped, which the backend refuses with a 400. */
+  static hasIgnoredMapping(mappings: UpdateFileMappingPayload[]): boolean {
+    return mappings.some((mapping) => mapping.ignored && mapping.request_mapping);
+  }
+
   async updateFileMappings(
     releaseId: string,
     mappings: UpdateFileMappingPayload[],
@@ -911,6 +917,8 @@ export class MockStore {
         success = false;
         return;
       }
+
+      file.ignored = Boolean(mapping.ignored) && !mapping.request_mapping;
 
       if (mapping.request_mapping) {
         const requestMapping = clone(mapping.request_mapping);
@@ -955,10 +963,10 @@ export class MockStore {
     // Only offer what is not already settled, as the server does.
     const release = releases.find((item) => item.id === releaseId);
     const suggestions = (await getMockMappingSuggestions(releaseId)) ?? [];
-    return suggestions.filter(
-      (suggestion) =>
-        !release?.files.find((file) => file.id === suggestion.file_id)?.request_mapping,
-    );
+    return suggestions.filter((suggestion) => {
+      const file = release?.files.find((item) => item.id === suggestion.file_id);
+      return !file?.request_mapping && !file?.ignored;
+    });
   }
 
   async searchReleaseCandidates(query: string, requestId?: string): Promise<ReleaseSearchResult[]> {

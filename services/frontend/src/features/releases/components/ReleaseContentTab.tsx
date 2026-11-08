@@ -60,7 +60,9 @@ function ReleaseFileCard({
                   ? ` — ${formatEpisodeCode(mapping.season, mapping.episode)}`
                   : ''
               }`
-            : t('releaseDetails.content.notMapped')}
+            : file.ignored
+              ? t('releaseDetails.content.ignored')
+              : t('releaseDetails.content.notMapped')}
         </Text>
       </Stack>
     </Paper>

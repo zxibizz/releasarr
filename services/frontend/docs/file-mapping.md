@@ -67,8 +67,14 @@ export interface MappingDraft {
   mappingType: MappingType;
   season?: number;
   episode?: number;
+  ignored?: boolean;
 }
 ```
+
+`ignored` is the row's **Ignore** toggle. It is not the same as a blank draft: a blank row hands
+the file back to the backend's automapping, which the export re-runs on every save, while an
+ignored one keeps automapping off it. Picking a request for an ignored row un-ignores it, and so
+does **Stop ignoring**, which leaves the row blank.
 
 `season` and `episode` are carried for every draft and only serialized back for series
 mappings. `draftFromMapping` converts in, `toPayload` converts out.
@@ -127,7 +133,7 @@ it was opened from — and the form hands that to `automap(targetRequest, videoF
 
 | Step | What it does                                                                                                  |
 | ---- | ------------------------------------------------------------------------------------------------------------- |
-| 1    | Blanks every file's draft, so nothing stored survives into the new set.                                       |
+| 1    | Blanks every file's draft except the ignored ones, so nothing stored survives into the new set.               |
 | 2    | Lays the automapper's proposals over that as they are: they keep their own request, season and episode.       |
 | 3    | Numbers the video files it proposed nothing for onto the release's own request, in `compareByFileName` order. |
 
@@ -146,6 +152,9 @@ for any file, video or not, is kept as it is.
 The button is held disabled until the proposals have arrived (`isPending` on the suggestions
 query). An earlier press would number a list the proposals are about to change underneath it, and
 `withSuggestions` only fills in rows nobody has touched.
+
+Ignored rows sit out steps 2 and 3 as well: they take no proposal and are not numbered, so the
+file after an ignored extra is numbered as if the extra were not there.
 
 Step 1 is why automapping is not a patch over what is stored. A file left blank by all three steps
 — a non-video the automapper proposed nothing for — is **cleared** rather than left on whatever a
@@ -177,8 +186,9 @@ const toPayload = (
     }
 ```
 
-A draft with no request is sent as `request_mapping: null`, which **clears** that file's stored
-mapping — that is what makes automapping able to drop a mapping it cannot replace, and clearing
+An ignored draft is sent as `request_mapping: null, ignored: true`, or not at all if the file is
+already stored as ignored. A draft with no request is sent as `request_mapping: null`, which
+**clears** that file's stored mapping, and its ignore with it, — that is what makes automapping able to drop a mapping it cannot replace, and clearing
 a row by hand work at all. A file that was never mapped has nothing to clear and is left out.
 A series draft missing a season or episode is left out too rather than guessed at. An empty
 payload shows a "nothing to save" notification instead of firing a request.

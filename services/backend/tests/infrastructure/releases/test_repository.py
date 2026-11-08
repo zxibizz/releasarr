@@ -244,6 +244,73 @@ async def test_update_file_mappings_updates_existing_file(
 
 
 @pytest.mark.asyncio
+async def test_update_file_mappings_ignores_a_file_until_it_is_mapped(
+    repository: SqlAlchemyReleaseRepository,
+    db_manager: DBManager,
+    seed_requests: Callable[[list[str]], Awaitable[None]],
+) -> None:
+    await seed_requests(["req-1"])
+
+    async with db_manager.transaction() as session:
+        release = models.Release(
+            id="rel-1",
+            name="Release 1",
+            info_hash="HASH1",
+            size_bytes=100,
+            status=ReleaseStatus.COMPLETED,
+            progress=1.0,
+            download_speed=0.0,
+            upload_speed=0.0,
+            seeders=0,
+            leechers=0,
+            ratio=0.0,
+        )
+        release.files.append(
+            models.ReleaseFile(
+                id="file-1",
+                name="NCOP.mkv",
+                size_bytes=2048,
+                path="Show/NCOP.mkv",
+                mapping_type=MediaType.SERIES,
+                mapped_request_id="req-1",
+                season=1,
+                episode=11,
+            )
+        )
+        session.add(release)
+
+    await repository.update_file_mappings(
+        "rel-1", [FileMappingUpdateData(file_id="file-1", mapping=None, ignored=True)]
+    )
+
+    ignored = await repository.get_release("rel-1")
+    assert ignored is not None
+    assert ignored.files[0].mapping is None
+    assert ignored.files[0].ignored is True
+
+    await repository.update_file_mappings(
+        "rel-1",
+        [
+            FileMappingUpdateData(
+                file_id="file-1",
+                mapping=ReleaseFileMapping(
+                    mapping_type=MediaType.SERIES,
+                    request_id="req-1",
+                    request_title="Show - Season 1",
+                    season=1,
+                    episode=1,
+                ),
+            )
+        ],
+    )
+
+    mapped = await repository.get_release("rel-1")
+    assert mapped is not None
+    assert mapped.files[0].ignored is False
+    assert mapped.files[0].mapping is not None
+
+
+@pytest.mark.asyncio
 async def test_delete_release_removes_row(
     repository: SqlAlchemyReleaseRepository,
     db_manager: DBManager,
