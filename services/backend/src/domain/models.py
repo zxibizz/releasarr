@@ -20,12 +20,13 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy import (
     Enum as SAEnum,
 )
 from sqlalchemy.ext.mutable import MutableDict, MutableList
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from src.db import Base
@@ -129,6 +130,10 @@ class MediaRequest(Base):
     aired_episodes: Mapped[int | None] = mapped_column(Integer)
     downloaded_episodes: Mapped[int | None] = mapped_column(Integer)
     series_title: Mapped[str | None] = mapped_column(String(255))
+    # Every title the request is known by, folded in Python. SQLite's LIKE and
+    # lower() only fold ASCII, so a Cyrillic term cannot be matched
+    # case-insensitively in SQL. Rebuilt on every flush by the listener below.
+    search_text: Mapped[str] = mapped_column(Text(), nullable=False, default="", server_default="")
     series_year: Mapped[int | None] = mapped_column(Integer)
     sonarr_series_id: Mapped[int | None] = mapped_column(Integer, index=True)
     radarr_movie_id: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -162,6 +167,27 @@ class MediaRequest(Base):
         back_populates="requests",
         lazy="selectin",
     )
+
+
+def fold_search_text(text: str) -> str:
+    """Fold text the way ``MediaRequest.search_text`` is stored, for matching against it."""
+
+    # Russian is routinely typed without the diaeresis on yo, so it folds to ye.
+    return text.casefold().replace("\u0451", "\u0435")
+
+
+@event.listens_for(MediaRequest, "before_insert")
+@event.listens_for(MediaRequest, "before_update")
+def _refresh_search_text(
+    _mapper: Mapper[MediaRequest], _connection: object, target: MediaRequest
+) -> None:
+    titles = [target.title, target.series_title]
+    titles.extend(
+        localization.get("title")
+        for localization in (target.localizations or {}).values()
+        if isinstance(localization, dict)
+    )
+    target.search_text = "\n".join(fold_search_text(title) for title in titles if title)
 
 
 class Release(Base):
@@ -554,4 +580,5 @@ __all__ = [
     "ServiceApiKey",
     "SyncJob",
     "User",
+    "fold_search_text",
 ]

@@ -1,5 +1,11 @@
 import { notifications } from '@mantine/notifications';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { discoverKeys } from '@/features/discover/keys';
@@ -55,7 +61,13 @@ export const requestDetailQuery = (id: string) => ({
 });
 
 export function useRequestsList(filters: RequestsListQueryFilters = {}) {
-  const query = useInfiniteQuery(requestsListQuery(filters));
+  const query = useInfiniteQuery({
+    ...requestsListQuery(filters),
+    // Each settled search term is a new key. Without the previous list held in
+    // its place the page falls back to its first-load skeleton, which unmounts
+    // the search field mid-word.
+    placeholderData: keepPreviousData,
+  });
 
   return {
     ...query,

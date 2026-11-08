@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
+    MediaLocalization,
     UpdateMediaRequestData,
 )
 from src.db import Base
@@ -261,6 +262,7 @@ async def _seed_titled(
     title: str,
     series_title: str | None = None,
     status: MediaRequestStatus = MediaRequestStatus.PENDING,
+    localizations: dict[str, dict[str, str | None]] | None = None,
 ) -> None:
     async with db_manager.transaction() as session:
         session.add(
@@ -273,6 +275,7 @@ async def _seed_titled(
                 overview=None,
                 poster_url=None,
                 genres=[],
+                localizations=localizations or {},
                 runtime_minutes=None,
                 imdb_id=None,
                 season_number=1 if series_title else None,
@@ -303,6 +306,48 @@ async def test_list_requests_searches_both_titles_case_insensitively(
     assert total == 1
     # The series title matched; the request's own title only carries it as a suffix.
     assert [record.id for record in records] == ["req-2"]
+
+
+@pytest.mark.asyncio
+async def test_list_requests_searches_translated_titles_case_insensitively(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(
+        db_manager,
+        "req-1",
+        title="The Hedgehog in the Fog",
+        localizations={"rus": {"title": "Ёжик в тумане", "overview": None}},
+    )
+    await _seed_titled(db_manager, "req-2", title="Arrival")
+
+    # SQLite folds only ASCII case, and a yo is commonly typed as ye.
+    for term in ("ЕЖИК", "ёжик", "тумане"):
+        records, total = await repository.list_requests(
+            page=1, per_page=10, status=None, media_type=None, search=term
+        )
+        assert total == 1, term
+        assert [record.id for record in records] == ["req-1"]
+
+
+@pytest.mark.asyncio
+async def test_list_requests_search_follows_updated_translations(
+    repository: SqlAlchemyMediaRequestRepository,
+    db_manager: DBManager,
+) -> None:
+    await _seed_titled(db_manager, "req-1", title="Arrival")
+    await repository.update_request(
+        "req-1",
+        UpdateMediaRequestData(
+            localizations={"rus": MediaLocalization(title="Прибытие", overview=None)}
+        ),
+    )
+
+    records, _ = await repository.list_requests(
+        page=1, per_page=10, status=None, media_type=None, search="прибытие"
+    )
+
+    assert [record.id for record in records] == ["req-1"]
 
 
 @pytest.mark.asyncio

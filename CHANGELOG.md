@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mapped it again — so a pack's bonus files kept landing back on real episodes and failing the
   Sonarr import. Use **Ignore** for files that should never be imported; a plain clear still
   hands the file back to automatic mapping.
+- **Searching the request list works in Russian.** It now matches translated titles too, ignores
+  letter case in Cyrillic, and treats ё and е as the same letter. Typing no longer swaps the list
+  for a loading skeleton or knocks focus out of the search field.
 
 ## [0.12.0] - 2026-09-27
 

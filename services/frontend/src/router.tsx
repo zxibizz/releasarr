@@ -4,6 +4,7 @@ import {
   Navigate,
   type LoaderFunctionArgs,
   type RouteObject,
+  type ShouldRevalidateFunctionArgs,
 } from 'react-router-dom';
 
 import AppLayout from '@/App';
@@ -28,6 +29,18 @@ const requestsLoader = async () => {
   );
   return null;
 };
+
+/*
+ * The filters live in the query string, so every keystroke in the search field
+ * is a navigation. The loader only warms the default view, and re-running it
+ * holds the new URL - and with it the field's value - until it settles.
+ */
+const requestsShouldRevalidate = ({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) =>
+  currentUrl.pathname === nextUrl.pathname ? false : defaultShouldRevalidate;
 
 const requestDetailLoader = async ({ params }: LoaderFunctionArgs) => {
   const { id } = params;
@@ -74,6 +87,7 @@ const routes: RouteObject[] = [
             index: true,
             element: <RequestsPage />,
             loader: requestsLoader,
+            shouldRevalidate: requestsShouldRevalidate,
             errorElement: <RouteErrorBoundary />,
           },
           /*

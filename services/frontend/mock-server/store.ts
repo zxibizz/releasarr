@@ -324,11 +324,16 @@ export class MockStore {
       result = result.filter((request) => (request.warnings?.length ?? 0) > 0 === hasWarnings);
     }
     if (search) {
-      const needle = search.toLowerCase();
-      result = result.filter(
-        (request) =>
-          request.title.toLowerCase().includes(needle) ||
-          (request.type === 'series' && request.series_title.toLowerCase().includes(needle)),
+      // Matches the backend: every title the request is known by, translations
+      // included, with yo folded to ye.
+      const fold = (text: string) => text.toLowerCase().replaceAll('\u0451', '\u0435');
+      const needle = fold(search);
+      result = result.filter((request) =>
+        [
+          request.title,
+          request.type === 'series' ? request.series_title : null,
+          ...Object.values(request.localizations ?? {}).map((localization) => localization.title),
+        ].some((title) => title && fold(title).includes(needle)),
       );
     }
     result = [...result].sort(REQUEST_SORTERS[sort]);

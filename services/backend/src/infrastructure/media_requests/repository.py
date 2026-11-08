@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, exists, or_, select
+from sqlalchemy import ColumnElement, Select, exists, select
 
 from src.application.interfaces.media_requests import (
     CreateMediaRequestData,
@@ -78,13 +78,8 @@ class SqlAlchemyMediaRequestRepository(BaseSqlAlchemyRepository, MediaRequestRep
                 )
                 filters.append(warning_exists if has_warnings else ~warning_exists)
             if search and search.strip():
-                pattern = f"%{_escape_like(search.strip())}%"
-                filters.append(
-                    or_(
-                        models.MediaRequest.title.ilike(pattern, escape="\\"),
-                        models.MediaRequest.series_title.ilike(pattern, escape="\\"),
-                    )
-                )
+                pattern = f"%{_escape_like(models.fold_search_text(search.strip()))}%"
+                filters.append(models.MediaRequest.search_text.like(pattern, escape="\\"))
 
             total = await self._count(session, models.MediaRequest.id, filters)
 
