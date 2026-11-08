@@ -300,6 +300,7 @@ async def test_update_file_mappings_ignores_a_file_until_it_is_mapped(
                     season=1,
                     episode=1,
                 ),
+                ignored=False,
             )
         ],
     )
@@ -308,6 +309,56 @@ async def test_update_file_mappings_ignores_a_file_until_it_is_mapped(
     assert mapped is not None
     assert mapped.files[0].ignored is False
     assert mapped.files[0].mapping is not None
+
+
+@pytest.mark.asyncio
+async def test_update_file_mappings_drops_an_automatic_write_to_an_ignored_file(
+    repository: SqlAlchemyReleaseRepository,
+    db_manager: DBManager,
+) -> None:
+    """An export run that read the release before the file was ignored must not remap it."""
+
+    async with db_manager.transaction() as session:
+        release = models.Release(
+            id="rel-1",
+            name="Release 1",
+            info_hash="HASH1",
+            size_bytes=100,
+            status=ReleaseStatus.COMPLETED,
+            progress=1.0,
+            download_speed=0.0,
+            upload_speed=0.0,
+            seeders=0,
+            leechers=0,
+            ratio=0.0,
+        )
+        release.files.append(
+            models.ReleaseFile(
+                id="file-1", name="NCOP.mkv", size_bytes=2048, path="Show/NCOP.mkv", ignored=True
+            )
+        )
+        session.add(release)
+
+    await repository.update_file_mappings(
+        "rel-1",
+        [
+            FileMappingUpdateData(
+                file_id="file-1",
+                mapping=ReleaseFileMapping(
+                    mapping_type=MediaType.SERIES,
+                    request_id="req-1",
+                    request_title="Show - Season 1",
+                    season=1,
+                    episode=11,
+                ),
+            )
+        ],
+    )
+
+    stored = await repository.get_release("rel-1")
+    assert stored is not None
+    assert stored.files[0].ignored is True
+    assert stored.files[0].mapping is None
 
 
 @pytest.mark.asyncio

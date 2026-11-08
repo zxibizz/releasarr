@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **An ignored file stays ignored.** An export that was already running when the mapping was
+  saved could still map the file it had read as unmapped, and that cleared **Ignore** with it.
+  Automatic mapping now never maps a file once it is ignored, however old its read is.
+
 ## [0.13.0] - 2026-11-08
 
 ### Added

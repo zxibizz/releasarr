@@ -124,7 +124,11 @@ class FileMappingUpdateData:
 
     file_id: str
     mapping: ReleaseFileMapping | None
-    ignored: bool = False
+    # None is an automatic write: it leaves the flag alone and is dropped for a
+    # file that is ignored by the time it lands. Automapping works from a read it
+    # took earlier - an export run can hold one for minutes - so a human may have
+    # ruled the file out since, and a default of False would quietly overrule them.
+    ignored: bool | None = None
 
 
 @dataclass(slots=True)

@@ -216,6 +216,10 @@ Because the matcher runs at grab, on every suggestion request, and again at expo
   nor advances its folder's episode count, and `seasons_in` does not count its season. A cleared
   mapping is not enough for this: a file with no mapping is a gap, and the export that every save
   queues fills gaps. That is how a hand-cleared creditless OP got numbered back onto episode 11.
+  The matcher only sees the flag as of its own read, though, and an export run can hold that read
+  for minutes, so the repository enforces it as well: an update with `ignored=None` (what the
+  matcher emits) is dropped for a file that is ignored by the time it lands, and never touches the
+  flag. Only a human save passes a real bool.
 - **`request_id` is always re-derived** from the season. Deliberate: it is what fixes a pack
   grabbed against one season's request.
 - Non-video files, unrequested seasons, and ambiguous bare numbers are skipped rather than

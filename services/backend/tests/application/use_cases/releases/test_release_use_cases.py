@@ -241,8 +241,13 @@ class FakeReleaseRepository(UnusedReleaseRepositoryCalls):
         file_lookup = OrderedDict((file_record.id, file_record) for file_record in record.files)
         for update in updates:
             if update.file_id in file_lookup:
-                file_lookup[update.file_id].mapping = update.mapping
-                file_lookup[update.file_id].ignored = update.ignored and update.mapping is None
+                stored = file_lookup[update.file_id]
+                if update.ignored is None:
+                    if stored.ignored:
+                        continue
+                else:
+                    stored.ignored = update.ignored and update.mapping is None
+                stored.mapping = update.mapping
         self.last_updates = updates
         return True
 
