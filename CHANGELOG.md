@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The request page buttons fit on a phone.** With both **Manage seasons** and **Folder** shown,
+  their labels were cut to a few letters; the buttons now get a row of their own and wrap, and the
+  status sits under the title.
+
 ## [0.13.2] - 2026-11-12
 
 ### Added

@@ -85,11 +85,22 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
           {originalTitle}
         </Text>
       )}
+      {isMobile && (
+        <Group>
+          <StatusBadge status={request.status} size="md" />
+        </Group>
+      )}
     </Stack>
   );
 
+  /*
+   * On a phone the buttons get the full width to themselves and may wrap: kept
+   * on one line beside the status, each was cut down to its first few letters.
+   * The status goes under the title instead, which is what it describes.
+   */
+  const hasActions = Boolean(onManageSeasons || onMoveFolder);
   const controls = (
-    <Group gap="sm" wrap="nowrap">
+    <Group gap={isMobile ? 'xs' : 'sm'} wrap={isMobile ? 'wrap' : 'nowrap'}>
       {onManageSeasons && (
         <Button
           variant="light"
@@ -110,7 +121,7 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
           {t('requestPage.folder.manage')}
         </Button>
       )}
-      <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
+      {!isMobile && <StatusBadge status={request.status} size="lg" />}
     </Group>
   );
 
@@ -140,9 +151,9 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
 
   /*
    * A phone cannot fit the poster beside the details, so only the title sits
-   * next to it and everything else spans the full width underneath. The season
-   * button and status take a row of their own rather than wrapping inside the
-   * narrow column left over next to the poster.
+   * next to it and everything else spans the full width underneath. The
+   * buttons take a row of their own rather than squeezing into the narrow
+   * column left over next to the poster.
    */
   if (isMobile) {
     return (
@@ -152,7 +163,7 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
             {poster}
             {titleBlock}
           </Group>
-          {controls}
+          {hasActions && controls}
           {details}
         </Stack>
       </Card>

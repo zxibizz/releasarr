@@ -49,12 +49,22 @@ describe('MediaInfo on a phone', () => {
     expect(title).not.toHaveAttribute('data-line-clamp');
   });
 
-  it('gives the season button and status a row of their own', () => {
-    renderMediaInfo();
+  it('gives the buttons a row of their own and puts the status under the title', () => {
+    renderWithProviders(
+      <MediaInfo request={series} onManageSeasons={() => {}} onMoveFolder={() => {}} />,
+    );
 
     const posterRow = screen.getByRole('img').parentElement;
     expect(posterRow).toContainElement(screen.getByRole('heading', { level: 3 }));
-    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
+    expect(posterRow).toContainElement(screen.getByText(/Downloading/));
+
+    const seasons = screen.getByRole('button', { name: 'Manage seasons' });
+    const folder = screen.getByRole('button', { name: 'Folder' });
+    expect(posterRow).not.toContainElement(seasons);
+    // Free to wrap, so neither label is cut short on a narrow phone.
+    const buttonRow = seasons.parentElement;
+    expect(buttonRow).toContainElement(folder);
+    expect(buttonRow?.style.getPropertyValue('--group-wrap')).toBe('wrap');
   });
 
   it('keeps the larger title and the season button beside it on a desktop', () => {
