@@ -1,5 +1,5 @@
-import { Badge, Button, Card, Group, Image, Stack, Text, Title } from '@mantine/core';
-import { IconFolder, IconListCheck } from '@tabler/icons-react';
+import { ActionIcon, Badge, Card, Group, Image, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { IconPencil } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
@@ -9,13 +9,11 @@ import { formatRuntime } from '@/utils/formatters';
 
 interface MediaInfoProps {
   request: MediaRequest;
-  /** Offers the way in to managing the series' seasons, for a series request. */
-  onManageSeasons?: () => void;
-  /** Offers moving the series or movie to another library folder. */
-  onMoveFolder?: () => void;
+  /** Offers the way in to editing the request's seasons and library folder. */
+  onEdit?: () => void;
 }
 
-export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoProps) {
+export function MediaInfo({ request, onEdit }: MediaInfoProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
@@ -88,27 +86,24 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
     </Stack>
   );
 
+  /*
+   * An icon rather than a labelled button: the status already takes most of the
+   * row on a phone, and a label beside it was cut to its first few letters.
+   */
   const controls = (
     <Group gap="sm" wrap="nowrap">
-      {onManageSeasons && (
-        <Button
-          variant="light"
-          size={isMobile ? 'compact-sm' : 'xs'}
-          leftSection={<IconListCheck size={16} />}
-          onClick={onManageSeasons}
-        >
-          {t('requestPage.seasons.manage')}
-        </Button>
-      )}
-      {onMoveFolder && (
-        <Button
-          variant="light"
-          size={isMobile ? 'compact-sm' : 'xs'}
-          leftSection={<IconFolder size={16} />}
-          onClick={onMoveFolder}
-        >
-          {t('requestPage.folder.manage')}
-        </Button>
+      {onEdit && (
+        <Tooltip label={t('requestPage.edit.open')}>
+          <ActionIcon
+            variant="light"
+            size="lg"
+            radius="md"
+            aria-label={t('requestPage.edit.open')}
+            onClick={onEdit}
+          >
+            <IconPencil size={18} />
+          </ActionIcon>
+        </Tooltip>
       )}
       <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
     </Group>
@@ -140,7 +135,7 @@ export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoP
 
   /*
    * A phone cannot fit the poster beside the details, so only the title sits
-   * next to it and everything else spans the full width underneath. The season
+   * next to it and everything else spans the full width underneath. The edit
    * button and status take a row of their own rather than wrapping inside the
    * narrow column left over next to the poster.
    */

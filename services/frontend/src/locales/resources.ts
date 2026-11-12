@@ -848,9 +848,15 @@ export const resources = {
             unaired: 'Not aired',
           },
         },
+        edit: {
+          open: 'Edit',
+          modalTitle: 'Edit {{title}}',
+          tabs: {
+            seasons: 'Seasons',
+            folder: 'Folder',
+          },
+        },
         seasons: {
-          manage: 'Manage seasons',
-          modalTitle: 'Seasons of {{title}}',
           confirm: 'Save seasons',
           saved: 'Seasons updated',
           saveFailed: 'Could not update the seasons',
@@ -863,8 +869,6 @@ export const resources = {
           },
         },
         folder: {
-          manage: 'Folder',
-          modalTitle: 'Folder of {{title}}',
           label: 'Library folder',
           currentPath: 'Now in {{path}}',
           hintSeries:
@@ -2084,9 +2088,15 @@ export const resources = {
             unaired: 'Не вышел',
           },
         },
+        edit: {
+          open: 'Изменить',
+          modalTitle: 'Изменить «{{title}}»',
+          tabs: {
+            seasons: 'Сезоны',
+            folder: 'Папка',
+          },
+        },
         seasons: {
-          manage: 'Управление сезонами',
-          modalTitle: 'Сезоны «{{title}}»',
           confirm: 'Сохранить сезоны',
           saved: 'Сезоны обновлены',
           saveFailed: 'Не удалось обновить сезоны',
@@ -2099,8 +2109,6 @@ export const resources = {
           },
         },
         folder: {
-          manage: 'Папка',
-          modalTitle: 'Папка: {{title}}',
           label: 'Папка библиотеки',
           currentPath: 'Сейчас: {{path}}',
           hintSeries:

@@ -13,9 +13,8 @@ import { ReleaseDetailsModal } from '@/features/releases/components/ReleaseDetai
 import { ReleaseList } from '@/features/releases/components/ReleaseList';
 import { ReleaseSearch } from '@/features/releases/components/ReleaseSearch';
 import { releaseKeys, useReleasesByRequest } from '@/features/releases/queries';
-import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
+import { EditRequestModal } from '@/features/requests/components/EditRequestModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
-import { MoveFolderModal } from '@/features/requests/components/MoveFolderModal';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { RequestOwner } from '@/features/requests/components/RequestOwner';
 import { RequestWarnings } from '@/features/requests/components/RequestWarnings';
@@ -59,8 +58,7 @@ export function RequestDetailPage() {
 
   const [detailsOpened, detailsModal] = useDisclosure(false);
   const [logsOpened, logsModal] = useDisclosure(false);
-  const [seasonsOpened, seasonsModal] = useDisclosure(false);
-  const [folderOpened, folderModal] = useDisclosure(false);
+  const [editOpened, editModal] = useDisclosure(false);
   const [isRefreshing, setRefreshing] = useState(false);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
@@ -178,8 +176,7 @@ export function RequestDetailPage() {
     <Stack gap="xl">
       <MediaInfo
         request={localizedRequest}
-        onManageSeasons={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
-        onMoveFolder={inLibrary ? folderModal.open : undefined}
+        onEdit={localizedRequest.type === 'series' || inLibrary ? editModal.open : undefined}
       />
 
       <RequestWarnings warnings={localizedRequest.warnings} />
@@ -259,22 +256,13 @@ export function RequestDetailPage() {
         onClose={logsModal.close}
       />
 
-      {inLibrary && (
-        <MoveFolderModal
-          request={localizedRequest}
-          opened={folderOpened}
-          onClose={folderModal.close}
-        />
-      )}
-
-      {localizedRequest.type === 'series' && (
-        <ManageSeasonsModal
-          request={localizedRequest}
-          opened={seasonsOpened}
-          onClose={seasonsModal.close}
-          onRequestRemoved={backToRequests}
-        />
-      )}
+      <EditRequestModal
+        request={localizedRequest}
+        opened={editOpened}
+        onClose={editModal.close}
+        inLibrary={inLibrary}
+        onRequestRemoved={backToRequests}
+      />
     </Stack>
   );
 }

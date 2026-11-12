@@ -191,8 +191,8 @@ const stubRoutes = ({
 };
 
 const openSeasonManager = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'Manage seasons' }));
-  return screen.findByRole('dialog', { name: /Seasons of Severance/ });
+  await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  return screen.findByRole('dialog', { name: /Edit Severance/ });
 };
 
 describe('RequestDetailPage', () => {
@@ -541,26 +541,27 @@ describe('RequestDetailPage', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
   });
 
-  it('names Radarr when removing a movie, and offers no season manager', async () => {
+  it('names Radarr when removing a movie, and offers nothing to edit before Radarr links it', async () => {
     stubRoutes({ request: movie });
 
     renderWithProviders(<RequestDetailPage />);
 
     expect(await screen.findByText('Arrival')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Manage seasons' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Remove Request'));
 
     expect(await screen.findByText(/Radarr will stop monitoring this movie/)).toBeInTheDocument();
   });
 
-  it('offers no folder move until Sonarr has linked the request', async () => {
+  it('offers seasons alone, without tabs, until Sonarr has linked the request', async () => {
     stubRoutes();
 
     renderWithProviders(<RequestDetailPage />);
+    const dialog = await openSeasonManager();
 
-    expect(await screen.findByRole('button', { name: 'Manage seasons' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Folder' })).not.toBeInTheDocument();
+    expect(await within(dialog).findByRole('checkbox', { name: /Season 2/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('tab')).not.toBeInTheDocument();
   });
 
   it('moves the series to the picked library folder', async () => {
@@ -568,8 +569,14 @@ describe('RequestDetailPage', () => {
     const user = userEvent.setup();
 
     renderWithProviders(<RequestDetailPage />);
-    await user.click(await screen.findByRole('button', { name: 'Folder' }));
-    const dialog = await screen.findByRole('dialog', { name: /Folder of Severance/ });
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: /Edit Severance/ });
+    // Seasons first, the folder one tab along.
+    expect(within(dialog).getByRole('tab', { name: 'Seasons' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.click(within(dialog).getByRole('tab', { name: 'Folder' }));
 
     expect(await within(dialog).findByText('Now in /media/tv/Severance')).toBeInTheDocument();
     // Moving to where it already is would be a no-op, so it is not offered.
@@ -594,11 +601,16 @@ describe('RequestDetailPage', () => {
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
   });
 
-  it('offers a movie the move as well', async () => {
+  it('opens a movie straight on its folder', async () => {
     stubRoutes({ request: { ...movie, radarr_movie_id: 31 } });
 
     renderWithProviders(<RequestDetailPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: /Edit Arrival/ });
 
-    expect(await screen.findByRole('button', { name: 'Folder' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('tab')).not.toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole('combobox', { name: 'Library folder' }),
+    ).toBeInTheDocument();
   });
 });

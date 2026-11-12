@@ -3,16 +3,15 @@ import { modals } from '@mantine/modals';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ResponsiveModal } from '@/components/ResponsiveModal';
 import { SeasonPicker } from '@/features/discover/components/SeasonPicker';
 import { seasonLabelKey } from '@/features/discover/seasons';
 import { useRequestSeasons, useUpdateRequestSeasons } from '@/features/requests/queries';
 import { ApiError } from '@/lib/api/client';
 import type { SeriesRequest } from '@/types';
 
-interface ManageSeasonsModalProps {
+interface SeasonsPanelProps {
   request: SeriesRequest;
-  opened: boolean;
+  /** Called on cancel, and once the selection is saved. */
   onClose: () => void;
   /** Called when the saved selection no longer covers the season being viewed. */
   onRequestRemoved: () => void;
@@ -30,15 +29,10 @@ interface ManageSeasonsModalProps {
  * Sonarr too, which the backend reports as the series no longer being in the
  * library.
  */
-export function ManageSeasonsModal({
-  request,
-  opened,
-  onClose,
-  onRequestRemoved,
-}: ManageSeasonsModalProps) {
+export function SeasonsPanel({ request, onClose, onRequestRemoved }: SeasonsPanelProps) {
   const { t } = useTranslation();
 
-  const seasons = useRequestSeasons(request.id, opened);
+  const seasons = useRequestSeasons(request.id);
   const updateSeasons = useUpdateRequestSeasons(request.id);
 
   const [picked, setPicked] = useState<number[] | null>(null);
@@ -102,42 +96,36 @@ export function ManageSeasonsModal({
   const unavailable = seasons.error instanceof ApiError && seasons.error.status === 409;
 
   return (
-    <ResponsiveModal
-      opened={opened}
-      onClose={onClose}
-      title={t('requestPage.seasons.modalTitle', { title: request.series_title })}
-    >
-      <Stack gap="md">
-        {unavailable ? (
-          <Alert color="yellow" radius="md">
-            {t('requestPage.seasons.unavailable')}
-          </Alert>
-        ) : (
-          <SeasonPicker
-            seasons={seasons.data?.seasons ?? []}
-            selected={selected}
-            onChange={setPicked}
-            isLoading={seasons.isLoading}
-            error={seasons.error}
-            allowRemoving
-            monitorNewSeasons={monitorNewSeasons}
-            onMonitorNewSeasonsChange={setPickedNewSeasons}
-          />
-        )}
+    <Stack gap="md">
+      {unavailable ? (
+        <Alert color="yellow" radius="md">
+          {t('requestPage.seasons.unavailable')}
+        </Alert>
+      ) : (
+        <SeasonPicker
+          seasons={seasons.data?.seasons ?? []}
+          selected={selected}
+          onChange={setPicked}
+          isLoading={seasons.isLoading}
+          error={seasons.error}
+          allowRemoving
+          monitorNewSeasons={monitorNewSeasons}
+          onMonitorNewSeasonsChange={setPickedNewSeasons}
+        />
+      )}
 
-        <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            loading={updateSeasons.isPending}
-            disabled={!seasons.isSuccess}
-            onClick={handleSave}
-          >
-            {t('requestPage.seasons.confirm')}
-          </Button>
-        </Group>
-      </Stack>
-    </ResponsiveModal>
+      <Group justify="flex-end" gap="sm">
+        <Button variant="default" onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          loading={updateSeasons.isPending}
+          disabled={!seasons.isSuccess}
+          onClick={handleSave}
+        >
+          {t('requestPage.seasons.confirm')}
+        </Button>
+      </Group>
+    </Stack>
   );
 }

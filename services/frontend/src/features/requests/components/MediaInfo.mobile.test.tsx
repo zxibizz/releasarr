@@ -27,7 +27,7 @@ const series: MediaRequest = {
 };
 
 function renderMediaInfo() {
-  return renderWithProviders(<MediaInfo request={series} onManageSeasons={() => {}} />);
+  return renderWithProviders(<MediaInfo request={series} onEdit={() => {}} />);
 }
 
 describe('MediaInfo on a phone', () => {
@@ -49,15 +49,15 @@ describe('MediaInfo on a phone', () => {
     expect(title).not.toHaveAttribute('data-line-clamp');
   });
 
-  it('gives the season button and status a row of their own', () => {
+  it('gives the edit button and status a row of their own', () => {
     renderMediaInfo();
 
     const posterRow = screen.getByRole('img').parentElement;
     expect(posterRow).toContainElement(screen.getByRole('heading', { level: 3 }));
-    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
+    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Edit' }));
   });
 
-  it('keeps the larger title and the season button beside it on a desktop', () => {
+  it('keeps the larger title and the edit button beside it on a desktop', () => {
     setViewportWidth(DESKTOP_WIDTH);
 
     renderMediaInfo();
@@ -65,7 +65,7 @@ describe('MediaInfo on a phone', () => {
     expect(screen.getByRole('heading', { level: 2, name: LONG_TITLE })).toBeInTheDocument();
 
     const posterRow = screen.getByRole('img').parentElement;
-    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Manage seasons' }));
+    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Edit' }));
   });
 
   it('names the series below the meta line while the heading shows a translation', () => {
