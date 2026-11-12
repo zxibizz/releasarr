@@ -18,6 +18,7 @@ import type {
   IndexerEventType,
   IndexerHistoryEntry,
   IndexerTestResult,
+  LibraryFolder,
   LogComponent,
   LogService,
   MediaSearchResult,
@@ -258,6 +259,9 @@ export class MockStore {
   private indexersCache: Indexer[] | null = null;
   private indexerHistoryCache: IndexerHistoryEntry[] | null = null;
   private syncJobs: SyncJob[] = [];
+  // Root folder per series or movie, keyed like the *arr would key it. Absent
+  // means the first configured folder, which is where the mock library starts.
+  private libraryFolders: Record<string, string> = {};
   // Cloned because adding media mutates it, standing in for the *arr library.
   private discoverCatalogue: DiscoverCatalogueEntry[] = DISCOVER_CATALOGUE.map((entry) =>
     clone(entry),
@@ -266,7 +270,22 @@ export class MockStore {
   private async ensureRequests(): Promise<MediaRequest[]> {
     if (!this.requestsCache) {
       const requests = await getMockRequests();
-      this.requestsCache = requests.map((request) => clone(request));
+      // The seed rows stand for requests the sync has already seen in Sonarr and
+      // Radarr, which is what stamps the library ids on them; the seasons of one
+      // series share its id.
+      const seriesIds = new Map<string, number>();
+      this.requestsCache = requests.map((request, index) => {
+        const copy = clone(request);
+        if (copy.type === 'series') {
+          if (!seriesIds.has(copy.series_title)) {
+            seriesIds.set(copy.series_title, seriesIds.size + 1);
+          }
+          copy.sonarr_series_id ??= seriesIds.get(copy.series_title);
+        } else {
+          copy.radarr_movie_id ??= index + 1;
+        }
+        return copy;
+      });
     }
     return this.requestsCache;
   }
@@ -1331,6 +1350,48 @@ export class MockStore {
         (candidate) => candidate.type === 'series' && candidate.title === request.series_title,
       ) ?? null
     );
+  }
+
+  private libraryKey(request: MediaRequest): string | null {
+    const id = request.type === 'series' ? request.sonarr_series_id : request.radarr_movie_id;
+    return id === null || id === undefined ? null : `${request.type}:${id}`;
+  }
+
+  private describeLibraryFolder(request: MediaRequest, key: string): LibraryFolder {
+    const root = this.libraryFolders[key] ?? DISCOVER_ROOT_FOLDERS[request.type][0].path;
+    const name = request.type === 'series' ? request.series_title : request.title;
+    return {
+      type: request.type,
+      root_folder_path: root,
+      path: `${root}/${name} (${request.type === 'series' ? request.series_year : request.year})`,
+    };
+  }
+
+  /** Where a request's series or movie lives; null when it is not in the library. */
+  async getLibraryFolder(requestId: string): Promise<LibraryFolder | null> {
+    const request = await this.getRequest(requestId);
+    const key = request ? this.libraryKey(request) : null;
+    return request && key ? this.describeLibraryFolder(request, key) : null;
+  }
+
+  /**
+   * Moves a request's series or movie to another root folder. A series moves as
+   * a whole, so every season's request reports the new folder afterwards.
+   */
+  async moveLibraryFolder(
+    requestId: string,
+    rootFolderPath: string,
+  ): Promise<LibraryFolder | null> {
+    const request = await this.getRequest(requestId);
+    const key = request ? this.libraryKey(request) : null;
+    if (!request || !key) {
+      return null;
+    }
+    if (!DISCOVER_ROOT_FOLDERS[request.type].some((folder) => folder.path === rootFolderPath)) {
+      throw new Error('invalid_root_folder');
+    }
+    this.libraryFolders[key] = rootFolderPath;
+    return this.describeLibraryFolder(request, key);
   }
 
   async listDiscoverRootFolders(type: MediaType): Promise<RootFolder[]> {

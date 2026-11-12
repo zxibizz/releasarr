@@ -62,6 +62,21 @@ class RootFoldersResponse(APIModel):
     folders: list[RootFolder]
 
 
+class LibraryFolder(APIModel):
+    """Where a request's series or movie is stored in Sonarr or Radarr."""
+
+    type: MediaType
+    path: str | None
+    # One of the configured root folders as /discover/root-folders spells it.
+    root_folder_path: str | None
+
+
+class MoveLibraryFolderPayload(APIModel):
+    """The root folder a request's series or movie should move to, files and all."""
+
+    root_folder_path: str = Field(min_length=1)
+
+
 class AddRequestPayload(APIModel):
     """A picked search result, plus where and what to add of it."""
 
@@ -102,8 +117,10 @@ class UpdateSeasonsPayload(APIModel):
 __all__ = [
     "AddRequestPayload",
     "AddRequestResponse",
+    "LibraryFolder",
     "MediaSearchResponse",
     "MediaSearchResult",
+    "MoveLibraryFolderPayload",
     "RootFolder",
     "RootFoldersResponse",
     "SeasonOption",

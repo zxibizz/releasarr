@@ -857,6 +857,24 @@ export const resources = {
             confirm: 'Unmonitor and save',
           },
         },
+        folder: {
+          manage: 'Folder',
+          modalTitle: 'Folder of {{title}}',
+          label: 'Library folder',
+          currentPath: 'Now in {{path}}',
+          hintSeries:
+            'Sonarr moves the whole series, every season with it, and the files follow in the background. Media servers pick it up in the new library on their next scan.',
+          hintMovie:
+            'Radarr moves the movie and its files in the background. Media servers pick it up in the new library on their next scan.',
+          confirm: 'Move',
+          moved: 'Moving to {{path}}',
+          moveFailed: 'Could not move to that folder',
+          loadFailed: 'We could not load the library folders.',
+          unavailableSeries:
+            'Sonarr has not linked this request to a series yet, so there is nothing to move.',
+          unavailableMovie:
+            'Radarr has not linked this request to a movie yet, so there is nothing to move.',
+        },
         remove: {
           dialogTitle: 'Remove request',
           dialogBodySeries:
@@ -2069,6 +2087,22 @@ export const resources = {
             body: 'Sonarr перестанет отслеживать {{seasons}}, а их запросы будут удалены. Сериал, у которого не осталось отслеживаемых сезонов и нет скачанных файлов, будет удалён из Sonarr; файлы на диске останутся.',
             confirm: 'Отключить и сохранить',
           },
+        },
+        folder: {
+          manage: 'Папка',
+          modalTitle: 'Папка: {{title}}',
+          label: 'Папка библиотеки',
+          currentPath: 'Сейчас: {{path}}',
+          hintSeries:
+            'Sonarr перенесёт весь сериал, со всеми сезонами; файлы переедут в фоне. Медиасервер увидит его в новой библиотеке после ближайшего сканирования.',
+          hintMovie:
+            'Radarr перенесёт фильм вместе с файлами в фоне. Медиасервер увидит его в новой библиотеке после ближайшего сканирования.',
+          confirm: 'Перенести',
+          moved: 'Переносим в {{path}}',
+          moveFailed: 'Не удалось перенести в эту папку',
+          loadFailed: 'Не удалось загрузить папки библиотеки.',
+          unavailableSeries: 'Sonarr ещё не связал этот запрос с сериалом, переносить пока нечего.',
+          unavailableMovie: 'Radarr ещё не связал этот запрос с фильмом, переносить пока нечего.',
         },
         remove: {
           dialogTitle: 'Удалить запрос',

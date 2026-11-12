@@ -40,6 +40,9 @@ class SeriesDetails:
     # season and episode monitoring, so while they are set nothing read back here
     # about monitoring is final.
     has_add_options: bool = False
+    # Where the series lives on disk, and the library root folder that holds it.
+    path: str | None = None
+    root_folder_path: str | None = None
 
 
 @dataclass(slots=True)
@@ -152,6 +155,13 @@ class SonarrService(Protocol):
 
         Both halves of a freshly added series settle in the background, and the
         returned details are only worth reading - or correcting - once they have.
+        """
+
+    async def move_series(self, series_id: int, root_folder_path: str) -> None:
+        """Move a series to another root folder, files included.
+
+        Sonarr rewrites the series path at once and moves the files in the
+        background, putting the path back if the move fails.
         """
 
     async def delete_series(self, series_id: int) -> None:

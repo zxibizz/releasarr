@@ -30,6 +30,7 @@ export const requestKeys = {
   detail: (id: string) => [...requestKeys.all, 'detail', id] as const,
   episodes: (id: string) => [...requestKeys.all, 'episodes', id] as const,
   seasons: (id: string) => [...requestKeys.all, 'seasons', id] as const,
+  libraryFolder: (id: string) => [...requestKeys.all, 'library-folder', id] as const,
 };
 
 type RequestsListQueryFilters = Omit<RequestListFilters, 'page' | 'perPage'>;
@@ -129,6 +130,44 @@ export function useUpdateRequestSeasons(id: string | undefined) {
     onError: (error: unknown) => {
       notifications.show({
         title: t('requestPage.seasons.saveFailed'),
+        message: getErrorMessage(error, ''),
+        color: 'red',
+      });
+    },
+  });
+}
+
+/**
+ * The root folder a request's series or movie is stored in. Asked only while
+ * the folder picker is open, because it costs a call to Sonarr or Radarr.
+ */
+export function useRequestLibraryFolder(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: requestKeys.libraryFolder(id ?? ''),
+    queryFn: ({ signal }) => requestsApi.libraryFolder(id ?? '', signal),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useMoveLibraryFolder(id: string | undefined) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (rootFolderPath: string) => requestsApi.moveLibraryFolder(id ?? '', rootFolderPath),
+    onSuccess: (folder) => {
+      // Every season of a series moves with it, so the folder cached for the
+      // other seasons' requests is stale as well.
+      void queryClient.invalidateQueries({ queryKey: [...requestKeys.all, 'library-folder'] });
+      queryClient.setQueryData(requestKeys.libraryFolder(id ?? ''), folder);
+      notifications.show({
+        message: t('requestPage.folder.moved', { path: folder.root_folder_path ?? '' }),
+        color: 'teal',
+      });
+    },
+    onError: (error: unknown) => {
+      notifications.show({
+        title: t('requestPage.folder.moveFailed'),
         message: getErrorMessage(error, ''),
         color: 'red',
       });

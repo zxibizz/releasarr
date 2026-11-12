@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,13 +19,22 @@ from src.api.routes.requests import (
     _get_delete_use_case,
     _get_episodes_use_case,
     _get_get_use_case,
+    _get_library_folder_use_case,
     _get_list_use_case,
+    _get_move_library_folder_use_case,
     _get_seasons_use_case,
     _get_update_seasons_use_case,
     _get_update_use_case,
 )
+from src.application.use_cases.auth import Principal
 from src.application.use_cases.discover import (
+    DisallowedRootFolderError,
+    GetLibraryFolderUseCase,
+    LibraryFolderDTO,
+    LibraryFolderUnavailableError,
     ListRequestSeasonsUseCase,
+    MoveLibraryFolderCommand,
+    MoveLibraryFolderUseCase,
     SeasonOptionDTO,
     SeasonsUnmanageableError,
     SeriesSeasonsDTO,
@@ -54,7 +64,15 @@ from src.application.use_cases.requests.dto import (
     SeriesEpisodeCountsDTO,
     SeriesRequestDTO,
 )
-from src.domain.enums import EpisodeStatus, MediaRequestStatus, RequestSort, RequestWarningCode
+from src.domain.enums import (
+    EpisodeStatus,
+    MediaRequestStatus,
+    MediaType,
+    RequestSort,
+    RequestWarningCode,
+    UserRole,
+)
+from tests.conftest import TEST_ADMIN_USER
 
 API_KEY_HEADER: dict[str, str] = {}
 
@@ -548,3 +566,151 @@ async def test_missing_api_key_returns_401(api_client: AsyncClient) -> None:
         "message": "Authentication required",
         "details": None,
     }
+
+
+class FakeLibraryFolderUseCase(GetLibraryFolderUseCase):
+    def __init__(self, dto: LibraryFolderDTO | None) -> None:
+        self._dto = dto
+
+    async def execute(self, request_id: str) -> LibraryFolderDTO:
+        if self._dto is None:
+            raise LibraryFolderUnavailableError(f"Request '{request_id}' is not linked")
+        return self._dto
+
+
+class FakeMoveLibraryFolderUseCase(MoveLibraryFolderUseCase):
+    def __init__(self, dto: LibraryFolderDTO, error: Exception | None = None) -> None:
+        self._dto = dto
+        self._error = error
+        self.commands: list[MoveLibraryFolderCommand] = []
+
+    async def execute(self, request_id: str, command: MoveLibraryFolderCommand) -> LibraryFolderDTO:
+        self.commands.append(command)
+        if self._error is not None:
+            raise self._error
+        return self._dto
+
+
+def make_library_folder_dto(root: str = "/Media/Anime Series/") -> LibraryFolderDTO:
+    return LibraryFolderDTO(
+        media_type=MediaType.SERIES,
+        path=f"{root}Example Show",
+        root_folder_path=root,
+    )
+
+
+@contextmanager
+def restricted_principal(*, user_id: str, allowed_root_folders: list[str]):
+    user = replace(
+        TEST_ADMIN_USER,
+        id=user_id,
+        role=UserRole.USER,
+        can_view_all_requests=False,
+        allowed_root_folders=allowed_root_folders,
+    )
+    with override_dependency(get_principal, Principal(user=user, via="session")):
+        yield
+
+
+@pytest.mark.asyncio
+async def test_the_library_folder_of_a_request_is_reported(api_client: AsyncClient) -> None:
+    use_case = FakeLibraryFolderUseCase(make_library_folder_dto("/Media/TV Shows/"))
+    with override_dependency(_get_library_folder_use_case, use_case):
+        response = await api_client.get("/requests/req-1/library-folder", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "type": "series",
+        "path": "/Media/TV Shows/Example Show",
+        "root_folder_path": "/Media/TV Shows/",
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_request_with_nothing_in_the_library_has_no_folder(
+    api_client: AsyncClient,
+) -> None:
+    with override_dependency(_get_library_folder_use_case, FakeLibraryFolderUseCase(None)):
+        response = await api_client.get("/requests/req-1/library-folder", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["code"] == "library_folder_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_moving_passes_the_folder_through_for_an_unrestricted_caller(
+    api_client: AsyncClient,
+) -> None:
+    use_case = FakeMoveLibraryFolderUseCase(make_library_folder_dto())
+    with override_dependency(_get_move_library_folder_use_case, use_case):
+        response = await api_client.put(
+            "/requests/req-1/library-folder",
+            headers=API_KEY_HEADER,
+            json={"root_folder_path": "/Media/Anime Series/"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["root_folder_path"] == "/Media/Anime Series/"
+    assert use_case.commands == [MoveLibraryFolderCommand(root_folder_path="/Media/Anime Series/")]
+
+
+@pytest.mark.asyncio
+async def test_moving_carries_a_restricted_callers_folders(api_client: AsyncClient) -> None:
+    dto = make_series_dto()
+    dto.owner_user_id = "user-1"
+    use_case = FakeMoveLibraryFolderUseCase(make_library_folder_dto())
+    with (
+        restricted_principal(user_id="user-1", allowed_root_folders=["/Media/TV Shows/"]),
+        override_dependency(_get_get_use_case, FakeGetUseCase(dto)),  # type: ignore[arg-type]
+        override_dependency(_get_move_library_folder_use_case, use_case),
+    ):
+        response = await api_client.put(
+            "/requests/req-1/library-folder",
+            headers=API_KEY_HEADER,
+            json={"root_folder_path": "/Media/TV Shows/"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert use_case.commands == [
+        MoveLibraryFolderCommand(
+            root_folder_path="/Media/TV Shows/", allowed_root_folders=["/Media/TV Shows/"]
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_disallowed_folder_is_forbidden(api_client: AsyncClient) -> None:
+    use_case = FakeMoveLibraryFolderUseCase(
+        make_library_folder_dto(), error=DisallowedRootFolderError("/Media/Anime Series/")
+    )
+    with override_dependency(_get_move_library_folder_use_case, use_case):
+        response = await api_client.put(
+            "/requests/req-1/library-folder",
+            headers=API_KEY_HEADER,
+            json={"root_folder_path": "/Media/Anime Series/"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["code"] == "root_folder_not_allowed"
+
+
+@pytest.mark.asyncio
+async def test_a_restricted_caller_cannot_move_someone_elses_request(
+    api_client: AsyncClient,
+) -> None:
+    dto = make_series_dto()
+    dto.owner_user_id = "someone-else"
+    use_case = FakeMoveLibraryFolderUseCase(make_library_folder_dto())
+    with (
+        restricted_principal(user_id="user-1", allowed_root_folders=[]),
+        override_dependency(_get_get_use_case, FakeGetUseCase(dto)),  # type: ignore[arg-type]
+        override_dependency(_get_move_library_folder_use_case, use_case),
+    ):
+        response = await api_client.put(
+            "/requests/req-1/library-folder",
+            headers=API_KEY_HEADER,
+            json={"root_folder_path": "/Media/Anime Series/"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert use_case.commands == []

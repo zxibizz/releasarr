@@ -82,6 +82,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requests/{requestId}/library-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show which root folder a request's series or movie is stored in
+         * @description Where the series or movie behind a request lives in Sonarr or Radarr: its
+         *     path on disk and the configured root folder that holds it, spelled as the
+         *     root folder list spells it so the two can be matched.
+         */
+        get: operations["getRequestLibraryFolder"];
+        /**
+         * Move a request's series or movie to another root folder
+         * @description Moves the series or movie, files included, to another of the root folders
+         *     Sonarr or Radarr has configured. A series moves as a whole, so every
+         *     season's request moves with it. The path is rewritten before the answer
+         *     and the files are moved in the background by the *arr app, which puts the
+         *     path back if the move fails. A restricted caller must be allowed both the
+         *     current and the new root folder. Moving to the folder it is already in
+         *     changes nothing.
+         */
+        put: operations["moveRequestLibraryFolder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requests/{requestId}/seasons": {
         parameters: {
             query?: never;
@@ -1051,7 +1083,7 @@ export interface components {
          *     application use case, `integration.*` an external service adapter.
          * @enum {string}
          */
-        LogComponent: "api.http" | "api.error" | "api.auth" | "scheduler" | "scheduler.jobs" | "task.release_sync" | "usecase.add_request" | "usecase.auto_mapping" | "usecase.auth" | "usecase.create_release" | "usecase.delete_release" | "usecase.delete_request" | "usecase.enqueue_job" | "usecase.export" | "usecase.file_mappings" | "usecase.grab" | "usecase.indexers" | "usecase.queue_download" | "usecase.queue_manual" | "usecase.recompute_state" | "usecase.refresh_releases" | "usecase.regrab" | "usecase.regrab_outdated" | "usecase.release_search" | "usecase.replace_existing" | "usecase.search_media" | "usecase.sync_radarr" | "usecase.sync_sonarr" | "usecase.update_seasons" | "usecase.users" | "integration.prowlarr" | "integration.qbittorrent" | "integration.radarr" | "integration.sonarr" | "integration.tmdb" | "integration.tvdb";
+        LogComponent: "api.http" | "api.error" | "api.auth" | "scheduler" | "scheduler.jobs" | "task.release_sync" | "usecase.add_request" | "usecase.auto_mapping" | "usecase.auth" | "usecase.create_release" | "usecase.delete_release" | "usecase.delete_request" | "usecase.enqueue_job" | "usecase.export" | "usecase.file_mappings" | "usecase.grab" | "usecase.indexers" | "usecase.move_library_folder" | "usecase.queue_download" | "usecase.queue_manual" | "usecase.recompute_state" | "usecase.refresh_releases" | "usecase.regrab" | "usecase.regrab_outdated" | "usecase.release_search" | "usecase.replace_existing" | "usecase.search_media" | "usecase.sync_radarr" | "usecase.sync_sonarr" | "usecase.update_seasons" | "usecase.users" | "integration.prowlarr" | "integration.qbittorrent" | "integration.radarr" | "integration.sonarr" | "integration.tmdb" | "integration.tvdb";
         /**
          * @description How usable an indexer is right now. `disabled` was switched off by hand
          *     and stays that way; `blocked` is Prowlarr's own back-off after repeated
@@ -1715,6 +1747,17 @@ export interface components {
             /** @description Bytes available, as the *arr app reports them. */
             free_space?: number | null;
         };
+        LibraryFolder: {
+            type: components["schemas"]["MediaType"];
+            /** @description The series or movie folder on disk, as the *arr app reports it. */
+            path: string | null;
+            /** @description The configured root folder holding it, spelled as `listRootFolders` spells it. Null when the path sits under none of them. */
+            root_folder_path: string | null;
+        };
+        MoveLibraryFolderPayload: {
+            /** @description One of the root folders `listRootFolders` reports. */
+            root_folder_path: string;
+        };
         RootFoldersResponse: {
             folders: components["schemas"]["RootFolder"][];
         };
@@ -2280,6 +2323,155 @@ export interface operations {
                 };
             };
             /** @description Sonarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRequestLibraryFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request's library location. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryFolder"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request is not linked to anything in Sonarr or Radarr yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    moveRequestLibraryFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier for a media request. */
+                requestId: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveLibraryFolderPayload"];
+            };
+        };
+        responses: {
+            /** @description The request's library location, as it now stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryFolder"];
+                };
+            };
+            /** @description Not a configured, reachable root folder. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller may not use the current or the new root folder. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request is not linked to anything in Sonarr or Radarr yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation failed for the provided fields. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sonarr or Radarr could not be reached. */
             502: {
                 headers: {
                     [name: string]: unknown;

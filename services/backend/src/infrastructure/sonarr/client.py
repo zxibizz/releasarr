@@ -543,6 +543,8 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
             seasons=seasons,
             monitor_new_seasons=self._reads_monitor_new_items(data),
             has_add_options=bool(data.get("addOptions")),
+            path=self._safe_str(data.get("path")),
+            root_folder_path=self._safe_str(data.get("rootFolderPath")),
         )
 
     def _season_number(self, season: dict[str, Any]) -> int | None:
@@ -566,6 +568,29 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
 
     def _reads_monitor_new_items(self, data: dict[str, Any]) -> bool:
         return str(data.get("monitorNewItems") or "").lower() == MONITOR_NEW_ITEMS_ALL
+
+    async def move_series(self, series_id: int, root_folder_path: str) -> None:
+        """Move a series to another root folder through the series editor.
+
+        The editor rather than a PUT of the series itself, because it is the one
+        that takes a root folder: Sonarr builds the new path from it with the
+        series' own folder name, which a PUT would have us rebuild by hand.
+        """
+
+        await self._request(
+            "PUT",
+            "/series/editor",
+            json={
+                "seriesIds": [series_id],
+                "rootFolderPath": root_folder_path,
+                "moveFiles": True,
+            },
+        )
+        _logger.info(
+            "Series moved to another root folder",
+            series_id=series_id,
+            root_folder_path=root_folder_path,
+        )
 
     async def delete_series(self, series_id: int) -> None:
         """Delete a series from the library, leaving anything on disk alone.

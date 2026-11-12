@@ -66,6 +66,7 @@ key raises `HttpClientError` at call time with the name of the env var to set.
 | PUT | `/series/{id}` | Apply season monitoring |
 | GET | `/episode` | Episodes for a series, with files |
 | DELETE | `/series/{id}` | Delete a series nothing is wanted from |
+| PUT | `/series/editor` | Move a series to another root folder (`moveFiles: true`) |
 | GET | `/rootfolder`, `/qualityprofile` | Library folders and profiles for the add flow |
 | POST | `/manualimport` | Import preview, to validate before committing |
 | POST | `/command` | Queue the `ManualImport` command (`importMode: copy`) |
@@ -132,6 +133,7 @@ polling, and error-swallowing behaviour as Sonarr.
 | POST | `/movie` | Add a movie |
 | PUT | `/movie/{id}` | Set `monitored` |
 | DELETE | `/movie/{id}` | Delete a movie nothing is wanted from |
+| PUT | `/movie/editor` | Move a movie to another root folder (`moveFiles: true`) |
 | GET | `/rootfolder`, `/qualityprofile` | Add flow |
 | POST | `/manualimport`, `/command`, GET `/command/{id}` | Import and poll |
 

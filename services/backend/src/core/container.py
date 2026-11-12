@@ -32,6 +32,10 @@ from src.application.use_cases.auth import (
     SessionIssuer,
 )
 from src.application.use_cases.discover.add_request import AddMediaRequestUseCase
+from src.application.use_cases.discover.library_folder import (
+    GetLibraryFolderUseCase,
+    MoveLibraryFolderUseCase,
+)
 from src.application.use_cases.discover.list_root_folders import ListRootFoldersUseCase
 from src.application.use_cases.discover.list_season_options import ListSeasonOptionsUseCase
 from src.application.use_cases.discover.manage_seasons import (
@@ -625,6 +629,22 @@ class DiscoverUseCases:
         return ListRequestSeasonsUseCase(
             repository=self._container.repositories.media_requests,
             sonarr_service=self._container.services.sonarr,
+        )
+
+    @cached_property
+    def library_folder(self) -> GetLibraryFolderUseCase:
+        return GetLibraryFolderUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
+        )
+
+    @cached_property
+    def move_library_folder(self) -> MoveLibraryFolderUseCase:
+        return MoveLibraryFolderUseCase(
+            repository=self._container.repositories.media_requests,
+            sonarr_service=self._container.services.sonarr,
+            radarr_service=self._container.services.radarr,
         )
 
     @cached_property

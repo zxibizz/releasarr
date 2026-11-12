@@ -75,8 +75,14 @@ class SeasonsUnmanageableError(ValueError):
     """Raised when a request has no series in Sonarr whose seasons we could manage."""
 
 
+class LibraryFolderUnavailableError(ValueError):
+    """Raised when a request has no series or movie in the library to move."""
+
+
 __all__ = [
+    "DisallowedRootFolderError",
     "InvalidRootFolderError",
+    "LibraryFolderUnavailableError",
     "MediaNotFoundError",
     "MetadataProviderUnavailableError",
     "NoQualityProfileError",

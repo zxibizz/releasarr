@@ -198,3 +198,41 @@ async def test_delete_movie_asks_radarr_to_keep_the_files() -> None:
             {"deleteFiles": "false", "addImportExclusion": "false"},
         )
     ]
+
+
+async def test_move_movie_moves_the_files_through_the_movie_editor() -> None:
+    """The editor builds the new path from the root folder; a PUT of the movie would not."""
+
+    calls: list[tuple[str, str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, json.loads(request.content)))
+        return httpx.Response(200, json=[{"id": 31, "path": "/anime-movies/Example Movie (2021)"}])
+
+    await build_client(handler).move_movie(31, "/anime-movies")
+
+    assert calls == [
+        (
+            "PUT",
+            "/api/v3/movie/editor",
+            {"movieIds": [31], "rootFolderPath": "/anime-movies", "moveFiles": True},
+        )
+    ]
+
+
+async def test_get_movie_reports_where_the_movie_lives() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 31,
+                "title": "Example Movie",
+                "path": "/movies/Example Movie (2021)",
+                "rootFolderPath": "/movies/",
+            },
+        )
+
+    movie = await build_client(handler).get_movie(31)
+
+    assert movie.path == "/movies/Example Movie (2021)"
+    assert movie.root_folder_path == "/movies/"

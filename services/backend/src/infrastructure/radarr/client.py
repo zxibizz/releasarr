@@ -363,6 +363,8 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             monitored=bool(data.get("monitored")),
             is_available=self._is_available(data),
             file_size=self._movie_file_size(data),
+            path=self._safe_str(data.get("path")),
+            root_folder_path=self._safe_str(data.get("rootFolderPath")),
         )
 
     @staticmethod
@@ -384,6 +386,27 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             return None
         size = self._safe_int(file.get("size"))
         return size or None
+
+    async def move_movie(self, movie_id: int, root_folder_path: str) -> None:
+        """Move a movie to another root folder through the movie editor.
+
+        See ``SonarrHttpClient.move_series`` for why the editor.
+        """
+
+        await self._request(
+            "PUT",
+            "/movie/editor",
+            json={
+                "movieIds": [movie_id],
+                "rootFolderPath": root_folder_path,
+                "moveFiles": True,
+            },
+        )
+        _logger.info(
+            "Movie moved to another root folder",
+            movie_id=movie_id,
+            root_folder_path=root_folder_path,
+        )
 
     async def delete_movie(self, movie_id: int) -> None:
         """Delete a movie from the library, leaving anything on disk alone.

@@ -131,6 +131,9 @@ class UnusedSonarrLibraryCalls:
     ) -> SeriesDetails:
         raise NotImplementedError
 
+    async def move_series(self, series_id: int, root_folder_path: str) -> None:
+        raise NotImplementedError
+
     async def delete_series(self, series_id: int) -> None:
         raise NotImplementedError
 
@@ -160,6 +163,9 @@ class UnusedRadarrLibraryCalls:
         raise NotImplementedError
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
+        raise NotImplementedError
+
+    async def move_movie(self, movie_id: int, root_folder_path: str) -> None:
         raise NotImplementedError
 
     async def delete_movie(self, movie_id: int) -> None:
@@ -592,6 +598,7 @@ class FakeSonarrService:
         self.monitored: list[dict[str, Any]] = []
         self.waited: list[tuple[int, list[int]]] = []
         self.deleted: list[int] = []
+        self.moved: list[tuple[int, str]] = []
 
     async def list_series(self) -> list[SeriesDetails]:
         return list(self._catalogue.values())
@@ -680,6 +687,15 @@ class FakeSonarrService:
         self.waited.append((series_id, list(season_numbers)))
         return self._catalogue[series_id]
 
+    async def move_series(self, series_id: int, root_folder_path: str) -> None:
+        self.moved.append((series_id, root_folder_path))
+        # Sonarr rewrites the path before it answers, so a read straight after
+        # reports the new location.
+        details = self._catalogue[series_id]
+        folder = (details.path or "").rstrip("/").rsplit("/", 1)[-1]
+        details.root_folder_path = root_folder_path
+        details.path = f"{root_folder_path.rstrip('/')}/{folder}"
+
     async def delete_series(self, series_id: int) -> None:
         self.deleted.append(series_id)
         # Dropped rather than kept as a tombstone, so that a read after the
@@ -716,6 +732,7 @@ class FakeRadarrService:
         self.added: list[dict[str, Any]] = []
         self.monitored: list[tuple[int, bool]] = []
         self.deleted: list[int] = []
+        self.moved: list[tuple[int, str]] = []
 
     async def list_movies(self) -> list[MovieDetails]:
         return list(self._catalogue.values())
@@ -758,6 +775,13 @@ class FakeRadarrService:
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
         self.monitored.append((movie_id, monitored))
+
+    async def move_movie(self, movie_id: int, root_folder_path: str) -> None:
+        self.moved.append((movie_id, root_folder_path))
+        details = self._catalogue[movie_id]
+        folder = (details.path or "").rstrip("/").rsplit("/", 1)[-1]
+        details.root_folder_path = root_folder_path
+        details.path = f"{root_folder_path.rstrip('/')}/{folder}"
 
     async def delete_movie(self, movie_id: int) -> None:
         self.deleted.append(movie_id)

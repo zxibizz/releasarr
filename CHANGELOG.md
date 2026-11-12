@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Move a title to another library folder.** The **Folder** button on a request page moves its
+  series or movie, files included, to another of Sonarr's or Radarr's root folders, for when it
+  was added to the wrong library. A series moves as a whole, every season with it. A user
+  limited to some folders may only move between folders they are allowed.
+
 ## [0.13.1] - 2026-11-08
 
 ### Fixed

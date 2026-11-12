@@ -11,9 +11,13 @@ from src.api.errors import api_error
 from src.api.responses import error_responses
 from src.api.routes.discover import seasons_to_schema
 from src.application.interfaces.media_requests import MediaLocalization as MediaLocalizationData
-from src.application.use_cases.auth import Principal
+from src.application.use_cases.auth import Principal, allowed_root_folders
 from src.application.use_cases.discover import (
+    GetLibraryFolderUseCase,
+    LibraryFolderDTO,
     ListRequestSeasonsUseCase,
+    MoveLibraryFolderCommand,
+    MoveLibraryFolderUseCase,
     UpdateRequestSeasonsCommand,
     UpdateRequestSeasonsUseCase,
 )
@@ -37,7 +41,12 @@ from src.application.use_cases.requests import (
 )
 from src.core.container import AppContainer, get_container
 from src.domain.enums import MediaRequestStatus, MediaType, RequestSort
-from src.schemas.discover import SeriesSeasonsResponse, UpdateSeasonsPayload
+from src.schemas.discover import (
+    LibraryFolder,
+    MoveLibraryFolderPayload,
+    SeriesSeasonsResponse,
+    UpdateSeasonsPayload,
+)
 from src.schemas.requests import (
     CreateMovieRequest,
     CreateSeriesRequest,
@@ -101,6 +110,18 @@ def _get_update_seasons_use_case(
     return container.use_cases.discover.update_request_seasons
 
 
+def _get_library_folder_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> GetLibraryFolderUseCase:
+    return container.use_cases.discover.library_folder
+
+
+def _get_move_library_folder_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> MoveLibraryFolderUseCase:
+    return container.use_cases.discover.move_library_folder
+
+
 def _get_episodes_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> ListRequestEpisodesUseCase:
@@ -111,6 +132,7 @@ _SERVER_ERROR = "Unexpected server error."
 _UPSTREAM_ERROR = "Sonarr or Radarr could not be reached."
 _UNMANAGEABLE_SEASONS = "The request has no series in Sonarr whose seasons can be managed."
 _NO_EPISODES = "The request has no season in Sonarr whose episodes can be listed."
+_NOT_IN_LIBRARY = "The request is not linked to anything in Sonarr or Radarr yet."
 
 LIST_REQUESTS_RESPONSES = error_responses(
     {
@@ -172,6 +194,27 @@ UPDATE_SEASONS_RESPONSES = error_responses(
     }
 )
 
+LIBRARY_FOLDER_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_409_CONFLICT: _NOT_IN_LIBRARY,
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+MOVE_LIBRARY_FOLDER_RESPONSES = error_responses(
+    {
+        status.HTTP_400_BAD_REQUEST: "Not a configured, reachable root folder.",
+        status.HTTP_403_FORBIDDEN: "The caller may not use the current or the new root folder.",
+        status.HTTP_404_NOT_FOUND: "Request not found.",
+        status.HTTP_409_CONFLICT: _NOT_IN_LIBRARY,
+        status.HTTP_422_UNPROCESSABLE_CONTENT: "Validation failed for the provided fields.",
+        status.HTTP_502_BAD_GATEWAY: _UPSTREAM_ERROR,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
 
 EPISODES_RESPONSES = error_responses(
     {
@@ -217,6 +260,14 @@ def _episodes_to_schema(dto: SeasonEpisodesDTO) -> SeasonEpisodesResponse:
             )
             for episode in dto.episodes
         ],
+    )
+
+
+def _library_folder_to_schema(dto: LibraryFolderDTO) -> LibraryFolder:
+    return LibraryFolder(
+        type=dto.media_type,
+        path=dto.path,
+        root_folder_path=dto.root_folder_path,
     )
 
 
@@ -398,6 +449,45 @@ async def update_request_seasons(
     )
     seasons = await update_seasons_use_case.execute(request_id, command)
     return seasons_to_schema(seasons)
+
+
+@router.get(
+    "/{requestId}/library-folder",
+    response_model=LibraryFolder,
+    responses=LIBRARY_FOLDER_RESPONSES,
+)
+async def get_request_library_folder(
+    request_id: RequestIdParam,
+    principal: Principal = Depends(require_user),
+    get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
+    folder_use_case: GetLibraryFolderUseCase = Depends(_get_library_folder_use_case),
+) -> LibraryFolder:
+    if principal.scope.is_restricted:
+        existing = await get_use_case.execute(request_id)
+        _guard_scope(principal, request_id, existing.owner_user_id)
+    return _library_folder_to_schema(await folder_use_case.execute(request_id))
+
+
+@router.put(
+    "/{requestId}/library-folder",
+    response_model=LibraryFolder,
+    responses=MOVE_LIBRARY_FOLDER_RESPONSES,
+)
+async def move_request_library_folder(
+    request_id: RequestIdParam,
+    payload: MoveLibraryFolderPayload,
+    principal: Principal = Depends(require_user),
+    get_use_case: GetMediaRequestUseCase = Depends(_get_get_use_case),
+    move_use_case: MoveLibraryFolderUseCase = Depends(_get_move_library_folder_use_case),
+) -> LibraryFolder:
+    if principal.scope.is_restricted:
+        existing = await get_use_case.execute(request_id)
+        _guard_scope(principal, request_id, existing.owner_user_id)
+    command = MoveLibraryFolderCommand(
+        root_folder_path=payload.root_folder_path,
+        allowed_root_folders=allowed_root_folders(principal.user),
+    )
+    return _library_folder_to_schema(await move_use_case.execute(request_id, command))
 
 
 def _build_create_command(

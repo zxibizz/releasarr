@@ -567,3 +567,42 @@ async def test_get_episodes_survives_an_air_date_it_cannot_read() -> None:
     episodes = await build_client(handler).get_episodes(12)
 
     assert episodes[0].air_date is None
+
+
+async def test_move_series_moves_the_files_through_the_series_editor() -> None:
+    """The editor builds the new path from the root folder; a PUT of the series would not."""
+
+    calls: list[tuple[str, str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, json.loads(request.content)))
+        return httpx.Response(202, json=[{"id": 12, "path": "/anime/Example Show"}])
+
+    await build_client(handler).move_series(12, "/anime")
+
+    assert calls == [
+        (
+            "PUT",
+            "/api/v3/series/editor",
+            {"seriesIds": [12], "rootFolderPath": "/anime", "moveFiles": True},
+        )
+    ]
+
+
+async def test_get_series_reports_where_the_series_lives() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 12,
+                "title": "Example Show",
+                "path": "/tv/Example Show",
+                "rootFolderPath": "/tv/",
+                "seasons": [],
+            },
+        )
+
+    series = await build_client(handler).get_series(12)
+
+    assert series.path == "/tv/Example Show"
+    assert series.root_folder_path == "/tv/"

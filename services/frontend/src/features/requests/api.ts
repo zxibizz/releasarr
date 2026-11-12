@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/api/client';
 import type {
+  LibraryFolder,
   MediaRequest,
   MediaRequestStatus,
   MediaType,
@@ -52,6 +53,15 @@ export const requestsApi = {
     apiRequest<SeriesSeasonsResponse>(`/requests/${encodeURIComponent(id)}/seasons`, {
       method: 'PUT',
       body: payload,
+    }),
+
+  libraryFolder: (id: string, signal?: AbortSignal) =>
+    apiRequest<LibraryFolder>(`/requests/${encodeURIComponent(id)}/library-folder`, { signal }),
+
+  moveLibraryFolder: (id: string, rootFolderPath: string) =>
+    apiRequest<LibraryFolder>(`/requests/${encodeURIComponent(id)}/library-folder`, {
+      method: 'PUT',
+      body: { root_folder_path: rootFolderPath },
     }),
 
   updateOwner: (id: string, ownerUserId: string | null) =>

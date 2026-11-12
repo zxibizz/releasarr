@@ -93,6 +93,8 @@ interface RouteStubs {
   monitorNewSeasons?: boolean;
   seasonsError?: Error;
   episodesError?: Error;
+  /** The root folder the series or movie is stored in. */
+  libraryFolder?: string;
 }
 
 /** A finished release whose files are the given names. */
@@ -129,6 +131,7 @@ const stubRoutes = ({
   monitorNewSeasons = false,
   seasonsError,
   episodesError,
+  libraryFolder = '/media/tv/',
 }: RouteStubs = {}) => {
   const answer = (): SeriesSeasonsResponse => ({
     tvdb_id: null,
@@ -144,6 +147,25 @@ const stubRoutes = ({
         return Promise.reject(seasonsError);
       }
       return Promise.resolve(answer() as never);
+    }
+    if (path.endsWith('/library-folder')) {
+      const root =
+        options.method === 'PUT'
+          ? (options.body as { root_folder_path: string }).root_folder_path
+          : libraryFolder;
+      return Promise.resolve({
+        type: request.type,
+        path: `${root}Severance`,
+        root_folder_path: root,
+      } as never);
+    }
+    if (path === '/discover/root-folders') {
+      return Promise.resolve({
+        folders: [
+          { path: '/media/tv/', free_space: null },
+          { path: '/media/anime/', free_space: null },
+        ],
+      } as never);
     }
     if (path.endsWith('/episodes')) {
       if (episodesError) {
@@ -530,5 +552,53 @@ describe('RequestDetailPage', () => {
     await userEvent.click(screen.getByText('Remove Request'));
 
     expect(await screen.findByText(/Radarr will stop monitoring this movie/)).toBeInTheDocument();
+  });
+
+  it('offers no folder move until Sonarr has linked the request', async () => {
+    stubRoutes();
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByRole('button', { name: 'Manage seasons' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Folder' })).not.toBeInTheDocument();
+  });
+
+  it('moves the series to the picked library folder', async () => {
+    stubRoutes({ request: { ...series, sonarr_series_id: 12 } });
+    const user = userEvent.setup();
+
+    renderWithProviders(<RequestDetailPage />);
+    await user.click(await screen.findByRole('button', { name: 'Folder' }));
+    const dialog = await screen.findByRole('dialog', { name: /Folder of Severance/ });
+
+    expect(await within(dialog).findByText('Now in /media/tv/Severance')).toBeInTheDocument();
+    // Moving to where it already is would be a no-op, so it is not offered.
+    const move = within(dialog).getByRole('button', { name: 'Move' });
+    await waitFor(() =>
+      expect(within(dialog).getByRole('combobox', { name: 'Library folder' })).toHaveValue(
+        '/media/tv/',
+      ),
+    );
+    expect(move).toBeDisabled();
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Library folder' }));
+    await user.click(await screen.findByRole('option', { name: '/media/anime/' }));
+    await user.click(move);
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith('/requests/req-2/library-folder', {
+        method: 'PUT',
+        body: { root_folder_path: '/media/anime/' },
+      }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  });
+
+  it('offers a movie the move as well', async () => {
+    stubRoutes({ request: { ...movie, radarr_movie_id: 31 } });
+
+    renderWithProviders(<RequestDetailPage />);
+
+    expect(await screen.findByRole('button', { name: 'Folder' })).toBeInTheDocument();
   });
 });

@@ -36,6 +36,8 @@ export type RootFoldersResponse = Schemas['RootFoldersResponse'];
 export type AddRequestPayload = Schemas['AddRequestPayload'];
 export type AddRequestResponse = Schemas['AddRequestResponse'];
 export type UpdateSeasonsPayload = Schemas['UpdateSeasonsPayload'];
+export type LibraryFolder = Schemas['LibraryFolder'];
+export type MoveLibraryFolderPayload = Schemas['MoveLibraryFolderPayload'];
 
 export type FileRequestMapping = Schemas['FileRequestMapping'];
 export type MovieFileRequestMapping = Schemas['MovieFileRequestMapping'];
@@ -96,7 +98,8 @@ export type DownloadCategoriesResponse = Schemas['DownloadCategoriesResponse'];
 /** The six settings sections, mirrored from the backend registry. */
 export type SettingsSection = 'general' | 'services' | 'network' | 'metadata' | 'tasks' | 'logging';
 /** The six integration names accepted by the connection-test endpoint. */
-export type SettingsIntegration = 'sonarr' | 'radarr' | 'prowlarr' | 'qbittorrent' | 'tvdb' | 'tmdb';
+export type SettingsIntegration =
+  'sonarr' | 'radarr' | 'prowlarr' | 'qbittorrent' | 'tvdb' | 'tmdb';
 
 export type SetupStatus = Schemas['SetupStatus'];
 export type SetupPayload = Schemas['SetupPayload'];

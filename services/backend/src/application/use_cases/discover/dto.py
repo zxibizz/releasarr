@@ -62,7 +62,19 @@ class RootFolderDTO:
     free_space: int | None = None
 
 
+@dataclass(slots=True)
+class LibraryFolderDTO:
+    """Where a request's series or movie is stored in the library."""
+
+    media_type: MediaType
+    path: str | None = None
+    # One of the configured root folders as the *arr spells it, so it can be
+    # matched against the list a picker offers.
+    root_folder_path: str | None = None
+
+
 __all__ = [
+    "LibraryFolderDTO",
     "MediaSearchResultDTO",
     "RootFolderDTO",
     "SeasonOptionDTO",

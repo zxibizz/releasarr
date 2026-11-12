@@ -124,6 +124,7 @@ class LogComponent(StrEnum):
     USECASE_FILE_MAPPINGS = "usecase.file_mappings"
     USECASE_GRAB = "usecase.grab"
     USECASE_INDEXERS = "usecase.indexers"
+    USECASE_MOVE_LIBRARY_FOLDER = "usecase.move_library_folder"
     USECASE_QUEUE_DOWNLOAD = "usecase.queue_download"
     USECASE_QUEUE_MANUAL = "usecase.queue_manual"
     USECASE_RECOMPUTE_STATE = "usecase.recompute_state"

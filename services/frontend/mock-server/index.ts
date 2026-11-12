@@ -475,6 +475,48 @@ api.put('/requests/:requestId/seasons', async (req, res) => {
   }
 });
 
+const LIBRARY_FOLDER_UNAVAILABLE = {
+  code: 'library_folder_unavailable',
+  message: 'This request is not linked to anything in Sonarr or Radarr yet',
+};
+
+api.get('/requests/:requestId/library-folder', async (req, res) => {
+  const folder = await mockStore.getLibraryFolder(req.params.requestId);
+  if (!folder) {
+    return res.status(409).json(LIBRARY_FOLDER_UNAVAILABLE);
+  }
+  res.json(folder);
+});
+
+api.put('/requests/:requestId/library-folder', async (req, res) => {
+  const rootFolderPath = req.body?.root_folder_path;
+  if (typeof rootFolderPath !== 'string' || rootFolderPath.length === 0) {
+    return res.status(422).json({ message: 'root_folder_path is required' });
+  }
+  const user = res.locals.user as { role: string; allowed_root_folders: string[] };
+  const restricted = user.role !== 'admin' && user.allowed_root_folders.length > 0;
+  const current = await mockStore.getLibraryFolder(req.params.requestId);
+  if (!current) {
+    return res.status(409).json(LIBRARY_FOLDER_UNAVAILABLE);
+  }
+  if (
+    restricted &&
+    (!user.allowed_root_folders.includes(rootFolderPath) ||
+      !user.allowed_root_folders.includes(current.root_folder_path ?? ''))
+  ) {
+    return res
+      .status(403)
+      .json({ code: 'root_folder_not_allowed', message: 'This folder is not permitted' });
+  }
+  try {
+    res.json(await mockStore.moveLibraryFolder(req.params.requestId, rootFolderPath));
+  } catch {
+    return res
+      .status(400)
+      .json({ code: 'invalid_root_folder', message: `'${rootFolderPath}' is not a root folder` });
+  }
+});
+
 api.get('/requests/:requestId/releases', async (req, res) => {
   const page = Math.max(1, Number.parseInt((req.query.page as string) ?? '1', 10));
   const perPage = Math.max(1, Number.parseInt((req.query.per_page as string) ?? '20', 10));

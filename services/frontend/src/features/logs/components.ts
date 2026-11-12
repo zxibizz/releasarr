@@ -26,6 +26,7 @@ export const LOG_COMPONENTS: LogComponent[] = [
   'usecase.file_mappings',
   'usecase.grab',
   'usecase.indexers',
+  'usecase.move_library_folder',
   'usecase.queue_download',
   'usecase.queue_manual',
   'usecase.recompute_state',

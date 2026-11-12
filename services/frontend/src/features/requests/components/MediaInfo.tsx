@@ -1,5 +1,5 @@
 import { Badge, Button, Card, Group, Image, Stack, Text, Title } from '@mantine/core';
-import { IconListCheck } from '@tabler/icons-react';
+import { IconFolder, IconListCheck } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/StatusBadge';
@@ -11,9 +11,11 @@ interface MediaInfoProps {
   request: MediaRequest;
   /** Offers the way in to managing the series' seasons, for a series request. */
   onManageSeasons?: () => void;
+  /** Offers moving the series or movie to another library folder. */
+  onMoveFolder?: () => void;
 }
 
-export function MediaInfo({ request, onManageSeasons }: MediaInfoProps) {
+export function MediaInfo({ request, onManageSeasons, onMoveFolder }: MediaInfoProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const isMovie = request.type === 'movie';
@@ -96,6 +98,16 @@ export function MediaInfo({ request, onManageSeasons }: MediaInfoProps) {
           onClick={onManageSeasons}
         >
           {t('requestPage.seasons.manage')}
+        </Button>
+      )}
+      {onMoveFolder && (
+        <Button
+          variant="light"
+          size={isMobile ? 'compact-sm' : 'xs'}
+          leftSection={<IconFolder size={16} />}
+          onClick={onMoveFolder}
+        >
+          {t('requestPage.folder.manage')}
         </Button>
       )}
       <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />

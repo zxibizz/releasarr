@@ -15,6 +15,7 @@ import { ReleaseSearch } from '@/features/releases/components/ReleaseSearch';
 import { releaseKeys, useReleasesByRequest } from '@/features/releases/queries';
 import { ManageSeasonsModal } from '@/features/requests/components/ManageSeasonsModal';
 import { MediaInfo } from '@/features/requests/components/MediaInfo';
+import { MoveFolderModal } from '@/features/requests/components/MoveFolderModal';
 import { RequestActions } from '@/features/requests/components/RequestActions';
 import { RequestOwner } from '@/features/requests/components/RequestOwner';
 import { RequestWarnings } from '@/features/requests/components/RequestWarnings';
@@ -59,6 +60,7 @@ export function RequestDetailPage() {
   const [detailsOpened, detailsModal] = useDisclosure(false);
   const [logsOpened, logsModal] = useDisclosure(false);
   const [seasonsOpened, seasonsModal] = useDisclosure(false);
+  const [folderOpened, folderModal] = useDisclosure(false);
   const [isRefreshing, setRefreshing] = useState(false);
 
   const searchSectionRef = useRef<HTMLDivElement>(null);
@@ -165,12 +167,19 @@ export function RequestDetailPage() {
   }
 
   const showSearch = !hasReleases || searchRequested;
+  // Until the sync has seen the media in Sonarr or Radarr there is no folder to
+  // move it out of.
+  const inLibrary =
+    localizedRequest.type === 'series'
+      ? localizedRequest.sonarr_series_id != null
+      : localizedRequest.radarr_movie_id != null;
 
   return (
     <Stack gap="xl">
       <MediaInfo
         request={localizedRequest}
         onManageSeasons={localizedRequest.type === 'series' ? seasonsModal.open : undefined}
+        onMoveFolder={inLibrary ? folderModal.open : undefined}
       />
 
       <RequestWarnings warnings={localizedRequest.warnings} />
@@ -249,6 +258,14 @@ export function RequestDetailPage() {
         opened={logsOpened}
         onClose={logsModal.close}
       />
+
+      {inLibrary && (
+        <MoveFolderModal
+          request={localizedRequest}
+          opened={folderOpened}
+          onClose={folderModal.close}
+        />
+      )}
 
       {localizedRequest.type === 'series' && (
         <ManageSeasonsModal

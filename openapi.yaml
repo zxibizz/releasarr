@@ -249,6 +249,117 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /requests/{requestId}/library-folder:
+    get:
+      tags: [Requests]
+      summary: Show which root folder a request's series or movie is stored in
+      operationId: getRequestLibraryFolder
+      description: |
+        Where the series or movie behind a request lives in Sonarr or Radarr: its
+        path on disk and the configured root folder that holds it, spelled as the
+        root folder list spells it so the two can be matched.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The request's library location.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryFolder'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request is not linked to anything in Sonarr or Radarr yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or Radarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Requests]
+      summary: Move a request's series or movie to another root folder
+      operationId: moveRequestLibraryFolder
+      description: |
+        Moves the series or movie, files included, to another of the root folders
+        Sonarr or Radarr has configured. A series moves as a whole, so every
+        season's request moves with it. The path is rewritten before the answer
+        and the files are moved in the background by the *arr app, which puts the
+        path back if the move fails. A restricted caller must be allowed both the
+        current and the new root folder. Moving to the folder it is already in
+        changes nothing.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveLibraryFolderPayload'
+      responses:
+        '200':
+          description: The request's library location, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryFolder'
+        '400':
+          description: Not a configured, reachable root folder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: The caller may not use the current or the new root folder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The request is not linked to anything in Sonarr or Radarr yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed for the provided fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sonarr or Radarr could not be reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /requests/{requestId}/seasons:
     get:
       tags: [Requests]
@@ -2479,6 +2590,7 @@ components:
         - usecase.file_mappings
         - usecase.grab
         - usecase.indexers
+        - usecase.move_library_folder
         - usecase.queue_download
         - usecase.queue_manual
         - usecase.recompute_state
@@ -3774,6 +3886,30 @@ components:
           type: integer
           nullable: true
           description: Bytes available, as the *arr app reports them.
+    LibraryFolder:
+      type: object
+      required: [type, path, root_folder_path]
+      properties:
+        type:
+          $ref: '#/components/schemas/MediaType'
+        path:
+          type: string
+          nullable: true
+          description: The series or movie folder on disk, as the *arr app reports it.
+        root_folder_path:
+          type: string
+          nullable: true
+          description: >-
+            The configured root folder holding it, spelled as `listRootFolders`
+            spells it. Null when the path sits under none of them.
+    MoveLibraryFolderPayload:
+      type: object
+      required: [root_folder_path]
+      properties:
+        root_folder_path:
+          type: string
+          minLength: 1
+          description: One of the root folders `listRootFolders` reports.
     RootFoldersResponse:
       type: object
       required: [folders]

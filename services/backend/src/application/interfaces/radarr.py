@@ -29,6 +29,9 @@ class MovieDetails:
     is_available: bool = True
     # Bytes on disk, for a movie Radarr holds a file for.
     file_size: int | None = None
+    # Where the movie lives on disk, and the library root folder that holds it.
+    path: str | None = None
+    root_folder_path: str | None = None
 
 
 @dataclass(slots=True)
@@ -93,6 +96,12 @@ class RadarrService(Protocol):
 
     async def set_movie_monitored(self, movie_id: int, *, monitored: bool = True) -> None:
         """Set whether Radarr monitors a movie already in the library."""
+
+    async def move_movie(self, movie_id: int, root_folder_path: str) -> None:
+        """Move a movie to another root folder, files included.
+
+        The counterpart of ``SonarrService.move_series``.
+        """
 
     async def delete_movie(self, movie_id: int) -> None:
         """Delete a movie from the library, leaving anything on disk alone.
