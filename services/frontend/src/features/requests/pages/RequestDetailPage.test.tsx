@@ -191,8 +191,8 @@ const stubRoutes = ({
 };
 
 const openSeasonManager = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
-  return screen.findByRole('dialog', { name: /Edit Severance/ });
+  await userEvent.click(await screen.findByRole('button', { name: 'Manage' }));
+  return screen.findByRole('dialog', { name: /Manage Severance/ });
 };
 
 describe('RequestDetailPage', () => {
@@ -547,7 +547,7 @@ describe('RequestDetailPage', () => {
     renderWithProviders(<RequestDetailPage />);
 
     expect(await screen.findByText('Arrival')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Remove Request'));
 
@@ -569,8 +569,8 @@ describe('RequestDetailPage', () => {
     const user = userEvent.setup();
 
     renderWithProviders(<RequestDetailPage />);
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    const dialog = await screen.findByRole('dialog', { name: /Edit Severance/ });
+    await user.click(await screen.findByRole('button', { name: 'Manage' }));
+    const dialog = await screen.findByRole('dialog', { name: /Manage Severance/ });
     // Seasons first, the folder one tab along.
     expect(within(dialog).getByRole('tab', { name: 'Seasons' })).toHaveAttribute(
       'aria-selected',
@@ -605,8 +605,8 @@ describe('RequestDetailPage', () => {
     stubRoutes({ request: { ...movie, radarr_movie_id: 31 } });
 
     renderWithProviders(<RequestDetailPage />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
-    const dialog = await screen.findByRole('dialog', { name: /Edit Arrival/ });
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage' }));
+    const dialog = await screen.findByRole('dialog', { name: /Manage Arrival/ });
 
     expect(within(dialog).queryByRole('tab')).not.toBeInTheDocument();
     expect(

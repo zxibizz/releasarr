@@ -49,15 +49,15 @@ describe('MediaInfo on a phone', () => {
     expect(title).not.toHaveAttribute('data-line-clamp');
   });
 
-  it('gives the edit button and status a row of their own', () => {
+  it('gives the status and manage button a row of their own', () => {
     renderMediaInfo();
 
     const posterRow = screen.getByRole('img').parentElement;
     expect(posterRow).toContainElement(screen.getByRole('heading', { level: 3 }));
-    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Edit' }));
+    expect(posterRow).not.toContainElement(screen.getByRole('button', { name: 'Manage' }));
   });
 
-  it('keeps the larger title and the edit button beside it on a desktop', () => {
+  it('keeps the larger title and the manage button beside it on a desktop', () => {
     setViewportWidth(DESKTOP_WIDTH);
 
     renderMediaInfo();
@@ -65,7 +65,7 @@ describe('MediaInfo on a phone', () => {
     expect(screen.getByRole('heading', { level: 2, name: LONG_TITLE })).toBeInTheDocument();
 
     const posterRow = screen.getByRole('img').parentElement;
-    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Edit' }));
+    expect(posterRow).toContainElement(screen.getByRole('button', { name: 'Manage' }));
   });
 
   it('names the series below the meta line while the heading shows a translation', () => {

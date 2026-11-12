@@ -849,8 +849,8 @@ export const resources = {
           },
         },
         edit: {
-          open: 'Edit',
-          modalTitle: 'Edit {{title}}',
+          open: 'Manage',
+          modalTitle: 'Manage {{title}}',
           tabs: {
             seasons: 'Seasons',
             folder: 'Folder',
@@ -2089,8 +2089,8 @@ export const resources = {
           },
         },
         edit: {
-          open: 'Изменить',
-          modalTitle: 'Изменить «{{title}}»',
+          open: 'Настроить',
+          modalTitle: 'Настроить «{{title}}»',
           tabs: {
             seasons: 'Сезоны',
             folder: 'Папка',

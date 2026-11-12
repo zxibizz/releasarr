@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **One pencil edits a request.** The **Manage seasons** and **Folder** buttons are now a single
-  pencil icon beside the status, opening one window with **Seasons** and **Folder** tabs; a movie
-  opens straight on its folder. On a phone the two labelled buttons were cut to a few letters.
+- **One button manages a request.** The **Manage seasons** and **Folder** buttons are now a single
+  **Manage** button at the end of the status row, opening one window with **Seasons** and
+  **Folder** tabs; a movie opens straight on its folder. On a phone the two buttons were cut to a
+  few letters.
 
 ## [0.13.2] - 2026-11-12
 

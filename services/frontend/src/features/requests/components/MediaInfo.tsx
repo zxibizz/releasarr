@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Card, Group, Image, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Badge, Button, Card, Group, Image, Stack, Text, Title } from '@mantine/core';
 import { IconPencil } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
@@ -87,25 +87,23 @@ export function MediaInfo({ request, onEdit }: MediaInfoProps) {
   );
 
   /*
-   * An icon rather than a labelled button: the status already takes most of the
-   * row on a phone, and a label beside it was cut to its first few letters.
+   * One button for everything that is changed in Sonarr or Radarr: two labelled
+   * ones beside the status did not fit a phone and were cut to a few letters.
+   * The status leads and the button is pushed to the far end of the row.
    */
   const controls = (
-    <Group gap="sm" wrap="nowrap">
-      {onEdit && (
-        <Tooltip label={t('requestPage.edit.open')}>
-          <ActionIcon
-            variant="light"
-            size="lg"
-            radius="md"
-            aria-label={t('requestPage.edit.open')}
-            onClick={onEdit}
-          >
-            <IconPencil size={18} />
-          </ActionIcon>
-        </Tooltip>
-      )}
+    <Group justify="space-between" gap="sm" wrap="nowrap">
       <StatusBadge status={request.status} size={isMobile ? 'md' : 'lg'} />
+      {onEdit && (
+        <Button
+          variant="light"
+          size={isMobile ? 'compact-sm' : 'xs'}
+          leftSection={<IconPencil size={16} />}
+          onClick={onEdit}
+        >
+          {t('requestPage.edit.open')}
+        </Button>
+      )}
     </Group>
   );
 
@@ -135,8 +133,8 @@ export function MediaInfo({ request, onEdit }: MediaInfoProps) {
 
   /*
    * A phone cannot fit the poster beside the details, so only the title sits
-   * next to it and everything else spans the full width underneath. The edit
-   * button and status take a row of their own rather than wrapping inside the
+   * next to it and everything else spans the full width underneath. The status
+   * and manage button take a row of their own rather than wrapping inside the
    * narrow column left over next to the poster.
    */
   if (isMobile) {
