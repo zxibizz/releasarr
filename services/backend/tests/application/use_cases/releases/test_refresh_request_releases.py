@@ -163,6 +163,7 @@ class FakeSearchService:
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         self.queries.append(query)
         if self._error is not None:

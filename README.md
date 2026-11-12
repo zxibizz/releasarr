@@ -322,6 +322,7 @@ one, so the first profile they report is used unless you pick one.
 | `RELEASARR_PROWLARR_CATEGORIES` | *(all)* | Indexer category IDs to restrict searches to |
 | `RELEASARR_PROWLARR_TIMEOUT` | `20.0` | Request timeout in seconds |
 | `RELEASARR_PROWLARR_SEARCH_TIMEOUT` | `10.0` | Timeout in seconds for a single indexer's search, fanned out one per indexer |
+| `RELEASARR_PROWLARR_INDEXER_SEARCH_TIMEOUT` | `45.0` | Timeout in seconds when the UI searches one indexer on its own, showing each indexer's results as they arrive; not retried |
 | `RELEASARR_PROWLARR_SEARCH_RETRIES` | `1` | Retries per indexer before it is reported as failed |
 | `RELEASARR_PROWLARR_SEARCH_CONCURRENCY` | `5` | Maximum indexers searched at once |
 

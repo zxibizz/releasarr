@@ -316,11 +316,14 @@ class ReleaseSearchService(Protocol):
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         """Search for releases matching the supplied query.
 
         ``indexer_id`` scopes the search to a single indexer; omitted, the
-        provider sweeps every indexer it has configured.
+        provider sweeps every indexer it has configured. ``timeout_seconds``
+        replaces the provider's own timeout for this call, for a caller whose
+        deadline is longer than it.
         """
 
     def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:

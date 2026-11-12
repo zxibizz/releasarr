@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Group,
+  Loader,
   Paper,
   Skeleton,
   Stack,
@@ -71,6 +72,7 @@ export function ReleaseSearch({
     results,
     failedIndexers,
     dismissFailedIndexers,
+    pendingIndexers,
     searchedQuery,
     sortField,
     setSortField,
@@ -166,7 +168,7 @@ export function ReleaseSearch({
                   <Group gap="sm" wrap="nowrap" w={{ base: '100%', sm: 'auto' }}>
                     <Button
                       type="submit"
-                      loading={search.isPending}
+                      loading={search.isPending && results.length === 0}
                       disabled={!normalizedQuery}
                       style={{ flex: actionFlex }}
                     >
@@ -236,7 +238,7 @@ export function ReleaseSearch({
               </Stack>
             </form>
 
-            {search.isPending && (
+            {search.isPending && results.length === 0 && (
               <Stack gap="sm">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <Paper key={index} withBorder radius="md" p="md">
@@ -245,6 +247,19 @@ export function ReleaseSearch({
                   </Paper>
                 ))}
               </Stack>
+            )}
+
+            {/* Results already shown can be grabbed while a slow indexer is
+                still answering; this says the list may yet grow. */}
+            {pendingIndexers.length > 0 && results.length > 0 && (
+              <Group gap="xs" wrap="nowrap" aria-live="polite">
+                <Loader size="xs" />
+                <Text size="sm" c="dimmed">
+                  {t('releaseSearch.pendingIndexers', {
+                    names: pendingIndexers.map((indexer) => indexer.name).join(', '),
+                  })}
+                </Text>
+              </Group>
             )}
 
             {search.isError && (

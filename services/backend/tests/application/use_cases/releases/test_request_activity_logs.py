@@ -219,6 +219,7 @@ class CheckSearchService:
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         return ReleaseSearchResults(
             results=list(self._results), query=query, total_results=len(self._results)
@@ -443,6 +444,7 @@ class FailingSearchService:
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         raise ReleaseSearchUnavailableError("indexer offline")
 

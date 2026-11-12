@@ -215,6 +215,17 @@ exhausting their retries are reported back as `failed_indexers` on `ReleaseSearc
 rather than failing the whole search. `list_indexers()` itself failing (Prowlarr unreachable)
 still fails the request with a 502 — there is no per-indexer list to fall back to.
 
+The UI does not wait for that merged answer. It asks `GET /releases/search/indexers`
+(`ListSearchIndexersUseCase`, the same enabled-and-searchable filter) for the list, then calls
+`GET /releases/search?indexer_id=...` once per indexer and shows each one's results as they
+arrive. Scoped like that, nothing else waits on the answer, so the search gets
+`RELEASARR_PROWLARR_INDEXER_SEARCH_TIMEOUT` (`45.0`s, under nginx's 60s proxy timeout) instead
+of the fan-out's, and a timeout is not retried: some indexers are slow on every query —
+Prowlarr's Anidub opens each result's page in turn, two seconds apart, about 30s a search — and
+a retry would only double the wait. Errors are still retried. The deadline is passed down as
+`search(..., timeout_seconds=...)`, because the client's own `RELEASARR_PROWLARR_TIMEOUT` would
+otherwise cut it short.
+
 An indexer Prowlarr is currently backing off (`derive_health(...) is IndexerHealth.BLOCKED`,
 i.e. `disabled_till` in the future) is reported as failed **without being queried at all** —
 Prowlarr would refuse it anyway, so attempting it would only spend the timeout budget. A

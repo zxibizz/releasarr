@@ -819,6 +819,17 @@ paths:
           schema:
             type: string
           description: Identifier of the media request initiating the search.
+        - in: query
+          name: indexer_id
+          required: false
+          schema:
+            type: integer
+          description: |
+            Search only this indexer, as listed by `/releases/search/indexers`.
+            Nothing else waits on the answer, so the indexer gets a longer
+            timeout (`prowlarr_indexer_search_timeout`) and a timeout is not
+            retried. An indexer that is not enabled for search is reported in
+            `failed_indexers` rather than rejected.
       responses:
         '200':
           description: Release source search results.
@@ -828,6 +839,40 @@ paths:
                 $ref: '#/components/schemas/ReleaseSearchResponse'
         '400':
           description: Malformed search query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /releases/search/indexers:
+    get:
+      tags: [Releases]
+      summary: List the indexers a release search queries
+      description: |
+        The enabled indexers that support search, for a client that searches
+        them one at a time with `indexer_id` and shows each one's results as
+        they arrive instead of waiting for the slowest.
+      operationId: listSearchIndexers
+      responses:
+        '200':
+          description: The indexers a search would query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchIndexersResponse'
+        '502':
+          description: Prowlarr could not be reached.
           content:
             application/json:
               schema:
@@ -3747,6 +3792,22 @@ components:
         searched_indexers:
           type: integer
           description: Number of indexers the search attempted, whether or not they answered.
+    SearchIndexer:
+      type: object
+      required: [indexer_id, name]
+      properties:
+        indexer_id:
+          type: integer
+        name:
+          type: string
+    SearchIndexersResponse:
+      type: object
+      required: [indexers]
+      properties:
+        indexers:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchIndexer'
     ExistingReleasesAction:
       type: string
       enum: [keep, replace]

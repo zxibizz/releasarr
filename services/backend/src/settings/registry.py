@@ -99,6 +99,7 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("auth_lockout_seconds", "network", "int"),
     SettingField("prowlarr_timeout", "network", "float"),
     SettingField("prowlarr_search_timeout", "network", "float"),
+    SettingField("prowlarr_indexer_search_timeout", "network", "float"),
     SettingField("prowlarr_search_retries", "network", "int"),
     SettingField("prowlarr_search_concurrency", "network", "int"),
     SettingField("qbittorrent_timeout", "network", "float"),

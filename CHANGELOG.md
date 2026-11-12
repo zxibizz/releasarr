@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was added to the wrong library. A series moves as a whole, every season with it. A user
   limited to some folders may only move between folders they are allowed.
 
+### Changed
+
+- **Release search shows each indexer's results as soon as it answers.** A slow indexer used
+  to hold back the whole list, and one that is slow on every query (Prowlarr's Anidub takes
+  about 30 seconds) timed out and was dropped after 20. Now the fast indexers' results appear
+  at once, **Waiting for …** names the ones still searching, and a single indexer gets
+  `RELEASARR_PROWLARR_INDEXER_SEARCH_TIMEOUT` (45 seconds) to answer. The API adds
+  `GET /releases/search/indexers` and an `indexer_id` filter on `GET /releases/search`.
+
 ## [0.13.1] - 2026-11-08
 
 ### Fixed

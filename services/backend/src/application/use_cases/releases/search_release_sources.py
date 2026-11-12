@@ -21,14 +21,46 @@ from src.application.use_cases.releases.commands import SearchReleaseSourcesComm
 from src.application.use_cases.releases.dto import (
     IndexerSearchFailureDTO,
     ReleaseSearchResponseDTO,
+    SearchIndexerDTO,
 )
 from src.application.use_cases.releases.mappers import search_results_to_dto
 from src.core.logging import get_logger
 from src.domain.enums import IndexerHealth, LogComponent
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
+DEFAULT_INDEXER_TIMEOUT_SECONDS = 45.0
 DEFAULT_RETRIES = 1
 DEFAULT_CONCURRENCY = 5
+
+
+async def _searchable_indexers(directory: IndexerDirectory) -> list[IndexerRecord]:
+    return [
+        indexer
+        for indexer in await directory.list_indexers()
+        if indexer.enabled and indexer.supports_search
+    ]
+
+
+class ListSearchIndexersUseCase:
+    """List the indexers a release search fans out to.
+
+    A client that searches them one at a time can show the fast indexers'
+    results while a slow one is still answering.
+    """
+
+    def __init__(
+        self, search_service: ReleaseSearchService, *, directory: IndexerDirectory
+    ) -> None:
+        self._search_service = search_service
+        self._directory = directory
+
+    async def execute(self) -> list[SearchIndexerDTO]:
+        if not self._search_service.is_configured or not self._directory.is_configured:
+            raise ProwlarrNotConfiguredError
+        return [
+            SearchIndexerDTO(indexer_id=indexer.indexer_id, name=indexer.name)
+            for indexer in await _searchable_indexers(self._directory)
+        ]
 
 
 class SearchReleaseSourcesUseCase:
@@ -41,6 +73,11 @@ class SearchReleaseSourcesUseCase:
     of an extra ``list_indexers()`` round trip per search. An indexer Prowlarr
     is already backing off is reported as failed without being queried at all,
     since Prowlarr will refuse it regardless.
+
+    Scoped to one indexer, nothing else waits on the answer, so the search gets
+    the longer ``indexer_timeout_seconds`` and a timeout is not retried: some
+    indexers are slow on every query (Prowlarr's Anidub opens each result's
+    page in turn, two seconds apart), and a retry would only double the wait.
     """
 
     def __init__(
@@ -49,6 +86,7 @@ class SearchReleaseSourcesUseCase:
         *,
         directory: IndexerDirectory,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        indexer_timeout_seconds: float = DEFAULT_INDEXER_TIMEOUT_SECONDS,
         retries: int = DEFAULT_RETRIES,
         concurrency: int = DEFAULT_CONCURRENCY,
         logger: Logger | None = None,
@@ -57,6 +95,7 @@ class SearchReleaseSourcesUseCase:
         self._search_service = search_service
         self._directory = directory
         self._timeout_seconds = timeout_seconds
+        self._indexer_timeout_seconds = indexer_timeout_seconds
         self._retries = retries
         self._concurrency = concurrency
         self._logger = logger or get_logger(LogComponent.USECASE_RELEASE_SEARCH)
@@ -66,11 +105,9 @@ class SearchReleaseSourcesUseCase:
         if not self._search_service.is_configured or not self._directory.is_configured:
             raise ProwlarrNotConfiguredError
 
-        candidates = [
-            indexer
-            for indexer in await self._directory.list_indexers()
-            if indexer.enabled and indexer.supports_search
-        ]
+        candidates = await _searchable_indexers(self._directory)
+        if command.indexer_id is not None:
+            return await self._execute_one(command, command.indexer_id, candidates)
         if not candidates:
             empty = ReleaseSearchResults(results=[], query=command.query, total_results=0)
             self._log_completed(command, results=0, searched=0, failed=0)
@@ -91,7 +128,16 @@ class SearchReleaseSourcesUseCase:
 
         semaphore = asyncio.Semaphore(self._concurrency)
         outcomes = await asyncio.gather(
-            *(self._search_one(indexer, command, semaphore) for indexer in queryable)
+            *(
+                self._search_one(
+                    indexer,
+                    command,
+                    semaphore,
+                    timeout_seconds=self._timeout_seconds,
+                    retry_timeouts=True,
+                )
+                for indexer in queryable
+            )
         )
 
         merged: list[ReleaseSearchResultRecord] = []
@@ -118,6 +164,41 @@ class SearchReleaseSourcesUseCase:
             combined, failed_indexers=failures, searched_indexers=len(candidates)
         )
 
+    async def _execute_one(
+        self,
+        command: SearchReleaseSourcesCommand,
+        indexer_id: int,
+        candidates: list[IndexerRecord],
+    ) -> ReleaseSearchResponseDTO:
+        indexer = next((item for item in candidates if item.indexer_id == indexer_id), None)
+        outcome: ReleaseSearchResults | IndexerSearchFailureDTO
+        if indexer is None:
+            # The client's indexer list can be a moment stale: one switched off
+            # since is reported like any other indexer that did not answer.
+            outcome = IndexerSearchFailureDTO(
+                indexer_id=indexer_id,
+                name=str(indexer_id),
+                reason="not an enabled indexer that supports search",
+            )
+        elif derive_health(indexer, self._clock()) is IndexerHealth.BLOCKED:
+            outcome = self._blocked_failure(indexer, command)
+        else:
+            outcome = await self._search_one(
+                indexer,
+                command,
+                asyncio.Semaphore(1),
+                timeout_seconds=self._indexer_timeout_seconds,
+                retry_timeouts=False,
+            )
+
+        if isinstance(outcome, IndexerSearchFailureDTO):
+            empty = ReleaseSearchResults(results=[], query=command.query, total_results=0)
+            self._log_completed(command, results=0, searched=1, failed=1)
+            return search_results_to_dto(empty, failed_indexers=[outcome], searched_indexers=1)
+
+        self._log_completed(command, results=len(outcome.results), searched=1, failed=0)
+        return search_results_to_dto(outcome, failed_indexers=[], searched_indexers=1)
+
     def _log_completed(
         self,
         command: SearchReleaseSourcesCommand,
@@ -135,6 +216,7 @@ class SearchReleaseSourcesUseCase:
             "Release search completed",
             request_id=command.request_id,
             query=command.query,
+            indexer_id=command.indexer_id,
             results=results,
             searched_indexers=searched,
             failed_indexers=failed,
@@ -161,21 +243,31 @@ class SearchReleaseSourcesUseCase:
         indexer: IndexerRecord,
         command: SearchReleaseSourcesCommand,
         semaphore: asyncio.Semaphore,
+        *,
+        timeout_seconds: float,
+        retry_timeouts: bool,
     ) -> ReleaseSearchResults | IndexerSearchFailureDTO:
         last_reason = "unknown error"
+        attempts = 0
         async with semaphore:
             for _attempt in range(self._retries + 1):
+                attempts += 1
                 try:
+                    # The provider's own HTTP timeout would otherwise cut a
+                    # deadline longer than it short.
                     return await asyncio.wait_for(
                         self._search_service.search(
                             command.query,
                             request_id=command.request_id,
                             indexer_id=indexer.indexer_id,
+                            timeout_seconds=timeout_seconds,
                         ),
-                        timeout=self._timeout_seconds,
+                        timeout=timeout_seconds,
                     )
                 except TimeoutError:
-                    last_reason = f"timed out after {self._timeout_seconds}s"
+                    last_reason = f"timed out after {timeout_seconds}s"
+                    if not retry_timeouts:
+                        break
                 except ReleaseSearchUnavailableError as exc:
                     last_reason = str(exc)
 
@@ -185,7 +277,7 @@ class SearchReleaseSourcesUseCase:
             indexer_id=indexer.indexer_id,
             indexer=indexer.name,
             reason=last_reason,
-            attempts=self._retries + 1,
+            attempts=attempts,
         )
         return IndexerSearchFailureDTO(
             indexer_id=indexer.indexer_id,
@@ -194,4 +286,4 @@ class SearchReleaseSourcesUseCase:
         )
 
 
-__all__ = ["SearchReleaseSourcesUseCase"]
+__all__ = ["ListSearchIndexersUseCase", "SearchReleaseSourcesUseCase"]

@@ -563,9 +563,66 @@ api.post('/releases', async (req, res) => {
   }
 });
 
+// "Slow Indexer" answers seconds after the other, so the results arriving one
+// indexer at a time can be watched without a real slow tracker.
+const MOCK_SEARCH_INDEXERS = [
+  { indexer_id: 1, name: 'Main Indexer' },
+  { indexer_id: 2, name: 'Slow Indexer' },
+];
+const SLOW_INDEXER_DELAY_MS = 4000;
+
+api.get('/releases/search/indexers', (_req, res) => {
+  res.json({ indexers: MOCK_SEARCH_INDEXERS });
+});
+
 api.get('/releases/search', async (req, res) => {
   const query = (req.query.q as string | undefined) ?? '';
   const requestId = (req.query.request_id as string | undefined) ?? undefined;
+  const indexerId = req.query.indexer_id === undefined ? undefined : Number(req.query.indexer_id);
+
+  if (indexerId !== undefined) {
+    const indexer = MOCK_SEARCH_INDEXERS.find((item) => item.indexer_id === indexerId);
+    if (!indexer) {
+      res.json({
+        results: [],
+        query,
+        total_results: 0,
+        failed_indexers: [
+          {
+            indexer_id: indexerId,
+            name: String(indexerId),
+            reason: 'not an enabled indexer that supports search',
+          },
+        ],
+        searched_indexers: 1,
+      });
+      return;
+    }
+    if (indexer.indexer_id === 2) {
+      await new Promise((resolve) => setTimeout(resolve, SLOW_INDEXER_DELAY_MS));
+      const failed = query.toLowerCase().includes('flaky')
+        ? [{ indexer_id: 2, name: indexer.name, reason: 'timed out after 45.0s' }]
+        : [];
+      res.json({
+        results: [],
+        query,
+        total_results: 0,
+        failed_indexers: failed,
+        searched_indexers: 1,
+      });
+      return;
+    }
+    const results = await mockStore.searchReleaseCandidates(query, requestId, { merge: true });
+    res.json({
+      results,
+      query,
+      total_results: results.length,
+      failed_indexers: [],
+      searched_indexers: 1,
+    });
+    return;
+  }
+
   const results = await mockStore.searchReleaseCandidates(query, requestId);
   // "flaky" is a UI-development sentinel: it lets the failed-indexers alert be
   // exercised without a real Prowlarr instance with a broken indexer.

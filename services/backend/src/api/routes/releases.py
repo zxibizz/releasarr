@@ -43,7 +43,10 @@ from src.application.use_cases.releases.refresh_request_releases import (
     RefreshRequestReleasesUseCase,
 )
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
-from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
+from src.application.use_cases.releases.search_release_sources import (
+    ListSearchIndexersUseCase,
+    SearchReleaseSourcesUseCase,
+)
 from src.application.use_cases.releases.suggest_file_mappings import (
     SuggestReleaseFileMappingsUseCase,
 )
@@ -67,6 +70,8 @@ from src.schemas.releases import (
     ReleaseSearchResponse,
     ReleasesResponse,
     ReleaseWarning,
+    SearchIndexer,
+    SearchIndexersResponse,
 )
 
 router = APIRouter(prefix="/releases", tags=["Releases"], dependencies=[Depends(require_user)])
@@ -119,6 +124,12 @@ def _search_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> SearchReleaseSourcesUseCase:
     return container.use_cases.releases.search_sources
+
+
+def _search_indexers_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> ListSearchIndexersUseCase:
+    return container.use_cases.releases.search_indexers
 
 
 def _queue_download_use_case(
@@ -211,6 +222,14 @@ SUGGEST_MAPPINGS_RESPONSES = error_responses(
 SEARCH_RELEASES_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Malformed search query.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: _PROWLARR_NOT_CONFIGURED,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+SEARCH_INDEXERS_RESPONSES = error_responses(
+    {
+        status.HTTP_502_BAD_GATEWAY: "Prowlarr could not be reached.",
         status.HTTP_503_SERVICE_UNAVAILABLE: _PROWLARR_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
@@ -407,11 +426,26 @@ async def list_releases(
 async def search_releases(
     q: str = Query(...),
     request_id: str | None = Query(default=None, alias="request_id"),
+    indexer_id: int | None = Query(default=None, alias="indexer_id"),
     search_use_case: SearchReleaseSourcesUseCase = Depends(_search_use_case),
 ) -> ReleaseSearchResponse:
-    command = SearchReleaseSourcesCommand(query=q, request_id=request_id)
+    command = SearchReleaseSourcesCommand(query=q, request_id=request_id, indexer_id=indexer_id)
     dto = await search_use_case.execute(command)
     return _search_to_response(dto)
+
+
+@router.get(
+    "/search/indexers",
+    response_model=SearchIndexersResponse,
+    responses=SEARCH_INDEXERS_RESPONSES,
+)
+async def list_search_indexers(
+    use_case: ListSearchIndexersUseCase = Depends(_search_indexers_use_case),
+) -> SearchIndexersResponse:
+    indexers = await use_case.execute()
+    return SearchIndexersResponse(
+        indexers=[SearchIndexer(indexer_id=item.indexer_id, name=item.name) for item in indexers]
+    )
 
 
 @request_releases_router.get(

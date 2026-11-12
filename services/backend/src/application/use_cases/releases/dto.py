@@ -110,6 +110,14 @@ class IndexerSearchFailureDTO:
 
 
 @dataclass(slots=True)
+class SearchIndexerDTO:
+    """One indexer a release search would query."""
+
+    indexer_id: int
+    name: str
+
+
+@dataclass(slots=True)
 class ReleaseSearchResponseDTO:
     results: list[ReleaseSearchResultDTO]
     query: str
@@ -139,4 +147,5 @@ __all__ = [
     "ReleaseSearchResponseDTO",
     "ReleaseSearchResultDTO",
     "ReleasesPageDTO",
+    "SearchIndexerDTO",
 ]

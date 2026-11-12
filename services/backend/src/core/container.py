@@ -66,6 +66,7 @@ from src.application.use_cases.releases.queue_release_download import (
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
 from src.application.use_cases.releases.search_release_sources import (
+    ListSearchIndexersUseCase,
     SearchReleaseSourcesUseCase,
 )
 from src.application.use_cases.releases.suggest_file_mappings import (
@@ -742,8 +743,16 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
             directory=self._container.services.indexer_directory,
             timeout_seconds=settings.prowlarr_search_timeout,
+            indexer_timeout_seconds=settings.prowlarr_indexer_search_timeout,
             retries=settings.prowlarr_search_retries,
             concurrency=settings.prowlarr_search_concurrency,
+        )
+
+    @cached_property
+    def search_indexers(self) -> ListSearchIndexersUseCase:
+        return ListSearchIndexersUseCase(
+            search_service=self._container.services.release_search,
+            directory=self._container.services.indexer_directory,
         )
 
     @cached_property

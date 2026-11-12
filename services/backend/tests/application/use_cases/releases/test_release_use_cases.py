@@ -52,7 +52,10 @@ from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
 from src.application.use_cases.releases.queue_release_download import QueueReleaseDownloadUseCase
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.releases.resume_release import ResumeReleaseUseCase
-from src.application.use_cases.releases.search_release_sources import SearchReleaseSourcesUseCase
+from src.application.use_cases.releases.search_release_sources import (
+    ListSearchIndexersUseCase,
+    SearchReleaseSourcesUseCase,
+)
 from src.application.use_cases.releases.update_file_mappings import UpdateReleaseFileMappingsUseCase
 from src.application.use_cases.tasks.enqueue_sync import EnqueueSyncJobUseCase
 from src.application.utility.file_matcher import ReleaseFileMatcher
@@ -350,6 +353,7 @@ class FakeSearchService:
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         self.calls.append((query, request_id))
         return self.results
@@ -1357,15 +1361,18 @@ class FakePerIndexerSearchService:
         self._hangs = hangs
         self._hang_seconds = hang_seconds
         self.calls: list[int] = []
+        self.timeouts: list[float | None] = []
 
     async def search(
         self,
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         assert indexer_id is not None, "the fan-out always scopes searches to an indexer"
         self.calls.append(indexer_id)
+        self.timeouts.append(timeout_seconds)
         if indexer_id in self._hangs:
             await asyncio.sleep(self._hang_seconds)
         if indexer_id in self._errors_by_indexer:
@@ -1526,6 +1533,111 @@ async def test_search_release_sources_propagates_list_indexers_failure() -> None
 
     with pytest.raises(RuntimeError, match="prowlarr unreachable"):
         await use_case.execute(SearchReleaseSourcesCommand(query="test"))
+
+
+@pytest.mark.asyncio
+async def test_search_release_sources_scoped_to_one_indexer_queries_only_it() -> None:
+    directory = FakeIndexerDirectory([_indexer(1, "Fast"), _indexer(2, "Slow")])
+    search_service = FakePerIndexerSearchService(
+        results_by_indexer={1: [_result("fast", seeders=1)], 2: [_result("slow", seeders=9)]}
+    )
+    use_case = SearchReleaseSourcesUseCase(
+        search_service, directory=directory, timeout_seconds=10.0, indexer_timeout_seconds=45.0
+    )
+
+    response = await use_case.execute(SearchReleaseSourcesCommand(query="test", indexer_id=2))
+
+    assert search_service.calls == [2]
+    assert search_service.timeouts == [45.0]
+    assert response.searched_indexers == 1
+    assert response.failed_indexers == []
+    assert [result.release_id for result in response.results] == ["slow"]
+
+
+@pytest.mark.asyncio
+async def test_search_release_sources_scoped_search_does_not_retry_a_timeout() -> None:
+    directory = FakeIndexerDirectory([_indexer(1, "Slow")])
+    search_service = FakePerIndexerSearchService(hangs=frozenset({1}), hang_seconds=0.05)
+    use_case = SearchReleaseSourcesUseCase(
+        search_service, directory=directory, indexer_timeout_seconds=0.01, retries=2
+    )
+
+    response = await use_case.execute(SearchReleaseSourcesCommand(query="test", indexer_id=1))
+
+    assert search_service.calls == [1]
+    assert len(response.failed_indexers) == 1
+    assert "timed out after 0.01s" in response.failed_indexers[0].reason
+
+
+@pytest.mark.asyncio
+async def test_search_release_sources_scoped_search_still_retries_errors() -> None:
+    directory = FakeIndexerDirectory([_indexer(1, "Flaky")])
+    search_service = FakePerIndexerSearchService(
+        errors_by_indexer={1: ReleaseSearchUnavailableError("boom")}
+    )
+    use_case = SearchReleaseSourcesUseCase(search_service, directory=directory, retries=1)
+
+    response = await use_case.execute(SearchReleaseSourcesCommand(query="test", indexer_id=1))
+
+    assert search_service.calls == [1, 1]
+    assert response.failed_indexers[0].reason == "boom"
+
+
+@pytest.mark.asyncio
+async def test_search_release_sources_scoped_to_an_unsearchable_indexer_reports_failure() -> None:
+    directory = FakeIndexerDirectory([_indexer(1, "Off", enabled=False)])
+    search_service = FakePerIndexerSearchService()
+    use_case = SearchReleaseSourcesUseCase(search_service, directory=directory)
+
+    response = await use_case.execute(SearchReleaseSourcesCommand(query="test", indexer_id=1))
+
+    assert search_service.calls == []
+    assert response.searched_indexers == 1
+    assert response.results == []
+    assert response.failed_indexers[0].indexer_id == 1
+    assert "not an enabled indexer" in response.failed_indexers[0].reason
+
+
+@pytest.mark.asyncio
+async def test_search_release_sources_scoped_to_a_blocked_indexer_skips_it() -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    directory = FakeIndexerDirectory(
+        [_indexer(1, "Banned", disabled_till=datetime(2026, 1, 1, 1, tzinfo=UTC))]
+    )
+    search_service = FakePerIndexerSearchService()
+    use_case = SearchReleaseSourcesUseCase(search_service, directory=directory, clock=lambda: now)
+
+    response = await use_case.execute(SearchReleaseSourcesCommand(query="test", indexer_id=1))
+
+    assert search_service.calls == []
+    assert "blocked" in response.failed_indexers[0].reason
+
+
+@pytest.mark.asyncio
+async def test_list_search_indexers_returns_enabled_search_indexers() -> None:
+    directory = FakeIndexerDirectory(
+        [
+            _indexer(1, "Enabled"),
+            _indexer(2, "Disabled", enabled=False),
+            _indexer(3, "NoSearch", supports_search=False),
+            _indexer(4, "Banned", disabled_till=datetime(2999, 1, 1, tzinfo=UTC)),
+        ]
+    )
+    use_case = ListSearchIndexersUseCase(FakePerIndexerSearchService(), directory=directory)
+
+    indexers = await use_case.execute()
+
+    assert [(item.indexer_id, item.name) for item in indexers] == [(1, "Enabled"), (4, "Banned")]
+
+
+@pytest.mark.asyncio
+async def test_list_search_indexers_reports_an_unconfigured_prowlarr() -> None:
+    use_case = ListSearchIndexersUseCase(
+        FakePerIndexerSearchService(), directory=FakeIndexerDirectory([], is_configured=False)
+    )
+
+    with pytest.raises(ProwlarrNotConfiguredError):
+        await use_case.execute()
 
 
 @pytest.mark.asyncio

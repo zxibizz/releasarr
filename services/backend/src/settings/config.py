@@ -104,6 +104,9 @@ class AppSettings(BaseSettings):
     # tighter than prowlarr_timeout: a hung indexer shouldn't cost more than
     # this budget while the rest still answer.
     prowlarr_search_timeout: float = Field(default=10.0)
+    # A search the client scopes to one indexer holds up nothing else, so a
+    # slow indexer gets the time it needs. Kept under nginx's 60s proxy timeout.
+    prowlarr_indexer_search_timeout: float = Field(default=45.0)
     prowlarr_search_retries: int = Field(default=1)
     prowlarr_search_concurrency: int = Field(default=5)
 

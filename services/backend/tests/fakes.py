@@ -958,6 +958,7 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         matches = self._registry.get((query, request_id), [])
         return ReleaseSearchResults(results=list(matches), query=query, total_results=len(matches))

@@ -189,6 +189,10 @@ export const resources = {
           auth_lockout_seconds: { label: 'Lockout duration (seconds)', description: '' },
           prowlarr_timeout: { label: 'Prowlarr timeout (seconds)', description: '' },
           prowlarr_search_timeout: { label: 'Prowlarr search timeout (seconds)', description: '' },
+          prowlarr_indexer_search_timeout: {
+            label: 'Single-indexer search timeout (seconds)',
+            description: '',
+          },
           prowlarr_search_retries: { label: 'Prowlarr search retries', description: '' },
           prowlarr_search_concurrency: { label: 'Prowlarr search concurrency', description: '' },
           qbittorrent_timeout: { label: 'qBittorrent timeout (seconds)', description: '' },
@@ -605,6 +609,7 @@ export const resources = {
           days_one: '{{count}} day',
           days_other: '{{count}} days',
         },
+        pendingIndexers: 'Waiting for {{names}}…',
         indexerFailures: {
           title: 'Some indexers did not respond',
           description_one: '{{names}} did not respond, so results may be incomplete.',
@@ -1378,6 +1383,10 @@ export const resources = {
           auth_lockout_seconds: { label: 'Длительность блокировки (сек.)', description: '' },
           prowlarr_timeout: { label: 'Таймаут Prowlarr (сек.)', description: '' },
           prowlarr_search_timeout: { label: 'Таймаут поиска Prowlarr (сек.)', description: '' },
+          prowlarr_indexer_search_timeout: {
+            label: 'Таймаут поиска по одному индексатору (сек.)',
+            description: '',
+          },
           prowlarr_search_retries: { label: 'Повторы поиска Prowlarr', description: '' },
           prowlarr_search_concurrency: { label: 'Параллелизм поиска Prowlarr', description: '' },
           qbittorrent_timeout: { label: 'Таймаут qBittorrent (сек.)', description: '' },
@@ -1817,6 +1826,7 @@ export const resources = {
           days_many: '{{count}} дней',
           days_other: '{{count}} дней',
         },
+        pendingIndexers: 'Ждём ответа: {{names}}…',
         indexerFailures: {
           title: 'Некоторые индексеры не ответили',
           description_one: '{{names}} не ответил, поэтому результаты могут быть неполными.',

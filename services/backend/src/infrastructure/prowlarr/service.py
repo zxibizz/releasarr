@@ -54,6 +54,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         params: list[tuple[str, str]] = [("query", query), ("type", "search")]
         for category in self.categories or []:
@@ -63,8 +64,13 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
 
         # Retries are the caller's to decide: a per-indexer fan-out attempts
         # each indexer on its own schedule instead of inheriting the client's.
+        overrides: dict[str, object] = {}
+        if timeout_seconds is not None:
+            overrides["timeout"] = httpx.Timeout(timeout_seconds)
         try:
-            response = await self._http.request("GET", "/search", params=params, retries=0)
+            response = await self._http.request(
+                "GET", "/search", params=params, retries=0, **overrides
+            )
         except HttpClientError as exc:
             raise ReleaseSearchUnavailableError(str(exc)) from exc
 

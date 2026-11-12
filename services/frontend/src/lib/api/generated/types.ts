@@ -305,6 +305,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/search/indexers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the indexers a release search queries
+         * @description The enabled indexers that support search, for a client that searches
+         *     them one at a time with `indexer_id` and shows each one's results as
+         *     they arrive instead of waiting for the slowest.
+         */
+        get: operations["listSearchIndexers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requests/{requestId}/releases/download": {
         parameters: {
             query?: never;
@@ -1670,6 +1692,13 @@ export interface components {
             failed_indexers: components["schemas"]["IndexerSearchFailure"][];
             /** @description Number of indexers the search attempted, whether or not they answered. */
             searched_indexers: number;
+        };
+        SearchIndexer: {
+            indexer_id: number;
+            name: string;
+        };
+        SearchIndexersResponse: {
+            indexers: components["schemas"]["SearchIndexer"][];
         };
         /**
          * @description Required once a request already has releases. `keep` leaves them running alongside the new grab; `replace` deletes the ones grabbed only for this request and unlinks the ones shared with other requests.
@@ -3108,6 +3137,14 @@ export interface operations {
                 q: string;
                 /** @description Identifier of the media request initiating the search. */
                 request_id?: string;
+                /**
+                 * @description Search only this indexer, as listed by `/releases/search/indexers`.
+                 *     Nothing else waits on the answer, so the indexer gets a longer
+                 *     timeout (`prowlarr_indexer_search_timeout`) and a timeout is not
+                 *     retried. An indexer that is not enabled for search is reported in
+                 *     `failed_indexers` rather than rejected.
+                 */
+                indexer_id?: number;
             };
             header?: never;
             path?: never;
@@ -3135,6 +3172,53 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listSearchIndexers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The indexers a search would query. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchIndexersResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr could not be reached. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

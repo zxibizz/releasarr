@@ -10,6 +10,8 @@ import type {
   ReleaseRefreshResponse,
   ReleaseSearchResponse,
   ReleasesResponse,
+  SearchIndexer,
+  SearchIndexersResponse,
   SuccessResponse,
 } from '@/types';
 
@@ -29,11 +31,18 @@ export const releasesApi = {
       method: 'POST',
     }),
 
-  search: (query: string, requestId?: string, signal?: AbortSignal) =>
+  search: (query: string, requestId?: string, signal?: AbortSignal, indexerId?: number) =>
     apiRequest<ReleaseSearchResponse>('/releases/search', {
       signal,
-      query: { q: query, request_id: requestId },
+      query: { q: query, request_id: requestId, indexer_id: indexerId },
     }),
+
+  searchIndexers: async (signal?: AbortSignal): Promise<SearchIndexer[]> => {
+    const response = await apiRequest<SearchIndexersResponse>('/releases/search/indexers', {
+      signal,
+    });
+    return response.indexers;
+  },
 
   queueDownload: (requestId: string, payload: ReleaseDownloadRequest) =>
     apiRequest<AsyncOperationResponse>(`/requests/${encode(requestId)}/releases/download`, {

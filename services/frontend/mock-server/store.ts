@@ -993,12 +993,28 @@ export class MockStore {
     });
   }
 
-  async searchReleaseCandidates(query: string, requestId?: string): Promise<ReleaseSearchResult[]> {
+  /**
+   * `merge` keeps earlier results grabbable: the UI searches one indexer at a
+   * time, and each answer must add to what the request can download rather
+   * than replace it.
+   */
+  async searchReleaseCandidates(
+    query: string,
+    requestId?: string,
+    { merge = false }: { merge?: boolean } = {},
+  ): Promise<ReleaseSearchResult[]> {
     const results = await searchMockReleaseSources(query, requestId);
     const clonedResults = results.map((result) => clone(result));
 
     if (requestId) {
-      this.searchResultsByRequest[requestId] = clonedResults.map((item) => clone(item));
+      const kept = merge
+        ? (this.searchResultsByRequest[requestId] ?? []).filter(
+            (item) => !clonedResults.some((result) => result.release_id === item.release_id),
+          )
+        : [];
+      this.searchResultsByRequest[requestId] = [...kept, ...clonedResults].map((item) =>
+        clone(item),
+      );
     }
 
     return clonedResults;

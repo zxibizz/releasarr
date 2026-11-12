@@ -52,6 +52,9 @@ class ReleaseIdCommand:
 class SearchReleaseSourcesCommand:
     query: str
     request_id: str | None = None
+    # Scopes the search to one indexer, so a client can show each indexer's
+    # results as they arrive instead of waiting for the slowest one.
+    indexer_id: int | None = None
 
 
 @dataclass(slots=True)

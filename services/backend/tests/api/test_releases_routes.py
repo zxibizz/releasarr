@@ -22,6 +22,7 @@ from src.api.routes.releases import (
     _queue_download_use_case,
     _queue_manual_use_case,
     _refresh_use_case,
+    _search_indexers_use_case,
     _search_use_case,
     _suggest_mappings_use_case,
     _update_mappings_use_case,
@@ -39,6 +40,7 @@ from src.application.use_cases.releases.dto import (
     ReleaseSearchResultDTO,
     ReleasesPageDTO,
     ReleaseWarningDTO,
+    SearchIndexerDTO,
 )
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
@@ -430,6 +432,41 @@ async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
     assert body["results"][0]["release_id"] == result.release_id
     assert body["searched_indexers"] == 2
     assert body["failed_indexers"] == [{"indexer_id": 2, "name": "Broken", "reason": "timed out"}]
+
+
+@pytest.mark.asyncio
+async def test_search_releases_passes_indexer_id(api_client: AsyncClient) -> None:
+    commands = []
+
+    class FakeSearch:
+        async def execute(self, command):
+            commands.append(command)
+            return ReleaseSearchResponseDTO(
+                results=[], query="query", total_results=0, searched_indexers=1
+            )
+
+    with override_dependency(_search_use_case, FakeSearch()):
+        response = await api_client.get(
+            "/releases/search",
+            params={"q": "query", "indexer_id": "5"},
+            headers=API_KEY_HEADER,
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert commands[0].indexer_id == 5
+
+
+@pytest.mark.asyncio
+async def test_list_search_indexers_returns_payload(api_client: AsyncClient) -> None:
+    class FakeList:
+        async def execute(self):
+            return [SearchIndexerDTO(indexer_id=1, name="RuTor")]
+
+    with override_dependency(_search_indexers_use_case, FakeList()):
+        response = await api_client.get("/releases/search/indexers", headers=API_KEY_HEADER)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"indexers": [{"indexer_id": 1, "name": "RuTor"}]}
 
 
 @pytest.mark.asyncio

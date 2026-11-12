@@ -139,6 +139,15 @@ class ReleaseSearchResponse(APIModel):
     searched_indexers: int = 0
 
 
+class SearchIndexer(APIModel):
+    indexer_id: int
+    name: str
+
+
+class SearchIndexersResponse(APIModel):
+    indexers: list[SearchIndexer]
+
+
 class ReleaseDownloadRequest(APIModel):
     release_id: str
     existing_releases: ExistingReleasesAction | None = None
@@ -170,5 +179,7 @@ __all__ = [
     "ReleaseSearchResult",
     "ReleaseWarning",
     "ReleasesResponse",
+    "SearchIndexer",
+    "SearchIndexersResponse",
     "SeriesFileRequestMapping",
 ]

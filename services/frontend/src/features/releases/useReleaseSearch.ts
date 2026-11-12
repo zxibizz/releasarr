@@ -15,6 +15,7 @@ import type {
   ExistingReleasesAction,
   IndexerSearchFailure,
   ReleaseSearchResult,
+  SearchIndexer,
 } from '@/types';
 import { getErrorMessage } from '@/utils/errors';
 import { daysSince } from '@/utils/formatters';
@@ -89,6 +90,10 @@ export function useReleaseSearch({
   const [sourceFilter, setSourceFilter] = useState(DEFAULT_SOURCE_FILTER);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [pendingIndexers, setPendingIndexers] = useState<SearchIndexer[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<unknown>(null);
+  const searchController = useRef<AbortController | null>(null);
 
   const normalizedQuery = query.replace(/\s+/g, ' ').trim();
   const seasonToken = seasonNumber === undefined ? null : String(seasonNumber);
@@ -98,21 +103,103 @@ export function useReleaseSearch({
 
   const { data: existingReleases } = useReleasesByRequest(requestId);
 
-  const search = useMutation({
-    mutationFn: (value: string) => releasesApi.search(value, requestId),
-    onSuccess: (response, value) => {
-      setResults(response.results ?? []);
-      setFailedIndexers(response.failed_indexers ?? []);
-      setSearchedQuery(value);
-    },
-    onError: (error) => {
-      notifications.show({
-        title: t('releaseSearch.toasts.searchFailedTitle'),
-        message: getErrorMessage(error, t('releaseSearch.toasts.searchFailedFallback')),
-        color: 'red',
-      });
-    },
-  });
+  const cancelSearch = () => {
+    searchController.current?.abort();
+    searchController.current = null;
+    setPendingIndexers([]);
+    setIsSearching(false);
+  };
+
+  useEffect(() => () => searchController.current?.abort(), []);
+
+  const reportSearchFailure = (error: unknown) => {
+    setSearchError(error);
+    notifications.show({
+      title: t('releaseSearch.toasts.searchFailedTitle'),
+      message: getErrorMessage(error, t('releaseSearch.toasts.searchFailedFallback')),
+      color: 'red',
+    });
+  };
+
+  // Each indexer is searched on its own and its results shown as soon as it
+  // answers. Searched together, the slowest indexer held back every result:
+  // some trackers take half a minute on any query.
+  const runSearch = async (value: string) => {
+    searchController.current?.abort();
+    const controller = new AbortController();
+    searchController.current = controller;
+    const { signal } = controller;
+
+    setResults([]);
+    setFailedIndexers([]);
+    setSearchError(null);
+    setSearchedQuery(value);
+    setIsSearching(true);
+
+    let indexers: SearchIndexer[];
+    try {
+      indexers = await releasesApi.searchIndexers(signal);
+    } catch (error) {
+      if (signal.aborted) return;
+      setIsSearching(false);
+      reportSearchFailure(error);
+      return;
+    }
+    if (signal.aborted) return;
+    setPendingIndexers(indexers);
+
+    const errors: unknown[] = [];
+    await Promise.all(
+      indexers.map(async (indexer) => {
+        try {
+          const response = await releasesApi.search(value, requestId, signal, indexer.indexer_id);
+          if (signal.aborted) return;
+          const found = response.results ?? [];
+          setResults((current) => [
+            ...current,
+            ...found.filter(
+              (result) => !current.some((item) => item.release_id === result.release_id),
+            ),
+          ]);
+          const failures = response.failed_indexers ?? [];
+          if (failures.length > 0) setFailedIndexers((current) => [...current, ...failures]);
+        } catch (error) {
+          if (signal.aborted) return;
+          errors.push(error);
+          setFailedIndexers((current) => [
+            ...current,
+            {
+              indexer_id: indexer.indexer_id,
+              name: indexer.name,
+              reason: getErrorMessage(error, t('releaseSearch.toasts.searchFailedFallback')),
+            },
+          ]);
+        } finally {
+          if (!signal.aborted) {
+            setPendingIndexers((current) =>
+              current.filter((item) => item.indexer_id !== indexer.indexer_id),
+            );
+          }
+        }
+      }),
+    );
+    if (signal.aborted) return;
+
+    searchController.current = null;
+    setIsSearching(false);
+    // Nothing answered at all: the request itself is failing, not a tracker.
+    if (indexers.length > 0 && errors.length === indexers.length) {
+      setFailedIndexers([]);
+      reportSearchFailure(errors[0]);
+    }
+  };
+
+  const search = {
+    mutate: (value: string) => void runSearch(value),
+    isPending: isSearching,
+    isError: searchError !== null,
+    error: searchError,
+  };
 
   // Cancelling resolves with `null` rather than throwing, so it never shows as
   // a failed grab - the user simply changed their mind.
@@ -161,6 +248,7 @@ export function useReleaseSearch({
           t('releaseSearch.toasts.downloadQueuedFallback', { name: candidate.release_name }),
         color: 'teal',
       });
+      cancelSearch();
       setResults([]);
       setSearchedQuery('');
       setQuery('');
@@ -223,6 +311,8 @@ export function useReleaseSearch({
   };
 
   const handleClear = () => {
+    cancelSearch();
+    setSearchError(null);
     setQuery('');
     setResults([]);
     setFailedIndexers([]);
@@ -240,6 +330,7 @@ export function useReleaseSearch({
     results,
     failedIndexers,
     dismissFailedIndexers,
+    pendingIndexers,
     searchedQuery,
     sortField,
     setSortField,

@@ -146,6 +146,27 @@ async def test_search_sends_indexer_ids_param_when_scoped() -> None:
 
 
 @pytest.mark.asyncio
+async def test_search_timeout_override_replaces_the_client_timeout() -> None:
+    seen_timeouts: list[object] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions["timeout"]["read"])
+        return httpx.Response(200, json=[])
+
+    service = ProwlarrReleaseSearchService(
+        base_url="https://prowlarr.example/api/v1",
+        api_key="token",
+        timeout_seconds=15.0,
+        _transport=httpx.MockTransport(handler),
+    )
+
+    await service.search("Example", indexer_id=1)
+    await service.search("Example", indexer_id=1, timeout_seconds=45.0)
+
+    assert seen_timeouts == [15.0, 45.0]
+
+
+@pytest.mark.asyncio
 async def test_search_does_not_retry_transport_errors() -> None:
     """A per-indexer search owns its own retry budget, not the client's."""
 

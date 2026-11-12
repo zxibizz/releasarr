@@ -56,11 +56,15 @@ async function runSearch() {
 describe('ReleaseSearch on a phone', () => {
   beforeEach(() => {
     vi.mocked(apiRequest).mockReset();
-    vi.mocked(apiRequest).mockResolvedValue({
-      results: [candidate, withoutQuality],
-      query: 'Severance S02E01',
-      total_results: 2,
-    });
+    vi.mocked(apiRequest).mockImplementation(async (path) =>
+      path === '/releases/search/indexers'
+        ? { indexers: [{ indexer_id: 1, name: 'Indexer A' }] }
+        : {
+            results: [candidate, withoutQuality],
+            query: 'Severance S02E01',
+            total_results: 2,
+          },
+    );
     setViewportWidth(MOBILE_WIDTH);
   });
 
@@ -94,7 +98,9 @@ describe('ReleaseSearch on a phone', () => {
 
     expect(apiRequest).toHaveBeenCalledWith(
       '/releases/search',
-      expect.objectContaining({ query: { q: 'Severance S02E01', request_id: '1' } }),
+      expect.objectContaining({
+        query: { q: 'Severance S02E01', request_id: '1', indexer_id: 1 },
+      }),
     );
   });
 

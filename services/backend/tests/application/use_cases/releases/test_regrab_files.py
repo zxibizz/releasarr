@@ -206,6 +206,7 @@ class FakeSearchService:
         query: str,
         request_id: str | None = None,
         indexer_id: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ReleaseSearchResults:
         results = [self._match] if self._match else []
         return ReleaseSearchResults(results=list(results), query=query, total_results=len(results))
