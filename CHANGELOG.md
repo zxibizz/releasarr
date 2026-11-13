@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-11-13
+
 ### Security
 
 - **Release search no longer shows Prowlarr's API key.** A search result's `torrent_file_url` was
@@ -168,7 +170,8 @@ First public release.
 See [docs/upgrading.md](docs/upgrading.md) for moving an existing install onto
 the new layout.
 
-[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.13.4...HEAD
+[0.13.4]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.4
 [0.13.3]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.3
 [0.13.2]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.2
 [0.13.1]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.1
