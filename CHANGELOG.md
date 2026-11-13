@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-13
+
 ### Changed
 
 - **Files imported before 0.14.0 are skipped too.** The export now recognises a file it holds no
@@ -191,7 +193,8 @@ First public release.
 See [docs/upgrading.md](docs/upgrading.md) for moving an existing install onto
 the new layout.
 
-[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/zxibizz/releasarr/releases/tag/v0.14.1
 [0.14.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.14.0
 [0.13.4]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.4
 [0.13.3]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.3
