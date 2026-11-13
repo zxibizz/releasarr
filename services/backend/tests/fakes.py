@@ -50,6 +50,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResults,
     ReleaseSearchService,
     ReleaseTorrentState,
+    TorrentFetchError,
 )
 from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sonarr import (
@@ -974,7 +975,7 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
             release_id = url.removeprefix("memory://")
             if release_id in self._torrents:
                 return self._torrents[release_id]
-        raise FileNotFoundError(f"Torrent data not registered for URL '{url}'")
+        raise TorrentFetchError(f"Torrent data not registered for URL '{url}'")
 
 
 @dataclass(slots=True)

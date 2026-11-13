@@ -575,6 +575,38 @@ api.get('/releases/search/indexers', (_req, res) => {
   res.json({ indexers: MOCK_SEARCH_INDEXERS });
 });
 
+// A torrent with one file named after the release: enough for a client to
+// parse, which is all a mock download has to be.
+const mockTorrentFile = (name: string): Buffer => {
+  const bytes = (value: string) => `${Buffer.byteLength(value)}:${value}`;
+  const info = `d6:lengthi1048576e${bytes('name')}${bytes(name)}12:piece lengthi262144e6:pieces20:${'x'.repeat(20)}e`;
+  return Buffer.from(`d8:announce${bytes('http://tracker.example/announce')}4:info${info}e`);
+};
+
+api.get('/releases/search/torrent', (req, res) => {
+  const releaseId = (req.query.release_id as string | undefined) ?? '';
+  const result = mockStore.findSearchResult(releaseId);
+  if (!result) {
+    return res
+      .status(404)
+      .json({ code: 'release_not_found', message: `Release '${releaseId}' was not found` });
+  }
+  if (!result.torrent_file_url) {
+    return res.status(404).json({
+      code: 'torrent_not_available',
+      message: `Release '${releaseId}' has no torrent file to download`,
+    });
+  }
+  res
+    .status(200)
+    .set({
+      'Content-Type': 'application/x-bittorrent',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.release_name)}.torrent`,
+      'Cache-Control': 'no-store',
+    })
+    .send(mockTorrentFile(result.release_name));
+});
+
 api.get('/releases/search', async (req, res) => {
   const query = (req.query.q as string | undefined) ?? '';
   const requestId = (req.query.request_id as string | undefined) ?? undefined;

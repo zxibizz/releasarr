@@ -305,6 +305,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/search/torrent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a search result's .torrent file
+         * @description Fetches the .torrent of a result from the last searches through
+         *     Prowlarr and passes the file on, so Prowlarr's address and API key
+         *     stay on the server. Only results this process has returned from
+         *     `/releases/search` can be downloaded, the same lifetime a grab
+         *     relies on: the link is resolved from the result, never taken from the
+         *     caller.
+         */
+        get: operations["downloadReleaseSearchTorrent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/releases/search/indexers": {
         parameters: {
             query?: never;
@@ -1654,12 +1679,17 @@ export interface components {
             size: string;
             /**
              * Format: uri
-             * @description Magnet URI for the release when available.
+             * @description Magnet URI for the release when the indexer reports one. Prowlarr
+             *     hands some magnets out as a link through itself, carrying its API
+             *     key; those are not passed on, and the field is null for them.
              */
             magnet_link?: string | null;
             /**
-             * Format: uri
-             * @description Direct URL to the .torrent file when available.
+             * Format: uri-reference
+             * @description Same-origin path (URL base included) of `GET
+             *     /releases/search/torrent` for this result, when it has a .torrent
+             *     to download. It is fetched with the same credentials as any other
+             *     call. Never a link to Prowlarr itself.
              */
             torrent_file_url?: string | null;
             /**
@@ -3172,6 +3202,68 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadReleaseSearchTorrent: {
+        parameters: {
+            query: {
+                /** @description The `release_id` of a result from `/releases/search`. */
+                release_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The .torrent file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-bittorrent": string;
+                };
+            };
+            /**
+             * @description No such result from a recent search (`release_not_found`), or the
+             *     result has no .torrent to download (`torrent_not_available`).
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Prowlarr did not hand over a readable .torrent file. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

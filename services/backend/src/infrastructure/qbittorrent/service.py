@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from src.application.interfaces.releases import (
     QueuedDownload,
@@ -97,8 +98,12 @@ class QbittorrentReleaseDownloadService(ReleaseDownloadService):
             "request_id": request_id,
             "release_id": release_id,
             "ingest_source": ingest_source,
-            "magnet_link": magnet_link,
         }
+        # These details are the grab's API response. A grab that fell back to
+        # what the search reported may be holding Prowlarr's download link here,
+        # API key and all, rather than a magnet.
+        if urlsplit(magnet_link).scheme.lower() == "magnet":
+            details["magnet_link"] = magnet_link
         if tags:
             details["tags"] = tags
         if torrent_bytes is not None:

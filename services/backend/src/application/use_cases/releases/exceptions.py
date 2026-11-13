@@ -12,6 +12,15 @@ class ReleaseNotFoundError(LookupError):
         self.release_id = release_id
 
 
+class ReleaseTorrentUnavailableError(LookupError):
+    """Raised when a search result has no .torrent file to download."""
+
+    def __init__(self, release_id: str):
+        message = f"Release '{release_id}' has no torrent file to download"
+        super().__init__(message)
+        self.release_id = release_id
+
+
 class ReleaseConflictError(RuntimeError):
     """Raised when attempting to create a release that already exists."""
 
@@ -117,4 +126,5 @@ __all__ = [
     "ReleaseDownloadFailedError",
     "ReleaseFileNotFoundError",
     "ReleaseNotFoundError",
+    "ReleaseTorrentUnavailableError",
 ]

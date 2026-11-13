@@ -156,7 +156,7 @@ indexer sweep is slow.
 | Method | Path | Used for |
 | --- | --- | --- |
 | GET | `/search` | `query`, `type=search`, plus one `categories` param per configured category |
-| GET | *(absolute URL)* | `fetch_torrent()` against a result's `downloadUrl` |
+| GET | *(absolute URL)* | `fetch_torrent()` against a result's `downloadUrl`, only on the configured origin |
 
 Result mapping, which is where the field names stop matching:
 
@@ -175,6 +175,17 @@ name.
 
 `ReleaseSearchResultRecord.query` is the one field that is not Prowlarr's: it is the query the
 search was made with, carried on every result so a grab can record what found the release.
+
+**Prowlarr's links never leave the server.** Prowlarr answers a search with `downloadUrl` — and,
+for some indexers, `magnetUrl` — pointing back at itself, `apikey=` in the query string. Both are
+kept on the record for the server's own use; what the API returns is `torrent_file_url` as a path
+to `GET /releases/search/torrent?release_id=…`, which resolves the result from the cache below and
+fetches the file through `fetch_torrent()`, and `magnet_link` only when it is a `magnet:` URI.
+`fetch_torrent()` refuses any link whose scheme, host, port or URL base differs from
+`RELEASARR_PROWLARR_URL`, since the client would send its `X-Api-Key` there too: Prowlarr builds
+the links from the address it was asked on, so a search made here always matches. Its errors
+(`TorrentFetchError`, 502 `torrent_fetch_failed`) name the status code, never the link, and the
+logging patcher masks credentials in structured fields as well as in the message.
 
 Three behaviours worth knowing:
 

@@ -855,6 +855,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /releases/search/torrent:
+    get:
+      tags: [Releases]
+      summary: Download a search result's .torrent file
+      description: |
+        Fetches the .torrent of a result from the last searches through
+        Prowlarr and passes the file on, so Prowlarr's address and API key
+        stay on the server. Only results this process has returned from
+        `/releases/search` can be downloaded, the same lifetime a grab
+        relies on: the link is resolved from the result, never taken from the
+        caller.
+      operationId: downloadReleaseSearchTorrent
+      parameters:
+        - in: query
+          name: release_id
+          required: true
+          schema:
+            type: string
+          description: The `release_id` of a result from `/releases/search`.
+      responses:
+        '200':
+          description: The .torrent file.
+          content:
+            application/x-bittorrent:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: |
+            No such result from a recent search (`release_not_found`), or the
+            result has no .torrent to download (`torrent_not_available`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Prowlarr did not hand over a readable .torrent file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Prowlarr is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /releases/search/indexers:
     get:
       tags: [Releases]
@@ -3727,12 +3780,19 @@ components:
         magnet_link:
           type: string
           format: uri
-          description: Magnet URI for the release when available.
+          description: |
+            Magnet URI for the release when the indexer reports one. Prowlarr
+            hands some magnets out as a link through itself, carrying its API
+            key; those are not passed on, and the field is null for them.
           nullable: true
         torrent_file_url:
           type: string
-          format: uri
-          description: Direct URL to the .torrent file when available.
+          format: uri-reference
+          description: |
+            Same-origin path (URL base included) of `GET
+            /releases/search/torrent` for this result, when it has a .torrent
+            to download. It is fetched with the same credentials as any other
+            call. Never a link to Prowlarr itself.
           nullable: true
         info_url:
           type: string

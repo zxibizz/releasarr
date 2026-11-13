@@ -230,6 +230,11 @@ const mockSeriesRequests: SeriesRequest[] = [
 // Relative so mock ages stay realistic however long this data lives.
 const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString();
 
+// The backend never hands out the indexer's own link, which carries Prowlarr's
+// API key, but a path to its own download endpoint.
+const searchTorrentPath = (releaseId: string): string =>
+  `${process.env.MOCK_SERVER_API_PATH ?? '/api/v1'}/releases/search/torrent?${new URLSearchParams({ release_id: releaseId })}`;
+
 // Mock release search candidates
 const mockReleaseSearchResults: ReleaseSearchResult[] = [
   {
@@ -237,7 +242,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     release_name: 'The.Dark.Knight.2008.1080p.BluRay.x264-SPARKS',
     size: '8.74 GB',
     magnet_link: 'magnet:?xt=urn:btih:example1',
-    torrent_file_url: 'https://example.com/torrents/the-dark-knight-1080p.torrent',
+    torrent_file_url: searchTorrentPath('t1'),
     info_url: 'https://example.com/releases/the-dark-knight-1080p',
     seeders: 1247,
     leechers: 23,
@@ -250,7 +255,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     release_name: 'The.Dark.Knight.2008.2160p.UHD.BluRay.x265-TERMINAL',
     size: '15.2 GB',
     magnet_link: 'magnet:?xt=urn:btih:example2',
-    torrent_file_url: 'https://example.com/torrents/the-dark-knight-2160p.torrent',
+    torrent_file_url: searchTorrentPath('t2'),
     info_url: 'https://example.com/releases/the-dark-knight-2160p',
     seeders: 892,
     leechers: 45,
@@ -263,7 +268,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     release_name: 'The.Dark.Knight.2008.720p.BluRay.x264-YIFY',
     size: '1.2 GB',
     magnet_link: 'magnet:?xt=urn:btih:example3',
-    torrent_file_url: 'https://example.com/torrents/the-dark-knight-720p.torrent',
+    torrent_file_url: searchTorrentPath('t3'),
     info_url: 'https://example.com/releases/the-dark-knight-720p',
     seeders: 2156,
     leechers: 67,
@@ -276,7 +281,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     release_name: 'Inception.2010.1080p.BluRay.x264-LEVERAGE',
     size: '7.95 GB',
     magnet_link: 'magnet:?xt=urn:btih:example4',
-    torrent_file_url: 'https://example.com/torrents/inception-1080p.torrent',
+    torrent_file_url: searchTorrentPath('t4'),
     info_url: 'https://example.com/releases/inception-1080p',
     seeders: 934,
     leechers: 12,
@@ -288,7 +293,7 @@ const mockReleaseSearchResults: ReleaseSearchResult[] = [
     release_name: 'Breaking.Bad.S01.1080p.BluRay.x264-REWARD',
     size: '12.4 GB',
     magnet_link: 'magnet:?xt=urn:btih:example5',
-    torrent_file_url: 'https://example.com/torrents/breaking-bad-s01.torrent',
+    torrent_file_url: searchTorrentPath('t5'),
     info_url: 'https://example.com/releases/breaking-bad-s01',
     seeders: 567,
     leechers: 34,

@@ -12,6 +12,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResults,
     ReleaseSearchService,
     ReleaseSearchUnavailableError,
+    TorrentFetchError,
 )
 from src.infrastructure.http import BaseHttpClient, HttpClientError, api_base_url
 from src.infrastructure.prowlarr.parsing import (
@@ -20,6 +21,8 @@ from src.infrastructure.prowlarr.parsing import (
     safe_json,
     safe_str,
 )
+
+_API_PATH = "/api/v1"
 
 
 @dataclass(slots=True)
@@ -36,7 +39,7 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
 
     def __post_init__(self) -> None:
         self._http = BaseHttpClient(
-            base_url=api_base_url(self.base_url, "/api/v1"),
+            base_url=api_base_url(self.base_url, _API_PATH),
             headers={"X-Api-Key": self.api_key},
             timeout=self.timeout_seconds,
             transport=self._transport,
@@ -167,9 +170,43 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
         return self._cache.get(release_id)
 
     async def fetch_torrent(self, url: str) -> bytes:
-        response = await self._http.request("GET", url)
-        response.raise_for_status()
+        if not self._is_own_link(url):
+            # The client sends X-Api-Key with every request, so following a link
+            # anywhere else would hand the key to whoever the link names.
+            raise TorrentFetchError("the torrent link does not point at the configured Prowlarr")
+
+        # Neither failure may carry httpx's own message: it quotes the URL, and
+        # Prowlarr's download links hold its API key in the query string.
+        try:
+            response = await self._http.request("GET", url)
+        except HttpClientError:
+            raise TorrentFetchError("Prowlarr could not be reached for the torrent file") from None
+        if not response.is_success:
+            raise TorrentFetchError(
+                f"Prowlarr answered {response.status_code} for the torrent file"
+            )
         return response.content
+
+    def _is_own_link(self, url: str) -> bool:
+        """Whether ``url`` is on the Prowlarr this service is configured with.
+
+        Prowlarr builds its download links from the address it was asked on, so
+        a link from a search made here shares the configured origin and URL base.
+        A configured URL that already ends in the API path, as older ones do,
+        still names the URL base the links are under.
+        """
+
+        try:
+            link = httpx.URL(url)
+            own = httpx.URL(self.base_url.strip())
+        except (httpx.InvalidURL, TypeError):
+            return False
+        if not link.is_absolute_url or not own.is_absolute_url:
+            return False
+        if (link.scheme, link.host, link.port) != (own.scheme, own.host, own.port):
+            return False
+        base_path = own.path.rstrip("/").removesuffix(_API_PATH) + "/"
+        return link.path.startswith(base_path)
 
 
 __all__ = ["ProwlarrReleaseSearchService"]

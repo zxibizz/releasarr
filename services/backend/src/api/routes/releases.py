@@ -5,12 +5,13 @@ from __future__ import annotations
 import base64
 import binascii
 from typing import Annotated
-from urllib.parse import unquote
+from urllib.parse import quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
 from src.api.dependencies import require_user
 from src.api.errors import api_error
+from src.api.paths import API_PREFIX
 from src.api.responses import error_responses
 from src.application.use_cases.auth import Principal
 from src.application.use_cases.releases.commands import (
@@ -25,12 +26,16 @@ from src.application.use_cases.releases.commands import (
 )
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
 from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
+from src.application.use_cases.releases.download_search_torrent import (
+    DownloadSearchTorrentUseCase,
+)
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
     ReleaseDTO,
     ReleaseFileDTO,
     ReleaseFileMappingDTO,
     ReleaseSearchResponseDTO,
+    ReleaseSearchResultDTO,
     ReleasesPageDTO,
     ReleaseWarningDTO,
 )
@@ -59,6 +64,7 @@ from src.schemas.jobs import AsyncOperationResponse
 from src.schemas.releases import (
     AddReleaseRequest,
     FileRequestMapping,
+    IndexerSearchFailure,
     ManualReleaseRequest,
     Release,
     ReleaseDownloadRequest,
@@ -68,6 +74,7 @@ from src.schemas.releases import (
     ReleaseFileMappingsUpdate,
     ReleaseRefreshResponse,
     ReleaseSearchResponse,
+    ReleaseSearchResult,
     ReleasesResponse,
     ReleaseWarning,
     SearchIndexer,
@@ -130,6 +137,16 @@ def _search_indexers_use_case(
     container: AppContainer = Depends(_get_container),
 ) -> ListSearchIndexersUseCase:
     return container.use_cases.releases.search_indexers
+
+
+def _download_search_torrent_use_case(
+    container: AppContainer = Depends(_get_container),
+) -> DownloadSearchTorrentUseCase:
+    return container.use_cases.releases.download_search_torrent
+
+
+def _get_url_base(container: AppContainer = Depends(_get_container)) -> str:
+    return container.settings.url_base
 
 
 def _queue_download_use_case(
@@ -222,6 +239,17 @@ SUGGEST_MAPPINGS_RESPONSES = error_responses(
 SEARCH_RELEASES_RESPONSES = error_responses(
     {
         status.HTTP_400_BAD_REQUEST: "Malformed search query.",
+        status.HTTP_503_SERVICE_UNAVAILABLE: _PROWLARR_NOT_CONFIGURED,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
+    }
+)
+
+SEARCH_TORRENT_RESPONSES = error_responses(
+    {
+        status.HTTP_404_NOT_FOUND: (
+            "No such result from a recent search, or it has no torrent file to download."
+        ),
+        status.HTTP_502_BAD_GATEWAY: "Prowlarr did not hand over a readable torrent file.",
         status.HTTP_503_SERVICE_UNAVAILABLE: _PROWLARR_NOT_CONFIGURED,
         status.HTTP_500_INTERNAL_SERVER_ERROR: _SERVER_ERROR,
     }
@@ -398,8 +426,49 @@ def _async_to_response(dto: AsyncOperationDTO) -> AsyncOperationResponse:
     )
 
 
-def _search_to_response(dto: ReleaseSearchResponseDTO) -> ReleaseSearchResponse:
-    return ReleaseSearchResponse.model_validate(dto)
+def _search_torrent_path(url_base: str, release_id: str) -> str:
+    # What the browser asks for, URL base included; nginx strips it before the
+    # request reaches this app, so the route itself is registered without it.
+    query = urlencode({"release_id": release_id})
+    return f"{url_base}{API_PREFIX}{router.prefix}/search/torrent?{query}"
+
+
+def _search_result_to_schema(dto: ReleaseSearchResultDTO, url_base: str) -> ReleaseSearchResult:
+    return ReleaseSearchResult(
+        release_id=dto.release_id,
+        release_name=dto.release_name,
+        size=dto.size,
+        magnet_link=dto.magnet_link,
+        torrent_file_url=(
+            _search_torrent_path(url_base, dto.release_id) if dto.has_torrent_file else None
+        ),
+        info_url=dto.info_url,
+        seeders=dto.seeders,
+        leechers=dto.leechers,
+        quality=dto.quality,
+        source=dto.source,
+        request_id=dto.request_id,
+        publish_date=dto.publish_date,
+    )
+
+
+def _search_to_response(dto: ReleaseSearchResponseDTO, url_base: str) -> ReleaseSearchResponse:
+    return ReleaseSearchResponse(
+        results=[_search_result_to_schema(result, url_base) for result in dto.results],
+        query=dto.query,
+        total_results=dto.total_results,
+        failed_indexers=[
+            IndexerSearchFailure.model_validate(failure) for failure in dto.failed_indexers
+        ],
+        searched_indexers=dto.searched_indexers,
+    )
+
+
+def _content_disposition(filename: str) -> str:
+    # The plain parameter is for clients that predate RFC 6266; the starred one
+    # carries the real name, which for most releases is not ASCII.
+    fallback = filename.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
 @router.get("", response_model=ReleasesResponse, responses=RELEASE_LIST_RESPONSES)
@@ -428,10 +497,39 @@ async def search_releases(
     request_id: str | None = Query(default=None, alias="request_id"),
     indexer_id: int | None = Query(default=None, alias="indexer_id"),
     search_use_case: SearchReleaseSourcesUseCase = Depends(_search_use_case),
+    url_base: str = Depends(_get_url_base),
 ) -> ReleaseSearchResponse:
     command = SearchReleaseSourcesCommand(query=q, request_id=request_id, indexer_id=indexer_id)
     dto = await search_use_case.execute(command)
-    return _search_to_response(dto)
+    return _search_to_response(dto, url_base)
+
+
+@router.get(
+    "/search/torrent",
+    response_class=Response,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "The .torrent file.",
+            "content": {
+                "application/x-bittorrent": {"schema": {"type": "string", "format": "binary"}}
+            },
+        },
+        **SEARCH_TORRENT_RESPONSES,
+    },
+)
+async def download_search_torrent(
+    release_id: str = Query(..., alias="release_id"),
+    use_case: DownloadSearchTorrentUseCase = Depends(_download_search_torrent_use_case),
+) -> Response:
+    dto = await use_case.execute(release_id)
+    return Response(
+        content=dto.content,
+        media_type="application/x-bittorrent",
+        headers={
+            "Content-Disposition": _content_disposition(dto.filename),
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get(

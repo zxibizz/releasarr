@@ -90,7 +90,7 @@ class ReleaseSearchResultDTO:
     release_name: str
     size: str
     magnet_link: str | None
-    torrent_file_url: str | None
+    has_torrent_file: bool
     info_url: str | None
     seeders: int | None
     leechers: int | None
@@ -98,6 +98,14 @@ class ReleaseSearchResultDTO:
     source: str | None
     request_id: str | None
     publish_date: datetime | None = None
+
+
+@dataclass(slots=True)
+class SearchTorrentDTO:
+    """A search result's .torrent file, ready to hand to the caller."""
+
+    filename: str
+    content: bytes
 
 
 @dataclass(slots=True)
@@ -148,4 +156,5 @@ __all__ = [
     "ReleaseSearchResultDTO",
     "ReleasesPageDTO",
     "SearchIndexerDTO",
+    "SearchTorrentDTO",
 ]

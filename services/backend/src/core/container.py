@@ -54,6 +54,9 @@ from src.application.use_cases.logs.list_logs import ListLogsUseCase
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
 from src.application.use_cases.releases.create_release import CreateReleaseUseCase
 from src.application.use_cases.releases.delete_release import DeleteReleaseUseCase
+from src.application.use_cases.releases.download_search_torrent import (
+    DownloadSearchTorrentUseCase,
+)
 from src.application.use_cases.releases.get_release import GetReleaseUseCase
 from src.application.use_cases.releases.list_releases import ListReleasesUseCase
 from src.application.use_cases.releases.pause_release import PauseReleaseUseCase
@@ -754,6 +757,10 @@ class ReleaseUseCases:
             search_service=self._container.services.release_search,
             directory=self._container.services.indexer_directory,
         )
+
+    @cached_property
+    def download_search_torrent(self) -> DownloadSearchTorrentUseCase:
+        return DownloadSearchTorrentUseCase(search_service=self._container.services.release_search)
 
     @cached_property
     def auto_mapper(self) -> ReleaseAutoMapper:

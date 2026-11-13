@@ -16,6 +16,8 @@ from src.api.dependencies.auth import get_principal
 from src.api.routes.releases import (
     _create_use_case,
     _delete_use_case,
+    _download_search_torrent_use_case,
+    _get_url_base,
     _get_use_case,
     _list_use_case,
     _pause_use_case,
@@ -27,6 +29,7 @@ from src.api.routes.releases import (
     _suggest_mappings_use_case,
     _update_mappings_use_case,
 )
+from src.application.interfaces.releases import TorrentFetchError
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.dto import (
     AsyncOperationDTO,
@@ -41,6 +44,7 @@ from src.application.use_cases.releases.dto import (
     ReleasesPageDTO,
     ReleaseWarningDTO,
     SearchIndexerDTO,
+    SearchTorrentDTO,
 )
 from src.application.use_cases.releases.exceptions import (
     ExistingReleasesDecisionRequiredError,
@@ -49,6 +53,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
+    ReleaseTorrentUnavailableError,
 )
 from src.application.use_cases.requests.exceptions import MediaRequestNotFoundError
 from src.domain.enums import ReleaseStatus, RequestWarningCode
@@ -401,7 +406,7 @@ async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
         release_name="Release 1",
         size="1 GB",
         magnet_link=None,
-        torrent_file_url=None,
+        has_torrent_file=False,
         info_url=None,
         seeders=10,
         leechers=1,
@@ -432,6 +437,105 @@ async def test_search_releases_returns_payload(api_client: AsyncClient) -> None:
     assert body["results"][0]["release_id"] == result.release_id
     assert body["searched_indexers"] == 2
     assert body["failed_indexers"] == [{"indexer_id": 2, "name": "Broken", "reason": "timed out"}]
+
+
+@pytest.mark.asyncio
+async def test_search_results_link_the_torrent_through_releasarr(api_client: AsyncClient) -> None:
+    result = ReleaseSearchResultDTO(
+        release_id="https://tracker.test/viewtopic.php?t=1&x=a b",
+        release_name="Release 1",
+        size="1 GB",
+        magnet_link=None,
+        has_torrent_file=True,
+        info_url=None,
+        seeders=10,
+        leechers=1,
+        quality=None,
+        source="indexer",
+        request_id=None,
+    )
+
+    class FakeSearch:
+        async def execute(self, command):
+            return ReleaseSearchResponseDTO(results=[result], query="q", total_results=1)
+
+    with (
+        override_dependency(_search_use_case, FakeSearch()),
+        override_dependency(_get_url_base, "/releasarr"),
+    ):
+        response = await api_client.get("/releases/search", params={"q": "q"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["results"][0]["torrent_file_url"] == (
+        "/releasarr/api/v1/releases/search/torrent"
+        "?release_id=https%3A%2F%2Ftracker.test%2Fviewtopic.php%3Ft%3D1%26x%3Da+b"
+    )
+
+
+@pytest.mark.asyncio
+async def test_download_search_torrent_returns_the_file(api_client: AsyncClient) -> None:
+    release_ids: list[str] = []
+
+    class FakeDownload:
+        async def execute(self, release_id: str) -> SearchTorrentDTO:
+            release_ids.append(release_id)
+            return SearchTorrentDTO(filename="Шоу S01.torrent", content=b"d4:infod...e")
+
+    with override_dependency(_download_search_torrent_use_case, FakeDownload()):
+        response = await api_client.get(
+            "/releases/search/torrent", params={"release_id": "https://tracker.test/t?=1"}
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert release_ids == ["https://tracker.test/t?=1"]
+    assert response.content == b"d4:infod...e"
+    assert response.headers["content-type"] == "application/x-bittorrent"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="___ S01.torrent"; '
+        "filename*=UTF-8''%D0%A8%D0%BE%D1%83%20S01.torrent"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "status_code", "code"),
+    [
+        (ReleaseNotFoundError("rel-1"), status.HTTP_404_NOT_FOUND, "release_not_found"),
+        (
+            ReleaseTorrentUnavailableError("rel-1"),
+            status.HTTP_404_NOT_FOUND,
+            "torrent_not_available",
+        ),
+        (TorrentFetchError("no"), status.HTTP_502_BAD_GATEWAY, "torrent_fetch_failed"),
+        (
+            ProwlarrNotConfiguredError(),
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "prowlarr_not_configured",
+        ),
+    ],
+)
+async def test_download_search_torrent_maps_errors(
+    api_client: AsyncClient, error: Exception, status_code: int, code: str
+) -> None:
+    class FakeDownload:
+        async def execute(self, release_id: str) -> SearchTorrentDTO:
+            raise error
+
+    with override_dependency(_download_search_torrent_use_case, FakeDownload()):
+        response = await api_client.get("/releases/search/torrent", params={"release_id": "rel-1"})
+
+    assert response.status_code == status_code
+    assert response.json()["code"] == code
+
+
+@pytest.mark.asyncio
+async def test_download_search_torrent_requires_authentication(api_client: AsyncClient) -> None:
+    app.dependency_overrides.pop(get_principal, None)
+
+    response = await api_client.get("/releases/search/torrent", params={"release_id": "rel-1"})
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio

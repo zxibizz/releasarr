@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Release search no longer shows Prowlarr's API key.** A search result's `torrent_file_url` was
+  Prowlarr's own download link, key included, and so was `magnet_link` for indexers whose magnets
+  Prowlarr hands out through itself; any signed-in user could read it. `torrent_file_url` is now
+  a path to releasarr's new `GET /api/v1/releases/search/torrent`, which fetches the file from
+  Prowlarr on the server, and `magnet_link` is only filled with a real magnet. Rotating the
+  Prowlarr API key after upgrading is advisable.
+
 ## [0.13.3] - 2026-11-12
 
 ### Changed

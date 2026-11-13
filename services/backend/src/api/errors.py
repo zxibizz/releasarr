@@ -16,7 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.application.interfaces.indexers import IndexerNotFoundError
-from src.application.interfaces.releases import ReleaseSearchUnavailableError
+from src.application.interfaces.releases import ReleaseSearchUnavailableError, TorrentFetchError
 from src.application.use_cases.auth.exceptions import (
     AccountLockedError,
     InactiveUserError,
@@ -45,6 +45,7 @@ from src.application.use_cases.releases.exceptions import (
     ReleaseDownloadFailedError,
     ReleaseFileNotFoundError,
     ReleaseNotFoundError,
+    ReleaseTorrentUnavailableError,
 )
 from src.application.use_cases.requests.exceptions import (
     EmptyUpdatePayloadError,
@@ -82,6 +83,8 @@ DOMAIN_ERROR_MAP: dict[type[Exception], tuple[int, str]] = {
     ReleaseDownloadConflictError: (status.HTTP_409_CONFLICT, "release_download_conflict"),
     ReleaseDownloadFailedError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "release_download_failed"),
     ReleaseSearchUnavailableError: (status.HTTP_502_BAD_GATEWAY, "upstream_error"),
+    ReleaseTorrentUnavailableError: (status.HTTP_404_NOT_FOUND, "torrent_not_available"),
+    TorrentFetchError: (status.HTTP_502_BAD_GATEWAY, "torrent_fetch_failed"),
     ExistingReleasesDecisionRequiredError: (
         status.HTTP_409_CONFLICT,
         "existing_releases_decision_required",

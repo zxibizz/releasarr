@@ -154,6 +154,8 @@ class ReleaseSearchResultRecord:
     release_id: str
     release_name: str
     size: str
+    # Both links can be Prowlarr's own download link, which carries its API key.
+    # They are for this server to fetch from and never leave it as they are.
     magnet_link: str | None
     torrent_file_url: str | None
     info_url: str | None
@@ -304,6 +306,14 @@ class ReleaseSearchUnavailableError(RuntimeError):
     """Raised when a search request could not be answered by its indexer(s)."""
 
 
+class TorrentFetchError(RuntimeError):
+    """Raised when a result's .torrent file could not be fetched.
+
+    The message never names the link: a Prowlarr download link carries
+    Prowlarr's API key, and this message reaches log records and error bodies.
+    """
+
+
 class ReleaseSearchService(Protocol):
     """External search interface for release sources."""
 
@@ -330,7 +340,11 @@ class ReleaseSearchService(Protocol):
         """Return a previously cached search result by identifier, when available."""
 
     async def fetch_torrent(self, url: str) -> bytes:
-        """Download raw torrent data for a release candidate."""
+        """Download raw torrent data for a release candidate.
+
+        ``url`` is a result's own ``torrent_file_url``, never one a caller
+        supplied. Raises ``TorrentFetchError`` on any failure.
+        """
 
 
 class ReleaseDownloadService(Protocol):
@@ -398,4 +412,5 @@ __all__ = [
     "ReleaseSearchService",
     "ReleaseSearchUnavailableError",
     "ReleaseTorrentState",
+    "TorrentFetchError",
 ]

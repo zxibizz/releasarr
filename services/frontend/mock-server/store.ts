@@ -251,6 +251,9 @@ export class MockStore {
   private requestsCache: MediaRequest[] | null = null;
   private releasesCache: Release[] | null = null;
   private searchResultsByRequest: Record<string, ReleaseSearchResult[]> = {};
+  // Every result handed out, by id, for the .torrent download, which like the
+  // backend's resolves only what a search has returned.
+  private searchResultsById = new Map<string, ReleaseSearchResult>();
   private requestLogsByRequestId: Record<string, RequestLogEntry[]> = {};
   private taskLogsCache: RequestLogEntry[] | null = null;
   // Which requests the mock has already "re-grabbed" once, so a second press of
@@ -861,7 +864,7 @@ export class MockStore {
           id: randomId(),
           name: fallbackFileName,
           size: numericSize,
-          path: candidate.torrent_file_url ?? `/downloads/${fallbackFileName}`,
+          path: `/downloads/${fallbackFileName}`,
         },
       ],
       status: 'downloading',
@@ -993,6 +996,11 @@ export class MockStore {
     });
   }
 
+  findSearchResult(releaseId: string): ReleaseSearchResult | null {
+    const result = this.searchResultsById.get(releaseId);
+    return result ? clone(result) : null;
+  }
+
   /**
    * `merge` keeps earlier results grabbable: the UI searches one indexer at a
    * time, and each answer must add to what the request can download rather
@@ -1005,6 +1013,9 @@ export class MockStore {
   ): Promise<ReleaseSearchResult[]> {
     const results = await searchMockReleaseSources(query, requestId);
     const clonedResults = results.map((result) => clone(result));
+    for (const result of results) {
+      this.searchResultsById.set(result.release_id, clone(result));
+    }
 
     if (requestId) {
       const kept = merge

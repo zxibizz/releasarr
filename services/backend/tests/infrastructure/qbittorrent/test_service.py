@@ -120,6 +120,31 @@ async def test_service_prefers_torrent_bytes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_details_leave_out_a_link_that_is_not_a_magnet() -> None:
+    """A grab falling back to Prowlarr's own link must not answer with its API key."""
+    client = FakeQbittorrentClient()
+    service = QbittorrentReleaseDownloadService(client=client)
+    link = "https://prowlarr.test/13/download?apikey=SECRET&link=opaque"
+
+    op = await service.queue_download("req-1", "rel-1", link)
+
+    assert client.calls[0][1] == link
+    assert op.details is not None
+    assert "magnet_link" not in op.details
+    assert "SECRET" not in repr(op.details)
+
+
+@pytest.mark.asyncio
+async def test_details_carry_a_magnet() -> None:
+    service = QbittorrentReleaseDownloadService(client=FakeQbittorrentClient())
+
+    op = await service.queue_download("req-1", "rel-1", "magnet:?xt=urn:btih:ABC")
+
+    assert op.details is not None
+    assert op.details["magnet_link"] == "magnet:?xt=urn:btih:ABC"
+
+
+@pytest.mark.asyncio
 async def test_download_directory_comes_from_the_torrent() -> None:
     """qBittorrent knows the real location; the configured path is only a guess."""
 

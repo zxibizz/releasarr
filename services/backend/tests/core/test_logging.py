@@ -104,6 +104,21 @@ def test_redacts_every_credential_spelling(message: str) -> None:
     assert "SECRET" not in record["message"]
 
 
+def test_redacts_credentials_from_structured_fields() -> None:
+    """The extras reach /logs as metadata, so ``error=str(exc)`` must not carry a key."""
+    record = {
+        "message": "Failed to fetch torrent",
+        "extra": {"error": "for url 'https://prowlarr/1/download?apikey=SECRET&file=x'", "n": 3},
+    }
+
+    redact_secrets(record)  # type: ignore[arg-type]
+
+    assert record["extra"] == {
+        "error": "for url 'https://prowlarr/1/download?apikey=***&file=x'",
+        "n": 3,
+    }
+
+
 def test_the_log_file_never_receives_a_credential(tmp_path: Path) -> None:
     """A leaked key would be readable through /logs, not just on disk."""
     log_file = configure(tmp_path)

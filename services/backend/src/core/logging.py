@@ -47,6 +47,12 @@ def redact_secrets(record: Record) -> None:
     serialized ``text`` field along with it.
     """
     record["message"] = _SECRET_QUERY_PARAMS.sub(r"\1***", record["message"])
+    # The extras are served too, as each entry's metadata, and an ``error=str(exc)``
+    # there quotes whatever URL the exception did.
+    extra = record.get("extra") or {}
+    for key, value in extra.items():
+        if isinstance(value, str):
+            extra[key] = _SECRET_QUERY_PARAMS.sub(r"\1***", value)
 
 
 class InterceptHandler(logging.Handler):

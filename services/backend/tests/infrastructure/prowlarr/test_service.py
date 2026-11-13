@@ -7,7 +7,11 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from src.application.interfaces.releases import ReleaseSearchResults, ReleaseSearchUnavailableError
+from src.application.interfaces.releases import (
+    ReleaseSearchResults,
+    ReleaseSearchUnavailableError,
+    TorrentFetchError,
+)
 from src.infrastructure.prowlarr import ProwlarrReleaseSearchService
 
 
@@ -223,3 +227,93 @@ async def test_search_wraps_non_400_http_errors() -> None:
 
     with pytest.raises(ReleaseSearchUnavailableError):
         await service.search("Anything", indexer_id=1)
+
+
+PROWLARR = "https://prowlarr.test/prowlarr"
+DOWNLOAD_LINK = f"{PROWLARR}/13/download?apikey=SECRET&link=opaque&file=Show"
+
+
+def download_service(handler) -> ProwlarrReleaseSearchService:
+    return ProwlarrReleaseSearchService(
+        base_url=PROWLARR,
+        api_key="SECRET",
+        _transport=httpx.MockTransport(handler),
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_torrent_downloads_from_the_configured_prowlarr() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=b"d8:announce0:e")
+
+    service = download_service(handler)
+
+    assert await service.fetch_torrent(DOWNLOAD_LINK) == b"d8:announce0:e"
+    assert [str(request.url) for request in requests] == [DOWNLOAD_LINK]
+
+
+@pytest.mark.asyncio
+async def test_fetch_torrent_accepts_links_when_configured_with_the_api_path() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"torrent")
+
+    service = ProwlarrReleaseSearchService(
+        base_url=f"{PROWLARR}/api/v1/",
+        api_key="SECRET",
+        _transport=httpx.MockTransport(handler),
+    )
+
+    assert await service.fetch_torrent(DOWNLOAD_LINK) == b"torrent"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://elsewhere.test/prowlarr/13/download?link=opaque",
+        "http://prowlarr.test/prowlarr/13/download?link=opaque",
+        "https://prowlarr.test:8443/prowlarr/13/download?link=opaque",
+        "https://prowlarr.test/other/13/download?link=opaque",
+        "https://prowlarr.test/prowlarrx/13/download?link=opaque",
+        "/prowlarr/13/download?link=opaque",
+        "file:///etc/passwd",
+    ],
+)
+async def test_fetch_torrent_refuses_a_link_off_the_configured_prowlarr(link: str) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError(f"no request may be made, got {request.url}")
+
+    with pytest.raises(TorrentFetchError):
+        await download_service(handler).fetch_torrent(link)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", [404, 301, 500])
+async def test_fetch_torrent_errors_never_quote_the_link(answer: int) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(answer, headers={"Location": "magnet:?xt=urn:btih:ABC"})
+
+    with pytest.raises(TorrentFetchError) as caught:
+        await download_service(handler).fetch_torrent(DOWNLOAD_LINK)
+
+    assert "SECRET" not in str(caught.value)
+    assert str(answer) in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_fetch_torrent_unreachable_prowlarr_does_not_quote_the_link() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    service = download_service(handler)
+    service._http._backoff_base = 0
+
+    with pytest.raises(TorrentFetchError) as caught:
+        await service.fetch_torrent(DOWNLOAD_LINK)
+
+    assert "SECRET" not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__

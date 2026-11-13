@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from urllib.parse import urlsplit
 
 from src.application.interfaces.releases import (
     QueuedDownload,
@@ -104,6 +105,18 @@ def records_to_page(
     return ReleasesPageDTO(releases=releases, total=total, page=page, per_page=per_page)
 
 
+def public_magnet_link(link: str | None) -> str | None:
+    """Return ``link`` if it is a magnet URI a caller may be shown, else None.
+
+    Prowlarr hands out some indexers' magnets as a download link through
+    itself, API key in the query string. That link stays on the server.
+    """
+
+    if link and urlsplit(link).scheme.lower() == "magnet":
+        return link
+    return None
+
+
 def search_results_to_dto(
     results: ReleaseSearchResults,
     *,
@@ -115,8 +128,8 @@ def search_results_to_dto(
             release_id=result.release_id,
             release_name=result.release_name,
             size=result.size,
-            magnet_link=result.magnet_link,
-            torrent_file_url=result.torrent_file_url,
+            magnet_link=public_magnet_link(result.magnet_link),
+            has_torrent_file=bool(result.torrent_file_url),
             info_url=result.info_url,
             seeders=result.seeders,
             leechers=result.leechers,
@@ -151,6 +164,7 @@ def queued_download_to_async_operation(download: QueuedDownload) -> AsyncOperati
 
 __all__ = [
     "mapping_to_dto",
+    "public_magnet_link",
     "queued_download_to_async_operation",
     "record_to_dto",
     "records_to_page",
