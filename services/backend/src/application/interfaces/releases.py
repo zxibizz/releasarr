@@ -170,6 +170,18 @@ class ReleaseSearchResultRecord:
     query: str | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class FetchedDownload:
+    """What one of a result's links led to: a .torrent file, or a magnet URI.
+
+    Exactly one is set. Prowlarr answers a link to a magnet-only release with a
+    redirect to the magnet rather than with a file.
+    """
+
+    torrent: bytes | None = None
+    magnet_link: str | None = None
+
+
 @dataclass(slots=True)
 class ReleaseSearchResults:
     """Aggregate search results for a query."""
@@ -339,6 +351,13 @@ class ReleaseSearchService(Protocol):
     def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
         """Return a previously cached search result by identifier, when available."""
 
+    async def fetch_download(self, url: str) -> FetchedDownload:
+        """Follow one of a result's own links to the torrent or magnet behind it.
+
+        A ``magnet:`` URI is returned as it is, without a request. Raises
+        ``TorrentFetchError`` when the link yields neither.
+        """
+
     async def fetch_torrent(self, url: str) -> bytes:
         """Download raw torrent data for a release candidate.
 
@@ -397,6 +416,7 @@ __all__ = [
     "MANUAL_SOURCE",
     "CreateReleaseData",
     "DownloadClientDirectory",
+    "FetchedDownload",
     "FileMappingUpdateData",
     "FileReconciliation",
     "QueuedDownload",

@@ -196,7 +196,12 @@ Three behaviours worth knowing:
 - **Magnet vs torrent file:** the grab prefers `torrent_file_url`, fetches it, and parses the
   torrent to get the info hash *and the file list*. Only if that fails does it fall back to the
   magnet — and a magnet carries no file list, so the mapping UI comes up empty. See
-  [`file-mapping.md`](file-mapping.md).
+  [`file-mapping.md`](file-mapping.md). Both go through `fetch_download()`, because either can be a
+  Prowlarr link: Prowlarr answers one leading to a magnet with a redirect to it (read off the
+  `Location`, redirects are not followed) and one leading to a file with the file. What it yields is
+  checked before qBittorrent is asked: the release row is keyed by the magnet's info hash, and a
+  grab failing after the add would leave a torrent in the client that no release knows about. A
+  result yielding neither is refused with `release_download_failed` and nothing is queued.
 - **"All indexers unavailable" is not an error, unless the search was scoped to one indexer.**
   On a 400, the body is checked for `"all selected indexers"`. Unscoped (`indexer_id=None`),
   that matches and an empty result set is returned instead of raising. Scoped to a single

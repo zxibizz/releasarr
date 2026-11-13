@@ -13,6 +13,7 @@ import pytest
 from src.application.interfaces.indexers import IndexerRecord
 from src.application.interfaces.releases import (
     CreateReleaseData,
+    FetchedDownload,
     FileMappingUpdateData,
     QueuedDownload,
     ReleaseFileMapping,
@@ -22,6 +23,7 @@ from src.application.interfaces.releases import (
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
     ReleaseSearchUnavailableError,
+    TorrentFetchError,
 )
 from src.application.interfaces.request_warnings import RequestWarningRecord
 from src.application.interfaces.sync_jobs import EnqueueSyncJobResult, SyncJobRecord
@@ -342,10 +344,17 @@ class FakeDownloadService(UnusedReleaseDownloadCalls):
 class FakeSearchService:
     is_configured = True
 
-    def __init__(self, results: ReleaseSearchResults, torrent_bytes: bytes | None = None) -> None:
+    def __init__(
+        self,
+        results: ReleaseSearchResults,
+        torrent_bytes: bytes | None = None,
+        downloads: dict[str, FetchedDownload] | None = None,
+    ) -> None:
         self.results = results
         self.calls: list[tuple[str, str | None]] = []
         self.torrent_bytes = torrent_bytes
+        self.downloads = downloads or {}
+        self.fetched: list[str] = []
         self.cache = {record.release_id: record for record in results.results}
 
     async def search(
@@ -360,6 +369,14 @@ class FakeSearchService:
 
     def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
         return self.cache.get(release_id)
+
+    async def fetch_download(self, url: str) -> FetchedDownload:
+        self.fetched.append(url)
+        if url in self.downloads:
+            return self.downloads[url]
+        if self.torrent_bytes is not None:
+            return FetchedDownload(torrent=self.torrent_bytes)
+        raise TorrentFetchError("torrent not available in fake search service")
 
     async def fetch_torrent(self, url: str) -> bytes:
         if self.torrent_bytes is not None:
@@ -1130,6 +1147,95 @@ async def test_queue_release_download_uses_torrent_file(monkeypatch) -> None:
     assert result.operation == "queue_download"
     assert download_service.calls[0][2] == "magnet:?xt=urn:btih:DUMMYHASH"
     assert download_service.calls[0][3] == b"torrent-data"
+
+
+PROWLARR_TORRENT = "https://prowlarr.test/13/download?apikey=KEY&link=torrent"
+PROWLARR_MAGNET = "https://prowlarr.test/13/download?apikey=KEY&link=magnet"
+
+
+def _prowlarr_candidate(*, torrent: str | None, magnet: str | None) -> ReleaseSearchResultRecord:
+    return replace(_candidate("candidate-p", "req-1"), torrent_file_url=torrent, magnet_link=magnet)
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_follows_a_magnet_link_through_prowlarr() -> None:
+    """RuTor-style: the torrent link fails, the magnet is a Prowlarr link to a magnet."""
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = _prowlarr_candidate(torrent=PROWLARR_TORRENT, magnet=PROWLARR_MAGNET)
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="q", total_results=1),
+        downloads={
+            PROWLARR_MAGNET: FetchedDownload(magnet_link="magnet:?xt=urn:btih:FROMPROWLARR")
+        },
+    )
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
+
+    await use_case.execute(
+        QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-p")
+    )
+
+    assert search_service.fetched == [PROWLARR_TORRENT, PROWLARR_MAGNET]
+    assert download_service.calls[0][2] == "magnet:?xt=urn:btih:FROMPROWLARR"
+    assert download_service.calls[0][3] is None
+    assert repository.last_created is not None
+    assert repository.last_created.magnet_link == "magnet:?xt=urn:btih:FROMPROWLARR"
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_takes_the_magnet_a_torrent_link_answers_with() -> None:
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = _prowlarr_candidate(torrent=PROWLARR_TORRENT, magnet=None)
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="q", total_results=1),
+        downloads={PROWLARR_TORRENT: FetchedDownload(magnet_link="magnet:?xt=urn:btih:REDIRECT")},
+    )
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
+
+    await use_case.execute(
+        QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-p")
+    )
+
+    assert download_service.calls[0][2] == "magnet:?xt=urn:btih:REDIRECT"
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_queues_nothing_without_a_magnet_or_torrent() -> None:
+    """Refused before the add: one after it would leave a torrent no release row knows."""
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = _prowlarr_candidate(torrent=PROWLARR_TORRENT, magnet=PROWLARR_MAGNET)
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="q", total_results=1)
+    )
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
+
+    with pytest.raises(ReleaseDownloadFailedError):
+        await use_case.execute(
+            QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-p")
+        )
+
+    assert download_service.calls == []
+    assert repository.last_created is None
+
+
+@pytest.mark.asyncio
+async def test_queue_release_download_refuses_a_magnet_without_an_info_hash() -> None:
+    repository = FakeReleaseRepository()
+    download_service = FakeDownloadService()
+    candidate = _prowlarr_candidate(torrent=None, magnet="magnet:?dn=no-hash")
+    search_service = FakeSearchService(
+        ReleaseSearchResults(results=[candidate], query="q", total_results=1)
+    )
+    use_case = build_queue_download_use_case(repository, download_service, search_service)
+
+    with pytest.raises(ReleaseDownloadFailedError):
+        await use_case.execute(
+            QueueReleaseDownloadCommand(request_id="req-1", release_id="candidate-p")
+        )
+
+    assert download_service.calls == []
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from src.application.interfaces.releases import (
+    FetchedDownload,
     ReleaseSearchResults,
     ReleaseSearchUnavailableError,
     TorrentFetchError,
@@ -291,10 +292,10 @@ async def test_fetch_torrent_refuses_a_link_off_the_configured_prowlarr(link: st
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("answer", [404, 301, 500])
+@pytest.mark.parametrize("answer", [404, 302, 500])
 async def test_fetch_torrent_errors_never_quote_the_link(answer: int) -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(answer, headers={"Location": "magnet:?xt=urn:btih:ABC"})
+        return httpx.Response(answer, headers={"Location": "https://tracker.test/login"})
 
     with pytest.raises(TorrentFetchError) as caught:
         await download_service(handler).fetch_torrent(DOWNLOAD_LINK)
@@ -317,3 +318,57 @@ async def test_fetch_torrent_unreachable_prowlarr_does_not_quote_the_link() -> N
     assert "SECRET" not in str(caught.value)
     assert caught.value.__cause__ is None
     assert caught.value.__suppress_context__
+
+
+MAGNET = "magnet:?xt=urn:btih:ABC&dn=Show"
+
+
+@pytest.mark.asyncio
+async def test_fetch_download_reads_the_magnet_prowlarr_redirects_to() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(301, headers={"Location": MAGNET})
+
+    fetched = await download_service(handler).fetch_download(DOWNLOAD_LINK)
+
+    assert fetched == FetchedDownload(magnet_link=MAGNET)
+
+
+@pytest.mark.asyncio
+async def test_fetch_download_reads_a_magnet_answered_as_the_body() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=f"{MAGNET}\n".encode())
+
+    fetched = await download_service(handler).fetch_download(DOWNLOAD_LINK)
+
+    assert fetched == FetchedDownload(magnet_link=MAGNET)
+
+
+@pytest.mark.asyncio
+async def test_fetch_download_returns_a_torrent_file() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"d8:announce0:e")
+
+    fetched = await download_service(handler).fetch_download(DOWNLOAD_LINK)
+
+    assert fetched == FetchedDownload(torrent=b"d8:announce0:e")
+
+
+@pytest.mark.asyncio
+async def test_fetch_download_passes_a_magnet_through_without_a_request() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("a magnet needs no request")
+
+    fetched = await download_service(handler).fetch_download(MAGNET)
+
+    assert fetched == FetchedDownload(magnet_link=MAGNET)
+
+
+@pytest.mark.asyncio
+async def test_fetch_torrent_refuses_a_magnet_answer() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(301, headers={"Location": MAGNET})
+
+    with pytest.raises(TorrentFetchError) as caught:
+        await download_service(handler).fetch_torrent(DOWNLOAD_LINK)
+
+    assert "SECRET" not in str(caught.value)

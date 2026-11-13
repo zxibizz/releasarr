@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from src.application.interfaces.releases import (
     CreateReleaseData,
     ReleaseDownloadService,
     ReleaseRecord,
     ReleaseRepository,
+    ReleaseSearchResultRecord,
     ReleaseSearchService,
+    TorrentFetchError,
 )
 from src.application.use_cases.indexers.exceptions import ProwlarrNotConfiguredError
 from src.application.use_cases.releases.auto_mapping import ReleaseAutoMapper
@@ -24,6 +28,7 @@ from src.application.use_cases.releases.grab import ReleaseGrabFinalizer, to_rel
 from src.application.use_cases.releases.mappers import queued_download_to_async_operation
 from src.application.use_cases.releases.replace_existing import ExistingReleaseReplacer
 from src.application.use_cases.requests.recompute_state import RecomputeRequestStateUseCase
+from src.application.utility.magnet import parse_magnet
 from src.application.utility.torrent import TorrentInfo, parse_torrent
 from src.core.logging import get_logger
 from src.domain.enums import ExistingReleasesAction, LogComponent
@@ -51,6 +56,44 @@ class QueueReleaseDownloadUseCase:
 
     async def _existing_releases(self, request_id: str) -> list[ReleaseRecord]:
         return await self._existing_release_replacer.existing_for(request_id)
+
+    async def _read_candidate(
+        self, candidate: ReleaseSearchResultRecord, request_id: str
+    ) -> tuple[str, bytes | None, TorrentInfo | None]:
+        """Turn a result's links into a magnet, plus the torrent when there is one.
+
+        The .torrent is preferred, since only it carries a file list. A result's
+        magnet can itself be a link through Prowlarr, which answers it with the
+        magnet. Whatever comes back is checked here, before anything is queued:
+        qBittorrent accepts a link it can fetch, but the release row needs the
+        info hash out of a magnet, and a grab that fails after the add leaves a
+        torrent in the client that no release row knows about.
+        """
+
+        links = [candidate.torrent_file_url, candidate.magnet_link]
+        for link in dict.fromkeys(link for link in links if link):
+            try:
+                if urlsplit(link).scheme.lower() == "magnet":
+                    parse_magnet(link)
+                    return link, None, None
+                fetched = await self._search_service.fetch_download(link)
+                if fetched.torrent is not None:
+                    torrent = parse_torrent(fetched.torrent)
+                    return torrent.magnet_link, fetched.torrent, torrent
+                if fetched.magnet_link:
+                    parse_magnet(fetched.magnet_link)
+                    return fetched.magnet_link, None, None
+            except (TorrentFetchError, ValueError) as exc:
+                _logger.warning(
+                    "Could not read one of the release's links, trying the next",
+                    request_id=request_id,
+                    release_id=candidate.release_id,
+                    error=str(exc),
+                )
+
+        raise ReleaseDownloadFailedError(
+            candidate.release_id, "neither a readable torrent file nor a magnet link was found"
+        )
 
     async def execute(self, command: QueueReleaseDownloadCommand) -> AsyncOperationDTO:
         # Anything that goes wrong below has to be logged against the request
@@ -87,30 +130,9 @@ class QueueReleaseDownloadUseCase:
                     effective_request_id, [release.id for release in existing_releases]
                 )
 
-            magnet_link = candidate.magnet_link
-            torrent_bytes: bytes | None = None
-            torrent: TorrentInfo | None = None
-
-            if candidate.torrent_file_url:
-                try:
-                    torrent_bytes = await self._search_service.fetch_torrent(
-                        candidate.torrent_file_url
-                    )
-                    torrent = parse_torrent(torrent_bytes)
-                    magnet_link = torrent.magnet_link
-                except Exception as exc:  # pragma: no cover - fallback to magnet when parsing fails
-                    _logger.warning(
-                        "Failed to resolve torrent file, falling back to magnet link",
-                        request_id=effective_request_id,
-                        release_id=command.release_id,
-                        error=str(exc),
-                    )
-                    torrent_bytes = None
-                    torrent = None
-
-            if not magnet_link:
-                raise ReleaseNotFoundError(command.release_id)
-
+            magnet_link, torrent_bytes, torrent = await self._read_candidate(
+                candidate, effective_request_id
+            )
             try:
                 queued = await self._download_service.queue_download(
                     effective_request_id,

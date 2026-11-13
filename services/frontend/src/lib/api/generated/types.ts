@@ -3383,7 +3383,12 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Unexpected server error. */
+            /**
+             * @description The grab failed (`release_download_failed`): neither of the
+             *     result's links led to a readable torrent file or a magnet, in
+             *     which case nothing was sent to qBittorrent, or qBittorrent refused
+             *     the add. Any other failure is `internal_error`.
+             */
             500: {
                 headers: {
                     [name: string]: unknown;

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from src.application.interfaces.releases import (
+    FetchedDownload,
     ReleaseSearchResultRecord,
     ReleaseSearchResults,
     ReleaseSearchService,
@@ -23,6 +24,10 @@ from src.infrastructure.prowlarr.parsing import (
 )
 
 _API_PATH = "/api/v1"
+
+
+def _is_magnet(link: str) -> bool:
+    return link[:7].lower() == "magnet:"
 
 
 @dataclass(slots=True)
@@ -169,23 +174,37 @@ class ProwlarrReleaseSearchService(ReleaseSearchService):
     def resolve(self, release_id: str) -> ReleaseSearchResultRecord | None:
         return self._cache.get(release_id)
 
-    async def fetch_torrent(self, url: str) -> bytes:
+    async def fetch_download(self, url: str) -> FetchedDownload:
+        if _is_magnet(url):
+            return FetchedDownload(magnet_link=url)
         if not self._is_own_link(url):
             # The client sends X-Api-Key with every request, so following a link
             # anywhere else would hand the key to whoever the link names.
-            raise TorrentFetchError("the torrent link does not point at the configured Prowlarr")
+            raise TorrentFetchError("the download link does not point at the configured Prowlarr")
 
         # Neither failure may carry httpx's own message: it quotes the URL, and
         # Prowlarr's download links hold its API key in the query string.
         try:
             response = await self._http.request("GET", url)
         except HttpClientError:
-            raise TorrentFetchError("Prowlarr could not be reached for the torrent file") from None
+            raise TorrentFetchError("Prowlarr could not be reached for the download") from None
+
+        # A link to a magnet-only release is answered with a redirect to the
+        # magnet. Redirects are not followed, so it is read off the response.
+        location = response.headers.get("location", "")
+        if response.is_redirect and _is_magnet(location):
+            return FetchedDownload(magnet_link=location)
         if not response.is_success:
-            raise TorrentFetchError(
-                f"Prowlarr answered {response.status_code} for the torrent file"
-            )
-        return response.content
+            raise TorrentFetchError(f"Prowlarr answered {response.status_code} for the download")
+        if response.content[:7].lower() == b"magnet:":
+            return FetchedDownload(magnet_link=response.content.decode("utf-8", "replace").strip())
+        return FetchedDownload(torrent=response.content)
+
+    async def fetch_torrent(self, url: str) -> bytes:
+        fetched = await self.fetch_download(url)
+        if fetched.torrent is None:
+            raise TorrentFetchError("Prowlarr answered with a magnet link, not a torrent file")
+        return fetched.torrent
 
     def _is_own_link(self, url: str) -> bool:
         """Whether ``url`` is on the Prowlarr this service is configured with.

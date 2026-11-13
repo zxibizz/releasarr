@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prowlarr on the server, and `magnet_link` is only filled with a real magnet. Rotating the
   Prowlarr API key after upgrading is advisable.
 
+### Fixed
+
+- **Grabbing a release whose magnet Prowlarr hands out through itself no longer leaves a stray
+  torrent in qBittorrent.** When its .torrent could not be read, the grab sent Prowlarr's link to
+  qBittorrent and only then failed to record the release, so the torrent downloaded with no
+  release behind it. The magnet is now read from Prowlarr's answer first, and a result that yields
+  neither a torrent file nor a magnet is refused before anything is queued.
+
 ## [0.13.3] - 2026-11-12
 
 ### Changed

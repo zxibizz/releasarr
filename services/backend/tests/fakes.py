@@ -39,6 +39,7 @@ from src.application.interfaces.media_requests import (
 from src.application.interfaces.radarr import MovieDetails, MovieImportFile, MovieLookup
 from src.application.interfaces.releases import (
     CreateReleaseData,
+    FetchedDownload,
     FileMappingUpdateData,
     FileReconciliation,
     QueuedDownload,
@@ -969,6 +970,11 @@ class InMemoryReleaseSearchService(ReleaseSearchService):
 
     def register_torrent(self, release_id: str, data: bytes) -> None:
         self._torrents[release_id] = data
+
+    async def fetch_download(self, url: str) -> FetchedDownload:
+        if url.startswith("magnet:"):
+            return FetchedDownload(magnet_link=url)
+        return FetchedDownload(torrent=await self.fetch_torrent(url))
 
     async def fetch_torrent(self, url: str) -> bytes:
         if url.startswith("memory://"):
