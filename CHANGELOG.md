@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-13
+
 ### Changed
 
 - **A re-export imports only what changed.** A re-grab, or a saved mapping edit, used to hand
@@ -181,7 +183,8 @@ First public release.
 See [docs/upgrading.md](docs/upgrading.md) for moving an existing install onto
 the new layout.
 
-[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.13.4...HEAD
+[Unreleased]: https://github.com/zxibizz/releasarr/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/zxibizz/releasarr/releases/tag/v0.14.0
 [0.13.4]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.4
 [0.13.3]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.3
 [0.13.2]: https://github.com/zxibizz/releasarr/releases/tag/v0.13.2
