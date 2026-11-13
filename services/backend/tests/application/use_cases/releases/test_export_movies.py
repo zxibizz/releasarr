@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from src.application.interfaces.arr import ArrImportEvent
 from src.application.interfaces.media_requests import (
     MediaRequestRecord,
     UpdateMediaRequestData,
@@ -171,7 +172,9 @@ class FakeRadarrService:
         succeeds: bool = True,
         file_size: int | None = None,
         file_id: int | None = None,
+        history: list[ArrImportEvent] | None = None,
     ) -> None:
+        self.history = history or []
         self.imported: list[MovieImportFile] = []
         self.has_file = has_file
         self.succeeds = succeeds
@@ -195,6 +198,9 @@ class FakeRadarrService:
             file_id=self.file_id if self.has_file else None,
         )
 
+    async def get_import_history(self, movie_id: int) -> list[ArrImportEvent]:
+        return self.history
+
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         if not self.succeeds:
             return False
@@ -206,6 +212,9 @@ class FakeRadarrService:
 class FakeSonarrService:
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return []
+
+    async def get_import_history(self, series_id: int) -> list[ArrImportEvent]:
+        raise AssertionError("a movie release must not consult Sonarr")
 
     async def get_series(self, series_id: int) -> SeriesDetails:
         raise AssertionError("a movie release must not consult Sonarr")
@@ -454,3 +463,24 @@ async def test_a_movie_replaced_in_radarr_since_is_imported_again() -> None:
 
     assert len(radarr.imported) == 1
     assert repository.import_records["f1"].arr_file_id == 106
+
+
+async def test_a_movie_imported_before_tracking_is_recognised_from_the_history() -> None:
+    files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
+    release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+    event = ArrImportEvent(
+        target_id=MOVIE_ID,
+        file_id=5,
+        source_path=f"{DOWNLOAD_DIR}/Arrival.2016.1080p/arrival.2016.1080p.mkv",
+        date=datetime.now(UTC) + timedelta(hours=1),
+    )
+
+    use_case, repository, radarr, _ = build_use_case(
+        release, FakeMediaRequestRepository(), FakeRadarrService(file_id=5, history=[event])
+    )
+    await use_case.execute()
+
+    assert radarr.imported == []
+    assert repository.import_records == {
+        "f1": ReleaseFileImport(target_id=MOVIE_ID, arr_file_id=5, size_bytes=8_000_000_000)
+    }

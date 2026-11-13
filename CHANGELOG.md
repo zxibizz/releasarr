@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Files imported before 0.14.0 are skipped too.** The export now recognises a file it holds no
+  record for from Sonarr's or Radarr's history: when the arr's current file was created by an
+  import from this file's path after the release last finished downloading, the file is treated
+  as already delivered and recorded. Before, the first re-export of such a release imported every
+  file once more.
+
 ## [0.14.0] - 2026-11-13
 
 ### Changed

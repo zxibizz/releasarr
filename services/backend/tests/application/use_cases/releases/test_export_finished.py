@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from src.application.interfaces.arr import ArrImportEvent
 from src.application.interfaces.media_requests import (
     MediaRequestRecord,
     UpdateMediaRequestData,
@@ -183,6 +184,7 @@ class FakeSonarrService:
         on_disk: dict[tuple[int, int], int] | None = None,
         file_ids: dict[tuple[int, int], int] | None = None,
         takes_imports: bool = True,
+        history: list[ArrImportEvent] | None = None,
     ) -> None:
         self.imported: list[ManualImportFile] = []
         self.files_per_season = files_per_season or dict.fromkeys((1, 2, 3), EPISODES_PER_SEASON)
@@ -191,6 +193,8 @@ class FakeSonarrService:
         # Whether an import lands, which Sonarr marks with a fresh episode file id.
         self.takes_imports = takes_imports
         self._next_file_id = 1000
+        self.history = history or []
+        self.history_reads = 0
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return [
@@ -226,6 +230,10 @@ class FakeSonarrService:
                 for season in (1, 2, 3)
             },
         )
+
+    async def get_import_history(self, series_id: int) -> list[ArrImportEvent]:
+        self.history_reads += 1
+        return self.history
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         self.imported.extend(files)
@@ -653,3 +661,113 @@ async def test_a_file_remapped_to_another_episode_is_imported_there() -> None:
     await use_case.execute()
 
     assert [item.episode_ids for item in sonarr.imported] == [[102]]
+
+
+def import_event(
+    episode_id: int,
+    file_id: int,
+    source: str,
+    *,
+    after_completion: bool = True,
+) -> ArrImportEvent:
+    """An import the history records, an hour either side of the release completing."""
+
+    completed_at = datetime.now(UTC)
+    offset = timedelta(hours=1)
+    return ArrImportEvent(
+        target_id=episode_id,
+        file_id=file_id,
+        source_path=f"{DOWNLOAD_DIR}/{source}",
+        date=completed_at + offset if after_completion else completed_at - offset,
+    )
+
+
+async def test_an_import_from_before_tracking_is_recognised_from_the_history() -> None:
+    """A release imported before files kept records is not imported over again."""
+
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(
+        file_ids={(1, 1): 7},
+        history=[import_event(101, 7, "Avatar/Avatar.S01E01.mkv")],
+    )
+
+    use_case, repository, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    result = await use_case.execute()
+
+    assert result.succeeded == 1
+    assert sonarr.imported == []
+    assert repository.import_records == {
+        "f1": ReleaseFileImport(target_id=101, arr_file_id=7, size_bytes=2048)
+    }
+    assert repository.release_updates["last_exported_info_hash"] == "hash-1"
+
+
+async def test_the_history_is_only_read_for_episodes_that_hold_a_file() -> None:
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService()
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert sonarr.history_reads == 0
+    assert len(sonarr.imported) == 1
+
+
+async def test_an_import_of_the_file_another_import_replaced_is_not_recognised() -> None:
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(
+        file_ids={(1, 1): 9},
+        history=[
+            import_event(101, 7, "Avatar/Avatar.S01E01.mkv"),
+            import_event(101, 9, "Other.Release/Avatar.S01E01.mkv"),
+        ],
+    )
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+
+
+async def test_an_import_from_before_the_download_completed_is_not_recognised() -> None:
+    """A re-grab can put new content at the same path; the old import holds the old content."""
+
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(
+        file_ids={(1, 1): 7},
+        history=[import_event(101, 7, "Avatar/Avatar.S01E01.mkv", after_completion=False)],
+    )
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+
+
+async def test_an_import_from_another_path_is_not_recognised() -> None:
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(
+        file_ids={(1, 1): 7},
+        history=[import_event(101, 7, "Other/Avatar.S01E01.mkv")],
+    )
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+
+
+async def test_a_history_that_cannot_be_read_imports_as_before() -> None:
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7})
+
+    async def broken(series_id: int) -> list[ArrImportEvent]:
+        raise RuntimeError("Sonarr is down")
+
+    sonarr.get_import_history = broken  # type: ignore[method-assign]
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    result = await use_case.execute()
+
+    assert result.succeeded == 1
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]

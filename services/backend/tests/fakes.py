@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.indexers import (
     IndexerEventPage,
     IndexerLogPage,
@@ -619,6 +619,9 @@ class FakeSonarrService:
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return self._episodes.get(series_id, [])
 
+    async def get_import_history(self, series_id: int) -> list[ArrImportEvent]:
+        return []
+
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         return True
 
@@ -749,6 +752,9 @@ class FakeRadarrService:
 
     async def get_movie(self, movie_id: int) -> MovieDetails:
         return self._catalogue[movie_id]
+
+    async def get_import_history(self, movie_id: int) -> list[ArrImportEvent]:
+        return []
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         return True

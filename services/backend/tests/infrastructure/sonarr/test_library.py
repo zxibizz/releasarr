@@ -607,3 +607,46 @@ async def test_get_series_reports_where_the_series_lives() -> None:
 
     assert series.path == "/tv/Example Show"
     assert series.root_folder_path == "/tv/"
+
+
+async def test_get_import_history_reads_what_each_import_created_and_from_where() -> None:
+    """The file id and source path ride in the record's string data."""
+
+    queries: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        queries.append(str(request.url))
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "episodeId": 201,
+                    "date": "2026-11-01T10:00:00Z",
+                    "eventType": "downloadFolderImported",
+                    "data": {
+                        "fileId": "9",
+                        "droppedPath": "/downloads/Show/Show.S02E01.mkv",
+                        "importedPath": "/media/Show/Season 02/Show - S02E01.mkv",
+                        "size": "0",
+                    },
+                },
+                # Older Sonarr spells the keys as they are stored.
+                {
+                    "episodeId": 202,
+                    "date": "2026-11-01T10:00:00Z",
+                    "data": {"FileId": "10", "DroppedPath": "/downloads/Show/Show.S02E02.mkv"},
+                },
+                # A record without a file to point at is not an import to compare.
+                {"episodeId": 203, "date": "2026-11-01T10:00:00Z", "data": {}},
+            ],
+        )
+
+    events = await build_client(handler).get_import_history(12)
+
+    assert "/history/series" in queries[0]
+    assert "seriesId=12" in queries[0] and "eventType=3" in queries[0]
+    assert [(event.target_id, event.file_id, event.source_path) for event in events] == [
+        (201, 9, "/downloads/Show/Show.S02E01.mkv"),
+        (202, 10, "/downloads/Show/Show.S02E02.mkv"),
+    ]
+    assert events[0].date == datetime(2026, 11, 1, 10, 0, tzinfo=UTC)

@@ -329,6 +329,17 @@ file stays unrecorded so the next export tries it again. Recording is best effor
 already succeeded by then, and a lost record costs one redundant import later.
 
 A release whose every mappable file was skipped is marked exported without an import, and leaves
-its requests' state to the regular sync. A file whose last import predates this tracking has no
-record and is imported once more, after which it is tracked.
+its requests' state to the regular sync.
+
+**A file with no matching record can still be recognised from the arr's history** — one imported
+before releasarr kept records, or one whose import could not be read back. Sonarr and Radarr
+record every import from outside the library with the file id it created (`FileId`) and the path
+it came from (`DroppedPath`); their history does not keep a usable size for a manual import. A
+file counts as already delivered, and gets its record, when the target's current file id was
+created by an import whose source path ends in the file's own path **and** which happened after
+`completed_at`. The last condition is what keeps a re-grab safe: it can put new content at the
+same path, and it clears `completed_at` so the sync stamps it again when the new content has
+finished downloading, so only an import of what is on disk now qualifies. The history is read
+once per series or movie, and only for a target that holds a file; one that cannot be read
+counts as empty, so the file is imported as before.
 

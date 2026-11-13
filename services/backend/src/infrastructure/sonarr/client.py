@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.sonarr import (
     ManualImportFile,
     SeriesDetails,
@@ -25,6 +25,7 @@ from src.infrastructure.arr.base import (
     COMMAND_POLL_INTERVAL_SECONDS,
     COMMAND_SUCCESS_STATUS,
     COMMAND_TIMEOUT_SECONDS,
+    DOWNLOAD_FOLDER_IMPORTED_EVENT,
     TERMINAL_COMMAND_STATUSES,
     UNKNOWN_QUALITY_ID,
     ArrHttpClient,
@@ -359,6 +360,14 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         except ValueError:
             return None
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+    async def get_import_history(self, series_id: int) -> list[ArrImportEvent]:
+        data = await self._request(
+            "GET",
+            "/history/series",
+            params={"seriesId": series_id, "eventType": DOWNLOAD_FOLDER_IMPORTED_EVENT},
+        )
+        return self._import_events(data, "episodeId")
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         if not files:

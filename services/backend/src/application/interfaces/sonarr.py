@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 
 
 @dataclass(slots=True)
@@ -105,6 +105,9 @@ class SonarrService(Protocol):
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         """Return all episodes for a series."""
+
+    async def get_import_history(self, series_id: int) -> list[ArrImportEvent]:
+        """Every import into the series that Sonarr's history records."""
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         """Trigger a manual import command for the designated files."""

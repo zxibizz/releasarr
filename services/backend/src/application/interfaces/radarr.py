@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 
 
 @dataclass(slots=True)
@@ -71,6 +71,9 @@ class RadarrService(Protocol):
 
     async def get_movie(self, movie_id: int) -> MovieDetails:
         """Return detailed information for a single Radarr movie."""
+
+    async def get_import_history(self, movie_id: int) -> list[ArrImportEvent]:
+        """Every import into the movie that Radarr's history records."""
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         """Trigger a manual import command for the designated files."""

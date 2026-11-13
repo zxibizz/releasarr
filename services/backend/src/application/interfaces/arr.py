@@ -8,6 +8,7 @@ out twice.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(slots=True)
@@ -27,4 +28,18 @@ class ArrQualityProfile:
     name: str
 
 
-__all__ = ["ArrQualityProfile", "ArrRootFolder"]
+@dataclass(slots=True)
+class ArrImportEvent:
+    """One import as Sonarr's or Radarr's history records it.
+
+    ``target_id`` is the episode or the movie, ``file_id`` the episode or movie
+    file the import created, and ``source_path`` the path it was imported from.
+    """
+
+    target_id: int
+    file_id: int
+    source_path: str
+    date: datetime
+
+
+__all__ = ["ArrImportEvent", "ArrQualityProfile", "ArrRootFolder"]

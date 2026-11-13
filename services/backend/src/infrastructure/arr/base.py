@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import UTC, datetime
 from typing import Any
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 from src.infrastructure.http import BaseHttpClient
 
 UNKNOWN_QUALITY_ID = 0
@@ -14,6 +15,9 @@ COMMAND_POLL_INTERVAL_SECONDS = 1.0
 COMMAND_TIMEOUT_SECONDS = 300.0
 COMMAND_SUCCESS_STATUS = "completed"
 TERMINAL_COMMAND_STATUSES = frozenset({COMMAND_SUCCESS_STATUS, "failed", "aborted", "cancelled"})
+# Both apps number the history event of a file imported from outside the
+# library the same way.
+DOWNLOAD_FOLDER_IMPORTED_EVENT = 3
 
 
 class ArrHttpClient(BaseHttpClient):
@@ -65,6 +69,51 @@ class ArrHttpClient(BaseHttpClient):
                 if local:
                     return local
         return None
+
+    def _import_events(self, payload: object, target_key: str) -> list[ArrImportEvent]:
+        """Read history records of imports into the events the export compares against.
+
+        The record's ``data`` carries the file id and the source path as strings.
+        Keys are matched without regard to case, since the two apps and their
+        versions do not agree on how a dictionary key is cased.
+        """
+
+        if not isinstance(payload, list):
+            return []
+
+        events = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            data = item.get("data")
+            if not isinstance(data, dict):
+                continue
+            fields = {str(key).lower(): value for key, value in data.items()}
+            target_id = self._safe_int(item.get(target_key))
+            file_id = self._safe_int(fields.get("fileid"))
+            source_path = self._safe_str(fields.get("droppedpath"))
+            date = self._history_date(item.get("date"))
+            if not target_id or not file_id or not source_path or date is None:
+                continue
+            events.append(
+                ArrImportEvent(
+                    target_id=target_id,
+                    file_id=file_id,
+                    source_path=source_path,
+                    date=date,
+                )
+            )
+        return events
+
+    @staticmethod
+    def _history_date(value: object) -> datetime | None:
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
     def _safe_int(self, value: object) -> int | None:
         if not isinstance(value, int | float | str):

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import posixpath
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from loguru._logger import Logger
 
+from src.application.interfaces.arr import ArrImportEvent
 from src.application.interfaces.media_requests import (
     MediaRequestRepository,
     UpdateMediaRequestData,
@@ -29,6 +32,9 @@ from src.application.use_cases.requests.recompute_state import RecomputeRequestS
 from src.application.use_cases.requests.state import ArrCompletion, season_completion
 from src.core.logging import get_logger
 from src.domain.enums import LogComponent, MediaType, ReleaseStatus
+
+if TYPE_CHECKING:
+    from loguru import Logger as LoguruLogger
 
 
 @dataclass(slots=True)
@@ -61,6 +67,38 @@ class _PendingImport:
     file: ReleaseFileRecord
     target_id: int
     file_id_before: int | None
+
+
+class _ImportHistory:
+    """The arr's import history per series or movie, read once and only when asked.
+
+    A history that cannot be read reads as empty, which errs towards importing.
+    """
+
+    def __init__(
+        self,
+        fetch: Callable[[int], Awaitable[list[ArrImportEvent]]],
+        logger: Logger | LoguruLogger,
+        release: ReleaseRecord,
+    ) -> None:
+        self._fetch = fetch
+        self._logger = logger
+        self._release = release
+        self._events: dict[int, list[ArrImportEvent]] = {}
+
+    async def events(self, owner_id: int) -> list[ArrImportEvent]:
+        if owner_id not in self._events:
+            try:
+                self._events[owner_id] = await self._fetch(owner_id)
+            except Exception as exc:
+                self._logger.opt(exception=exc).warning(
+                    f"Could not read the import history: {exc}",
+                    release_id=self._release.id,
+                    release_name=self._release.name,
+                    owner_id=owner_id,
+                )
+                self._events[owner_id] = []
+        return self._events[owner_id]
 
 
 class ExportFinishedReleasesUseCase:
@@ -324,17 +362,15 @@ class ExportFinishedReleasesUseCase:
             file_id = current_file_ids.get(item.target_id)
             if file_id is None or file_id == item.file_id_before:
                 continue
-            updates.append(
-                FileImportUpdateData(
-                    file_id=item.file.id,
-                    last_import=ReleaseFileImport(
-                        target_id=item.target_id,
-                        arr_file_id=file_id,
-                        size_bytes=item.file.size_bytes,
-                    ),
-                )
-            )
+            updates.append(_import_update(item.file, item.target_id, file_id))
+        await self._store_imports(release, updates, target)
 
+    async def _store_imports(
+        self,
+        release: ReleaseRecord,
+        updates: list[FileImportUpdateData],
+        target: str,
+    ) -> None:
         if not updates:
             return
         try:
@@ -391,6 +427,8 @@ class ExportFinishedReleasesUseCase:
         exported_per_request: dict[str, int] = {}
         skipped_per_request: dict[str, int] = {}
         pending: dict[int, list[_PendingImport]] = {}
+        recognised: list[FileImportUpdateData] = []
+        history = _ImportHistory(self._sonarr.get_import_history, self._logger, release)
 
         for series_id, files in files_by_series.items():
             episodes = await self._sonarr.get_episodes(series_id)
@@ -415,6 +453,12 @@ class ExportFinishedReleasesUseCase:
                 if _already_delivered(file, episode.id, episode.file_id):
                     skipped_per_request[request_id] = skipped_per_request.get(request_id, 0) + 1
                     continue
+                if episode.file_id is not None and _imported_from_this_download(
+                    release, file, episode.id, episode.file_id, await history.events(series_id)
+                ):
+                    recognised.append(_import_update(file, episode.id, episode.file_id))
+                    skipped_per_request[request_id] = skipped_per_request.get(request_id, 0) + 1
+                    continue
 
                 import_files.append(
                     ManualImportFile(
@@ -432,6 +476,7 @@ class ExportFinishedReleasesUseCase:
 
         self._log_skipped(release, skipped_per_request, "Sonarr")
         imported.skipped += sum(skipped_per_request.values())
+        await self._store_imports(release, recognised, "Sonarr")
 
         if not import_files:
             return
@@ -480,6 +525,8 @@ class ExportFinishedReleasesUseCase:
         skipped_per_request: dict[str, int] = {}
         pending: list[_PendingImport] = []
         file_ids_before: dict[int, int | None] = {}
+        recognised: list[FileImportUpdateData] = []
+        history = _ImportHistory(self._radarr.get_import_history, self._logger, release)
 
         for file in release.files:
             request = self._linked_request(file, requests_map)
@@ -491,7 +538,14 @@ class ExportFinishedReleasesUseCase:
             movie_id = request.radarr_movie_id
             if movie_id not in file_ids_before:
                 file_ids_before[movie_id] = await self._movie_file_id(release, movie_id)
-            if _already_delivered(file, movie_id, file_ids_before[movie_id]):
+            current_file_id = file_ids_before[movie_id]
+            if _already_delivered(file, movie_id, current_file_id):
+                skipped_per_request[request.id] = skipped_per_request.get(request.id, 0) + 1
+                continue
+            if current_file_id is not None and _imported_from_this_download(
+                release, file, movie_id, current_file_id, await history.events(movie_id)
+            ):
+                recognised.append(_import_update(file, movie_id, current_file_id))
                 skipped_per_request[request.id] = skipped_per_request.get(request.id, 0) + 1
                 continue
 
@@ -512,6 +566,7 @@ class ExportFinishedReleasesUseCase:
 
         self._log_skipped(release, skipped_per_request, "Radarr")
         imported.skipped += sum(skipped_per_request.values())
+        await self._store_imports(release, recognised, "Radarr")
 
         if not import_files:
             return
@@ -668,6 +723,57 @@ def _already_delivered(
         and last.target_id == target_id
         and last.arr_file_id == current_file_id
         and last.size_bytes == file.size_bytes
+    )
+
+
+def _imported_from_this_download(
+    release: ReleaseRecord,
+    file: ReleaseFileRecord,
+    target_id: int,
+    current_file_id: int,
+    events: list[ArrImportEvent],
+) -> bool:
+    """Whether the arr's current file came from this file as it is downloaded now.
+
+    Recognises imports nothing recorded: those made before releasarr kept
+    records, and ones whose outcome could not be read back. The history ties
+    the current file id to the path it was imported from, but a re-grab can put
+    new content at the same path, so the import must also postdate the moment
+    the current torrent finished downloading - a re-grab clears that stamp and
+    the sync sets it again. Without it nothing is recognised.
+    """
+
+    completed_at = release.completed_at
+    if completed_at is None:
+        return False
+    return any(
+        event.target_id == target_id
+        and event.file_id == current_file_id
+        and _same_source(event.source_path, file.path)
+        and event.date >= completed_at
+        for event in events
+    )
+
+
+def _same_source(source_path: str, relative_path: str) -> bool:
+    """Whether an absolute import source is this release file.
+
+    Matched by suffix: the download directory the export joined it onto is
+    qBittorrent's to report and is not stored with the release.
+    """
+
+    relative = relative_path.lstrip("/")
+    return source_path == relative or source_path.endswith("/" + relative)
+
+
+def _import_update(
+    file: ReleaseFileRecord, target_id: int, arr_file_id: int
+) -> FileImportUpdateData:
+    return FileImportUpdateData(
+        file_id=file.id,
+        last_import=ReleaseFileImport(
+            target_id=target_id, arr_file_id=arr_file_id, size_bytes=file.size_bytes
+        ),
     )
 
 

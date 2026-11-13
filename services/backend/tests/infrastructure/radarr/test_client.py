@@ -284,3 +284,26 @@ async def test_a_missing_api_key_is_reported_as_configuration_not_as_a_401() -> 
 
     with pytest.raises(HttpClientError, match="RELEASARR_RADARR_API_KEY"):
         await client.list_movies()
+
+
+async def test_get_import_history_reads_what_each_import_created_and_from_where() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/history/movie")
+        assert request.url.params["movieId"] == "156"
+        assert request.url.params["eventType"] == "3"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "movieId": 156,
+                    "date": "2026-11-01T10:00:00Z",
+                    "data": {"fileId": "31", "droppedPath": "/downloads/Arrival/arrival.mkv"},
+                }
+            ],
+        )
+
+    events = await build_client(handler).get_import_history(156)
+
+    assert [(event.target_id, event.file_id, event.source_path) for event in events] == [
+        (156, 31, "/downloads/Arrival/arrival.mkv")
+    ]

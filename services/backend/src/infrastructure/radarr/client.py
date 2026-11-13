@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from src.application.interfaces.arr import ArrQualityProfile, ArrRootFolder
+from src.application.interfaces.arr import ArrImportEvent, ArrQualityProfile, ArrRootFolder
 from src.application.interfaces.radarr import (
     MovieDetails,
     MovieImportFile,
@@ -21,6 +21,7 @@ from src.infrastructure.arr.base import (
     COMMAND_POLL_INTERVAL_SECONDS,
     COMMAND_SUCCESS_STATUS,
     COMMAND_TIMEOUT_SECONDS,
+    DOWNLOAD_FOLDER_IMPORTED_EVENT,
     TERMINAL_COMMAND_STATUSES,
     UNKNOWN_QUALITY_ID,
     ArrHttpClient,
@@ -81,6 +82,14 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
         if movie is None:
             raise HttpClientError(f"Radarr returned no usable movie for id {movie_id}")
         return movie
+
+    async def get_import_history(self, movie_id: int) -> list[ArrImportEvent]:
+        data = await self._request(
+            "GET",
+            "/history/movie",
+            params={"movieId": movie_id, "eventType": DOWNLOAD_FOLDER_IMPORTED_EVENT},
+        )
+        return self._import_events(data, "movieId")
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         if not files:

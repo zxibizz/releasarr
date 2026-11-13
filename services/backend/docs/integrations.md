@@ -65,6 +65,7 @@ key raises `HttpClientError` at call time with the name of the env var to set.
 | POST | `/series` | Add a series |
 | PUT | `/series/{id}` | Apply season monitoring |
 | GET | `/episode` | Episodes for a series, with files |
+| GET | `/history/series` | Past imports (`eventType=3`), to recognise a file imported before releasarr recorded it |
 | DELETE | `/series/{id}` | Delete a series nothing is wanted from |
 | PUT | `/series/editor` | Move a series to another root folder (`moveFiles: true`) |
 | GET | `/rootfolder`, `/qualityprofile` | Library folders and profiles for the add flow |
@@ -129,6 +130,7 @@ polling, and error-swallowing behaviour as Sonarr.
 | --- | --- | --- |
 | GET | `/movie` | The whole library, with `hasFile` and `monitored`, for `radarr_sync` |
 | GET | `/movie/{id}` | Movie details for the add-request flow |
+| GET | `/history/movie` | Past imports (`eventType=3`), to recognise a file imported before releasarr recorded it |
 | GET | `/movie/lookup` | Search and TMDB lookup (`term=tmdb:{id}`) |
 | POST | `/movie` | Add a movie |
 | PUT | `/movie/{id}` | Set `monitored` |
