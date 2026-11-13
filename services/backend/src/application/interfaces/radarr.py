@@ -29,6 +29,8 @@ class MovieDetails:
     is_available: bool = True
     # Bytes on disk, for a movie Radarr holds a file for.
     file_size: int | None = None
+    # Radarr's id for the movie file; see `SonarrEpisode.file_id`.
+    file_id: int | None = None
     # Where the movie lives on disk, and the library root folder that holds it.
     path: str | None = None
     root_folder_path: str | None = None

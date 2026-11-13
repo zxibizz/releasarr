@@ -9,7 +9,10 @@ from src.application.interfaces.media_requests import (
     UpdateMediaRequestData,
 )
 from src.application.interfaces.releases import (
+    FileImportUpdateData,
     FileMappingUpdateData,
+    ReleaseFileImport,
+    ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRequestSnapshot,
@@ -104,9 +107,17 @@ class FakeReleaseRepository:
         self.release = release
         self.mapping_updates: list[FileMappingUpdateData] = []
         self.release_updates: dict[str, object] = {}
+        self.import_records: dict[str, ReleaseFileImport] = {}
 
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         return [self.release]
+
+    async def record_file_imports(
+        self,
+        release_id: str,
+        updates: list[FileImportUpdateData],
+    ) -> None:
+        self.import_records.update({update.file_id: update.last_import for update in updates})
 
     async def update_file_mappings(
         self,
@@ -170,10 +181,16 @@ class FakeSonarrService:
         self,
         files_per_season: dict[int, int] | None = None,
         on_disk: dict[tuple[int, int], int] | None = None,
+        file_ids: dict[tuple[int, int], int] | None = None,
+        takes_imports: bool = True,
     ) -> None:
         self.imported: list[ManualImportFile] = []
         self.files_per_season = files_per_season or dict.fromkeys((1, 2, 3), EPISODES_PER_SEASON)
         self.on_disk = on_disk or {}
+        self.file_ids = file_ids or {}
+        # Whether an import lands, which Sonarr marks with a fresh episode file id.
+        self.takes_imports = takes_imports
+        self._next_file_id = 1000
 
     async def get_episodes(self, series_id: int) -> list[SonarrEpisode]:
         return [
@@ -181,8 +198,9 @@ class FakeSonarrService:
                 id=season * 100 + episode,
                 season_number=season,
                 episode_number=episode,
-                has_file=(season, episode) in self.on_disk,
+                has_file=(season, episode) in self.on_disk or (season, episode) in self.file_ids,
                 file_size=self.on_disk.get((season, episode)),
+                file_id=self.file_ids.get((season, episode)),
             )
             for season in (1, 2, 3)
             for episode in range(1, EPISODES_PER_SEASON + 1)
@@ -211,6 +229,11 @@ class FakeSonarrService:
 
     async def manual_import(self, files: list[ManualImportFile]) -> bool:
         self.imported.extend(files)
+        if self.takes_imports:
+            for file in files:
+                for episode_id in file.episode_ids:
+                    self._next_file_id += 1
+                    self.file_ids[divmod(episode_id, 100)] = self._next_file_id
         return True
 
 
@@ -485,3 +508,148 @@ async def test_an_unimportable_release_missing_one_episode_still_counts_a_failur
 
     assert "last_exported_info_hash" not in repository.release_updates
     assert repository.release_updates["export_failures_count"] == 1
+
+
+def make_imported_file(
+    file_id: str,
+    path: str,
+    *,
+    episode_id: int,
+    arr_file_id: int,
+    size_bytes: int = 2048,
+) -> ReleaseFileRecord:
+    file = make_file(file_id, path)
+    file.last_import = ReleaseFileImport(
+        target_id=episode_id, arr_file_id=arr_file_id, size_bytes=size_bytes
+    )
+    return file
+
+
+async def test_an_import_remembers_the_episode_file_sonarr_made_of_it() -> None:
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7})
+
+    use_case, repository, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert repository.import_records == {
+        "f1": ReleaseFileImport(target_id=101, arr_file_id=1001, size_bytes=2048)
+    }
+
+
+async def test_an_import_sonarr_did_not_take_is_not_remembered() -> None:
+    """An episode left on its old file id means the import never landed."""
+
+    files = [make_file("f1", "Avatar/Avatar.S01E01.mkv")]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7}, takes_imports=False)
+
+    use_case, repository, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert len(sonarr.imported) == 1
+    assert repository.import_records == {}
+
+
+async def test_files_sonarr_still_holds_from_the_last_import_are_skipped() -> None:
+    """A re-grab that added an episode imports that episode alone.
+
+    The library copy of E01 is muxarr's remux, so its size says nothing; the
+    episode still pointing at the file the last import made is what counts.
+    """
+
+    files = [
+        make_imported_file("f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7),
+        make_file("f2", "Avatar/Avatar.S01E02.mkv"),
+    ]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7}, on_disk={(1, 1): 1_500})
+
+    use_case, repository, _, recompute_state = build_use_case(
+        make_release(files, season=1), [], sonarr=sonarr
+    )
+    result = await use_case.execute()
+
+    assert result.succeeded == 1
+    assert [item.episode_ids for item in sonarr.imported] == [[102]]
+    assert set(repository.import_records) == {"f2"}
+    assert repository.release_updates["last_exported_info_hash"] == "hash-1"
+    assert len(recompute_state.calls) == 1
+
+
+async def test_a_release_with_nothing_new_is_exported_without_importing() -> None:
+    files = [
+        make_imported_file("f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7),
+    ]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7}, on_disk={(1, 1): 1_500})
+
+    use_case, repository, _, recompute_state = build_use_case(
+        make_release(files, season=1), [], sonarr=sonarr
+    )
+    result = await use_case.execute()
+
+    assert result.succeeded == 1
+    assert sonarr.imported == []
+    assert repository.release_updates == {
+        "last_exported_info_hash": "hash-1",
+        "export_failures_count": 0,
+    }
+    assert recompute_state.calls == []
+
+
+async def test_an_episode_replaced_in_sonarr_since_is_imported_again() -> None:
+    """A manual import in Sonarr leaves the episode on a file this release did not make."""
+
+    files = [
+        make_imported_file("f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7),
+    ]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 9})
+
+    use_case, repository, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+    assert repository.import_records["f1"].arr_file_id == 1001
+
+
+async def test_an_episode_deleted_in_sonarr_since_is_imported_again() -> None:
+    files = [
+        make_imported_file("f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7),
+    ]
+    sonarr = FakeSonarrService()
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+
+
+async def test_a_file_a_regrab_replaced_is_imported_again() -> None:
+    """The re-grab keeps the row but rewrites its size, which the last import does not match."""
+
+    files = [
+        make_imported_file(
+            "f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7, size_bytes=1024
+        ),
+    ]
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7})
+
+    use_case, _, _, _ = build_use_case(make_release(files, season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[101]]
+
+
+async def test_a_file_remapped_to_another_episode_is_imported_there() -> None:
+    file = make_imported_file("f1", "Avatar/Avatar.S01E01.mkv", episode_id=101, arr_file_id=7)
+    file.mapping = ReleaseFileMapping(
+        mapping_type=MediaType.SERIES,
+        request_id="req-1",
+        request_title=None,
+        season=1,
+        episode=2,
+    )
+    sonarr = FakeSonarrService(file_ids={(1, 1): 7})
+
+    use_case, _, _, _ = build_use_case(make_release([file], season=1), [], sonarr=sonarr)
+    await use_case.execute()
+
+    assert [item.episode_ids for item in sonarr.imported] == [[102]]

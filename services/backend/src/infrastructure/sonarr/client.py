@@ -308,6 +308,7 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
                     air_date=self._air_date(item),
                     has_file=bool(item.get("hasFile")),
                     file_size=self._file_size(item),
+                    file_id=self._file_id(item),
                 )
             )
         return episodes
@@ -328,6 +329,19 @@ class SonarrHttpClient(ArrHttpClient, SonarrService):
         except (TypeError, ValueError):
             return None
         return size or None
+
+    def _file_id(self, item: dict[str, Any]) -> int | None:
+        """Sonarr's id for the episode's file, which it reports as zero for none."""
+
+        if not item.get("hasFile"):
+            return None
+        file = item.get("episodeFile")
+        raw = file.get("id") if isinstance(file, dict) else None
+        try:
+            file_id = int(raw or item.get("episodeFileId") or 0)
+        except (TypeError, ValueError):
+            return None
+        return file_id or None
 
     def _air_date(self, item: dict[str, Any]) -> datetime | None:
         """Read an episode's broadcast time, preferring the one Sonarr zones.

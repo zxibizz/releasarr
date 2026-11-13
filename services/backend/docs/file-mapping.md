@@ -302,3 +302,33 @@ A file is only exportable if its mapping names a request that has a `sonarr_seri
 `radarr_movie_id`. `manual_import` returning `False` becomes a `RuntimeError`, which increments
 `export_failures_count`; at five, the release drops out of the export queue and needs a manual
 re-map or re-grab to get back in.
+
+### Skipping what the library already holds
+
+A release is exported again whenever `last_exported_info_hash` stops matching: after every re-grab
+and every saved edit. Without more, each of those re-imports every file it carries, so the re-grab
+that adds one new episode to an airing season replaces every episode it already delivered. The export therefore
+leaves out a file whose last import still stands, judged on three things stored on the row
+(`imported_target_id`, `imported_arr_file_id`, `imported_size_bytes`):
+
+| Changed since the last import | Detected by | Outcome |
+| --- | --- | --- |
+| Nothing | all three match | skipped |
+| A re-grab replaced the file | `size_bytes` differs from `imported_size_bytes` | imported |
+| The file was remapped | the target episode or movie differs | imported |
+| The arr's file was replaced or deleted — a manual import, an upgrade | the target holds another file id, or none | imported |
+
+**The library side is compared by the arr's file id only.** Muxarr remuxes files during the
+import, so the library copy's size, hash and inode never match the download even when nothing
+has changed; Sonarr and Radarr, on the other hand, give every import a new episode or movie file
+id and nothing else changes it. That is also why the id is read back after the import rather
+than predicted: the export re-reads the episodes (or the movie) once the command has finished and
+records a file only when its target now holds a different id than just before. An unchanged id
+means the import did not land — Sonarr rejected it, or the command outlived the wait — and the
+file stays unrecorded so the next export tries it again. Recording is best effort: the import has
+already succeeded by then, and a lost record costs one redundant import later.
+
+A release whose every mappable file was skipped is marked exported without an import, and leaves
+its requests' state to the regular sync. A file whose last import predates this tracking has no
+record and is imported once more, after which it is tracked.
+

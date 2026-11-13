@@ -69,6 +69,9 @@ class SonarrEpisode:
     has_file: bool = False
     # Bytes on disk, for an episode Sonarr holds a file for.
     file_size: int | None = None
+    # Sonarr's id for the episode file. A new import always gets a new one, and
+    # nothing short of a new import changes it.
+    file_id: int | None = None
 
 
 @dataclass(slots=True)

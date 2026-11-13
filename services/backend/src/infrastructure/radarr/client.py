@@ -363,6 +363,7 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             monitored=bool(data.get("monitored")),
             is_available=self._is_available(data),
             file_size=self._movie_file_size(data),
+            file_id=self._movie_file_id(data),
             path=self._safe_str(data.get("path")),
             root_folder_path=self._safe_str(data.get("rootFolderPath")),
         )
@@ -386,6 +387,15 @@ class RadarrHttpClient(ArrHttpClient, RadarrService):
             return None
         size = self._safe_int(file.get("size"))
         return size or None
+
+    def _movie_file_id(self, data: dict[str, Any]) -> int | None:
+        """Radarr's id for the movie's file, which it reports as zero for none."""
+
+        if not data.get("hasFile"):
+            return None
+        file = data.get("movieFile")
+        file_id = self._safe_int(file.get("id")) if isinstance(file, dict) else None
+        return file_id or self._safe_int(data.get("movieFileId")) or None
 
     async def move_movie(self, movie_id: int, root_folder_path: str) -> None:
         """Move a movie to another root folder through the movie editor.

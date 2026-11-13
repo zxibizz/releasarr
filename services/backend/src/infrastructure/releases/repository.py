@@ -14,8 +14,10 @@ from src.application.interfaces.releases import (
     MANUAL_SOURCE,
     MAX_EXPORT_FAILURES,
     CreateReleaseData,
+    FileImportUpdateData,
     FileMappingUpdateData,
     FileReconciliation,
+    ReleaseFileImport,
     ReleaseFileMapping,
     ReleaseFileRecord,
     ReleaseRecord,
@@ -231,6 +233,32 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             await session.flush()
             return True
 
+    async def record_file_imports(
+        self,
+        release_id: str,
+        updates: list[FileImportUpdateData],
+    ) -> None:
+        if not updates:
+            return
+
+        async with self.db.transaction() as session:
+            stmt = select(models.ReleaseFile).where(
+                models.ReleaseFile.release_id == release_id,
+                models.ReleaseFile.id.in_([update.file_id for update in updates]),
+            )
+            files = {file.id: file for file in (await session.execute(stmt)).scalars()}
+            for update in updates:
+                file = files.get(update.file_id)
+                if file is None:
+                    # A re-grab that dropped the file in the meantime is refused
+                    # before it writes anything, so this is a file deleted along
+                    # with its release: there is nothing left to remember it on.
+                    continue
+                file.imported_target_id = update.last_import.target_id
+                file.imported_arr_file_id = update.last_import.arr_file_id
+                file.imported_size_bytes = update.last_import.size_bytes
+            await session.flush()
+
     async def sync_release_files(
         self,
         release_id: str,
@@ -433,6 +461,17 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
                 season=file.season,
                 episode=file.episode,
             )
+        last_import = None
+        if (
+            file.imported_target_id is not None
+            and file.imported_arr_file_id is not None
+            and file.imported_size_bytes is not None
+        ):
+            last_import = ReleaseFileImport(
+                target_id=file.imported_target_id,
+                arr_file_id=file.imported_arr_file_id,
+                size_bytes=file.imported_size_bytes,
+            )
         return ReleaseFileRecord(
             id=file.id,
             name=file.name,
@@ -440,6 +479,7 @@ class SqlAlchemyReleaseRepository(BaseSqlAlchemyRepository, ReleaseRepository):
             path=file.path,
             mapping=mapping,
             ignored=file.ignored,
+            last_import=last_import,
         )
 
 

@@ -201,6 +201,12 @@ Mapping: `mapping_type` (`movie` | `series` | NULL), `mapped_request_id` (FK, `S
 mapping, and the matcher skips it entirely. The flag is what tells it apart from a file nobody
 has mapped yet, which automapping would otherwise fill in on the next pass.
 
+Last import: `imported_target_id` (Sonarr episode id or Radarr movie id), `imported_arr_file_id`
+(the episode or movie file the arr created), `imported_size_bytes` (the download's size at the
+time). Written together by the export after an import lands, never cleared; a re-grab keeps them
+while it rewrites `size_bytes`, which is how the next export tells a replaced file from a kept one.
+See [`file-mapping.md`](../services/backend/docs/file-mapping.md#skipping-what-the-library-already-holds).
+
 | Constraint | Encodes |
 | --- | --- |
 | `ck_release_files_series_mapping` | A `series` mapping must carry both season and episode. |

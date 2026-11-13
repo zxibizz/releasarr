@@ -40,6 +40,7 @@ from src.application.interfaces.radarr import MovieDetails, MovieImportFile, Mov
 from src.application.interfaces.releases import (
     CreateReleaseData,
     FetchedDownload,
+    FileImportUpdateData,
     FileMappingUpdateData,
     FileReconciliation,
     QueuedDownload,
@@ -291,6 +292,13 @@ class UnusedReleaseRepositoryCalls:
         release_id: str,
         updates: list[FileMappingUpdateData],
     ) -> bool:
+        raise NotImplementedError
+
+    async def record_file_imports(
+        self,
+        release_id: str,
+        updates: list[FileImportUpdateData],
+    ) -> None:
         raise NotImplementedError
 
     async def sync_release_files(

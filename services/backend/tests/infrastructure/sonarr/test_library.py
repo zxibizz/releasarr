@@ -532,6 +532,7 @@ async def test_get_episodes_reads_the_title_air_date_and_file() -> None:
     assert episodes[2].air_date is None
     assert [episode.has_file for episode in episodes] == [True, False, False]
     assert [episode.file_size for episode in episodes] == [2_147_483_648, None, None]
+    assert [episode.file_id for episode in episodes] == [9, None, None]
 
 
 async def test_get_episodes_treats_an_unmeasured_file_as_having_no_size() -> None:

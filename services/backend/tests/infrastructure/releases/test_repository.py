@@ -16,8 +16,10 @@ from sqlalchemy.ext.asyncio import (
 from src.application.interfaces.releases import (
     MANUAL_SOURCE,
     CreateReleaseData,
+    FileImportUpdateData,
     FileMappingUpdateData,
     FileReconciliation,
+    ReleaseFileImport,
     ReleaseFileMapping,
     ReleaseFileRecord,
 )
@@ -664,3 +666,48 @@ async def test_sync_release_files_returns_none_for_a_missing_release(
     )
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_record_file_imports_survives_a_regrab_that_keeps_the_file(
+    repository: SqlAlchemyReleaseRepository,
+    db_manager: DBManager,
+) -> None:
+    """The re-grab rewrites the size the export compares against, never the import record."""
+
+    await _seed_release_with_file(db_manager, "file-1", "Old/Show.S01E01.mkv", 100)
+    imported = ReleaseFileImport(target_id=101, arr_file_id=7, size_bytes=100)
+    await repository.record_file_imports(
+        "rel-1",
+        [
+            FileImportUpdateData(file_id="file-1", last_import=imported),
+            FileImportUpdateData(file_id="gone", last_import=imported),
+        ],
+    )
+
+    merged = await repository.sync_release_files(
+        "rel-1",
+        FileReconciliation(
+            matched=[
+                (
+                    "file-1",
+                    ReleaseFileRecord(
+                        id="incoming-1",
+                        name="Repack/Show.S01E01.mkv",
+                        size_bytes=4096,
+                        path="Repack/Show.S01E01.mkv",
+                        mapping=None,
+                    ),
+                )
+            ],
+            added=[],
+            missing=[],
+        ),
+    )
+
+    assert merged is not None
+    assert merged[0].last_import == imported
+    assert merged[0].size_bytes == 4096
+    refreshed = await repository.get_release("rel-1")
+    assert refreshed is not None
+    assert refreshed.files[0].last_import == imported

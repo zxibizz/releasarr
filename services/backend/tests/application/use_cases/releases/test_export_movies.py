@@ -10,7 +10,9 @@ from src.application.interfaces.media_requests import (
 )
 from src.application.interfaces.radarr import MovieDetails, MovieImportFile
 from src.application.interfaces.releases import (
+    FileImportUpdateData,
     FileMappingUpdateData,
+    ReleaseFileImport,
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRequestSnapshot,
@@ -107,9 +109,17 @@ class FakeReleaseRepository:
         self.release = release
         self.mapping_updates: list[FileMappingUpdateData] = []
         self.release_updates: dict[str, object] = {}
+        self.import_records: dict[str, ReleaseFileImport] = {}
 
     async def get_finished_not_exported(self) -> list[ReleaseRecord]:
         return [self.release]
+
+    async def record_file_imports(
+        self,
+        release_id: str,
+        updates: list[FileImportUpdateData],
+    ) -> None:
+        self.import_records.update({update.file_id: update.last_import for update in updates})
 
     async def update_file_mappings(
         self,
@@ -160,11 +170,13 @@ class FakeRadarrService:
         has_file: bool = True,
         succeeds: bool = True,
         file_size: int | None = None,
+        file_id: int | None = None,
     ) -> None:
         self.imported: list[MovieImportFile] = []
         self.has_file = has_file
         self.succeeds = succeeds
         self.file_size = file_size
+        self.file_id = file_id
 
     async def list_movies(self) -> list[MovieDetails]:
         return []
@@ -180,12 +192,14 @@ class FakeRadarrService:
             tmdb_id=None,
             has_file=self.has_file,
             file_size=self.file_size,
+            file_id=self.file_id if self.has_file else None,
         )
 
     async def manual_import(self, files: list[MovieImportFile]) -> bool:
         if not self.succeeds:
             return False
         self.imported.extend(files)
+        self.file_id = (self.file_id or 0) + 100
         return True
 
 
@@ -392,3 +406,51 @@ async def test_a_different_movie_copy_on_disk_does_not_close_the_release() -> No
 
     assert "last_exported_info_hash" not in repository.release_updates
     assert repository.release_updates["export_failures_count"] == 1
+
+
+async def test_a_movie_import_remembers_the_file_radarr_made_of_it() -> None:
+    files = [make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")]
+    release = make_release(files, [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+
+    use_case, repository, _, _ = build_use_case(
+        release, FakeMediaRequestRepository(), FakeRadarrService(file_id=5)
+    )
+    await use_case.execute()
+
+    assert repository.import_records == {
+        "f1": ReleaseFileImport(target_id=MOVIE_ID, arr_file_id=105, size_bytes=8_000_000_000)
+    }
+
+
+async def test_a_movie_radarr_still_holds_from_the_last_import_is_skipped() -> None:
+    file = make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")
+    file.last_import = ReleaseFileImport(
+        target_id=MOVIE_ID, arr_file_id=5, size_bytes=8_000_000_000
+    )
+    release = make_release([file], [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+
+    use_case, repository, radarr, recompute_state = build_use_case(
+        release, FakeMediaRequestRepository(), FakeRadarrService(file_id=5, file_size=7_000)
+    )
+    result = await use_case.execute()
+
+    assert result.succeeded == 1
+    assert radarr.imported == []
+    assert repository.release_updates["last_exported_info_hash"] == "hash-1"
+    assert recompute_state.calls == []
+
+
+async def test_a_movie_replaced_in_radarr_since_is_imported_again() -> None:
+    file = make_file("f1", "Arrival.2016.1080p/arrival.2016.1080p.mkv")
+    file.last_import = ReleaseFileImport(
+        target_id=MOVIE_ID, arr_file_id=5, size_bytes=8_000_000_000
+    )
+    release = make_release([file], [make_snapshot("req-1", MOVIE_ID, "Arrival")])
+
+    use_case, repository, radarr, _ = build_use_case(
+        release, FakeMediaRequestRepository(), FakeRadarrService(file_id=6)
+    )
+    await use_case.execute()
+
+    assert len(radarr.imported) == 1
+    assert repository.import_records["f1"].arr_file_id == 106

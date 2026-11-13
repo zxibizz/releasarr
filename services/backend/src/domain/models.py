@@ -332,6 +332,13 @@ class ReleaseFile(Base):
     ignored: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
+    # The latest import of this file: the Sonarr episode or Radarr movie it went
+    # to, the file the arr made of it, and the download's size at the time. All
+    # three are set together or not at all. An export skips a file whose three
+    # still match, so a re-grab or a saved edit re-imports only what changed.
+    imported_target_id: Mapped[int | None] = mapped_column(Integer)
+    imported_arr_file_id: Mapped[int | None] = mapped_column(Integer)
+    imported_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
 
     release: Mapped[Release] = relationship("Release", back_populates="files")
     mapped_request: Mapped[MediaRequest | None] = relationship("MediaRequest", lazy="selectin")

@@ -15,7 +15,9 @@ from src.application.interfaces.media_requests import (
 from src.application.interfaces.radarr import MovieImportFile, RadarrService
 from src.application.interfaces.releases import (
     MAX_EXPORT_FAILURES,
+    FileImportUpdateData,
     ReleaseDownloadService,
+    ReleaseFileImport,
     ReleaseFileRecord,
     ReleaseRecord,
     ReleaseRepository,
@@ -43,9 +45,22 @@ class _Imported:
 
     seasons: set[tuple[int, int]] = field(default_factory=set)
     movies: set[int] = field(default_factory=set)
+    # Files left out because the library still holds what their last import
+    # delivered. They count towards the release being exported, not towards
+    # anything having been imported.
+    skipped: int = 0
 
     def __bool__(self) -> bool:
         return bool(self.seasons or self.movies)
+
+
+@dataclass(slots=True)
+class _PendingImport:
+    """A file handed to the arr, with what its target held just before."""
+
+    file: ReleaseFileRecord
+    target_id: int
+    file_id_before: int | None
 
 
 class ExportFinishedReleasesUseCase:
@@ -124,8 +139,18 @@ class ExportFinishedReleasesUseCase:
 
         # 3. Hand each media type to the app that owns it
         imported = _Imported()
-        imported.seasons = await self._export_series(release, requests_map, download_dir)
-        imported.movies = await self._export_movies(release, requests_map, download_dir)
+        await self._export_series(release, requests_map, download_dir, imported)
+        await self._export_movies(release, requests_map, download_dir, imported)
+
+        if not imported and imported.skipped:
+            # A re-grab that changed nothing this release delivers, or a saved
+            # edit that moved no file, has nothing new for the arr.
+            await self._repository.update_release(
+                release.id,
+                last_exported_info_hash=release.info_hash,
+                export_failures_count=0,
+            )
+            return
 
         if not imported:
             # Mappings or metadata that have not caught up yet resolve on a later
@@ -264,6 +289,63 @@ class ExportFinishedReleasesUseCase:
                 file_count=count,
             )
 
+    def _log_skipped(self, release: ReleaseRecord, counts: dict[str, int], target: str) -> None:
+        for request_id, count in counts.items():
+            self._logger.info(
+                f"Skipped {count} file(s) {target} already holds from the last import",
+                request_id=request_id,
+                release_id=release.id,
+                release_name=release.name,
+                file_count=count,
+            )
+
+    async def _remember_imports(
+        self,
+        release: ReleaseRecord,
+        pending: list[_PendingImport],
+        current_file_ids: dict[int, int | None],
+        target: str,
+    ) -> None:
+        """Store the arr file each import produced, for the next export to compare.
+
+        A file is only remembered when its target now holds a different file than
+        it did a moment ago. The arr gives every import a new file id, so an
+        unchanged one means the import did not land - Sonarr rejected it, or the
+        command outlived the wait - and leaving the file unremembered is what
+        makes the next export try it again.
+
+        Best effort: the import itself has succeeded by now, and failing the
+        export over this would count an attempt against a release the arr has
+        already taken. The cost of a lost record is one redundant import later.
+        """
+
+        updates = []
+        for item in pending:
+            file_id = current_file_ids.get(item.target_id)
+            if file_id is None or file_id == item.file_id_before:
+                continue
+            updates.append(
+                FileImportUpdateData(
+                    file_id=item.file.id,
+                    last_import=ReleaseFileImport(
+                        target_id=item.target_id,
+                        arr_file_id=file_id,
+                        size_bytes=item.file.size_bytes,
+                    ),
+                )
+            )
+
+        if not updates:
+            return
+        try:
+            await self._repository.record_file_imports(release.id, updates)
+        except Exception as exc:
+            self._logger.opt(exception=exc).warning(
+                f"Could not record which files {target} imported: {exc}",
+                release_id=release.id,
+                release_name=release.name,
+            )
+
     def _linked_request(
         self,
         file: ReleaseFileRecord,
@@ -283,8 +365,14 @@ class ExportFinishedReleasesUseCase:
         release: ReleaseRecord,
         requests_map: dict[str, ReleaseRequestSnapshot],
         download_dir: str,
-    ) -> set[tuple[int, int]]:
-        """Import the release's episode files into Sonarr."""
+        imported: _Imported,
+    ) -> None:
+        """Import the release's episode files into Sonarr.
+
+        A file whose last import Sonarr still holds is left out. Re-importing it
+        would replace the library's copy with an identical one, and with it
+        whatever muxarr built on the way in - see `_already_delivered`.
+        """
 
         files_by_series: dict[int, list[tuple[ReleaseFileRecord, str]]] = {}
         for file in release.files:
@@ -296,22 +384,24 @@ class ExportFinishedReleasesUseCase:
             files_by_series.setdefault(request.sonarr_series_id, []).append((file, request.id))
 
         if not files_by_series:
-            return set()
+            return
 
         import_files: list[ManualImportFile] = []
         imported_seasons: set[tuple[int, int]] = set()
         exported_per_request: dict[str, int] = {}
+        skipped_per_request: dict[str, int] = {}
+        pending: dict[int, list[_PendingImport]] = {}
 
         for series_id, files in files_by_series.items():
             episodes = await self._sonarr.get_episodes(series_id)
-            episode_map = {(ep.season_number, ep.episode_number): ep.id for ep in episodes}
+            episode_map = {(ep.season_number, ep.episode_number): ep for ep in episodes}
 
             for file, request_id in files:
                 if not file.mapping or file.mapping.season is None or file.mapping.episode is None:
                     continue
 
-                episode_id = episode_map.get((file.mapping.season, file.mapping.episode))
-                if not episode_id:
+                episode = episode_map.get((file.mapping.season, file.mapping.episode))
+                if episode is None or not episode.id:
                     self._logger.warning(
                         "Could not find Sonarr episode ID",
                         request_id=request_id,
@@ -322,41 +412,74 @@ class ExportFinishedReleasesUseCase:
                     )
                     continue
 
+                if _already_delivered(file, episode.id, episode.file_id):
+                    skipped_per_request[request_id] = skipped_per_request.get(request_id, 0) + 1
+                    continue
+
                 import_files.append(
                     ManualImportFile(
                         path=posixpath.join(download_dir, file.path),
                         series_id=series_id,
-                        episode_ids=[episode_id],
+                        episode_ids=[episode.id],
                         folder_name=release.name,
                     )
+                )
+                pending.setdefault(series_id, []).append(
+                    _PendingImport(file=file, target_id=episode.id, file_id_before=episode.file_id)
                 )
                 imported_seasons.add((series_id, file.mapping.season))
                 exported_per_request[request_id] = exported_per_request.get(request_id, 0) + 1
 
+        self._log_skipped(release, skipped_per_request, "Sonarr")
+        imported.skipped += sum(skipped_per_request.values())
+
         if not import_files:
-            return set()
+            return
 
         if not await self._sonarr.manual_import(import_files):
             raise RuntimeError("Sonarr manual import command failed")
 
         self._log_exported(release, exported_per_request, "Sonarr")
-        return imported_seasons
+        imported.seasons |= imported_seasons
+
+        current_file_ids: dict[int, int | None] = {}
+        try:
+            for series_id in pending:
+                for episode in await self._sonarr.get_episodes(series_id):
+                    current_file_ids[episode.id] = episode.file_id
+        except Exception as exc:
+            self._logger.opt(exception=exc).warning(
+                f"Could not read back what Sonarr imported: {exc}",
+                release_id=release.id,
+                release_name=release.name,
+            )
+        await self._remember_imports(
+            release,
+            [item for items in pending.values() for item in items],
+            current_file_ids,
+            "Sonarr",
+        )
 
     async def _export_movies(
         self,
         release: ReleaseRecord,
         requests_map: dict[str, ReleaseRequestSnapshot],
         download_dir: str,
-    ) -> set[int]:
+        imported: _Imported,
+    ) -> None:
         """Import the release's movie files into Radarr.
 
         Radarr resolves the file against the movie itself, so unlike the series
-        path there is no per-episode lookup to do first.
+        path there is no per-episode lookup to do first - only the movie's
+        current file, to leave out one its last import still holds.
         """
 
         import_files: list[MovieImportFile] = []
         imported_movies: set[int] = set()
         exported_per_request: dict[str, int] = {}
+        skipped_per_request: dict[str, int] = {}
+        pending: list[_PendingImport] = []
+        file_ids_before: dict[int, int | None] = {}
 
         for file in release.files:
             request = self._linked_request(file, requests_map)
@@ -365,6 +488,18 @@ class ExportFinishedReleasesUseCase:
             if not file.mapping or file.mapping.mapping_type is not MediaType.MOVIE:
                 continue
 
+            movie_id = request.radarr_movie_id
+            if movie_id not in file_ids_before:
+                file_ids_before[movie_id] = await self._movie_file_id(release, movie_id)
+            if _already_delivered(file, movie_id, file_ids_before[movie_id]):
+                skipped_per_request[request.id] = skipped_per_request.get(request.id, 0) + 1
+                continue
+
+            pending.append(
+                _PendingImport(
+                    file=file, target_id=movie_id, file_id_before=file_ids_before[movie_id]
+                )
+            )
             import_files.append(
                 MovieImportFile(
                     path=posixpath.join(download_dir, file.path),
@@ -375,14 +510,41 @@ class ExportFinishedReleasesUseCase:
             imported_movies.add(request.radarr_movie_id)
             exported_per_request[request.id] = exported_per_request.get(request.id, 0) + 1
 
+        self._log_skipped(release, skipped_per_request, "Radarr")
+        imported.skipped += sum(skipped_per_request.values())
+
         if not import_files:
-            return set()
+            return
 
         if not await self._radarr.manual_import(import_files):
             raise RuntimeError("Radarr manual import command failed")
 
         self._log_exported(release, exported_per_request, "Radarr")
-        return imported_movies
+        imported.movies |= imported_movies
+
+        current_file_ids = {
+            movie_id: await self._movie_file_id(release, movie_id)
+            for movie_id in {item.target_id for item in pending}
+        }
+        await self._remember_imports(release, pending, current_file_ids, "Radarr")
+
+    async def _movie_file_id(self, release: ReleaseRecord, movie_id: int) -> int | None:
+        """The id of the file Radarr holds for the movie, or None when unknown.
+
+        Not knowing is read as holding nothing, which errs towards importing:
+        a redundant import costs a copy, a skipped one a missing movie.
+        """
+
+        try:
+            return (await self._radarr.get_movie(movie_id)).file_id
+        except Exception as exc:
+            self._logger.opt(exception=exc).warning(
+                f"Could not read Radarr's file for the movie: {exc}",
+                release_id=release.id,
+                release_name=release.name,
+                radarr_movie_id=movie_id,
+            )
+            return None
 
     async def _record_exports(
         self,
@@ -481,6 +643,32 @@ class ExportFinishedReleasesUseCase:
         if not (await self._radarr.get_movie(movie_id)).has_file:
             return None
         return ArrCompletion(is_complete=True)
+
+
+def _already_delivered(
+    file: ReleaseFileRecord,
+    target_id: int,
+    current_file_id: int | None,
+) -> bool:
+    """Whether the arr still holds what this file's last import delivered.
+
+    Asks two questions, and a change on either side means import again. Has the
+    download changed - a re-grab that replaced the file shows as a new size, an
+    edit that moved it as a new target? And has the library - a manual import,
+    an upgrade or a deletion in the arr leaves the target on another file id,
+    or none? The library side is judged by the arr's file id alone: muxarr
+    remuxes files on their way in, so the library copy's size, hash and inode
+    never match the download's even when nothing has changed.
+    """
+
+    last = file.last_import
+    return (
+        last is not None
+        and current_file_id is not None
+        and last.target_id == target_id
+        and last.arr_file_id == current_file_id
+        and last.size_bytes == file.size_bytes
+    )
 
 
 def _season_was_imported(

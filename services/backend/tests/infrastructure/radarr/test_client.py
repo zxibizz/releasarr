@@ -96,6 +96,26 @@ async def test_get_movie_reports_whether_radarr_now_holds_the_file() -> None:
     assert movie.has_file is True
 
 
+async def test_get_movie_reports_the_file_radarr_holds() -> None:
+    """The export compares this id, not the size muxarr changed, to its last import."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": 156,
+                "title": "Arrival",
+                "hasFile": True,
+                "movieFileId": 31,
+                "movieFile": {"id": 31, "size": 1024},
+            },
+        )
+
+    movie = await build_client(handler).get_movie(156)
+
+    assert movie.file_id == 31
+
+
 async def test_manual_import_reprocesses_before_queueing_the_command() -> None:
     """The command overwrites metadata, so it has to carry the preview's values back."""
 

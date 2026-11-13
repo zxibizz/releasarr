@@ -31,6 +31,24 @@ class ReleaseFileMapping:
 
 
 @dataclass(slots=True)
+class ReleaseFileImport:
+    """What the last import of a release file delivered, and where it landed.
+
+    ``target_id`` is the Sonarr episode or Radarr movie the file went to and
+    ``arr_file_id`` the episode or movie file the arr created for it. The arr's
+    file id is the only identity that survives the library side: muxarr remuxes
+    the file on its way in, so neither its size nor its hash nor a hardlink ties
+    it back to the download. ``size_bytes`` is the download's own size at the
+    time, which is what tells a re-grab that replaced the file apart from one
+    that kept it.
+    """
+
+    target_id: int
+    arr_file_id: int
+    size_bytes: int
+
+
+@dataclass(slots=True)
 class ReleaseFileRecord:
     """Normalized representation of a release file."""
 
@@ -40,6 +58,7 @@ class ReleaseFileRecord:
     path: str
     mapping: ReleaseFileMapping | None
     ignored: bool = False
+    last_import: ReleaseFileImport | None = None
 
 
 @dataclass(slots=True)
@@ -129,6 +148,14 @@ class FileMappingUpdateData:
     # took earlier - an export run can hold one for minutes - so a human may have
     # ruled the file out since, and a default of False would quietly overrule them.
     ignored: bool | None = None
+
+
+@dataclass(slots=True)
+class FileImportUpdateData:
+    """Record that one release file has just been imported."""
+
+    file_id: str
+    last_import: ReleaseFileImport
 
 
 @dataclass(slots=True)
@@ -266,6 +293,13 @@ class ReleaseRepository(Protocol):
         updates: list[FileMappingUpdateData],
     ) -> bool:
         """Apply file mapping updates. Returns True on success."""
+
+    async def record_file_imports(
+        self,
+        release_id: str,
+        updates: list[FileImportUpdateData],
+    ) -> None:
+        """Store what each file's latest import delivered, for the next export to compare."""
 
     async def sync_release_files(
         self,
@@ -417,10 +451,12 @@ __all__ = [
     "CreateReleaseData",
     "DownloadClientDirectory",
     "FetchedDownload",
+    "FileImportUpdateData",
     "FileMappingUpdateData",
     "FileReconciliation",
     "QueuedDownload",
     "ReleaseDownloadService",
+    "ReleaseFileImport",
     "ReleaseFileMapping",
     "ReleaseFileRecord",
     "ReleaseLifecycleService",

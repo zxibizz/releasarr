@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A re-export imports only what changed.** A re-grab, or a saved mapping edit, used to hand
+  every file of the release to Sonarr or Radarr again, replacing episodes the library already had
+  from the last import. Each file now remembers the episode or movie it went to and the file the
+  arr made of it; the next export skips a file whose download, target and library file are all
+  still the same. The library side is matched by the arr's file id, not by size or hash, so files
+  muxarr remuxed on the way in are recognised too. A file is imported again when the re-grab
+  replaced it, when it was remapped, or when the arr's file was replaced or deleted since (a
+  manual import, an upgrade).
+
 ## [0.13.4] - 2026-11-13
 
 ### Security
